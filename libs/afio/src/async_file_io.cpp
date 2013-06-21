@@ -5,6 +5,7 @@ File Created: Mar 2013
 */
 
 #define BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH 8
+
 //#define USE_POSIX_ON_WIN32 // Useful for testing
 
 #define _CRT_SECURE_NO_WARNINGS
