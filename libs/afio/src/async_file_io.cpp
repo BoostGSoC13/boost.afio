@@ -34,9 +34,9 @@ File Created: Mar 2013
 #define BOOST_AFIO_POSIX_MKDIR(path, mode) _wmkdir(path)
 #define BOOST_AFIO_POSIX_RMDIR _wrmdir
 #define BOOST_AFIO_POSIX_STAT _wstat64
-#define BOOST_AFIO_STAT _stat64
-#define BOOST_AFIO_S_ISREG(m) ((m) & _S_IFREG)
-#define BOOST_AFIO_S_ISDIR(m) ((m) & _S_IFDIR)
+#define BOOST_AFIO_POSIX_STAT_STRUCT struct _stat64
+#define BOOST_AFIO_POSIX_S_ISREG(m) ((m) & _S_IFREG)
+#define BOOST_AFIO_POSIX_S_ISDIR(m) ((m) & _S_IFDIR)
 #define BOOST_AFIO_POSIX_OPEN _wopen
 #define BOOST_AFIO_POSIX_CLOSE _close
 #define BOOST_AFIO_POSIX_UNLINK _wunlink
@@ -47,15 +47,15 @@ File Created: Mar 2013
 #include <limits.h>
 #define BOOST_AFIO_POSIX_MKDIR mkdir
 #define BOOST_AFIO_POSIX_RMDIR ::rmdir
+#define BOOST_AFIO_POSIX_STAT_STRUCT struct stat 
 #define BOOST_AFIO_POSIX_STAT stat
 #define BOOST_AFIO_POSIX_OPEN open
 #define BOOST_AFIO_POSIX_CLOSE ::close
 #define BOOST_AFIO_POSIX_UNLINK unlink
 #define BOOST_AFIO_POSIX_FSYNC fsync
 #define BOOST_AFIO_POSIX_FTRUNCATE ftruncate
-#define BOOST_AFIO_S_ISREG S_ISREG
-#define BOOST_AFIO_S_ISDIR S_ISDIR
-#define BOOST_AFIO_STAT stat
+#define BOOST_AFIO_POSIX_S_ISREG S_ISREG
+#define BOOST_AFIO_POSIX_S_ISDIR S_ISDIR
 #endif
 
 // libstdc++ doesn't come with std::lock_guard
@@ -1041,9 +1041,9 @@ namespace detail {
 				req.flags=req.flags&~(file_flags::Create|file_flags::CreateOnlyIfNotExist);
 			}
 
-			struct BOOST_AFIO_STAT s={0};
+			BOOST_AFIO_POSIX_STAT_STRUCT s={0};
 			ret=BOOST_AFIO_POSIX_STAT(req.path.c_str(), &s);
-			if(0==ret && !BOOST_AFIO_S_ISDIR(s.st_mode))
+			if(0==ret && !BOOST_AFIO_POSIX_S_ISDIR(s.st_mode))
 				throw std::runtime_error("Not a directory");
 			if(file_flags::Read==(req.flags & file_flags::Read))
 			{
