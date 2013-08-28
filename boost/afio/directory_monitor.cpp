@@ -47,7 +47,7 @@
 #include "FXPath.h"
 #include "FXStat.h"
 #include "QDir.h"
-#include "QFileInfo.h"
+#include "stat_t.h"
 #include "QTrans.h"
 #include "FXErrCodes.h"
 #include <qptrlist.h>
@@ -74,7 +74,8 @@ struct monitor : public boost::mutex
 		struct Path
 		{
 			Watcher *parent;
-			FXAutoPtr<QDir> pathdir; //std::shared_ptr<dir_apth> ; QDir == boost::filesystem::path???
+			std::shared_ptr<dir_apth> pathdir;
+
 #ifdef USE_WINAPI
 			HANDLE h;
 #endif
@@ -88,26 +89,26 @@ struct monitor : public boost::mutex
 			struct Change
 			{
 				dir_monitor change;
-				const QFileInfo *FXRESTRICT oldfi, *FXRESTRICT newfi;
+				const stat_t * /*FXRESTRICT*/ oldfi, * /*FXRESTRICT*/ newfi;
 				FXuint myoldfi : 1;
 				FXuint mynewfi : 1;
-				Change(const QFileInfo *FXRESTRICT _oldfi, const QFileInfo *FXRESTRICT _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
+				Change(const stat_t * /*FXRESTRICT*/ _oldfi, const stat_t * /*FXRESTRICT*/ _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
 				~Change()
 				{
-					if(myoldfi) { FXDELETE(oldfi); }
-					if(mynewfi) { FXDELETE(newfi); }
+					if(myoldfi) { delete oldfi; oldfi = NULL; }
+					if(mynewfi) { delete newfi; newfi = NULL; }
 				}
 				bool operator==(const Change &o) const { return oldfi==o.oldfi && newfi==o.newfi; }
 				void make_fis()
 				{
 					if(oldfi)
 					{
-						FXERRHM(oldfi=new QFileInfo(*oldfi));
+						FXERRHM(oldfi=new stat_t(*oldfi));
 						myoldfi=true;
 					}
 					if(newfi)
 					{
-						FXERRHM(newfi=new QFileInfo(*newfi));
+						FXERRHM(newfi=new stat_t(*newfi));
 						mynewfi=true;
 					}
 				}
@@ -425,8 +426,8 @@ void FXFSMon::Watcher::Path::Handler::invoke(const QValueList<Change> &changes, 
 	for(QValueList<Change>::const_iterator it=changes.begin(); it!=changes.end(); ++it)
 	{
 		const Change &ch=*it;
-		const QFileInfo &oldfi=ch.oldfi ? *ch.oldfi : QFileInfo();
-		const QFileInfo &newfi=ch.newfi ? *ch.newfi : QFileInfo();
+		const stat_t &oldfi=ch.oldfi ? *ch.oldfi : stat_t();
+		const stat_t &newfi=ch.newfi ? *ch.newfi : stat_t();
 #ifdef DEBUG
 		{
 			FXString file(oldfi.filePath()), chs;
@@ -447,11 +448,11 @@ void FXFSMon::Watcher::Path::Handler::invoke(const QValueList<Change> &changes, 
 }
 
 
-static const QFileInfo *findFIByName(const QFileInfoList *list, const FXString &name)
+static const stat_t *findFIByName(const stat_tList *list, const FXString &name)
 {
-	for(QFileInfoList::const_iterator it=list->begin(); it!=list->end(); ++it)
+	for(stat_tList::const_iterator it=list->begin(); it!=list->end(); ++it)
 	{
-		const QFileInfo &fi=*it;
+		const stat_t &fi=*it;
 		// Need a case sensitive compare
 		if(fi.fileName()==name) return &fi;
 	}
@@ -518,7 +519,7 @@ void FXFSMon::Watcher::Path::callHandlers()
 			Change &ch2=*it2;
 			if(ch2.oldfi && ch2.newfi) continue;
 			if(ch2.change.renamed) continue;
-			const QFileInfo *a=0, *b=0;
+			const stat_t *a=0, *b=0;
 			if(ch1.oldfi && ch2.newfi) { a=ch1.oldfi; b=ch2.newfi; }
 			else if(ch1.newfi && ch2.oldfi) { a=ch2.oldfi; b=ch1.newfi; }
 			else continue;
@@ -675,7 +676,8 @@ bool FXFSMon::remove(const FXString &path, FXFSMonitor::ChangeHandler handler)
 			{
 				p->handlers.takeByIter(it2);
 				hl.unlock();
-				FXDELETE(h);
+				delete h;
+				h = NULL;
 				hl.relock();
 				h=0;
 				if(p->handlers.isEmpty())
