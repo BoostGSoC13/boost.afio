@@ -22,28 +22,23 @@
 #include "boost/thread.hpp"		// May undefine USE_WINAPI and USE_POSIX
 #ifndef USE_POSIX
  #define USE_WINAPI
- //#include "WindowsGubbins.h"//fix this <--------------------!!!!!!!!!!!!!!!!!
 #else
  #if defined(__linux__)
   #include <sys/inotify.h>
   #include <unistd.h>
   #define USE_INOTIFY
- #elif defined(HAVE_FAM) // will we use this??????????????????????????????????
-  #include <fam.h>
-  #include <sys/select.h>
-  #include "tnfxselect.h"
-  #define USE_FAM
-  #define FXERRHFAM(ret) if(ret<0) { FXERRG(FXString("FAM Error: %1 (code %2)").arg(FXString(FamErrlist[FAMErrno])).arg(FAMErrno), FXEXCEPTION_OSSPECIFIC, 0); }
+ 
  #elif defined(__APPLE__) || defined(__FreeBSD__)
   #include <xincs.h>
   #include <sys/event.h>
   #define USE_KQUEUES
-  #warning Using BSD kqueues as FAM is not available - NOTE THAT THIS PROVIDES REDUCED FUNCTIONALITY!
+  #warning Using BSD kqueues - NOTE THAT THIS PROVIDES REDUCED FUNCTIONALITY!
  #else
   #error FAM is not available and no alternative found!
  #endif
 #endif
 
+#include "afio.hpp"
 #include "dir_monitor.hpp"
 /*
 #include "FXString.h"
@@ -67,10 +62,6 @@
 #if defined(DEBUG) && defined(FXMEMDBG_H)
 static const char *_fxmemdbg_current_file_ = __FILE__;
 #endif
-
-
-
-
 */
 
 namespace boost { 
@@ -93,9 +84,7 @@ struct monitor : public boost::mutex
 #ifdef USE_KQUEUES
 			struct kevent h;
 #endif
-#ifdef USE_FAM
-			FAMRequest h;
-#endif
+
 			struct Change
 			{
 				dir_monitor change;
@@ -147,7 +136,7 @@ struct monitor : public boost::mutex
 				, h(0)
 #endif
 			{
-#if defined(USE_KQUEUES) || defined(USE_FAM)
+#if defined(USE_KQUEUES)
 				memset(&h, 0, sizeof(h));
 #endif
 				FXERRHM(pathdir=new QDir(_path, "*", QDir::Unsorted, QDir::All|QDir::Hidden));
@@ -182,10 +171,6 @@ struct monitor : public boost::mutex
 #ifdef USE_KQUEUES
 	int kqueueh;
 #endif
-#ifdef USE_FAM
-	bool nofam, fambroken;
-	FAMConnection fc;
-#endif
 	QPtrList<Watcher> watchers;
 	FXFSMon();
 	~FXFSMon();
@@ -202,52 +187,39 @@ FXFSMon::FXFSMon() : watchers(true)
 #ifdef USE_KQUEUES
 	FXERRHOS(kqueueh=kqueue());
 #endif
-#ifdef USE_FAM
-	nofam=true;
-	fambroken=false;
-	int ret=FAMOpen(&fc);
-	if(ret)
-	{
-		fxwarning("Disabling FXFSMonitor due to FAMOpen() throwing error %d (%s) syserror: %s\nIs the famd daemon running?\n", FAMErrno, FamErrlist[FAMErrno], strerror(errno));
-	}
-	else nofam=false;
-	//FXERRHOS(ret);
-#endif
+
 }
 
 FXFSMon::~FXFSMon()
-{ FXEXCEPTIONDESTRUCT1 {
-	Watcher *w;
-	for(QPtrListIterator<Watcher> it(watchers); (w=it.current()); ++it)
-	{
-		w->requestTermination();
-	}
-	for(QPtrListIterator<Watcher> it(watchers); (w=it.current()); ++it)
-	{
-		w->wait();
-	}
-	watchers.clear();
-#ifdef USE_INOTIFY
-	if(inotifyh)
-	{
-		FXERRHOS(::close(inotifyh));
-		inotifyh=0;
-	}
-#endif
-#ifdef USE_KQUEUES
-	if(kqueueh)
-	{
-		FXERRHOS(::close(kqueueh));
-		kqueueh=0;
-	}
-#endif
-#ifdef USE_FAM
-	if(!nofam)
-	{
-		FXERRHFAM(FAMClose(&fc));
-	}
-#endif
-} FXEXCEPTIONDESTRUCT2; }
+{ 
+	FXEXCEPTIONDESTRUCT1 {
+		Watcher *w;
+		for(QPtrListIterator<Watcher> it(watchers); (w=it.current()); ++it)
+		{
+			w->requestTermination();
+		}
+		for(QPtrListIterator<Watcher> it(watchers); (w=it.current()); ++it)
+		{
+			w->wait();
+		}
+		watchers.clear();
+	#ifdef USE_INOTIFY
+		if(inotifyh)
+		{
+			FXERRHOS(::close(inotifyh));
+			inotifyh=0;
+		}
+	#endif
+	#ifdef USE_KQUEUES
+		if(kqueueh)
+		{
+			FXERRHOS(::close(kqueueh));
+			kqueueh=0;
+		}
+	#endif
+
+	} FXEXCEPTIONDESTRUCT2; 
+}
 
 FXFSMon::Watcher::Watcher() : QThread("Filing system monitor", false, 128*1024, QThread::InProcess), paths(13, true, true)
 #ifdef USE_WINAPI
@@ -307,6 +279,9 @@ void FXFSMon::Watcher::run()
 	}
 }
 #endif
+
+
+
 #ifdef USE_INOTIFY
 void FXFSMon::Watcher::run()
 {
@@ -392,46 +367,7 @@ void FXFSMon::Watcher::run()
 	}
 }
 #endif
-#ifdef USE_FAM
-void FXFSMon::Watcher::run()
-{
-	int ret;
-	FAMEvent fe;
-	for(;;)
-	{
-		FXERRH_TRY
-		{	/* Why is every implementation of FAM I've tried using crap?
-			This is yet another workaround for thread cancellation hanging the process */
-			fd_set fds;
-			for(;;)
-			{
-				FD_ZERO(&fds);
-				FD_SET(FAMCONNECTION_GETFD(&fxfsmon->fc), &fds);
-				FXERRHOS(tnfxselect(FAMCONNECTION_GETFD(&fxfsmon->fc)+1, &fds, 0, 0, NULL));
-				if(!(ret=FAMNextEvent(&fxfsmon->fc, &fe))) break;
-				FXERRHFAM(ret);
-				if(FAMStartExecuting==fe.code || FAMStopExecuting==fe.code
-					|| FAMAcknowledge==fe.code) continue;
-				QMtxHold h(fxfsmon);
-				Path *p=pathByHandle.find(fe.fr.reqnum);
-				assert(p);
-				if(p)
-					p->callHandlers();
-			}
-		}
-		FXERRH_CATCH(FXException &)
-		{
-			if(3==FAMErrno)
-			{	// libgamin on Fedora Core 3 seems totally broken so exit the thread :(
-				fxfsmon->fambroken=true;
-				fxwarning("WARNING: FAMNextEvent() returned Connection Failed, assuming broken FAM implementation and exiting thread - FXFSMonitor will no longer work for the remainder of this program's execution\n");
-				return;
-			}
-		}
-		FXERRH_ENDTRY
-	}
-}
-#endif
+
 void *FXFSMon::Watcher::cleanup()
 {
 #if defined(__APPLE__) && defined(_APPLE_C_SOURCE)
@@ -469,13 +405,7 @@ FXFSMon::Watcher::Path::~Path()
 		h.ident=0;
 	}
 #endif
-#ifdef USE_FAM
-	if(!fxfsmon->fambroken)
-	{
-		parent->pathByHandle.remove(h.reqnum);
-		FXERRHFAM(FAMCancelMonitor(&fxfsmon->fc, &h));
-	}
-#endif
+
 }
 
 FXFSMon::Watcher::Path::Handler::~Handler()
@@ -719,13 +649,7 @@ void FXFSMon::add(const FXString &path, FXFSMonitor::ChangeHandler handler)
 		FXERRHOS(kevent(fxfsmon->kqueueh, &p->h, 1, NULL, 0, NULL));
 		w->pathByHandle.insert(h, p);
 #endif
-#ifdef USE_FAM
-		if(!fambroken)
-		{
-			FXERRHFAM(FAMMonitorDirectory(&fc, path.text(), &p->h, 0));
-			w->pathByHandle.insert(p->h.reqnum, p);
-		}
-#endif
+
 		w->paths.insert(path, p);
 		unnew.dismiss();
 	}
@@ -777,24 +701,15 @@ bool FXFSMon::remove(const FXString &path, FXFSMonitor::ChangeHandler handler)
 void FXFSMonitor::add(const FXString &_path, FXFSMonitor::ChangeHandler handler)
 {
 	FXString path=FXPath::absolute(_path);
-#ifdef USE_FAM
-	FXERRH(FXStat::exists(path), QTrans::tr("FXFSMonitor", "Path not found"), FXFSMONITOR_PATHNOTFOUND, 0);
-	if(fxfsmon->nofam)
-	{	// Try starting it again
-		if(FAMOpen(&fxfsmon->fc)<0) return;
-		fxfsmon->nofam=false;
-	}
-#endif
+
 	fxfsmon->add(path, std::move(handler));
 }
 
 bool FXFSMonitor::remove(const FXString &path, FXFSMonitor::ChangeHandler handler)
 {
-#ifdef USE_FAM
-	if(fxfsmon->nofam) return false;
-#endif
 	return fxfsmon->remove(path, std::move(handler));
 }
+
 
 	}// namespace afio
 }//namespace boost
