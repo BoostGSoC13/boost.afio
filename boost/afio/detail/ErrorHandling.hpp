@@ -71,6 +71,11 @@ namespace boost{
             MSVCRT which sets errno
             */
             #define BOOST_AFIO_ERRHOSFN(exp, filename)		{ int __errcode=(exp); if(__errcode<0) BOOST_AFIO_ERRGOSFN(errno, filename); }
+
+
+            //#define BOOST_AFIO_ERRHM(exp)        do { try { if((exp)) break; } catch(const std::bad_alloc &) { } /*BOOST_AFIO_ERRGM;*/ } while(0)
+           // #define BOOST_AFIO_ERRGM             { FX::FXMemoryException _int_temp_e(EXCEPTION_FILE(0), EXCEPTION_FUNCTION(0), EXCEPTION_LINE(0)); ERRH_THROW(_int_temp_e); }
+
         }//namespace detail
     }//namespace afio
 }// namespace boost
