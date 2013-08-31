@@ -211,31 +211,31 @@ namespace std
 		}
 	};
 	
-	//Probably need to change this dependent on platform
+	//Probably need to change this dependent on platform right now it should hash safely
 	template<> struct hash<FastDirectoryEnumerator::directory_entry::stat_t>
 	{
 	public:
 		size_t operator()(const FastDirectoryEnumerator::directory_entry::stat& s) const
 		{
 			size_t seed = 0;
-			boost::hash_combine(seed, s.st_dev);
+			//boost::hash_combine(seed, s.st_dev);
 			boost::hash_combine(seed, s.st_ino);
 			boost::hash_combine(seed, s.st_type);
-			boost::hash_combine(seed, s.st_mode);
-			boost::hash_combine(seed, s.st_nlink);
-			boost::hash_combine(seed, s.st_uid);
-			boost::hash_combine(seed, s.st_gid);
-			boost::hash_combine(seed, s.st_rdev);
+			//boost::hash_combine(seed, s.st_mode);
+			//boost::hash_combine(seed, s.st_nlink);
+			//boost::hash_combine(seed, s.st_uid);
+			//boost::hash_combine(seed, s.st_gid);
+			//boost::hash_combine(seed, s.st_rdev);
 			boost::hash_combine(seed, s.st_atim);
 			boost::hash_combine(seed, s.st_mtim);
 			boost::hash_combine(seed, s.st_ctim);
 			boost::hash_combine(seed, s.st_size);
 			boost::hash_combine(seed, s.st_allocated);
-			boost::hash_combine(seed, s.st_blocks);
-			boost::hash_combine(seed, s.st_blksize);
-			boost::hash_combine(seed, s.st_flags);
-			boost::hash_combine(seed, s.st_gen);
-			boost::hash_combine(seed, s.st_lspare);
+			//boost::hash_combine(seed, s.st_blocks);
+			//boost::hash_combine(seed, s.st_blksize);
+			//boost::hash_combine(seed, s.st_flags);
+			//boost::hash_combine(seed, s.st_gen);
+			//boost::hash_combine(seed, s.st_lspare);
 			boost::hash_combine(seed, s.st_birthtim);
 			return seed;
 		}

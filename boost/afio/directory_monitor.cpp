@@ -93,7 +93,7 @@ struct monitor : public recursive_mutex
 
 			struct Change
 			{
-				dir_monitor change;
+				dir_event change;
 				const directory_entry * /*FXRESTRICT*/ oldfi, * /*FXRESTRICT*/ newfi;
 				unsigned int myoldfi : 1;
 				unsigned int mynewfi : 1;
@@ -456,7 +456,7 @@ void monitor::Watcher::Path::Handler::invoke(const std::vector<Change> &changes,
 }
 
 
-static const directory_entry *findFIByName(const std::unique_ptr<std::vector<directory_entry>>  list, const std::filesystem::path &name)
+static const directory_entry& findFIByName(const std::unique_ptr<std::vector<directory_entry>>  list, const std::filesystem::path &name)
 {
 	for(auto it=list->begin(); it!=list->end(); ++it)
 	{
@@ -498,10 +498,12 @@ void monitor::Watcher::Path::callHandlers()
 	std::vector<Change> changes;
 	for(auto it = rawchanges.begin(); it!=rawchanges.end(); )
 	{
-		Change ch(findFIByName(pathdir->entryInfoList(), name), findFIByName(newpathdir->entryInfoList(), name));
+		auto name = (*it).name();
+		Change ch(findFIByName(pathdir, name), findFIByName(newpathdir->entryInfoList(), name));
+		
 		// It's possible that between the directory enumeration and fetching metadata
 		// entries the entry vanished. Delete any entries which no longer exist
-		if((ch.oldfi && !ch.oldfi->exists()) || (ch.newfi && !ch.newfi->exists()))
+		if((ch.oldfi && !ch.oldfi->name().exists()) || (ch.newfi && !ch.newfi->name().exists()))
 		{
 			it=rawchanges.erase(it);
 			continue;
@@ -513,24 +515,25 @@ void monitor::Watcher::Path::callHandlers()
 		}
 		else if(ch.oldfi && ch.newfi)
 		{	// Same file name
-			if(ch.oldfi->created()!=ch.newfi->created())
+			if(ch.oldfi->st_birthtim()!= ch.newfi->st_birthtim())
 			{	// File was deleted and recreated, so split into two entries
 				Change ch2(ch);
 				ch.oldfi=0; ch2.newfi=0;
-				changes.append(ch2);
+				changes.push_back(ch2);
 			}
 			else
 			{
-				ch.change.modified=(ch.oldfi->lastModified()!=ch.newfi->lastModified()
-					|| ch.oldfi->size()			!=ch.newfi->size());
-				ch.change.attrib=(ch.oldfi->isReadable()!=ch.newfi->isReadable()
+				ch.change.modified=(ch.oldfi->st_mtim()!=ch.newfi->st_mtim()
+					|| ch.oldfi->st_size()	!= ch.newfi->st_size() 
+					|| ch.oldfi_>st_allocated() != ch.newfi->st_allocated());
+				/*ch.change.attrib=(ch.oldfi->st_mode()!=ch.newfi->st_mode()
 					|| ch.oldfi->isWriteable()	!=ch.newfi->isWriteable()
 					|| ch.oldfi->isExecutable()	!=ch.newfi->isExecutable()
-					|| ch.oldfi->isHidden()		!=ch.newfi->isHidden());
-				ch.change.security=(ch.oldfi->permissions()!=ch.newfi->permissions());
+					|| ch.oldfi->isHidden()		!=ch.newfi->isHidden());*/
+				ch.change.security=(ch.oldfi->st_mode()!=ch.newfi->st_mode());
 			}
 		}
-		changes.append(ch);
+		changes.push_back(ch);
 		++it;
 	}
 	// Try to detect renames
