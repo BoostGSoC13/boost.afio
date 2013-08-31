@@ -79,7 +79,8 @@ struct monitor : public recursive_mutex
 		{
 			Watcher *parent;
 			std::unique_ptr<std::vector<directory_entry>> pathdir;
-			std::unordered_map<directory_entry, bool> entry_dict; 
+			std::unordered_map<directory_entry, bool> entry_dict;
+			std::unordered_map<directory_entry::stat_t, bool> stat_dict; 
 
 #ifdef USE_WINAPI
 			HANDLE h;
@@ -157,13 +158,19 @@ struct monitor : public recursive_mutex
 						pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 				end_enumerate_directory(addr);
 				entry_dict.clear();
-				entry_dict.insert(pathdir.begin(), pathdir.end())
+				stat_dict.clear();
+				for(auto it = pathdir.begin(); it != pathdir.end(); ++it)
+				{
+					entry_dict.insert(std::make_pair(*it, true));
+					stat_dict.insert(std::make_pair(it->stat, true));
+				}
+				
 			}
 
 			~Path();
-			void resetChanges(std::vector<Change> *changes)
+			void resetChanges(std::list<Change> *changes)
 			{
-				for(std::vector<Change>::iterator it=changes->begin(); it!=changes->end(); ++it)
+				for(auto it=changes->begin(); it!=changes->end(); ++it)
 					it->reset_fis();
 			}
 
@@ -467,7 +474,7 @@ static const directory_entry& findFIByName(const std::unique_ptr<std::vector<dir
 }
 void monitor::Watcher::Path::callHandlers()
 {	// Lock is held on entry
-	void *addr=begin_enumerate_directory(pathdir->front().name().root_path());
+	void *addr=begin_enumerate_directory(pathdir->front().name().root_path());//maybe need a better way to get directory name???
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
 		if(!newpathdir)
@@ -476,7 +483,11 @@ void monitor::Watcher::Path::callHandlers()
 			newpathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 	end_enumerate_directory(addr);
 
-	std::vector<directory_entry> rawchanges;
+
+// consider using an std::vector w/ a binary search instead of 2 hashes
+
+	std::list<directory_entry> rawchanges;
+	std::list<Change> changes;/
 	for(auto it = newpathdir.begin(); it != newpathdir.end(); ++it)
 	{
 		try
@@ -488,18 +499,30 @@ void monitor::Watcher::Path::callHandlers()
 		}
 		catch(std::out_of_range &e)
 		{
-			rawchanges.push_back(*it);
+			try
+			{
+				auto temp = stat_dict.at(it->stat);
+				//its been renamed, so do seomthing!!!!!
+				Change ch(temp, *it);
+				ch.renamed = true;
+				changes.push_back(ch); //maybe std::move is more appropriate???
+
+			}
+			catch(std::out_of_range &e)
+			{
+				rawchanges.push_back(*it);
+			}
 		}
 
 
 	}
 
-	//QStringList rawchanges=QDir::extractChanges(*pathdir, *newpathdir);
-	std::vector<Change> changes;
+	
+	
 	for(auto it = rawchanges.begin(); it!=rawchanges.end(); )
 	{
 		auto name = (*it).name();
-		Change ch(findFIByName(pathdir, name), findFIByName(newpathdir->entryInfoList(), name));
+		Change ch(findFIByName(pathdir, name), findFIByName(newpathdir, name));
 		
 		// It's possible that between the directory enumeration and fetching metadata
 		// entries the entry vanished. Delete any entries which no longer exist
@@ -536,9 +559,9 @@ void monitor::Watcher::Path::callHandlers()
 		changes.push_back(ch);
 		++it;
 	}
-	// Try to detect renames
+/*	// Try to detect renames
 	bool noIncIter1;
-	for(std::vector<Change>::iterator it1=changes.begin(); it1!=changes.end(); !noIncIter1 ? (++it1, 0) : 0)
+	for(auto it1=changes.begin(); it1!=changes.end(); !noIncIter1 ? (++it1, 0) : 0)
 	{
 		noIncIter1=false;
 		Change &ch1=*it1;
@@ -591,9 +614,10 @@ void monitor::Watcher::Path::callHandlers()
 			changes.remove(Change(*candidate));
 		}
 	}
+	*/
 	// Mark off created/deleted
-	static FXulong eventcounter=0;
-	for(std::vector<Change>::iterator it=changes.begin(); it!=changes.end(); ++it)
+	static unsigned long eventcounter=0;
+	for(auto it=changes.begin(); it!=changes.end(); ++it)
 	{
 		Change &ch=*it;
 		ch.change.eventNo=++eventcounter;
@@ -603,7 +627,7 @@ void monitor::Watcher::Path::callHandlers()
 		ch.change.deleted=(ch.oldfi && !ch.newfi);
 	}
 	// Remove any which don't have something set
-	for(std::vector<Change>::iterator it=changes.begin(); it!=changes.end();)
+	for(auto it=changes.begin(); it!=changes.end();)
 	{
 		Change &ch=*it;
 		if(!ch.change)
@@ -611,13 +635,13 @@ void monitor::Watcher::Path::callHandlers()
 		else
 			++it;
 	}
-	FXRBOp resetchanges=FXRBObj(*this, &monitor::Watcher::Path::resetChanges, &changes);
+
+	auto resetchanges=Undoer([*this, &changes]{ this->resetChanges(changes));
 	// Dispatch
 	Watcher::Path::Handler *handler;
 	for(boost::ptr_vector::iterator<Watcher::Path::Handler> it(handlers); (handler=it.current()); ++it)
 	{
-		typedef Generic::TL::create<void, std::vector<Change>, thread_handle>::value Spec;
-		Generic::BoundFunctor<Spec> *functor;
+		auto functor = std::bind<void( std::vector<Change>, thread_handle)>([&handler]{handler->invoke)} changes, 0)
 		// Detach changes per dispatch
 		for(std::vector<Change>::iterator it=changes.begin(); it!=changes.end(); ++it)
 			it->make_fis();

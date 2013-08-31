@@ -151,7 +151,7 @@ namespace boost{
 				event_flag created	: 1;		//!< When an entry is created
 				event_flag deleted	: 1;		//!< When an entry is deleted
 				event_flag renamed	: 1;		//!< When an entry is renamed
-				event_flag attrib	: 1;		//!< When the attributes of an entry are changed 
+				//event_flag attrib	: 1;		//!< When the attributes of an entry are changed 
 				event_flag security	: 1;		//!< When the security of an entry is changed
 			};
 
@@ -176,13 +176,12 @@ namespace boost{
 				//! Sets the renamed bit
 				dir_event &setRenamed(bool v=true) throw()		{ renamed=v; return *this; }
 				//! Sets the attrib bit
-				dir_event &setAttrib(bool v=true) throw()		{ attrib=v; return *this; }
+				//dir_event &setAttrib(bool v=true) throw()		{ attrib=v; return *this; }
 				//! Sets the security bit
 				dir_event &setSecurity(bool v=true) throw()		{ security=v; return *this; }
 			};
 
 
-			// replace QFileInfo with 
 			//! Defines the type of closure change handlers are
 			typedef std::function<void(dir_event, directory_entry, directory_entry)> ChangeHandler;
 
