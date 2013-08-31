@@ -4,7 +4,7 @@ namespace boost {
 typedef void* thread_handle;
 
 
-struct monitor : public boost::mutex
+struct monitor : public recursive_mutex
 {
 	
 #ifdef USE_INOTIFY
@@ -20,6 +20,9 @@ struct monitor : public boost::mutex
 	bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
 };
 
+//static FXProcess_StaticInit<FXFSMon> fxfsmon("FXFSMonitor");// what do I do with this???
+static monitor mon;
+
 monitor::monitor() : watchers(true)
 {
 #ifdef USE_INOTIFY
@@ -33,7 +36,7 @@ monitor::monitor() : watchers(true)
 
 monitor::~monitor()
 { 
-	Watcher *w;
+	/*Watcher *w;
 	for(boost::ptr_list<Watcher>::iterator it(watchers); (w=it.current()); ++it)
 	{
 		w->requestTermination();
@@ -42,7 +45,7 @@ monitor::~monitor()
 	{
 		w->wait();
 	}
-	watchers.clear();
+	watchers.clear();*/
 #ifdef USE_INOTIFY
 	if(inotifyh)
 	{
@@ -93,8 +96,9 @@ monitor::Watcher::Watcher() : thread(), paths(13)
 
 monitor::Watcher::~Watcher()
 {
-	requestTermination();
-	wait();
+	//requestTermination();
+	//wait();
+	join();// is this right???<----------------------------?????????
 #ifdef USE_WINAPI
 	if(latch)
 	{
@@ -107,13 +111,13 @@ monitor::Watcher::~Watcher()
 
 #ifdef USE_WINAPI
 void monitor::Watcher::run()
-{
+{/*
 	HANDLE hlist[MAXIMUM_WAIT_OBJECTS];
-	hlist[0]=QThread::int_cancelWaiterHandle();
+	hlist[0]=0;//QThread::int_cancelWaiterHandle();
 	hlist[1]=latch;
 	for(;;)
 	{
-		QMtxHold h(monitor);
+		BOOST_AFIO_LOCK_GUARD<monitor> h(mon);
 		Path *p;
 		int idx=2;
 		for(QDict::iterator<Path> it(paths); (p=it.current()); ++it)
@@ -136,7 +140,7 @@ void monitor::Watcher::run()
 		}
 		if(p)
 			p->callHandlers();
-	}
+	}*/
 }
 #endif
 
@@ -149,7 +153,7 @@ void monitor::Watcher::run()
 	char buffer[4096];
 	for(;;)
 	{
-		FXERRH_TRY
+		try
 		{
 			if((ret=read(monitor->inotifyh, buffer, sizeof(buffer))))
 			{
@@ -244,12 +248,6 @@ void *monitor::Watcher::cleanup()
 
 
 
-
-
-
-
-
-
 struct Change
 {
 	dir_monitor change;
@@ -288,21 +286,6 @@ struct Change
 	}
 };
 
-struct Handler
-{
-	Path *parent;
-	dir_monitor::ChangeHandler handler;
-	boost::ptr_list<void> callvs;
-	Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
-	~Handler();
-	
-	void invoke(const std::list<Change> &changes, thread_handle callv);
-
-private:
-	Handler(const Handler &);
-	Handler &operator=(const Handler &);
-};
-
 struct Path
 {
 	Watcher *parent;
@@ -339,3 +322,238 @@ struct Path
 	}
 	void callHandlers();
 };
+
+monitor::Watcher::Path::~Path()
+{
+#ifdef USE_WINAPI
+	if(h)
+	{
+		parent->pathByHandle.remove(h);
+		BOOST_AFIO_ERRHWIN(FindCloseChangeNotification(h));
+		h=0;
+	}
+#endif
+#ifdef USE_INOTIFY
+	if(h)
+	{
+		BOOST_AFIO_ERRHOS(inotify_rm_watch(monitor->inotifyh, h));
+		h=0;
+	}
+#endif
+#ifdef USE_KQUEUES
+	h.flags=EV_DELETE;
+	kevent(monitor->kqueueh, &h, 1, NULL, 0, NULL);
+	parent->pathByHandle.remove(h.ident);
+	if(h.ident)
+	{
+		BOOST_AFIO_ERRHOS(::close(h.ident));
+		h.ident=0;
+	}
+#endif
+
+}
+
+
+
+struct Handler
+{
+	Path *parent;
+	dir_monitor::ChangeHandler handler;
+	boost::ptr_list<void> callvs;
+	Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
+	~Handler();
+	
+	void invoke(const std::list<Change> &changes, thread_handle callv);
+
+private:
+	Handler(const Handler &);
+	Handler &operator=(const Handler &);
+};
+
+
+monitor::Watcher::Path::Handler::~Handler()
+{
+	QMtxHold h(monitor);
+	while(!callvs.empty())
+	{
+		QThreadPool::CancelledState state;
+		while(QThreadPool::WasRunning==(state=FXProcess::threadPool().cancel(callvs.front())));
+		callvs.pop_front();
+	}
+}
+
+void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes, thread_handle callv)
+{
+	//fxmessage("dir_monitor dispatch %p\n", callv);
+	for(std::list<Change>::const_iterator it=changes.begin(); it!=changes.end(); ++it)
+	{
+		const Change &ch=*it;
+		const stat_t &oldfi=ch.oldfi ? *ch.oldfi : stat_t();
+		const stat_t &newfi=ch.newfi ? *ch.newfi : stat_t();
+#ifdef DEBUG
+		{
+			FXString file(oldfi.filePath()), chs;
+			if(ch.change.modified) chs.append("modified ");
+			if(ch.change.created)  { chs.append("created "); file=newfi.filePath(); }
+			if(ch.change.deleted)  chs.append("deleted ");
+			if(ch.change.renamed)  chs.append("renamed (to "+newfi.filePath()+") ");
+			if(ch.change.attrib)   chs.append("attrib ");
+			if(ch.change.security) chs.append("security ");
+			fxmessage("dir_monitor: File %s had changes: %s at %s\n", file.text(), chs.text(), (ch.newfi ? *ch.newfi : *ch.oldfi).lastModified().asString().text());
+		}
+#endif
+		QMtxHold h(monitor);
+		callvs.remove(callv); //I think this will be OK instead of removeReffrom QptrList
+		h.unlock();
+		handler(ch.change, oldfi, newfi);
+	}
+}
+
+
+static const stat_t *findFIByName(const std::list<stat_t> *list, const FXString &name)
+{
+	for(std::list<stat_t>::const_iterator it=list->begin(); it!=list->end(); ++it)
+	{
+		const stat_t &fi=*it;
+		// Need a case sensitive compare
+		if(fi.fileName()==name) return &fi;
+	}
+	return 0;
+}
+void monitor::Watcher::Path::callHandlers()
+{	// Lock is held on entry
+	FXAutoPtr<QDir> newpathdir;
+	newpathdir=new QDir(pathdir->path(), "*", QDir::Unsorted, QDir::All|QDir::Hidden);
+	newpathdir->entryInfoList();
+	QStringList rawchanges=QDir::extractChanges(*pathdir, *newpathdir);
+	std::list<Change> changes;
+	for(QStringList::iterator it=rawchanges.begin(); it!=rawchanges.end(); )
+	{
+		const FXString &name=*it;
+		Change ch(findFIByName(pathdir->entryInfoList(), name), findFIByName(newpathdir->entryInfoList(), name));
+		// It's possible that between the directory enumeration and fetching metadata
+		// entries the entry vanished. Delete any entries which no longer exist
+		if((ch.oldfi && !ch.oldfi->exists()) || (ch.newfi && !ch.newfi->exists()))
+		{
+			it=rawchanges.erase(it);
+			continue;
+		}
+		if(!ch.oldfi && !ch.newfi)
+		{	// Change vanished
+			++it;
+			continue;
+		}
+		else if(ch.oldfi && ch.newfi)
+		{	// Same file name
+			if(ch.oldfi->created()!=ch.newfi->created())
+			{	// File was deleted and recreated, so split into two entries
+				Change ch2(ch);
+				ch.oldfi=0; ch2.newfi=0;
+				changes.append(ch2);
+			}
+			else
+			{
+				ch.change.modified=(ch.oldfi->lastModified()!=ch.newfi->lastModified()
+					|| ch.oldfi->size()			!=ch.newfi->size());
+				ch.change.attrib=(ch.oldfi->isReadable()!=ch.newfi->isReadable()
+					|| ch.oldfi->isWriteable()	!=ch.newfi->isWriteable()
+					|| ch.oldfi->isExecutable()	!=ch.newfi->isExecutable()
+					|| ch.oldfi->isHidden()		!=ch.newfi->isHidden());
+				ch.change.security=(ch.oldfi->permissions()!=ch.newfi->permissions());
+			}
+		}
+		changes.append(ch);
+		++it;
+	}
+	// Try to detect renames
+	bool noIncIter1;
+	for(std::list<Change>::iterator it1=changes.begin(); it1!=changes.end(); !noIncIter1 ? (++it1, 0) : 0)
+	{
+		noIncIter1=false;
+		Change &ch1=*it1;
+		if(ch1.oldfi && ch1.newfi) continue;
+		if(ch1.change.renamed) continue;
+		bool disable=false;
+		Change *candidate=0, *solution=0;
+		for(std::list<Change>::iterator it2=changes.begin(); it2!=changes.end(); ++it2)
+		{
+			if(it1==it2) continue;
+			Change &ch2=*it2;
+			if(ch2.oldfi && ch2.newfi) continue;
+			if(ch2.change.renamed) continue;
+			const stat_t *a=0, *b=0;
+			if(ch1.oldfi && ch2.newfi) { a=ch1.oldfi; b=ch2.newfi; }
+			else if(ch1.newfi && ch2.oldfi) { a=ch2.oldfi; b=ch1.newfi; }
+			else continue;
+#ifdef DEBUG
+			fxmessage("dir_monitor: Rename candidate %s, %s (%llu==%llu, %llu==%llu, %llu==%llu, %llu==%llu) candidate=%p\n",
+					  a->fileName().text(), b->fileName().text(),
+					  a->size(), b->size(),
+					  a->created().value, b->created().value,
+					  a->lastModified().value, b->lastModified().value,
+					  a->lastRead().value, b->lastRead().value,
+					  candidate);
+#endif
+			if(a->size()==b->size() && a->created()==b->created()
+				&& a->lastModified()==b->lastModified()
+				&& a->lastRead()==b->lastRead())
+			{
+				if(candidate) disable=true;
+				else
+				{
+					candidate=&ch1; solution=&ch2;
+				}
+			}
+		}
+		if(candidate && !disable)
+		{
+			if(candidate->newfi && solution->oldfi)
+			{
+				Change *temp=candidate;
+				candidate=solution;
+				solution=temp;
+			}
+			solution->oldfi=candidate->oldfi;
+			solution->change.renamed=true;
+			if((noIncIter1=(candidate==&(*it1))))
+				++it1;
+			changes.remove(Change(*candidate));
+		}
+	}
+	// Mark off created/deleted
+	static FXulong eventcounter=0;
+	for(std::list<Change>::iterator it=changes.begin(); it!=changes.end(); ++it)
+	{
+		Change &ch=*it;
+		ch.change.eventNo=++eventcounter;
+		if(ch.oldfi && ch.newfi) continue;
+		if(ch.change.renamed) continue;
+		ch.change.created=(!ch.oldfi && ch.newfi);
+		ch.change.deleted=(ch.oldfi && !ch.newfi);
+	}
+	// Remove any which don't have something set
+	for(std::list<Change>::iterator it=changes.begin(); it!=changes.end();)
+	{
+		Change &ch=*it;
+		if(!ch.change)
+			it=changes.erase(it);
+		else
+			++it;
+	}
+	FXRBOp resetchanges=FXRBObj(*this, &monitor::Watcher::Path::resetChanges, &changes);
+	// Dispatch
+	Watcher::Path::Handler *handler;
+	for(boost::ptr_vector::iterator<Watcher::Path::Handler> it(handlers); (handler=it.current()); ++it)
+	{
+		typedef Generic::TL::create<void, std::list<Change>, thread_handle>::value Spec;
+		Generic::BoundFunctor<Spec> *functor;
+		// Detach changes per dispatch
+		for(std::list<Change>::iterator it=changes.begin(); it!=changes.end(); ++it)
+			it->make_fis();
+		thread_handle callv=FXProcess::threadPool().dispatch((functor=new Generic::BoundFunctor<Spec>(Generic::Functor<Spec>(*handler, &Watcher::Path::Handler::invoke), changes, 0)));
+		handler->callvs.push_back(callv);
+		// Poke in the callv
+		Generic::TL::instance<1>(functor->parameters()).value=callv;
+	}
+	pathdir=newpathdir;
+}

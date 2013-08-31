@@ -79,6 +79,7 @@ struct monitor : public recursive_mutex
 		{
 			Watcher *parent;
 			std::unique_ptr<std::vector<directory_entry>> pathdir;
+			std::unordered_map<directory_entry, bool> entry_dict; 
 
 #ifdef USE_WINAPI
 			HANDLE h;
@@ -155,6 +156,8 @@ struct monitor : public recursive_mutex
 					else
 						pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 				end_enumerate_directory(addr);
+				entry_dict.clear();
+				entry_dict.insert(pathdir.begin(), pathdir.end())
 			}
 
 			~Path();
@@ -257,14 +260,14 @@ void monitor::Watcher::run()
 	hlist[1]=latch;
 	for(;;)
 	{
-		QMtxHold h(f);
+		//QMtxHold h(f);
 		Path *p;
 		int idx=2;
 		for(QDict::iterator<Path> it(paths); (p=it.current()); ++it)
 		{
 			hlist[idx++]=p->h;
 		}
-		h.unlock();
+		//h.unlock();
 		DWORD ret=WaitForMultipleObjects(idx, hlist, FALSE, INFINITE);
 		if(ret<WAIT_OBJECT_0 || ret>=WAIT_OBJECT_0+idx) { BOOST_AFIO_ERRHWIN(ret); }
 		checkForTerminate();
@@ -272,7 +275,7 @@ void monitor::Watcher::run()
 		ret-=WAIT_OBJECT_0;
 		FindNextChangeNotification(hlist[ret]);
 		ret-=2;
-		h.relock();
+		//h.relock();
 		for(QDict::iterator<Path> it(paths); (p=it.current()); ++it)
 		{
 			if(!ret) break;
@@ -453,13 +456,12 @@ void monitor::Watcher::Path::Handler::invoke(const std::vector<Change> &changes,
 }
 
 
-static const directory_entry *findFIByName(const std::list<directory_entry> *list, const std::filesystem::path &name)
+static const directory_entry *findFIByName(const std::unique_ptr<std::vector<directory_entry>>  list, const std::filesystem::path &name)
 {
-	for(std::list<directory_entry>::const_iterator it=list->begin(); it!=list->end(); ++it)
+	for(auto it=list->begin(); it!=list->end(); ++it)
 	{
-		const directory_entry &fi=*it;
 		// Need a case sensitive compare
-		if(fi.name()==name) return &fi;
+		if((*it).name()==name) return *it;
 	}
 	return 0;
 }
@@ -469,16 +471,33 @@ void monitor::Watcher::Path::callHandlers()
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
 		if(!newpathdir)
-			pathdir=std::move(chunk);
+			newpathdir=std::move(chunk);
 		else
-			pathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
+			newpathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 	end_enumerate_directory(addr);
 
-	QStringList rawchanges=QDir::extractChanges(*pathdir, *newpathdir);
-	std::vector<Change> changes;
-	for(QStringList::iterator it=rawchanges.begin(); it!=rawchanges.end(); )
+	std::vector<directory_entry> rawchanges;
+	for(auto it = newpathdir.begin(); it != newpathdir.end(); ++it)
 	{
-		const FXString &name=*it;
+		try
+		{
+			// try to find the directory_entry
+			// if it exists, then nothing has changed
+			// if it doesn't exist, then it has changed
+			entry_dict.at(*it);
+		}
+		catch(std::out_of_range &e)
+		{
+			rawchanges.push_back(*it);
+		}
+
+
+	}
+
+	//QStringList rawchanges=QDir::extractChanges(*pathdir, *newpathdir);
+	std::vector<Change> changes;
+	for(auto it = rawchanges.begin(); it!=rawchanges.end(); )
+	{
 		Change ch(findFIByName(pathdir->entryInfoList(), name), findFIByName(newpathdir->entryInfoList(), name));
 		// It's possible that between the directory enumeration and fetching metadata
 		// entries the entry vanished. Delete any entries which no longer exist
