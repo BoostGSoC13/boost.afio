@@ -136,7 +136,7 @@ struct monitor : public recursive_mutex
 				end_enumerate_directory(addr);
 				entry_dict.clear();
 				
-				for(auto it = pathdir.begin(); it != pathdir.end(); ++it)
+				for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 					entry_dict.insert(std::make_pair(*it, *it));
 				
 				
@@ -183,8 +183,9 @@ struct monitor : public recursive_mutex
 };
 static monitor mon();
 
-monitor::monitor() : watchers()
+monitor::monitor()
 {
+	threadpool = process_threadpool();
 #ifdef USE_INOTIFY
 	BOOST_AFIO_ERRHOS(inotifyh=inotify_init());
 #endif
@@ -196,7 +197,6 @@ monitor::monitor() : watchers()
 
 monitor::~monitor()
 { 
-	threadpool = process_threadpool();
 	#ifdef USE_INOTIFY
 		if(inotifyh)
 		{
@@ -213,7 +213,7 @@ monitor::~monitor()
 	#endif
 }
 
-monitor::Watcher::Watcher() : thread(), paths(13)
+monitor::Watcher::Watcher() : thread()
 #ifdef USE_WINAPI
 	, latch(0)
 #endif
@@ -225,7 +225,7 @@ monitor::Watcher::Watcher() : thread(), paths(13)
 
 monitor::Watcher::~Watcher()
 {
-	join();
+	join();// make sure the thread joins before destruction
 #ifdef USE_WINAPI
 	if(latch)
 	{
@@ -233,7 +233,6 @@ monitor::Watcher::~Watcher()
 		latch=0;
 	}
 #endif
-	paths.clear();
 }
 
 #ifdef USE_WINAPI
@@ -247,9 +246,9 @@ void monitor::Watcher::run()
 		//QMtxHold h(f);
 		Path *p;
 		int idx=2;
-		for(QDict::iterator<Path> it(paths); (p=it.current()); ++it)
+		for(auto it = paths.begin(); it != paths.end(); ++it)
 		{
-			hlist[idx++]=p->h;
+			hlist[idx++]=it->h;
 		}
 		//h.unlock();
 		DWORD ret=WaitForMultipleObjects(idx, hlist, FALSE, INFINITE);
@@ -260,8 +259,9 @@ void monitor::Watcher::run()
 		FindNextChangeNotification(hlist[ret]);
 		ret-=2;
 		//h.relock();
-		for(QDict::iterator<Path> it(paths); (p=it.current()); ++it)
+		for(auto it = paths.begin(); it != paths.end(); ++it)
 		{
+			p = it;
 			if(!ret) break;
 			--ret;
 		}
@@ -455,8 +455,6 @@ static const directory_entry& findFIByName(const std::unique_ptr<std::vector<dir
 }
 void monitor::Watcher::Path::callHandlers()
 {	// Lock is held on entry
-
-	std::sort(pathdir.begin(), pathdir.end(), [](directory_entry& a, directory_entry& b){ return a.stat.st_inode() < b.stat.st_inode(); } );
 	void *addr=begin_enumerate_directory(pathdir->front().name().root_path());//maybe need a better way to get directory name???
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
@@ -466,8 +464,8 @@ void monitor::Watcher::Path::callHandlers()
 			newpathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 	end_enumerate_directory(addr);
 
-	std::list<directory_entry> rawchanges;
 	std::list<Change> changes;
+	static unsigned long eventcounter=0;
 	for(auto it = newpathdir.begin(); it != newpathdir.end(); ++it)
 	{
 		try
@@ -498,6 +496,7 @@ void monitor::Watcher::Path::callHandlers()
 			if(changed)
 			{
 				Change ch(temp, *it);
+				ch.change.eventNo=++eventcounter;
 				ch.renamed = renamed;
 				ch.modified=modified;
 				ch.security = security
@@ -510,131 +509,75 @@ void monitor::Watcher::Path::callHandlers()
 		}
 		catch(std::out_of_range &e)
 		{
-			//We've never seen this before, so determine if its new
-
-
-
+			//We've never seen this before
 			Change ch(directory_entry(), *it);
+			ch.change.eventNo=++eventcounter;
 			ch.change.setCreated();
-			changes.push_back(ch)
-
+			changes.push_back(ch);
 		}
 	}
 
-	
-	
-	for(auto it = rawchanges.begin(); it!=rawchanges.end(); )
+	// anything left in entry_dict has been deleted
+	for(auto it = entry_dict.begin(); it != entry_dict.end(); ++it)
 	{
-		auto name = (*it).name();
-		Change ch(findFIByName(pathdir, name), findFIByName(newpathdir, name));
-		
-		// It's possible that between the directory enumeration and fetching metadata
-		// entries the entry vanished. Delete any entries which no longer exist
-		if((ch.oldfi && !ch.oldfi->name().exists()) || (ch.newfi && !ch.newfi->name().exists()))
-		{
-			it=rawchanges.erase(it);
-			continue;
-		}
-		if(!ch.oldfi && !ch.newfi)
-		{	// Change vanished
-			++it;
-			continue;
-		}
-		else if(ch.oldfi && ch.newfi)
-		{	// Same file name
-			if(ch.oldfi->st_birthtim()!= ch.newfi->st_birthtim())
-			{	// File was deleted and recreated, so split into two entries
-				Change ch2(ch);
-				ch.oldfi=0; ch2.newfi=0;
-				changes.push_back(ch2);
-			}
-			else
-			{
-				ch.change.modified=(ch.oldfi->st_mtim()!=ch.newfi->st_mtim()
-					|| ch.oldfi->st_size()	!= ch.newfi->st_size() 
-					|| ch.oldfi_>st_allocated() != ch.newfi->st_allocated());
-				/*ch.change.attrib=(ch.oldfi->st_mode()!=ch.newfi->st_mode()
-					|| ch.oldfi->isWriteable()	!=ch.newfi->isWriteable()
-					|| ch.oldfi->isExecutable()	!=ch.newfi->isExecutable()
-					|| ch.oldfi->isHidden()		!=ch.newfi->isHidden());*/
-				ch.change.security=(ch.oldfi->st_mode()!=ch.newfi->st_mode());
-			}
-		}
-		changes.push_back(ch);
-		++it;
-	}
-
-	// Mark off created/deleted
-	static unsigned long eventcounter=0;
-	for(auto it=changes.begin(); it!=changes.end(); ++it)
-	{
-		Change &ch=*it;
+		//We've never seen this before
+		Change ch(*it, directory_entry());
 		ch.change.eventNo=++eventcounter;
-		if(ch.oldfi && ch.newfi) continue;
-		if(ch.change.renamed) continue;
-		ch.change.created=(!ch.oldfi && ch.newfi);
-		ch.change.deleted=(ch.oldfi && !ch.newfi);
+		ch.change.setDeleted();
+		changes.push_back(ch);
 	}
-	// Remove any which don't have something set
-	for(auto it=changes.begin(); it!=changes.end();)
-	{
-		Change &ch=*it;
-		if(!ch.change)
-			it=changes.erase(it);
-		else
-			++it;
-	}
+	entry_dict.clear();
 
+	
 	//this seems wrong...
 	auto resetchanges=Undoer([*this, &changes]{ this->resetChanges(changes));
 
 	// Dispatch
 	Watcher::Path::Handler *handler;
-	for(boost::ptr_vector::iterator<Watcher::Path::Handler> it(handlers); (handler=it.current()); ++it)
+	for(auto it = handlers.begin(); it != handlers.end(); ++it)
 	{
-		auto functor = std::bind(&Watcher::Path::Handler::invoke, handler, changes, 0);// would it be better to just use a lambda??
+		// would it be better to just use a lambda??
+		auto functor = std::bind(&Watcher::Path::Handler::invoke, *it, changes, 0);
+		
 		// Detach changes per dispatch
-		for(auto it=changes.begin(); it!=changes.end(); ++it)
-			it->make_fis();
+		for(auto it2 = changes.begin(); it2 != changes.end(); ++it2)
+			it2->make_fis();
 		
 		handler->callvs.push_back(threadpool->enqueue(functor));
 	}
-	pathdir=newpathdir;
-	entry_dict.clear();
-	stat_dict.clear();
-	for(auto it = pathdir.begin(); it != pathdir.end(); ++it)
+
+	// update pathdir and entry_dict
+	pathdir=std::move(newpathdir);
+	for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 	{
-		entry_dict.insert(std::make_pair(*it, true));
-		stat_dict.insert(std::make_pair(it->stat, true));
+		entry_dict.insert(std::make_pair(*it, *it));
 	}
 }
 
-void monitor::add(const FXString &path, dir_monitor::ChangeHandler handler)
+void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
-	QMtxHold lh(monitor);
-	Watcher *w;
-	for(boost::ptr_list::iterator<Watcher> it(watchers); (w=it.current()); ++it)
+	BOOST_AFIO_LOCK_GUARD<monitor> lh;
+	Watcher *w = nullptr;
+	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
 	{
 #ifdef USE_WINAPI
-		if(w->paths.count()<MAXIMUM_WAIT_OBJECTS-2) break;
+		if(w->paths.count() >= MAXIMUM_WAIT_OBJECTS-2) continue;
 #endif
-#ifdef USE_POSIX
-		break;
-#endif
+		w = *it;
 	}
 	if(!w)
 	{
+		auto unnew = Undoer([]{delete w; w = nullptr;});
 		w=new Watcher;
-		FXRBOp unnew=FXRBNew(w);
-		w->start();
-		watchers.append(w);
+		//w->start();
+		watchers.push_back(w);
 		unnew.dismiss();
 	}
 	Watcher::Path *p=w->paths.find(path);
 	if(!p)
 	{
+		auto unnew = Undoer([]{delete p; p = nullptr;});
 		p=new Watcher::Path(w, path);
-		FXRBOp unnew=FXRBNew(p);
 #ifdef USE_WINAPI
 		HANDLE h;
 		BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(h=FindFirstChangeNotification(FXUnicodify<>(path, true).buffer(), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME
@@ -668,41 +611,43 @@ void monitor::add(const FXString &path, dir_monitor::ChangeHandler handler)
 		unnew.dismiss();
 	}
 	Watcher::Path::Handler *h;
+	auto unh = Undoer([]{delete h; h = nullptr;});
 	h=new Watcher::Path::Handler(p, std::move(handler));
-	FXRBOp unh=FXRBNew(h);
-	p->handlers.append(h);
+	p->handlers.push_back(h);
 	unh.dismiss();
 }
 
 bool monitor::remove(const FXString &path, dir_monitor::ChangeHandler handler)
 {
-	QMtxHold hl(monitor);
+	BOOST_AFIO_LOCK_GUARD<monitor> hl;
 	Watcher *w;
-	for(boost::ptr_list::iterator<Watcher> it(watchers); (w=it.current()); ++it)
+	for(auto it  = watchers.begin(); it != watcher.end(); ++it)
 	{
+		w = *it;
 		Watcher::Path *p=w->paths.find(path);
 		if(!p) continue;
 		Watcher::Path::Handler *h;
-		for(boost::ptr_vector::iterator<Watcher::Path::Handler> it2(p->handlers); (h=it2.current()); ++it2)
+		for(it2 = p->handlers.begin(); it2 != p->handlers.end(); ++it2)
 		{
+			h = it2;
 			if(h->handler==handler)
 			{
-				p->handlers.takeByIter(it2);
-				hl.unlock();
+				p->handlers.erase(it2);
+				//hl.unlock();
 				delete h;
 				h = NULL;
-				hl.relock();
+				//hl.relock();
 				h=0;
-				if(p->handlers.isEmpty())
+				if(p->handlers.empty())
 				{
 #ifdef USE_WINAPI
 					BOOST_AFIO_ERRHWIN(SetEvent(w->latch));
 #endif
-					w->paths.remove(path);
+					w->paths.erase(path);
 					p=0;
-					if(w->paths.isEmpty() && watchers.count()>1)
+					if(w->paths.empty() && watchers.count()>1)
 					{
-						watchers.removeByIter(it);
+						watchers.erase(it);
 						w=0;
 					}
 				}
@@ -713,14 +658,12 @@ bool monitor::remove(const FXString &path, dir_monitor::ChangeHandler handler)
 	return false;
 }
 
-void dir_monitor::add(const FXString &_path, dir_monitor::ChangeHandler handler)
+void dir_monitor::add(const std::filesystem::path &_path, dir_monitor::ChangeHandler handler)
 {
-	FXString path=FXPath::absolute(_path);
-
-	monitor->add(path, std::move(handler));
+	monitor->add(_path.absolute(), std::move(handler));
 }
 
-bool dir_monitor::remove(const FXString &path, dir_monitor::ChangeHandler handler)
+bool dir_monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
 	return monitor->remove(path, std::move(handler));
 }
