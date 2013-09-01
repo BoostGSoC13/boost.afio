@@ -42,6 +42,10 @@
 #include "dir_monitor.hpp"
 #include "detail/ErrorHandling.hpp"
 #include <boost/ptr_container/ptr_list.hpp>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
+
 
 
 namespace boost { 
