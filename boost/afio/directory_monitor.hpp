@@ -142,7 +142,7 @@ namespace boost{
 
 		class dir_monitor
 		{
-			typedef unsigned long event_id;
+			typedef unsigned long event_no;
 			typedef unsigned int event_flag;
 			typedef boost::filesystem::path dir_path;
 			struct event_flags
@@ -157,28 +157,28 @@ namespace boost{
 
 			struct dir_event
 			{
-				event_id id;					//!< Non zero event number index
+				event_no eventNo;				//!< Non zero event number index
 				event_flags flags;				//!< bit-field of director events
 				dir_path path; 					//!< Path to event/file
 
-				dir_event() : eventNo(0), modified(false), created(false), deleted(false), renamed(false), attrib(false), security(false) { }
-				dir_event(int) : eventNo(0), modified(true), created(true), deleted(true), renamed(true), attrib(true), security(true) { }
+				dir_event() : eventNo(0), flags.modified(false), flags.created(false), flags.deleted(false), flags.renamed(false), flags.security(false) { }
+				dir_event(int) : eventNo(0), flags.modified(true), flags.created(true), flags.deleted(true), flags.renamed(true), flags.security(true) { }
 				operator event_flag() const throw()
 				{
 					return this->flags;
 				}
 				//! Sets the modified bit
-				dir_event &setModified(bool v=true) throw()		{ modified=v; return *this; }
+				dir_event &setModified(bool v=true) throw()		{ flags.modified=v; return *this; }
 				//! Sets the created bit
-				dir_event &setCreated(bool v=true) throw()		{ created=v; return *this; }
+				dir_event &setCreated(bool v=true) throw()		{ flags.created=v; return *this; }
 				//! Sets the deleted bit
-				dir_event &setDeleted(bool v=true) throw()		{ deleted=v; return *this; }
+				dir_event &setDeleted(bool v=true) throw()		{ flags.deleted=v; return *this; }
 				//! Sets the renamed bit
-				dir_event &setRenamed(bool v=true) throw()		{ renamed=v; return *this; }
+				dir_event &setRenamed(bool v=true) throw()		{ flags.renamed=v; return *this; }
 				//! Sets the attrib bit
-				//dir_event &setAttrib(bool v=true) throw()		{ attrib=v; return *this; }
+				//dir_event &setAttrib(bool v=true) throw()		{ flags.attrib=v; return *this; }
 				//! Sets the security bit
-				dir_event &setSecurity(bool v=true) throw()		{ security=v; return *this; }
+				dir_event &setSecurity(bool v=true) throw()		{ flags.security=v; return *this; }
 			};
 
 
@@ -197,10 +197,10 @@ namespace boost{
 
 namespace std
 {
-	template<> struct hash<FastDirectoryEnumerator::directory_entry>
+	template<> struct hash<boost::afio::directory_entry>
 	{
 	public:
-		size_t operator()(const FastDirectoryEnumerator::directory_entry& p) const
+		size_t operator()(const boost::afio::directory_entry& p) const
 		{
 			size_t seed = 0;
 			//boost::hash_combine(seed, p.leafname);
@@ -211,10 +211,10 @@ namespace std
 	};
 	
 	//Probably need to change this dependent on platform right now it should hash safely
-	template<> struct hash<FastDirectoryEnumerator::directory_entry::stat_t>
+	template<> struct hash<boost::afio::directory_entry::stat_t>
 	{
 	public:
-		size_t operator()(const FastDirectoryEnumerator::directory_entry::stat& s) const
+		size_t operator()(const boost::afio::directory_entry::stat& s) const
 		{
 			size_t seed = 0;
 			//boost::hash_combine(seed, s.st_dev);

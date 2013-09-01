@@ -38,13 +38,14 @@
  #endif
 #endif
 
-#include "afio.hpp"
-#include "dir_monitor.hpp"
-#include "detail/ErrorHandling.hpp"
+#include "../../../boost/afio/afio.hpp"
+#include "../../../boost/afio/directory_monitor.hpp"
+#include "../../../boost/afio/detail/ErrorHandling.hpp"
 #include <boost/ptr_container/ptr_list.hpp>
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <future>
 
 
 
