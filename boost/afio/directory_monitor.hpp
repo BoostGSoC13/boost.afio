@@ -203,8 +203,8 @@ namespace std
 		size_t operator()(const FastDirectoryEnumerator::directory_entry& p) const
 		{
 			size_t seed = 0;
-			boost::hash_combine(seed, p.leafname);
-			boost::hash_combine(seed, p.have_metadata);
+			//boost::hash_combine(seed, p.leafname);
+			//boost::hash_combine(seed, p.have_metadata);
 			boost::hash_combine(seed, p.stat);
 			return seed;
 		}
@@ -219,17 +219,17 @@ namespace std
 			size_t seed = 0;
 			//boost::hash_combine(seed, s.st_dev);
 			boost::hash_combine(seed, s.st_ino);
-			boost::hash_combine(seed, s.st_type);
+			//boost::hash_combine(seed, s.st_type);
 			//boost::hash_combine(seed, s.st_mode);
 			//boost::hash_combine(seed, s.st_nlink);
 			//boost::hash_combine(seed, s.st_uid);
 			//boost::hash_combine(seed, s.st_gid);
 			//boost::hash_combine(seed, s.st_rdev);
-			boost::hash_combine(seed, s.st_atim);
-			boost::hash_combine(seed, s.st_mtim);
-			boost::hash_combine(seed, s.st_ctim);
-			boost::hash_combine(seed, s.st_size);
-			boost::hash_combine(seed, s.st_allocated);
+			//boost::hash_combine(seed, s.st_atim);
+			//boost::hash_combine(seed, s.st_mtim);
+			//boost::hash_combine(seed, s.st_ctim);
+			//boost::hash_combine(seed, s.st_size);
+			//boost::hash_combine(seed, s.st_allocated);
 			//boost::hash_combine(seed, s.st_blocks);
 			//boost::hash_combine(seed, s.st_blksize);
 			//boost::hash_combine(seed, s.st_flags);

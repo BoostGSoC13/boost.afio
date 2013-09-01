@@ -57,8 +57,7 @@ struct monitor : public recursive_mutex
 		{
 			Watcher *parent;
 			std::unique_ptr<std::vector<directory_entry>> pathdir;
-			std::unordered_map<directory_entry, bool> entry_dict;
-			std::unordered_map<directory_entry::stat_t, bool> stat_dict; 
+			std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
 
 #ifdef USE_WINAPI
 			HANDLE h;
@@ -117,9 +116,9 @@ struct monitor : public recursive_mutex
 			};
 
 			boost::ptr_vector<Handler> handlers;
-			
+			const std::filesystem::path & path;
 			Path(Watcher *_parent, const std::filesystem::path &_path)
-				: parent(_parent), handlers(true)
+				: parent(_parent), path(_path)
 #if defined(USE_WINAPI) || defined(USE_INOTIFY)
 				, h(0)
 #endif
@@ -136,12 +135,10 @@ struct monitor : public recursive_mutex
 						pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 				end_enumerate_directory(addr);
 				entry_dict.clear();
-				stat_dict.clear();
+				
 				for(auto it = pathdir.begin(); it != pathdir.end(); ++it)
-				{
-					entry_dict.insert(std::make_pair(*it, true));
-					stat_dict.insert(std::make_pair(it->stat, true));
-				}
+					entry_dict.insert(std::make_pair(*it, *it));
+				
 				
 			}
 
@@ -458,6 +455,8 @@ static const directory_entry& findFIByName(const std::unique_ptr<std::vector<dir
 }
 void monitor::Watcher::Path::callHandlers()
 {	// Lock is held on entry
+
+	std::sort(pathdir.begin(), pathdir.end(), [](directory_entry& a, directory_entry& b){ return a.stat.st_inode() < b.stat.st_inode(); } );
 	void *addr=begin_enumerate_directory(pathdir->front().name().root_path());//maybe need a better way to get directory name???
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
@@ -467,34 +466,58 @@ void monitor::Watcher::Path::callHandlers()
 			newpathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 	end_enumerate_directory(addr);
 
-
-// consider using an std::vector w/ a binary search instead of 2 hashes
-
 	std::list<directory_entry> rawchanges;
-	std::list<Change> changes;/
+	std::list<Change> changes;
 	for(auto it = newpathdir.begin(); it != newpathdir.end(); ++it)
 	{
 		try
 		{
 			// try to find the directory_entry
-			// if it exists, then nothing has changed
-			// if it doesn't exist, then it has changed
-			entry_dict.at(*it);
+			// if it exists, then determine if anything has changed
+			auto temp = entry_dict.at(*it);
+
+			bool changed = false, renamed = false, modified = false, security = false;
+			// determine if any changes
+			if(temp.name() != it->name())
+			{
+				changed = true;
+				renamed = true;
+			}
+			if(temp.st_mtim()!= it->st_mtim()
+					|| temp.st_size()	!= it->st_size() 
+					|| temp.st_allocated() != it->st_allocated())
+			{
+				modified = true;
+				changed = true;
+			}
+			if(temp.st_mode() !- it->st_mode())
+			{
+				changed = true;
+				security = true;
+			}
+			if(changed)
+			{
+				Change ch(temp, *it);
+				ch.renamed = renamed;
+				ch.modified=modified;
+				ch.security = security
+				changes.push_back(ch);
+			}
+
+			// we found this entry, so remove it to later 
+			// determine what has been deleted
+			entry_dict.erase(temp); 
 		}
 		catch(std::out_of_range &e)
 		{
-			try
-			{
-				auto temp = stat_dict.at(it->stat);
-				Change ch(temp, *it);
-				ch.renamed = true;
-				changes.push_back(ch); //maybe std::move is more appropriate???
+			//We've never seen this before, so determine if its new
 
-			}
-			catch(std::out_of_range &e)
-			{
-				rawchanges.push_back(*it);
-			}
+
+
+			Change ch(directory_entry(), *it);
+			ch.change.setCreated();
+			changes.push_back(ch)
+
 		}
 	}
 
@@ -565,8 +588,6 @@ void monitor::Watcher::Path::callHandlers()
 	//this seems wrong...
 	auto resetchanges=Undoer([*this, &changes]{ this->resetChanges(changes));
 
-		//What should I use in place of the fxprocess::threadpool???
-
 	// Dispatch
 	Watcher::Path::Handler *handler;
 	for(boost::ptr_vector::iterator<Watcher::Path::Handler> it(handlers); (handler=it.current()); ++it)
@@ -577,10 +598,15 @@ void monitor::Watcher::Path::callHandlers()
 			it->make_fis();
 		
 		handler->callvs.push_back(threadpool->enqueue(functor));
-		// Poke in the callv
-		Generic::TL::instance<1>(functor->parameters()).value=callv;
 	}
 	pathdir=newpathdir;
+	entry_dict.clear();
+	stat_dict.clear();
+	for(auto it = pathdir.begin(); it != pathdir.end(); ++it)
+	{
+		entry_dict.insert(std::make_pair(*it, true));
+		stat_dict.insert(std::make_pair(it->stat, true));
+	}
 }
 
 void monitor::add(const FXString &path, dir_monitor::ChangeHandler handler)
