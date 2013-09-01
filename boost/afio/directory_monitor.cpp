@@ -641,9 +641,9 @@ void monitor::Watcher::Path::callHandlers()
 	Watcher::Path::Handler *handler;
 	for(boost::ptr_vector::iterator<Watcher::Path::Handler> it(handlers); (handler=it.current()); ++it)
 	{
-		auto functor = std::bind<void( std::vector<Change>, thread_handle)>([&handler]{handler->invoke)} changes, 0)
+		auto functor = std::bind(&Watcher::Path::Handler::invoke, handler, changes, 0);// would it be better to just use a lambda??
 		// Detach changes per dispatch
-		for(std::vector<Change>::iterator it=changes.begin(); it!=changes.end(); ++it)
+		for(auto it=changes.begin(); it!=changes.end(); ++it)
 			it->make_fis();
 		thread_handle callv=FXProcess::threadPool().dispatch((functor=new Generic::BoundFunctor<Spec>(Generic::Functor<Spec>(*handler, &Watcher::Path::Handler::invoke), changes, 0)));
 		handler->callvs.push_back(callv);
