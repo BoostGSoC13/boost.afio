@@ -42,34 +42,12 @@
 #include "dir_monitor.hpp"
 #include "detail/ErrorHandling.hpp"
 #include <boost/ptr_container/ptr_list.hpp>
-/*
-#include "FXString.h"
-#include "FXProcess.h"	//
-#include "FXRollback.h" // I think htis is undoer
-#include "FXPath.h"
-#include "FXStat.h"
-#include "QDir.h"
-#include "directory_entry.h"
-#include "QTrans.h"
-#include "FXErrCodes.h"
-#include <qptrlist.h>
-#include <qdict.h>
-#include <qptrdict.h>
-#include <qintdict.h>
-#include <qptrvector.h>
-#include <assert.h>
-#include "FXMemDbg.h"
-*/
-/*
-#if defined(DEBUG) && defined(FXMEMDBG_H)
-static const char *_fxmemdbg_current_file_ = __FILE__;
-#endif
-*/
+
 
 namespace boost { 
 	namespace afio {
 
-typedef void* thread_handle;
+typedef std::future<void> thread_handle;
 
 struct monitor : public recursive_mutex
 {
@@ -129,7 +107,7 @@ struct monitor : public recursive_mutex
 			{
 				Path *parent;
 				dir_monitor::ChangeHandler handler;
-				boost::ptr_list<void> callvs;
+				std::list<thread_handle> callvs;
 				Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
 				~Handler();
 				void invoke(const std::vector<Change> &changes, thread_handle callv);
@@ -200,6 +178,7 @@ struct monitor : public recursive_mutex
 	int kqueueh;
 #endif
 	boost::ptr_list<Watcher> watchers;
+	std::shared_ptr<std_thread_pool>  threadpool;
 	monitor();
 	~monitor();
 	void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
@@ -220,6 +199,7 @@ monitor::monitor() : watchers()
 
 monitor::~monitor()
 { 
+	threadpool = process_threadpool();
 	#ifdef USE_INOTIFY
 		if(inotifyh)
 		{
@@ -424,13 +404,17 @@ monitor::Watcher::Path::~Path()
 
 monitor::Watcher::Path::Handler::~Handler()
 {
+	//I think that the destruction from std_thread_pool takes care of all of this
+/*
 	BOOST_AFIO_LOCK_GUARD<monitor> h(mon);
 	while(!callvs.empty())
 	{
 		//QThreadPool::CancelledState state;
 		//while(QThreadPool::WasRunning==(state=FXProcess::threadPool().cancel(callvs.front())));
 		callvs.pop_front();// this should be insufficient I think. need to fix the above lines to work without qt of fx
-	}
+	}*/
+
+
 }
 
 void monitor::Watcher::Path::Handler::invoke(const std::vector<Change> &changes, thread_handle callv)
@@ -502,7 +486,6 @@ void monitor::Watcher::Path::callHandlers()
 			try
 			{
 				auto temp = stat_dict.at(it->stat);
-				//its been renamed, so do seomthing!!!!!
 				Change ch(temp, *it);
 				ch.renamed = true;
 				changes.push_back(ch); //maybe std::move is more appropriate???
@@ -513,8 +496,6 @@ void monitor::Watcher::Path::callHandlers()
 				rawchanges.push_back(*it);
 			}
 		}
-
-
 	}
 
 	
@@ -559,62 +540,7 @@ void monitor::Watcher::Path::callHandlers()
 		changes.push_back(ch);
 		++it;
 	}
-/*	// Try to detect renames
-	bool noIncIter1;
-	for(auto it1=changes.begin(); it1!=changes.end(); !noIncIter1 ? (++it1, 0) : 0)
-	{
-		noIncIter1=false;
-		Change &ch1=*it1;
-		if(ch1.oldfi && ch1.newfi) continue;
-		if(ch1.change.renamed) continue;
-		bool disable=false;
-		Change *candidate=0, *solution=0;
-		for(std::vector<Change>::iterator it2=changes.begin(); it2!=changes.end(); ++it2)
-		{
-			if(it1==it2) continue;
-			Change &ch2=*it2;
-			if(ch2.oldfi && ch2.newfi) continue;
-			if(ch2.change.renamed) continue;
-			const directory_entry *a=0, *b=0;
-			if(ch1.oldfi && ch2.newfi) { a=ch1.oldfi; b=ch2.newfi; }
-			else if(ch1.newfi && ch2.oldfi) { a=ch2.oldfi; b=ch1.newfi; }
-			else continue;
-#ifdef DEBUG
-			fxmessage("dir_monitor: Rename candidate %s, %s (%llu==%llu, %llu==%llu, %llu==%llu, %llu==%llu) candidate=%p\n",
-					  a->fileName().text(), b->fileName().text(),
-					  a->size(), b->size(),
-					  a->created().value, b->created().value,
-					  a->lastModified().value, b->lastModified().value,
-					  a->lastRead().value, b->lastRead().value,
-					  candidate);
-#endif
-			if(a->size()==b->size() && a->created()==b->created()
-				&& a->lastModified()==b->lastModified()
-				&& a->lastRead()==b->lastRead())
-			{
-				if(candidate) disable=true;
-				else
-				{
-					candidate=&ch1; solution=&ch2;
-				}
-			}
-		}
-		if(candidate && !disable)
-		{
-			if(candidate->newfi && solution->oldfi)
-			{
-				Change *temp=candidate;
-				candidate=solution;
-				solution=temp;
-			}
-			solution->oldfi=candidate->oldfi;
-			solution->change.renamed=true;
-			if((noIncIter1=(candidate==&(*it1))))
-				++it1;
-			changes.remove(Change(*candidate));
-		}
-	}
-	*/
+
 	// Mark off created/deleted
 	static unsigned long eventcounter=0;
 	for(auto it=changes.begin(); it!=changes.end(); ++it)
@@ -636,7 +562,11 @@ void monitor::Watcher::Path::callHandlers()
 			++it;
 	}
 
+	//this seems wrong...
 	auto resetchanges=Undoer([*this, &changes]{ this->resetChanges(changes));
+
+		//What should I use in place of the fxprocess::threadpool???
+
 	// Dispatch
 	Watcher::Path::Handler *handler;
 	for(boost::ptr_vector::iterator<Watcher::Path::Handler> it(handlers); (handler=it.current()); ++it)
@@ -645,8 +575,8 @@ void monitor::Watcher::Path::callHandlers()
 		// Detach changes per dispatch
 		for(auto it=changes.begin(); it!=changes.end(); ++it)
 			it->make_fis();
-		thread_handle callv=FXProcess::threadPool().dispatch((functor=new Generic::BoundFunctor<Spec>(Generic::Functor<Spec>(*handler, &Watcher::Path::Handler::invoke), changes, 0)));
-		handler->callvs.push_back(callv);
+		
+		handler->callvs.push_back(threadpool->enqueue(functor));
 		// Poke in the callv
 		Generic::TL::instance<1>(functor->parameters()).value=callv;
 	}
