@@ -39,7 +39,6 @@
  #endif
 #endif
 
-#include "../../../boost/afio/afio.hpp"
 #include "../../../boost/afio/directory_monitor.hpp"
 #include "../../../boost/afio/detail/ErrorHandling.hpp"
 #include <boost/ptr_container/ptr_vector.hpp>
@@ -49,12 +48,13 @@
 #include <algorithm>
 #include <future>
 
-
+#define NUMBER_OF_FILES 100000
+#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
 
 namespace boost { 
 	namespace afio {
 
-typedef std::future<void> thread_handle;
+typedef std::future<void> future_handle;
 typedef boost::afio::dir_monitor dir_monitor;
 typedef dir_monitor::dir_event dir_event;
 
@@ -115,10 +115,10 @@ struct monitor : public recursive_mutex
 			{
 				Path *parent;
 				dir_monitor::ChangeHandler handler;
-				std::list<thread_handle> callvs;
+				//std::list<future_handle> callvs;
 				Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
 				~Handler();
-				void invoke(const std::vector<Change> &changes, thread_handle callv);
+				void invoke(const std::list<Change> &changes/*, future_handle &callv*/);
 			private:
 				Handler(const Handler &);
 				Handler &operator=(const Handler &);
@@ -150,7 +150,7 @@ struct monitor : public recursive_mutex
 				
 				
 			}
-
+			
 			~Path();
 			void resetChanges(std::list<Change> *changes)
 			{
@@ -161,12 +161,12 @@ struct monitor : public recursive_mutex
 			void callHandlers();
 		};
 
-		std::unordered_map< std::filesystem::path, Path> paths;
+		std::unordered_map< std::filesystem::path, Path*> paths;
 #ifdef USE_WINAPI
 		HANDLE latch;
 		std::unordered_map<std::filesystem::path, Path*> pathByHandle;
 #else
-		std::unordered_map<int, Path> pathByHandle;
+		std::unordered_map<int, Path*> pathByHandle;
 #ifdef USE_KQUEUES
 		struct kevent cancelWaiter;
 #endif
@@ -184,13 +184,13 @@ struct monitor : public recursive_mutex
 	int kqueueh;
 #endif
 	boost::ptr_list<Watcher> watchers;
-	std::shared_ptr<std_thread_pool>  threadpool;
+	static std::shared_ptr<std_thread_pool>  threadpool;
 	monitor();
 	~monitor();
 	void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
 	bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
 };
-static monitor mon();
+static monitor mon;
 
 monitor::monitor()
 {
@@ -291,7 +291,7 @@ void monitor::Watcher::run()
 	{
 		try
 		{
-			if((ret=read(monitor->inotifyh, buffer, sizeof(buffer))))
+			if((ret=read(mon.inotifyh, buffer, sizeof(buffer))))
 			{
 				BOOST_AFIO_ERRHOS(ret);
 				for(inotify_event *ev=(inotify_event *) buffer; ((char *)ev)-buffer<ret; ev+=ev->len+sizeof(inotify_event))
@@ -309,7 +309,7 @@ void monitor::Watcher::run()
 		}
 		catch(std::exception &e)
 		{
-			warning("Error: %s\n", e.what());
+			std::cout << "Error: " << e.what() << std::endl;
 			return;
 		}
 		
@@ -391,7 +391,7 @@ monitor::Watcher::Path::~Path()
 #ifdef USE_INOTIFY
 	if(h)
 	{
-		BOOST_AFIO_ERRHOS(inotify_rm_watch(monitor->inotifyh, h));
+		BOOST_AFIO_ERRHOS(inotify_rm_watch(mon.inotifyh, h));
 		h=0;
 	}
 #endif
@@ -423,10 +423,10 @@ monitor::Watcher::Path::Handler::~Handler()
 
 }
 
-void monitor::Watcher::Path::Handler::invoke(const std::vector<Change> &changes, thread_handle callv)
+void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*, future_handle callv*/)
 {
 	//fxmessage("dir_monitor dispatch %p\n", callv);
-	for(std::vector<Change>::const_iterator it=changes.begin(); it!=changes.end(); ++it)
+	for(auto it=changes.begin(); it!=changes.end(); ++it)
 	{
 		const Change &ch=*it;
 		const directory_entry &oldfi=ch.oldfi ? *ch.oldfi : directory_entry();
@@ -445,7 +445,8 @@ void monitor::Watcher::Path::Handler::invoke(const std::vector<Change> &changes,
 #endif
 		{
 			BOOST_AFIO_LOCK_GUARD<monitor> h(mon);
-			callvs.remove(callv); //I think this will be OK instead of removeReffrom QptrList
+			//callv.get();
+			//callvs.remove(callv); //I think this will be OK instead of removeReffrom QptrList
 			//h.unlock();
 		}
 		handler(ch.change, oldfi, newfi);
@@ -453,7 +454,7 @@ void monitor::Watcher::Path::Handler::invoke(const std::vector<Change> &changes,
 }
 
 
-static const directory_entry& findFIByName(const std::unique_ptr<std::vector<directory_entry>>  list, const std::filesystem::path &name)
+/*static const directory_entry& findFIByName(const std::unique_ptr<std::vector<directory_entry>>  list, const std::filesystem::path &name)
 {
 	for(auto it=list->begin(); it!=list->end(); ++it)
 	{
@@ -461,7 +462,7 @@ static const directory_entry& findFIByName(const std::unique_ptr<std::vector<dir
 		if((*it).name()==name) return *it;
 	}
 	return 0;
-}
+}*/
 void monitor::Watcher::Path::callHandlers()
 {	// Lock is held on entry
 	void *addr=begin_enumerate_directory(pathdir->front().name().root_path());//maybe need a better way to get directory name???
@@ -475,7 +476,7 @@ void monitor::Watcher::Path::callHandlers()
 
 	std::list<Change> changes;
 	static unsigned long eventcounter=0;
-	for(auto it = newpathdir.begin(); it != newpathdir.end(); ++it)
+	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
 		try
 		{
@@ -497,18 +498,18 @@ void monitor::Watcher::Path::callHandlers()
 				modified = true;
 				changed = true;
 			}
-			if(temp.st_mode() !- it->st_mode())
+			if(temp.st_mode() != it->st_mode())
 			{
 				changed = true;
 				security = true;
 			}
 			if(changed)
 			{
-				Change ch(temp, *it);
+				Change ch(&temp, &(*it));
 				ch.change.eventNo=++eventcounter;
-				ch.renamed = renamed;
-				ch.modified=modified;
-				ch.security = security
+				ch.change.setRenamed(renamed);
+				ch.change.setModified(modified);
+				ch.change.setSecurity(security);
 				changes.push_back(ch);
 			}
 
@@ -519,7 +520,7 @@ void monitor::Watcher::Path::callHandlers()
 		catch(std::out_of_range &e)
 		{
 			//We've never seen this before
-			Change ch(directory_entry(), *it);
+			Change ch(new directory_entry(), &(*it));
 			ch.change.eventNo=++eventcounter;
 			ch.change.setCreated();
 			changes.push_back(ch);
@@ -530,7 +531,7 @@ void monitor::Watcher::Path::callHandlers()
 	for(auto it = entry_dict.begin(); it != entry_dict.end(); ++it)
 	{
 		//We've never seen this before
-		Change ch(*it, directory_entry());
+		Change ch(&(*it).second, new directory_entry());
 		ch.change.eventNo=++eventcounter;
 		ch.change.setDeleted();
 		changes.push_back(ch);
@@ -539,20 +540,19 @@ void monitor::Watcher::Path::callHandlers()
 
 	
 	//this seems wrong...
-	auto resetchanges=Undoer([*this, &changes]{ this->resetChanges(changes));
+	auto resetchanges = boost::afio::detail::Undoer([this, &changes](){ this->resetChanges(&changes); } );
 
 	// Dispatch
 	Watcher::Path::Handler *handler;
 	for(auto it = handlers.begin(); it != handlers.end(); ++it)
-	{
-		// would it be better to just use a lambda??
-		auto functor = std::bind(&Watcher::Path::Handler::invoke, *it, changes, 0);
-		
+	{		
 		// Detach changes per dispatch
 		for(auto it2 = changes.begin(); it2 != changes.end(); ++it2)
-			it2->make_fis();
-		
-		handler->callvs.push_back(threadpool->enqueue(functor));
+			it2->make_fis(); 
+
+		threadpool->enqueue([it, &changes](){ it->invoke(changes/*, callv*/); });
+		//do we need to keep these futures???
+		//handler->callvs.push_back();
 	}
 
 	// update pathdir and entry_dict
@@ -565,27 +565,27 @@ void monitor::Watcher::Path::callHandlers()
 
 void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
-	BOOST_AFIO_LOCK_GUARD<monitor> lh;
+	BOOST_AFIO_LOCK_GUARD<monitor> lh(mon);
 	Watcher *w = nullptr;
 	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
 	{
 #ifdef USE_WINAPI
 		if(w->paths.count() >= MAXIMUM_WAIT_OBJECTS-2) continue;
 #endif
-		w = *it;
+		w = &(*it);
 	}
 	if(!w)
 	{
-		auto unnew = Undoer([]{delete w; w = nullptr;});
+		auto unnew = boost::afio::detail::Undoer([&w]{delete w; w = nullptr;});
 		w=new Watcher;
 		//w->start();
 		watchers.push_back(w);
 		unnew.dismiss();
 	}
-	Watcher::Path *p=w->paths.find(path);
+	Watcher::Path *p = (*(w->paths.find(path))).second;
 	if(!p)
 	{
-		auto unnew = Undoer([]{delete p; p = nullptr;});
+		auto unnew = boost::afio::detail::Undoer([&p]{delete p; p = nullptr;});
 		p=new Watcher::Path(w, path);
 #ifdef USE_WINAPI
 		HANDLE h;
@@ -598,13 +598,13 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 #endif
 #ifdef USE_INOTIFY
 		int h;
-		BOOST_AFIO_ERRHOS(h=inotify_add_watch(monitor->inotifyh, path.text(), IN_ALL_EVENTS&~(IN_ACCESS|IN_CLOSE_NOWRITE|IN_OPEN)));
+		BOOST_AFIO_ERRHOS(h=inotify_add_watch(mon.inotifyh, path.c_str(), IN_ALL_EVENTS&~(IN_ACCESS|IN_CLOSE_NOWRITE|IN_OPEN)));
 		p->h=h;
-		w->pathByHandle.insert(h, p);
+		w->pathByHandle.insert(std::make_pair(h, p));
 #endif
 #ifdef USE_KQUEUES
 		int h;
-		BOOST_AFIO_ERRHOS(h=::open(path.text(),
+		BOOST_AFIO_ERRHOS(h=::open(path.c_str(),
 #ifdef __APPLE__
 			O_RDONLY|O_EVTONLY));		// Stop unmounts being prevented by open handle
 #else
@@ -616,30 +616,30 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		w->pathByHandle.insert(h, p);
 #endif
 
-		w->paths.insert(path, p);
+		w->paths.insert(std::make_pair(path, p));
 		unnew.dismiss();
 	}
 	Watcher::Path::Handler *h;
-	auto unh = Undoer([]{delete h; h = nullptr;});
+	auto unh = boost::afio::detail::Undoer([&h]{delete h; h = nullptr;});
 	h=new Watcher::Path::Handler(p, std::move(handler));
 	p->handlers.push_back(h);
 	unh.dismiss();
 }
 
-bool monitor::remove(const FXString &path, dir_monitor::ChangeHandler handler)
+bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
-	BOOST_AFIO_LOCK_GUARD<monitor> hl;
+	BOOST_AFIO_LOCK_GUARD<monitor> hl(mon);
 	Watcher *w;
-	for(auto it  = watchers.begin(); it != watcher.end(); ++it)
+	for(auto it = watchers.begin(); it != watchers.end(); ++it)
 	{
-		w = *it;
-		Watcher::Path *p=w->paths.find(path);
+		w = &(*it);
+		Watcher::Path *p = (*w->paths.find(path)).second;
 		if(!p) continue;
 		Watcher::Path::Handler *h;
-		for(it2 = p->handlers.begin(); it2 != p->handlers.end(); ++it2)
+		for(auto it2 = p->handlers.begin(); it2 != p->handlers.end(); ++it2)
 		{
-			h = it2;
-			if(h->handler==handler)
+			h = &(*it2);
+			if(&h->handler == &handler)
 			{
 				p->handlers.erase(it2);
 				//hl.unlock();
@@ -654,7 +654,7 @@ bool monitor::remove(const FXString &path, dir_monitor::ChangeHandler handler)
 #endif
 					w->paths.erase(path);
 					p=0;
-					if(w->paths.empty() && watchers.count()>1)
+					if(w->paths.empty() && watchers.size()>1)
 					{
 						watchers.erase(it);
 						w=0;
@@ -669,12 +669,12 @@ bool monitor::remove(const FXString &path, dir_monitor::ChangeHandler handler)
 
 void dir_monitor::add(const std::filesystem::path &_path, dir_monitor::ChangeHandler handler)
 {
-	monitor->add(_path.absolute(), std::move(handler));
+	mon.add(_path, std::move(handler));
 }
 
 bool dir_monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
-	return monitor->remove(path, std::move(handler));
+	return mon.remove(path, std::move(handler));
 }
 
 

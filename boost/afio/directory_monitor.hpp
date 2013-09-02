@@ -14,17 +14,36 @@
 #include "generic_dir_monitor.hpp"
 #endif
 */
-
+#include "afio.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/functional/hash.hpp>
 
 
 namespace boost{
 	namespace afio{
 		
+		//maybe adding operators for this is a mistake??? but I want to compare so ...
 		struct timespec
 		{
 			time_t tv_sec;
 			long tv_nsec;
+			
+			bool operator == (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec == b.tv_nsec) && (tv_sec == b.tv_sec)); }
+			bool operator != (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec != b.tv_nsec) && (tv_sec != b.tv_sec)); 	}
+			bool operator < (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec <  b.tv_nsec) && (tv_sec <  b.tv_sec)); }
+			bool operator > ( const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec > b.tv_nsec) && (tv_sec > b.tv_sec)); }
+			bool operator <= (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec <= b.tv_nsec) && (tv_sec <= b.tv_sec)); }
+			bool operator >= (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec >= b.tv_nsec) && (tv_sec >= b.tv_sec)); }
+			friend  std::size_t hash_value(timespec const& t)
+			{
+				size_t seed = 0;
+				boost::hash_combine(seed, t.tv_sec);
+				boost::hash_combine(seed, t.tv_nsec);
+				//boost::hash_combine(seed, s.z);
+				//boost::hash_combine(seed, s.x);
+				return seed;
+			}
+
 		};
 		typedef unsigned long long off_t;
 
@@ -44,7 +63,7 @@ namespace boost{
 			unsigned int value;
 		};
 		//! An entry in a directory
-		class directory_entry
+		class BOOST_AFIO_DECL directory_entry
 		{
 			friend std::unique_ptr<std::vector<directory_entry>> enumerate_directory(void *h, size_t maxitems, std::filesystem::path glob=std::filesystem::path(), bool namesonly=false);
 			//friend size_t std::hash<boost::afio::directory_entry>(const boost::afio::directory_entry& p) const;
@@ -72,6 +91,18 @@ public://cheating here for now, need to fix this if it works
 				uint32_t        st_gen;           /* file generation number */
 				int32_t         st_lspare;
 				struct timespec st_birthtim;      /* time of file creation (birth) */
+				int z,x;
+
+				friend  std::size_t hash_value(stat_t const& s)
+				{
+					size_t seed = 0;
+					boost::hash_combine(seed, s.st_ino);
+					boost::hash_combine(seed, s.st_birthtim);
+					//boost::hash_combine(seed, s.z);
+					//boost::hash_combine(seed, s.x);
+					return seed;
+				}
+
 			} stat;
 			void _int_fetch(have_metadata_flags wanted, std::filesystem::path prefix=std::filesystem::path());
 		//public:
@@ -141,7 +172,7 @@ public://cheating here for now, need to fix this if it works
 			static have_metadata_flags metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW;
 		};// end directory_entry
 
-		class dir_monitor
+		class BOOST_AFIO_DECL dir_monitor
 		{
 			typedef unsigned long event_no;
 			typedef unsigned int event_flag;
@@ -193,6 +224,33 @@ public://cheating here for now, need to fix this if it works
 			//! Removes a monitor of a path. Cancels any pending handler invocations.
 			static bool remove(const dir_path &path, ChangeHandler handler);
 		};// end dir_monitor
+
+		//! Starts the enumeration of a directory. This actually simply opens the directory and returns the fd or `HANDLE`.
+	extern BOOST_AFIO_DECL void *begin_enumerate_directory(std::filesystem::path path);
+	//! Ends the enumeration of a directory. This simply closes the fd or `HANDLE`.
+	extern BOOST_AFIO_DECL void end_enumerate_directory(void *h);
+	/*! \brief Enumerates a directory as quickly as possible, retrieving all zero-cost metadata.
+
+	Note that maxitems items may not be retreived for various reasons, including that glob filtered them out.
+	A zero item vector return is entirely possible, but this does not mean end of enumeration: only a null
+	shared_ptr means that.
+
+	Windows returns the common stat items, Linux and FreeBSD returns `st_ino` and usually `st_rdev`, other POSIX just `st_ino`.
+	Setting namesonly to true returns as little information as possible.
+
+	Suggested code for merging chunks of enumeration into a single vector:
+	\code
+	void *h=begin_enumerate_directory(_L("testdir"));
+	std::unique_ptr<std::vector<directory_entry>> enumeration, chunk;
+	while((chunk=enumerate_directory(h, NUMBER_OF_FILES)))
+		if(!enumeration)
+			enumeration=std::move(chunk);
+		else
+			enumeration->insert(enumeration->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
+	end_enumerate_directory(h);
+	\endcode
+	*/
+	extern BOOST_AFIO_DECL std::unique_ptr<std::vector<directory_entry>> enumerate_directory(void *h, size_t maxitems, std::filesystem::path glob, bool namesonly);
 	}// namespace afio
 } // namespace boost
 
@@ -212,7 +270,7 @@ namespace std
 		}
 	};
 	
-	//Probably need to change this dependent on platform right now it should hash safely
+	/*//Probably need to change this dependent on platform right now it should hash safely
 	template<> struct hash<boost::afio::directory_entry::stat_t>
 	{
 	public:
@@ -241,6 +299,7 @@ namespace std
 			return seed;
 		}
 	};
+	*/
 
 	template<> struct hash<std::filesystem::path>
 	{
