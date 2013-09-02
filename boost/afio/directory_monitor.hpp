@@ -47,7 +47,8 @@ namespace boost{
 		class directory_entry
 		{
 			friend std::unique_ptr<std::vector<directory_entry>> enumerate_directory(void *h, size_t maxitems, std::filesystem::path glob=std::filesystem::path(), bool namesonly=false);
-
+			//friend size_t std::hash<boost::afio::directory_entry>(const boost::afio::directory_entry& p) const;
+public://cheating here for now, need to fix this if it works
 			std::filesystem::path leafname;
 			have_metadata_flags have_metadata;
 			struct stat_t // Derived from BSD
@@ -73,7 +74,7 @@ namespace boost{
 				struct timespec st_birthtim;      /* time of file creation (birth) */
 			} stat;
 			void _int_fetch(have_metadata_flags wanted, std::filesystem::path prefix=std::filesystem::path());
-		public:
+		//public:
 			//! Constructs an instance
 			directory_entry()
 			{
@@ -138,7 +139,7 @@ namespace boost{
 
 			//! A bitfield of what metadata is available on this platform. This doesn't mean all is available for every filing system.
 			static have_metadata_flags metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW;
-		};
+		};// end directory_entry
 
 		class dir_monitor
 		{
@@ -155,15 +156,16 @@ namespace boost{
 				event_flag security	: 1;		//!< When the security of an entry is changed
 			};
 
+		public:
 			struct dir_event
 			{
 				event_no eventNo;				//!< Non zero event number index
 				event_flags flags;				//!< bit-field of director events
 				dir_path path; 					//!< Path to event/file
 
-				dir_event() : eventNo(0), flags.modified(false), flags.created(false), flags.deleted(false), flags.renamed(false), flags.security(false) { }
-				dir_event(int) : eventNo(0), flags.modified(true), flags.created(true), flags.deleted(true), flags.renamed(true), flags.security(true) { }
-				operator event_flag() const throw()
+				dir_event() : eventNo(0) { flags.modified = false; flags.created = false; flags.deleted = false; flags.security = false; }
+				dir_event(int) : eventNo(0) { flags.modified = true; flags.created = true; flags.deleted = true; flags.security = true; }
+				operator event_flags() const throw()
 				{
 					return this->flags;
 				}
@@ -179,7 +181,7 @@ namespace boost{
 				//dir_event &setAttrib(bool v=true) throw()		{ flags.attrib=v; return *this; }
 				//! Sets the security bit
 				dir_event &setSecurity(bool v=true) throw()		{ flags.security=v; return *this; }
-			};
+			};//end dir_event
 
 
 			//! Defines the type of closure change handlers are
@@ -190,7 +192,7 @@ namespace boost{
 			static void add(const dir_path &path, ChangeHandler handler);
 			//! Removes a monitor of a path. Cancels any pending handler invocations.
 			static bool remove(const dir_path &path, ChangeHandler handler);
-		};
+		};// end dir_monitor
 	}// namespace afio
 } // namespace boost
 
@@ -214,7 +216,7 @@ namespace std
 	template<> struct hash<boost::afio::directory_entry::stat_t>
 	{
 	public:
-		size_t operator()(const boost::afio::directory_entry::stat& s) const
+		size_t operator()(const boost::afio::directory_entry::stat_t& s) const
 		{
 			size_t seed = 0;
 			//boost::hash_combine(seed, s.st_dev);
@@ -240,6 +242,14 @@ namespace std
 		}
 	};
 
+	template<> struct hash<std::filesystem::path>
+	{
+	public:
+		size_t operator()(const std::filesystem::path& p) const
+		{
+			return boost::filesystem::hash_value(p);
+		}
+	};
 
 
 }//namesapce std

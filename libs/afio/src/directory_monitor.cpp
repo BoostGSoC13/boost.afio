@@ -20,6 +20,7 @@
 ********************************************************************************/
 // set up for various OS
 #include "boost/thread.hpp"		// May undefine USE_WINAPI and USE_POSIX
+#define USE_POSIX
 #ifndef USE_POSIX
  #define USE_WINAPI
 #else
@@ -41,6 +42,7 @@
 #include "../../../boost/afio/afio.hpp"
 #include "../../../boost/afio/directory_monitor.hpp"
 #include "../../../boost/afio/detail/ErrorHandling.hpp"
+#include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/ptr_container/ptr_list.hpp>
 #include <unordered_map>
 #include <vector>
@@ -53,6 +55,8 @@ namespace boost {
 	namespace afio {
 
 typedef std::future<void> thread_handle;
+typedef boost::afio::dir_monitor dir_monitor;
+typedef dir_monitor::dir_event dir_event;
 
 struct monitor : public recursive_mutex
 {
