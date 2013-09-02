@@ -248,26 +248,29 @@ monitor::Watcher::~Watcher()
 void monitor::Watcher::run()
 {
 	HANDLE hlist[MAXIMUM_WAIT_OBJECTS];
-	hlist[0]=QThread::int_cancelWaiterHandle();
-	hlist[1]=latch;
+	//hlist[0]=QThread::int_cancelWaiterHandle();
+	hlist[0]=latch;
 	for(;;)
 	{
 		//QMtxHold h(f);
+		//mon.lock();
+		BOOST_AFIO_LOCK_GUARD<monitor> h(mon, boost::adopt_lock);
 		Path *p;
-		int idx=2;
+		int idx=1;
 		for(auto it = paths.begin(); it != paths.end(); ++it)
 		{
 			hlist[idx++]=it->h;
 		}
-		//h.unlock();
+		mon.unlock();
+		
 		DWORD ret=WaitForMultipleObjects(idx, hlist, FALSE, INFINITE);
 		if(ret<WAIT_OBJECT_0 || ret>=WAIT_OBJECT_0+idx) { BOOST_AFIO_ERRHWIN(ret); }
 		checkForTerminate();
-		if(WAIT_OBJECT_0+1==ret) continue;
+		if(WAIT_OBJECT_0==ret) continue;
 		ret-=WAIT_OBJECT_0;
 		FindNextChangeNotification(hlist[ret]);
-		ret-=2;
-		//h.relock();
+		ret-=1;
+		mon.lock();
 		for(auto it = paths.begin(); it != paths.end(); ++it)
 		{
 			p = it;
@@ -350,7 +353,7 @@ void monitor::Watcher::run()
 					if(cancelWaiterHandle==kev->ident)
 						QThread::current()->checkForTerminate();
 #endif
-					BOOST_AFIO_LOCK_GUARD<monitor> h(monitor);
+					BOOST_AFIO_LOCK_GUARD<monitor> h(mon);
 					Path *p=pathByHandle.[(kev->ident)];
 					assert(p);
 					if(p)
@@ -444,7 +447,7 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 		*/}
 #endif
 		{
-			BOOST_AFIO_LOCK_GUARD<monitor> h(mon);
+			//BOOST_AFIO_LOCK_GUARD<monitor> h(mon);
 			//callv.get();
 			//callvs.remove(callv); //I think this will be OK instead of removeReffrom QptrList
 			//h.unlock();
@@ -628,7 +631,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 
 bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
-	BOOST_AFIO_LOCK_GUARD<monitor> hl(mon);
+	BOOST_AFIO_LOCK_GUARD<monitor> hl(mon, boost::adopt_lock);
 	Watcher *w;
 	for(auto it = watchers.begin(); it != watchers.end(); ++it)
 	{
@@ -642,10 +645,10 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 			if(&h->handler == &handler)
 			{
 				p->handlers.erase(it2);
-				//hl.unlock();
+				mon.unlock();
 				delete h;
 				h = NULL;
-				//hl.relock();
+				mon.lock();
 				h=0;
 				if(p->handlers.empty())
 				{
