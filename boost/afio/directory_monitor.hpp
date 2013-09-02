@@ -304,8 +304,6 @@ namespace std
 			return boost::filesystem::hash_value(p);
 		}
 	};
-
-
 }//namesapce std
 
 #endif
