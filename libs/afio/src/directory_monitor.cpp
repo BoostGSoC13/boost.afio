@@ -184,7 +184,7 @@ struct monitor : public recursive_mutex
 	int kqueueh;
 #endif
 	boost::ptr_list<Watcher> watchers;
-	static std::shared_ptr<std_thread_pool>  threadpool;
+	std::shared_ptr<std_thread_pool> threadpool;
 	monitor();
 	~monitor();
 	void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
@@ -550,7 +550,7 @@ void monitor::Watcher::Path::callHandlers()
 		for(auto it2 = changes.begin(); it2 != changes.end(); ++it2)
 			it2->make_fis(); 
 
-		threadpool->enqueue([it, &changes](){ it->invoke(changes/*, callv*/); });
+		mon.threadpool->enqueue([it, &changes](){ it->invoke(changes/*, callv*/); });
 		//do we need to keep these futures???
 		//handler->callvs.push_back();
 	}
@@ -570,7 +570,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
 	{
 #ifdef USE_WINAPI
-		if(w->paths.count() >= MAXIMUM_WAIT_OBJECTS-2) continue;
+		if(w->paths.size() >= MAXIMUM_WAIT_OBJECTS-2) continue;
 #endif
 		w = &(*it);
 	}

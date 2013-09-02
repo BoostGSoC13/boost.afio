@@ -27,7 +27,7 @@ namespace boost{
 		{
 			time_t tv_sec;
 			long tv_nsec;
-			
+
 			bool operator == (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec == b.tv_nsec) && (tv_sec == b.tv_sec)); }
 			bool operator != (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec != b.tv_nsec) && (tv_sec != b.tv_sec)); 	}
 			bool operator < (const timespec& b) const BOOST_NOEXCEPT_OR_NOTHROW { return ((tv_nsec <  b.tv_nsec) && (tv_sec <  b.tv_sec)); }
@@ -39,8 +39,6 @@ namespace boost{
 				size_t seed = 0;
 				boost::hash_combine(seed, t.tv_sec);
 				boost::hash_combine(seed, t.tv_nsec);
-				//boost::hash_combine(seed, s.z);
-				//boost::hash_combine(seed, s.x);
 				return seed;
 			}
 
@@ -91,15 +89,12 @@ public://cheating here for now, need to fix this if it works
 				uint32_t        st_gen;           /* file generation number */
 				int32_t         st_lspare;
 				struct timespec st_birthtim;      /* time of file creation (birth) */
-				int z,x;
 
 				friend  std::size_t hash_value(stat_t const& s)
 				{
 					size_t seed = 0;
 					boost::hash_combine(seed, s.st_ino);
 					boost::hash_combine(seed, s.st_birthtim);
-					//boost::hash_combine(seed, s.z);
-					//boost::hash_combine(seed, s.x);
 					return seed;
 				}
 
