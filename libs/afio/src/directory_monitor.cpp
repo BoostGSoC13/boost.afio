@@ -65,7 +65,7 @@ struct monitor : public recursive_mutex
 		struct Path
 		{
 			Watcher *parent;
-			std::unique_ptr<std::vector<directory_entry>> pathdir;
+			std::shared_ptr<std::vector<directory_entry>> pathdir;
 			std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
 
 #ifdef USE_WINAPI
@@ -119,7 +119,7 @@ struct monitor : public recursive_mutex
 				Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
 				~Handler();
 				void invoke(const std::list<Change> &changes/*, future_handle &callv*/);
-			private:
+			//private:
 				Handler(const Handler &);
 				Handler &operator=(const Handler &);
 			};
@@ -161,10 +161,10 @@ struct monitor : public recursive_mutex
 			void callHandlers();
 		};
 
-		std::unordered_map< std::filesystem::path, Path*> paths;
+		std::unordered_map< std::filesystem::path, Path> paths;
 #ifdef USE_WINAPI
 		HANDLE latch;
-		std::unordered_map<std::filesystem::path, Path*> pathByHandle;
+		std::unordered_map<std::filesystem::path, Path> pathByHandle;
 #else
 		std::unordered_map<int, Path*> pathByHandle;
 #ifdef USE_KQUEUES
@@ -582,7 +582,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		watchers.push_back(w);
 		unnew.dismiss();
 	}
-	Watcher::Path *p = (*(w->paths.find(path))).second;
+	Watcher::Path *p = &w->paths.find(path)->second;
 	if(!p)
 	{
 		auto unnew = boost::afio::detail::Undoer([&p]{delete p; p = nullptr;});
@@ -616,7 +616,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		w->pathByHandle.insert(h, p);
 #endif
 
-		w->paths.insert(std::make_pair(path, p));
+		w->paths.insert(std::make_pair(path, *p));
 		unnew.dismiss();
 	}
 	Watcher::Path::Handler *h;
@@ -633,7 +633,7 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 	for(auto it = watchers.begin(); it != watchers.end(); ++it)
 	{
 		w = &(*it);
-		Watcher::Path *p = (*w->paths.find(path)).second;
+		Watcher::Path *p = &w->paths.find(path)->second;
 		if(!p) continue;
 		Watcher::Path::Handler *h;
 		for(auto it2 = p->handlers.begin(); it2 != p->handlers.end(); ++it2)
