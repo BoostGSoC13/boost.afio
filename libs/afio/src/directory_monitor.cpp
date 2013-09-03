@@ -120,8 +120,8 @@ struct monitor : public recursive_mutex
 				~Handler();
 				void invoke(const std::list<Change> &changes/*, future_handle &callv*/);
 			//private:
-				Handler(const Handler &);
-				Handler &operator=(const Handler &);
+				Handler(const Handler & other): parent(other.parent), handler(other.handler) {}
+				Handler &operator=(const Handler & other) { parent = other.parent; handler = other.handler; }
 			};
 
 			boost::ptr_vector<Handler> handlers;
