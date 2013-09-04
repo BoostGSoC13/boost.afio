@@ -15,9 +15,37 @@
 #endif
 */
 #include "afio.hpp"
+#include "../../../boost/afio/detail/ErrorHandling.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/functional/hash.hpp>
+#include "boost/thread.hpp"		// May undefine USE_WINAPI and USE_POSIX
+#include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/ptr_container/ptr_list.hpp>
+#include <vector>
+#include <algorithm>
+#include <future>
 
+#define USE_POSIX
+#ifndef USE_POSIX
+ #define USE_WINAPI
+#else
+ #if defined(__linux__)
+  #include <sys/inotify.h>
+  #include <unistd.h>
+  #define USE_INOTIFY
+ 
+ #elif defined(__APPLE__) || defined(__FreeBSD__)
+  #include <xincs.h>
+  #include <sys/event.h>
+  #define USE_KQUEUES
+  #warning Using BSD kqueues - NOTE THAT THIS PROVIDES REDUCED FUNCTIONALITY!
+ #else
+  #error FAM is not available and no alternative found!
+ #endif
+#endif
+
+#define NUMBER_OF_FILES 100000
+#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
 
 namespace boost{
 	namespace afio{
@@ -246,8 +274,11 @@ public://cheating here for now, need to fix this if it works
 	\endcode
 	*/
 	extern BOOST_AFIO_DECL std::unique_ptr<std::vector<directory_entry>> enumerate_directory(void *h, size_t maxitems, std::filesystem::path glob, bool namesonly);
-	}// namespace afio
-} // namespace boost
+
+	}//namespace afio
+}// namspace boost
+
+
 
 
 namespace std
@@ -305,5 +336,156 @@ namespace std
 		}
 	};
 }//namesapce std
+#include <unordered_map>
+
+
+namespace boost{
+	namespace afio{
+	typedef std::future<void> future_handle;
+	typedef boost::afio::dir_monitor dir_monitor;
+	typedef dir_monitor::dir_event dir_event;
+
+	struct BOOST_AFIO_DECL monitor : public recursive_mutex
+	{
+		struct BOOST_AFIO_DECL Watcher : public thread
+		{
+			struct BOOST_AFIO_DECL Path
+			{
+	#ifdef USE_WINAPI
+				HANDLE h;
+	#endif
+	#ifdef USE_INOTIFY
+				int h;
+	#endif
+	#ifdef USE_KQUEUES
+				struct kevent h;
+	#endif
+
+				struct BOOST_AFIO_DECL Change
+				{
+					dir_event change;
+					const directory_entry * /*FXRESTRICT*/ oldfi, * /*FXRESTRICT*/ newfi;
+					unsigned int myoldfi : 1;
+					unsigned int mynewfi : 1;
+					Change(const directory_entry * /*FXRESTRICT*/ _oldfi, const directory_entry * /*FXRESTRICT*/ _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
+					~Change()
+					{
+						if(myoldfi) { delete oldfi; oldfi = NULL; }
+						if(mynewfi) { delete newfi; newfi = NULL; }
+					}
+					bool operator==(const Change &o) const { return oldfi==o.oldfi && newfi==o.newfi; }
+					bool operator!=(const Change &o) const { return oldfi!=o.oldfi && newfi!=o.newfi; }
+					void make_fis()
+					{
+						if(oldfi)
+						{
+							oldfi=new directory_entry(*oldfi);
+							myoldfi=true;
+						}
+						if(newfi)
+						{
+							newfi=new directory_entry(*newfi);
+							mynewfi=true;
+						}
+					}
+					void reset_fis()
+					{
+						oldfi=0; myoldfi=false;
+						newfi=0; mynewfi=false;
+					}
+				};
+
+				struct BOOST_AFIO_DECL Handler
+				{
+					Path *parent;
+					dir_monitor::ChangeHandler handler;
+					//std::list<future_handle> callvs;
+					Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
+					~Handler();
+					void invoke(const std::list<Change> &changes/*, future_handle &callv*/);
+				//private:
+					Handler(const Handler & other): parent(other.parent), handler(other.handler) {}
+					Handler &operator=(const Handler & other) { parent = other.parent; handler = other.handler; return *this; }
+				};
+				
+				Watcher *parent;
+				std::shared_ptr<std::vector<directory_entry>> pathdir;
+				std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
+				boost::ptr_vector<Handler> handlers;
+				const std::filesystem::path& path;
+				Path(Watcher *_parent, const std::filesystem::path &_path)
+					: parent(_parent), path(_path), pathdir(nullptr)
+	#if defined(USE_WINAPI) || defined(USE_INOTIFY)
+					, h(0)
+	#endif
+				{
+	#if defined(USE_KQUEUES)
+					memset(&h, 0, sizeof(h));
+	#endif
+					void *addr = begin_enumerate_directory(path);
+					//std::cout << std::filesystem::absolute(path) << std::endl;
+					std::unique_ptr<std::vector<directory_entry>> chunk;
+					while((chunk = enumerate_directory(addr, NUMBER_OF_FILES)))
+						if(!pathdir)
+							pathdir=std::move(chunk);
+						else
+							pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
+					end_enumerate_directory(addr);
+					entry_dict.clear();
+					//if(pathdir)
+					//std::sort(pathdir->begin(), pathdir->end(), [](directory_entry a, directory_entry b){return a.name() < b.name();});
+					for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
+					{	
+						entry_dict.insert(std::make_pair(*it, *it));
+						//std::cout << it->name() << std::endl;
+					}
+
+					//std::cout << pathdir->size() << std::endl;
+				}
+				
+				~Path();
+				void resetChanges(std::list<Change> *changes)
+				{
+					for(auto it=changes->begin(); it!=changes->end(); ++it)
+						it->reset_fis();
+				}
+
+				void callHandlers();
+			};
+
+			std::unordered_map< std::filesystem::path, Path> paths;
+	#ifdef USE_WINAPI
+			HANDLE latch;
+			std::unordered_map<std::filesystem::path, Path> pathByHandle;
+	#else
+			std::unordered_map<int, Path*> pathByHandle;
+	#ifdef USE_KQUEUES
+			struct kevent cancelWaiter;
+	#endif
+	#endif
+			Watcher();
+			~Watcher();
+			void run();
+			void *cleanup();
+		};
+
+	#ifdef USE_INOTIFY
+		int inotifyh;
+	#endif
+	#ifdef USE_KQUEUES
+		int kqueueh;
+	#endif
+		boost::ptr_list<Watcher> watchers;
+		std::shared_ptr<std_thread_pool> threadpool;
+		monitor();
+		~monitor();
+		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
+		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
+	};
+	static monitor mon;
+
+	}// namespace afio
+} // namespace boost
+
 
 #endif

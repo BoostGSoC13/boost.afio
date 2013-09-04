@@ -19,178 +19,12 @@
 * $Id:                                                                          *
 ********************************************************************************/
 // set up for various OS
-#include "boost/thread.hpp"		// May undefine USE_WINAPI and USE_POSIX
-#define USE_POSIX
-#ifndef USE_POSIX
- #define USE_WINAPI
-#else
- #if defined(__linux__)
-  #include <sys/inotify.h>
-  #include <unistd.h>
-  #define USE_INOTIFY
- 
- #elif defined(__APPLE__) || defined(__FreeBSD__)
-  #include <xincs.h>
-  #include <sys/event.h>
-  #define USE_KQUEUES
-  #warning Using BSD kqueues - NOTE THAT THIS PROVIDES REDUCED FUNCTIONALITY!
- #else
-  #error FAM is not available and no alternative found!
- #endif
-#endif
 
 #include "../../../boost/afio/directory_monitor.hpp"
-#include "../../../boost/afio/detail/ErrorHandling.hpp"
-#include <boost/ptr_container/ptr_vector.hpp>
-#include <boost/ptr_container/ptr_list.hpp>
-#include <unordered_map>
-#include <vector>
-#include <algorithm>
-#include <future>
-
-#define NUMBER_OF_FILES 100000
-#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
-
 namespace boost { 
 	namespace afio {
 
-typedef std::future<void> future_handle;
-typedef boost::afio::dir_monitor dir_monitor;
-typedef dir_monitor::dir_event dir_event;
 
-struct monitor : public recursive_mutex
-{
-	struct Watcher : public thread
-	{
-		struct Path
-		{
-			Watcher *parent;
-			std::shared_ptr<std::vector<directory_entry>> pathdir;
-			std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
-
-#ifdef USE_WINAPI
-			HANDLE h;
-#endif
-#ifdef USE_INOTIFY
-			int h;
-#endif
-#ifdef USE_KQUEUES
-			struct kevent h;
-#endif
-
-			struct Change
-			{
-				dir_event change;
-				const directory_entry * /*FXRESTRICT*/ oldfi, * /*FXRESTRICT*/ newfi;
-				unsigned int myoldfi : 1;
-				unsigned int mynewfi : 1;
-				Change(const directory_entry * /*FXRESTRICT*/ _oldfi, const directory_entry * /*FXRESTRICT*/ _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
-				~Change()
-				{
-					if(myoldfi) { delete oldfi; oldfi = NULL; }
-					if(mynewfi) { delete newfi; newfi = NULL; }
-				}
-				bool operator==(const Change &o) const { return oldfi==o.oldfi && newfi==o.newfi; }
-				void make_fis()
-				{
-					if(oldfi)
-					{
-						oldfi=new directory_entry(*oldfi);
-						myoldfi=true;
-					}
-					if(newfi)
-					{
-						newfi=new directory_entry(*newfi);
-						mynewfi=true;
-					}
-				}
-				void reset_fis()
-				{
-					oldfi=0; myoldfi=false;
-					newfi=0; mynewfi=false;
-				}
-			};
-
-			struct Handler
-			{
-				Path *parent;
-				dir_monitor::ChangeHandler handler;
-				//std::list<future_handle> callvs;
-				Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
-				~Handler();
-				void invoke(const std::list<Change> &changes/*, future_handle &callv*/);
-			//private:
-				Handler(const Handler & other): parent(other.parent), handler(other.handler) {}
-				Handler &operator=(const Handler & other) { parent = other.parent; handler = other.handler; }
-			};
-
-			boost::ptr_vector<Handler> handlers;
-			const std::filesystem::path & path;
-			Path(Watcher *_parent, const std::filesystem::path &_path)
-				: parent(_parent), path(_path)
-#if defined(USE_WINAPI) || defined(USE_INOTIFY)
-				, h(0)
-#endif
-			{
-#if defined(USE_KQUEUES)
-				memset(&h, 0, sizeof(h));
-#endif
-				void *addr=begin_enumerate_directory(_path);
-				std::unique_ptr<std::vector<directory_entry>> chunk;
-				while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
-					if(!pathdir)
-						pathdir=std::move(chunk);
-					else
-						pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
-				end_enumerate_directory(addr);
-				entry_dict.clear();
-				
-				for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
-					entry_dict.insert(std::make_pair(*it, *it));
-				
-				
-			}
-			
-			~Path();
-			void resetChanges(std::list<Change> *changes)
-			{
-				for(auto it=changes->begin(); it!=changes->end(); ++it)
-					it->reset_fis();
-			}
-
-			void callHandlers();
-		};
-
-		std::unordered_map< std::filesystem::path, Path> paths;
-#ifdef USE_WINAPI
-		HANDLE latch;
-		std::unordered_map<std::filesystem::path, Path> pathByHandle;
-#else
-		std::unordered_map<int, Path*> pathByHandle;
-#ifdef USE_KQUEUES
-		struct kevent cancelWaiter;
-#endif
-#endif
-		Watcher();
-		~Watcher();
-		void run();
-		void *cleanup();
-	};
-
-#ifdef USE_INOTIFY
-	int inotifyh;
-#endif
-#ifdef USE_KQUEUES
-	int kqueueh;
-#endif
-	boost::ptr_list<Watcher> watchers;
-	std::shared_ptr<std_thread_pool> threadpool;
-	monitor();
-	~monitor();
-	void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
-	bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
-};
-static monitor mon;
 
 monitor::monitor()
 {
@@ -468,7 +302,7 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 }*/
 void monitor::Watcher::Path::callHandlers()
 {	// Lock is held on entry
-	void *addr=begin_enumerate_directory(pathdir->front().name().root_path());//maybe need a better way to get directory name???
+	void *addr=begin_enumerate_directory(path);
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
 		if(!newpathdir)

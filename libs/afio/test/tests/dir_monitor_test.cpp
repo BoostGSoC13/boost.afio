@@ -41,7 +41,7 @@ static void printDir(const std::shared_ptr<std::vector<directory_entry>> list)
 		print(*it);
 	}
 }
-static int called;
+static int called=0;
 static void handler(boost::afio::dir_monitor::dir_event change,  directory_entry oldfi,  directory_entry newfi)
 {
 	called++;
@@ -96,7 +96,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
 	//BOOST_TEST_MESSAGE("\nMonitoring for changes ...\n");
 
 	boost::afio::dir_monitor::ChangeHandler h = handler;
-	//boost::afio::dir_monitor::add("testdir", h);
+	boost::afio::dir_monitor::add("testdir", h);
 	//QThread::sleep(num);
 	//BOOST_TEST_MESSAGE("Making changes ...\n");
 
