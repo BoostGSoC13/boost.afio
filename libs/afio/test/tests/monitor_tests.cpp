@@ -35,15 +35,19 @@ BOOST_AFIO_AUTO_TEST_CASE(Change, "Tests that the change class is fundamentally 
 // for a better test make the testdir then fill it with files, and then compare the names of the files
 
 	//Test the Path struct
+	//std::filesystem::path p("testdir");
 	auto path = std::make_shared<boost::afio::monitor::Watcher::Path>(nullptr, "testdir");
-	for(auto it = path->pathdir->begin(); it != path->pathdir->begin(); ++it)
+	std::cout << path->pathdir->size() << std::endl;
+	for(auto it = path->pathdir->begin(); it != path->pathdir->end(); ++it)
 	{
-		BOOST_MESSAGE(it->name().string());
-		std::cout << it->name() << std::endl;
+		BOOST_MESSAGE(it->name());
+		//std::cout << it->name() << std::endl;
 	}
 	std::cout << path->path << std::endl;
 // need to think of a test for resetChanges ...
 
+
+//if(path)
 	path->callHandlers();
 
 

@@ -302,6 +302,8 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 }*/
 void monitor::Watcher::Path::callHandlers()
 {	// Lock is held on entry
+	//std::cout << pathdir->size();
+	//std::cout << std::filesystem::absolute(this->path) << std::endl;
 	void *addr=begin_enumerate_directory(path);
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
@@ -311,7 +313,7 @@ void monitor::Watcher::Path::callHandlers()
 			newpathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 	end_enumerate_directory(addr);
 
-	std::list<Change> changes;
+	/*std::list<Change> changes;
 	static unsigned long eventcounter=0;
 	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
@@ -387,17 +389,17 @@ void monitor::Watcher::Path::callHandlers()
 		for(auto it2 = changes.begin(); it2 != changes.end(); ++it2)
 			it2->make_fis(); 
 
-		mon.threadpool->enqueue([it, &changes](){ it->invoke(changes/*, callv*/); });
+		mon.threadpool->enqueue([it, &changes](){ it->invoke(changes/*, callv*///); });
 		//do we need to keep these futures???
 		//handler->callvs.push_back();
-	}
+	//}
 
 	// update pathdir and entry_dict
-	pathdir=std::move(newpathdir);
+	/*pathdir=std::move(newpathdir);
 	for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 	{
 		entry_dict.insert(std::make_pair(*it, *it));
-	}
+	}*/
 }
 
 void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)

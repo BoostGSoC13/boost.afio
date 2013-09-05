@@ -412,7 +412,7 @@ namespace boost{
 				std::shared_ptr<std::vector<directory_entry>> pathdir;
 				std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
 				boost::ptr_vector<Handler> handlers;
-				const std::filesystem::path& path;
+				const std::filesystem::path path;
 				Path(Watcher *_parent, const std::filesystem::path &_path)
 					: parent(_parent), path(_path), pathdir(nullptr)
 	#if defined(USE_WINAPI) || defined(USE_INOTIFY)
