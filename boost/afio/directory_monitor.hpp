@@ -135,6 +135,10 @@ public://cheating here for now, need to fix this if it works
 				have_metadata.value=0;
 				memset(&stat, 0, sizeof(stat));
 			}
+			
+			// copy constructor
+			//directory_entry(const directory_entry& other): stat(other.stat), leafname(other.leafname), have_metadata(other.have_metadata) {}
+
 			bool operator==(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname == rhs.leafname; }
 			bool operator!=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname != rhs.leafname; }
 			bool operator< (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname < rhs.leafname; }
@@ -347,7 +351,7 @@ namespace boost{
 
 	struct BOOST_AFIO_DECL monitor : public recursive_mutex
 	{
-		struct BOOST_AFIO_DECL Watcher : public thread
+		struct BOOST_AFIO_DECL Watcher //: public thread
 		{
 			struct BOOST_AFIO_DECL Path
 			{
@@ -364,14 +368,15 @@ namespace boost{
 				struct BOOST_AFIO_DECL Change
 				{
 					dir_event change;
-					const directory_entry * /*FXRESTRICT*/ oldfi, * /*FXRESTRICT*/ newfi;
+					std::shared_ptr<directory_entry> oldfi, newfi;
 					unsigned int myoldfi : 1;
 					unsigned int mynewfi : 1;
-					Change(const directory_entry * /*FXRESTRICT*/ _oldfi, const directory_entry * /*FXRESTRICT*/ _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
+					Change( std::shared_ptr<directory_entry>& _oldfi, std::shared_ptr<directory_entry>& _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
+					Change( directory_entry* _oldfi, directory_entry* _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
+					//Change(const directory_entry&& _oldfi, const directory_entry&& _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
 					~Change()
 					{
-						if(myoldfi) { delete oldfi; oldfi = NULL; }
-						if(mynewfi) { delete newfi; newfi = NULL; }
+						
 					}
 					bool operator==(const Change &o) const { return oldfi==o.oldfi && newfi==o.newfi; }
 					bool operator!=(const Change &o) const { return oldfi!=o.oldfi && newfi!=o.newfi; }
@@ -379,19 +384,19 @@ namespace boost{
 					{
 						if(oldfi)
 						{
-							oldfi=new directory_entry(*oldfi);
+							//oldfi.reset(new directory_entry(*oldfi));
 							myoldfi=true;
 						}
 						if(newfi)
 						{
-							newfi=new directory_entry(*newfi);
+							//newfi.reset(new directory_entry(*newfi));
 							mynewfi=true;
 						}
 					}
 					void reset_fis()
 					{
-						oldfi=0; myoldfi=false;
-						newfi=0; mynewfi=false;
+						oldfi.reset(); myoldfi=false;
+						newfi.reset(); mynewfi=false;
 					}
 				};
 
@@ -431,9 +436,11 @@ namespace boost{
 						else
 							pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
 					end_enumerate_directory(addr);
-					entry_dict.clear();
+					//entry_dict.clear();
 					//if(pathdir)
 					//std::sort(pathdir->begin(), pathdir->end(), [](directory_entry a, directory_entry b){return a.name() < b.name();});
+					
+					//BOOST_FOREACH(auto &i, *pathdir)
 					for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 					{	
 						entry_dict.insert(std::make_pair(*it, *it));
@@ -453,17 +460,18 @@ namespace boost{
 				void callHandlers();
 			};
 
+			monitor* parent;
 			std::unordered_map< std::filesystem::path, Path> paths;
 	#ifdef USE_WINAPI
 			HANDLE latch;
-			std::unordered_map<std::filesystem::path, Path> pathByHandle;
+			std::unordered_map<std::filesystem::path, Path*> pathByHandle;
 	#else
-			std::unordered_map<int, Path*> pathByHandle;
+			std::unordered_map<int, Path> pathByHandle;
 	#ifdef USE_KQUEUES
 			struct kevent cancelWaiter;
 	#endif
 	#endif
-			Watcher();
+			Watcher(monitor* _parent);
 			~Watcher();
 			void run();
 			void *cleanup();
@@ -477,10 +485,13 @@ namespace boost{
 	#endif
 		boost::ptr_list<Watcher> watchers;
 		std::shared_ptr<std_thread_pool> threadpool;
+		std::atomic<bool> running;
+		future<void> finished;
 		monitor();
 		~monitor();
 		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
 		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
+		void process_watchers();
 	};
 	static monitor mon;
 
