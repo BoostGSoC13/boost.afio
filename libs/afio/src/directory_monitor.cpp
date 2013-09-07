@@ -417,9 +417,10 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
 	{
 #ifdef USE_WINAPI
-		if(w->paths.size() >= MAXIMUM_WAIT_OBJECTS-2) continue;
+		if(it == watchers.end() || it->paths.size() >= MAXIMUM_WAIT_OBJECTS-2) continue;
 #endif
 		w = &(*it);
+		break;
 	}
 	if(!w)
 	{
