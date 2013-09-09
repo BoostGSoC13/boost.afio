@@ -3,6 +3,7 @@
 #include <iostream>
 #include <atomic>
 #include <chrono>
+#include <fstream>
 typedef boost::afio::directory_entry directory_entry;
 
 BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change class is fundamentally OK", 60)
@@ -37,19 +38,19 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	//boost::afio::monitor::Watcher::Path P_obj(nullptr, "testdir");
 
 
-	auto path = std::make_shared<boost::afio::monitor::Watcher::Path>(nullptr, "testdir");
+	/*auto path = std::make_shared<boost::afio::monitor::Watcher::Path>(nullptr, "testdir");
 	std::cout << path->pathdir->size() << std::endl;
 	for(auto it = path->pathdir->begin(); it != path->pathdir->end(); ++it)
 	{
 		BOOST_MESSAGE(it->name());
 		//std::cout << it->name() << std::endl;
 	}
-	std::cout << path->path << std::endl;
+	std::cout << path->path << std::endl;*/
 // need to think of a test for resetChanges ...
 
 
 //if(path)
-//	path->callHandlers();
+	//path->callHandlers();
 
 
 
@@ -58,10 +59,10 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 
 	static std::atomic<int> testint(0);
 	boost::afio::dir_monitor::ChangeHandler handler = [&testint](boost::afio::dir_monitor::dir_event change,  directory_entry oldfi,  directory_entry newfi){
-		
+		std::cout << "We made it here !!!" << std::endl;
 		testint++;
 	};
-	auto h = std::make_shared<boost::afio::monitor::Watcher::Path::Handler>(path.get(), handler);
+	/*auto h = std::make_shared<boost::afio::monitor::Watcher::Path::Handler>(path.get(), handler);
 	BOOST_CHECK(true);
 
 	//test invoke()
@@ -75,23 +76,53 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	std::cout << "testint = " << testint << std::endl;
 	BOOST_CHECK(testint == 3);
 	testint = 0;
+*/
+
+
+
 
 
 //test how ptr_vector works for myself
-	boost::ptr_vector<boost::afio::monitor::Watcher::Path::Handler> handlers;
-	boost::afio::monitor::Watcher::Path::Handler* ptr_h = new boost::afio::monitor::Watcher::Path::Handler(path.get(), handler);
-	handlers.push_back(ptr_h);
+	//boost::ptr_vector<boost::afio::monitor::Watcher::Path::Handler> handlers;
+	//boost::afio::monitor::Watcher::Path::Handler* ptr_h = new boost::afio::monitor::Watcher::Path::Handler(path.get(), handler);
+	//handlers.push_back(ptr_h);
 
-	std::chrono::seconds dur(20);
+	//std::chrono::seconds dur(20);
 
 	//test monitor
 	boost::afio::monitor mm;
-	std::cout << "Number of watchers is: " << mm.watchers.size();
+	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;;
 	mm.add("testdir", handler);
-	std::this_thread::sleep_for( dur);
-	std::cout << "Number of watchers after adding is: " << mm.watchers.size();
+	//std::this_thread::sleep_for( dur);
+	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
+	std::ofstream file("testdir/test.txt");
+	file <<  "testint = " << testint << std::endl;
+	file.close();
 	if(mm.remove("testdir", handler))
 	{
-		std::cout << "Number of watchers after removing is now: " << mm.watchers.size();
-	}	
+		std::cout << "Number of watchers after removing is now: " << mm.watchers.size() << std::endl;;
+	}
+	std::cout << "testint = " << testint << std::endl;
+
+
+
+/*
+	auto w = new boost::afio::monitor::Watcher(&mm);
+	auto path_ptr = std::make_shared<boost::afio::monitor::Watcher::Path>(w, "testdir");
+	mm.watchers.push_back(w);
+	w->paths.emplace(path_ptr->path, *path_ptr);
+	auto h_ptr = new boost::afio::monitor::Watcher::Path::Handler(path_ptr.get(), handler);
+	path_ptr->handlers.push_back(h_ptr);
+	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;;
+	path_ptr->callHandlers();
+	std::ofstream file("testdir/test.txt");
+	file <<  "testint = " << testint << std::endl;
+	file.close();
+	path_ptr->callHandlers();
+	std::cout << "testint = " << testint << std::endl;
+	*/
+
+
+
+
 }

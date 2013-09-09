@@ -466,7 +466,7 @@ namespace boost{
 			HANDLE latch;
 			std::unordered_map<std::filesystem::path, Path*> pathByHandle;
 	#else
-			std::unordered_map<int, Path> pathByHandle;
+			std::unordered_map<int, Path*> pathByHandle;
 	#ifdef USE_KQUEUES
 			struct kevent cancelWaiter;
 	#endif
@@ -487,13 +487,14 @@ namespace boost{
 		std::shared_ptr<std_thread_pool> threadpool;
 		std::atomic<bool> running;
 		future<void> finished;
+		std::shared_ptr<thread> my_thread;
 		monitor();
 		~monitor();
 		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
 		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
 		void process_watchers();
 	};
-	static monitor mon;
+	//static monitor mon;//do something better, like make a controller class that has this as a member
 
 	}// namespace afio
 } // namespace boost

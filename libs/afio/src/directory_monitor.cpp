@@ -28,11 +28,18 @@ namespace boost {
 
 monitor::monitor() : running(true)
 {
+	std::cout << "monitor constructed" << std::endl;
 	threadpool = process_threadpool();
 	finished = threadpool->enqueue([this](){
-		while(this->running) 
+		std::cout << "this lambda was called" << std::endl;
+		while(this->running)
+		{
+			std::cout << "running was true here" << std::endl;
 			this->process_watchers(); 
+		}
 	});
+
+	my_thread = std::make_shared<thread>([this](){ this->finished.get();});
 #ifdef USE_INOTIFY
 	BOOST_AFIO_ERRHOS(inotifyh=inotify_init());
 #endif
@@ -45,10 +52,14 @@ monitor::monitor() : running(true)
 monitor::~monitor()
 { 
 	running = false;
-	finished.get();
+	//finished.get();
+	if(my_thread->joinable())
+		my_thread->join();
+	watchers.clear();
 	#ifdef USE_INOTIFY
 		if(inotifyh)
 		{
+			std::cout << "inotify closed here" << std::endl;
 			BOOST_AFIO_ERRHOS(::close(inotifyh));
 			inotifyh=0;
 		}
@@ -67,6 +78,7 @@ monitor::Watcher::Watcher(monitor* _parent) : parent(_parent)//: thread()
 	, latch(0)
 #endif
 {
+	paths.clear();
 #ifdef USE_WINAPI
 	BOOST_AFIO_ERRHWIN(latch=CreateEvent(NULL, FALSE, FALSE, NULL));
 #endif
@@ -131,11 +143,13 @@ void monitor::Watcher::run()
 {
 	int ret;
 	char buffer[4096];
+	std::cout << "called" << std::endl;
 	//for(;;)
 	//{
 		try
 		{
-			if((ret=read(parent->inotifyh, buffer, sizeof(buffer))))
+
+			if(-1 != (ret=read(parent->inotifyh, buffer, sizeof(buffer))))
 			{
 				BOOST_AFIO_ERRHOS(ret);
 				for(inotify_event *ev=(inotify_event *) buffer; ((char *)ev)-buffer<ret; ev+=ev->len+sizeof(inotify_event))
@@ -145,7 +159,7 @@ void monitor::Watcher::run()
 #endif
 					BOOST_AFIO_LOCK_GUARD<monitor> h(*parent);
 					auto it = pathByHandle.find(ev->wd); 
-					Path* p = (it == pathByHandle.end()) ? nullptr : &it->second;
+					Path* p = (it == pathByHandle.end()) ? nullptr : it->second;
 					assert(p);
 					if(p)
 						p->callHandlers();
@@ -236,8 +250,14 @@ monitor::Watcher::Path::~Path()
 #ifdef USE_INOTIFY
 	if(h)
 	{
-		BOOST_AFIO_ERRHOS(inotify_rm_watch(parent->parent->inotifyh, h));
+		int temp; 
+		parent->pathByHandle.erase(h);
+		//std::cout << parent->parent->inotifyh << " " << h << std::endl;
+		BOOST_AFIO_ERRHOS(temp = inotify_rm_watch(parent->parent->inotifyh, h));
+		//temp = inotify_rm_watch(parent->parent->inotifyh, h);
+		//std::cout << "temp is: " << temp << std::endl;
 		h=0;
+		//std::cout << "finished destructing this path" << std::endl;
 	}
 #endif
 #ifdef USE_KQUEUES
@@ -397,7 +417,7 @@ void monitor::Watcher::Path::callHandlers()
 		for(auto it2 = changes.begin(); it2 != changes.end(); ++it2)
 			it2->make_fis(); 
 
-		parent->parent->threadpool->enqueue([it, &changes](){ it->invoke(changes/*, callv*/); });
+		parent->parent->threadpool->enqueue([it, &changes](){ it->invoke(changes); });
 		//do we need to keep these futures???
 		//handler->callvs.push_back();
 	}
@@ -420,7 +440,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		if(it == watchers.end() || it->paths.size() >= MAXIMUM_WAIT_OBJECTS-2) continue;
 #endif
 		w = &(*it);
-		break;
+		//break;
 	}
 	if(!w)
 	{
@@ -430,11 +450,23 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		watchers.push_back(w);
 		unnew.dismiss();
 	}
-	Watcher::Path *p = &w->paths.find(path)->second;
-	if(!p)
+	Watcher::Path *p;
+	auto temp = w->paths.find(path);
+	if (temp != w->paths.end())
+		p = &(temp->second);
+	else
 	{
 		auto unnew = boost::afio::detail::Undoer([&p]{delete p; p = nullptr;});
-		p=new Watcher::Path(w, path);
+		w->paths.insert(std::make_pair(path, Watcher::Path(w, path)));
+		
+		// fix this to be safe and compliant!!!!!!!!!!!!
+		temp = w->paths.find(path);
+		if (temp != w->paths.end())
+			p = &(temp->second);
+		else
+			std::cout << "horrible error here !!!!!!!!!!!!!" << std::endl;
+		
+
 #ifdef USE_WINAPI
 		HANDLE h;
 		BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(h=FindFirstChangeNotification(FXUnicodify<>(path, true).buffer(), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME
@@ -445,10 +477,13 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		w->pathByHandle.insert(h, p);
 #endif
 #ifdef USE_INOTIFY
-		int h;
-		BOOST_AFIO_ERRHOS(h=inotify_add_watch((*this).inotifyh, path.c_str(), IN_ALL_EVENTS&~(IN_ACCESS|IN_CLOSE_NOWRITE|IN_OPEN)));
+		int h = 0;
+		auto full_path = std::filesystem::absolute(path);
+		//std::cout <<"C string path: " << full_path.c_str() << std::endl;
+		BOOST_AFIO_ERRHOS(h=inotify_add_watch(this->inotifyh, full_path.c_str(), IN_ALL_EVENTS&~(IN_ACCESS|IN_CLOSE_NOWRITE|IN_OPEN)));
+		//std::cout << "inotifyh value is: " << this->inotifyh <<  " h value is: " << h << std::endl;
 		p->h=h;
-		w->pathByHandle.insert(std::make_pair(h, *p));
+		w->pathByHandle.insert(std::make_pair(h, p));
 #endif
 #ifdef USE_KQUEUES
 		int h;
@@ -463,15 +498,20 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler 
 		BOOST_AFIO_ERRHOS(kevent(monitor->kqueueh, &p->h, 1, NULL, 0, NULL));
 		w->pathByHandle.insert(h, p);
 #endif
-
-		w->paths.insert(std::make_pair(path, *p));
+		//std::cout << "made it here 1" << std::endl;
+		//w->paths.insert(std::make_pair(path, *p));
+		//p = w->paths[path];
+		//std::cout << "made it here 2" << std::endl;
 		unnew.dismiss();
+
 	}
+	
 	Watcher::Path::Handler *h;
 	auto unh = boost::afio::detail::Undoer([&h]{delete h; h = nullptr;});
 	h=new Watcher::Path::Handler(p, handler);
 	p->handlers.push_back(h);
 	unh.dismiss();
+	//std::cout << "finished adding" << std::endl;
 }
 
 bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
@@ -522,21 +562,23 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 void monitor::process_watchers()
 {
 	BOOST_AFIO_LOCK_GUARD<monitor> h(*this);
-	BOOST_FOREACH( auto &i, watchers)
+	BOOST_FOREACH( auto &i, this->watchers)
 	{
 		i.run();
 	}
+	std::cout << "process_watchers called" << std::endl;
 }
 
 
 void dir_monitor::add(const std::filesystem::path &_path, dir_monitor::ChangeHandler handler)
 {
-	mon.add(_path, std::move(handler));
+	//mon.add(_path, std::move(handler));
 }
 
 bool dir_monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler)
 {
-	return mon.remove(path, std::move(handler));
+	return true;
+	//return mon.remove(path, std::move(handler));
 }
 
 
