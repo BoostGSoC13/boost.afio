@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <fstream>
+#include <cstdio>
 typedef boost::afio::directory_entry directory_entry;
 
 BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change class is fundamentally OK", 60)
@@ -62,6 +63,7 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 		std::cout << "We made it here !!!" << std::endl;
 		testint++;
 	};
+	std::cout << "The handler address is " << &handler <<std::endl;
 	/*auto h = std::make_shared<boost::afio::monitor::Watcher::Path::Handler>(path.get(), handler);
 	BOOST_CHECK(true);
 
@@ -87,24 +89,27 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	//boost::afio::monitor::Watcher::Path::Handler* ptr_h = new boost::afio::monitor::Watcher::Path::Handler(path.get(), handler);
 	//handlers.push_back(ptr_h);
 
-	//std::chrono::seconds dur(20);
-
+	std::chrono::seconds dur(10);
+	std::remove("testdir/test.txt");
 	//test monitor
 	boost::afio::monitor mm;
 	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;;
 	mm.add("testdir", handler);
-	//std::this_thread::sleep_for( dur);
+	std::this_thread::sleep_for( dur);
 	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
 	std::ofstream file("testdir/test.txt");
 	file <<  "testint = " << testint << std::endl;
 	file.close();
+	std::this_thread::sleep_for( dur);
+	
+
+	std::cout << "testint = " << testint << std::endl;
+
+
 	if(mm.remove("testdir", handler))
 	{
 		std::cout << "Number of watchers after removing is now: " << mm.watchers.size() << std::endl;;
 	}
-	std::cout << "testint = " << testint << std::endl;
-
-
 
 /*
 	auto w = new boost::afio::monitor::Watcher(&mm);

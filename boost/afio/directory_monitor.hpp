@@ -403,9 +403,9 @@ namespace boost{
 				struct BOOST_AFIO_DECL Handler
 				{
 					Path *parent;
-					dir_monitor::ChangeHandler handler;
+					dir_monitor::ChangeHandler* handler;
 					//std::list<future_handle> callvs;
-					Handler(Path *_parent, dir_monitor::ChangeHandler _handler) : parent(_parent), handler(std::move(_handler)) { }
+					Handler(Path *_parent, dir_monitor::ChangeHandler& _handler) : parent(_parent), handler(&_handler) { }
 					~Handler();
 					void invoke(const std::list<Change> &changes/*, future_handle &callv*/);
 				//private:
@@ -486,12 +486,13 @@ namespace boost{
 		boost::ptr_list<Watcher> watchers;
 		std::shared_ptr<std_thread_pool> threadpool;
 		std::atomic<bool> running;
+		bool is_running(){return running.load(); }
 		future<void> finished;
 		std::shared_ptr<thread> my_thread;
 		monitor();
 		~monitor();
-		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
-		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler handler);
+		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler);
+		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler);
 		void process_watchers();
 	};
 	//static monitor mon;//do something better, like make a controller class that has this as a member
