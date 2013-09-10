@@ -137,7 +137,8 @@ public://cheating here for now, need to fix this if it works
 			}
 			
 			// copy constructor
-			//directory_entry(const directory_entry& other): stat(other.stat), leafname(other.leafname), have_metadata(other.have_metadata) {}
+			directory_entry(const directory_entry& other): stat(other.stat), leafname(other.leafname), have_metadata(other.have_metadata) {}
+			//directory_entry(directory_entry&& other): stat(std::move(other.stat)), leafname(std::move(other.leafname)), have_metadata(std::move(other.have_metadata)) {}
 
 			bool operator==(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname == rhs.leafname; }
 			bool operator!=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname != rhs.leafname; }
@@ -368,11 +369,14 @@ namespace boost{
 				struct BOOST_AFIO_DECL Change
 				{
 					dir_event change;
-					std::shared_ptr<directory_entry> oldfi, newfi;
-					unsigned int myoldfi : 1;
-					unsigned int mynewfi : 1;
-					Change( std::shared_ptr<directory_entry>& _oldfi, std::shared_ptr<directory_entry>& _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
-					Change( directory_entry* _oldfi, directory_entry* _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
+					//std::shared_ptr<directory_entry> oldfi, newfi;
+					directory_entry oldfi, newfi;
+					Change( std::shared_ptr<directory_entry>& _oldfi, std::shared_ptr<directory_entry>& _newfi) : oldfi(*_oldfi), newfi(*_newfi) { }
+					//Change( directory_entry* _oldfi, directory_entry* _newfi) : oldfi(*_oldfi), newfi(*_newfi) { }
+					Change( const directory_entry& _oldfi, const directory_entry& _newfi) : oldfi(_oldfi), newfi(_newfi) { }
+					Change( directory_entry&& _oldfi,  directory_entry&& _newfi) : oldfi(_oldfi), newfi(_newfi) { }
+					Change( const directory_entry& _oldfi,  directory_entry&& _newfi) : oldfi(_oldfi), newfi(_newfi) { }
+					Change( directory_entry&& _oldfi,  const directory_entry& _newfi) : oldfi(_oldfi), newfi(_newfi) { }
 					//Change(const directory_entry&& _oldfi, const directory_entry&& _newfi) : oldfi(_oldfi), newfi(_newfi), myoldfi(0), mynewfi(0) { }
 					~Change()
 					{
@@ -380,23 +384,12 @@ namespace boost{
 					}
 					bool operator==(const Change &o) const { return oldfi==o.oldfi && newfi==o.newfi; }
 					bool operator!=(const Change &o) const { return oldfi!=o.oldfi && newfi!=o.newfi; }
-					void make_fis()
-					{
-						if(oldfi)
-						{
-							//oldfi.reset(new directory_entry(*oldfi));
-							myoldfi=true;
-						}
-						if(newfi)
-						{
-							//newfi.reset(new directory_entry(*newfi));
-							mynewfi=true;
-						}
-					}
 					void reset_fis()
 					{
-						oldfi.reset(); myoldfi=false;
-						newfi.reset(); mynewfi=false;
+						oldfi = directory_entry();
+						newfi = directory_entry();
+						//oldfi.reset(); myoldfi=false;
+						//newfi.reset(); mynewfi=false;
 					}
 				};
 
@@ -461,6 +454,7 @@ namespace boost{
 			};
 
 			monitor* parent;
+			std::atomic<bool> can_run;
 			std::unordered_map< std::filesystem::path, Path> paths;
 	#ifdef USE_WINAPI
 			HANDLE latch;
@@ -488,15 +482,14 @@ namespace boost{
 		std::atomic<bool> running;
 		bool is_running(){return running.load(); }
 		future<void> finished;
-		std::shared_ptr<thread> my_thread;
+		//std::shared_ptr<thread> my_thread;
 		monitor();
 		~monitor();
 		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler);
 		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler);
 		void process_watchers();
 	};
-	//static monitor mon;//do something better, like make a controller class that has this as a member
-
+	
 	}// namespace afio
 } // namespace boost
 

@@ -9,8 +9,8 @@ typedef boost::afio::directory_entry directory_entry;
 
 BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change class is fundamentally OK", 60)
 {
-	// Test the Change struct
-	auto x = std::make_shared<boost::afio::monitor::Watcher::Path::Change>(new directory_entry(), new directory_entry());
+	/*// Test the Change struct
+	auto x = std::make_shared<boost::afio::monitor::Watcher::Path::Change>(directory_entry(), directory_entry());
 	auto j = std::make_shared<directory_entry>();
 	auto y = std::make_shared<boost::afio::monitor::Watcher::Path::Change>(j, j);
 	BOOST_CHECK(x != y);
@@ -19,10 +19,10 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	BOOST_CHECK(y->oldfi == y->newfi);
 	BOOST_CHECK(x->oldfi != y->oldfi);
 	BOOST_CHECK(*x != *y);
-	x->make_fis();
+	x->reset_fis();
 	y->reset_fis();
 	BOOST_CHECK(*y != *x);
-
+*/
 // Test Watcher
 
 	//boost::afio::monitor::Watcher w;
@@ -56,12 +56,13 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 
 
 	//Test the Handler struct
-	std::cout <<"size of entry is: " << sizeof(directory_entry) << std::endl;
+	//std::cout <<"size of entry is: " << sizeof(directory_entry) << std::endl;
 
 	static std::atomic<int> testint(0);
 	boost::afio::dir_monitor::ChangeHandler handler = [&testint](boost::afio::dir_monitor::dir_event change,  directory_entry oldfi,  directory_entry newfi){
 		std::cout << "We made it here !!!" << std::endl;
 		testint++;
+		std::cout << "testint is " << testint << " inside the lambda" << std::endl;
 	};
 	std::cout << "The handler address is " << &handler <<std::endl;
 	/*auto h = std::make_shared<boost::afio::monitor::Watcher::Path::Handler>(path.get(), handler);
@@ -93,14 +94,14 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	std::remove("testdir/test.txt");
 	//test monitor
 	boost::afio::monitor mm;
-	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;;
+	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;
 	mm.add("testdir", handler);
-	std::this_thread::sleep_for( dur);
+	//std::this_thread::sleep_for( dur);
 	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
 	std::ofstream file("testdir/test.txt");
 	file <<  "testint = " << testint << std::endl;
 	file.close();
-	std::this_thread::sleep_for( dur);
+	//std::this_thread::sleep_for( dur);
 	
 
 	std::cout << "testint = " << testint << std::endl;
