@@ -90,18 +90,18 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	//boost::afio::monitor::Watcher::Path::Handler* ptr_h = new boost::afio::monitor::Watcher::Path::Handler(path.get(), handler);
 	//handlers.push_back(ptr_h);
 
-	std::chrono::seconds dur(10);
+	std::chrono::seconds dur(5);
 	std::remove("testdir/test.txt");
 	//test monitor
 	boost::afio::monitor mm;
 	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;
 	mm.add("testdir", handler);
-	//std::this_thread::sleep_for( dur);
+	std::this_thread::sleep_for( dur);
 	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
 	std::ofstream file("testdir/test.txt");
 	file <<  "testint = " << testint << std::endl;
 	file.close();
-	//std::this_thread::sleep_for( dur);
+	std::this_thread::sleep_for( dur);
 	
 
 	std::cout << "testint = " << testint << std::endl;

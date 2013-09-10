@@ -172,16 +172,16 @@ void monitor::Watcher::run()
 					if(p != NULL)
 					{
 						std::cout << "making the call to callHandlers()" <<std::endl;
-						//try
-						//{
+						try
+						{
 							p->callHandlers();
-						//}
-						//catch(...)
-						//{
-							//std::cout << "An error occurred durring callHandlers() ..." <<std::endl;	
+						}
+						catch(...)
+						{
+							std::cout << "An error occurred durring callHandlers() ..." <<std::endl;	
 							//std::abort();
-							//throw(e);
-						//}
+							throw;
+						}
 						std::cout << "done with call from callHandlers()" <<std::endl;
 					}
 					else
@@ -359,12 +359,14 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 void monitor::Watcher::Path::callHandlers()
 {	
 
+
 	//std::cout << pathdir->size();
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
 	BOOST_AFIO_LOCK_GUARD<monitor> lk(*this->parent->parent);
 	std::cout << "callHandlers was called" <<std::endl;
 	void *addr=begin_enumerate_directory(path);
 	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
+
 	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
 		if(!newpathdir)
 			newpathdir=std::move(chunk);
