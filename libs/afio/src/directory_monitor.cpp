@@ -54,6 +54,7 @@ monitor::~monitor()
 	running = false;
 	std::cout << "running is false" << std::endl;
 
+	//there must be a better way to do this...
 	BOOST_FOREACH(auto &i, watchers)
 	{
 		BOOST_FOREACH(auto &j, i.paths)

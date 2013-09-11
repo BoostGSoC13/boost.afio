@@ -7,7 +7,7 @@
 #include <cstdio>
 typedef boost::afio::directory_entry directory_entry;
 
-BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change class is fundamentally OK", 60)
+BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monitoring basically works", 60)
 {
 	/*// Test the Change struct
 	auto x = std::make_shared<boost::afio::monitor::Watcher::Path::Change>(directory_entry(), directory_entry());
@@ -103,14 +103,13 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	BOOST_FOREACH(auto &i, mm.watchers)
 		sum += i.paths.size();
 	std::cout << "Number of Paths beign monitored is: " << sum << std::endl;
+	BOOST_CHECK(sum == 2);
 	std::ofstream file("testdir/test.txt");
 	file <<  "testint = " << testint << std::endl;
 	file.close();
 	std::this_thread::sleep_for( dur);
-	
-
 	std::cout << "testint = " << testint << std::endl;
-
+	BOOST_CHECK(testint == 1);
 
 	if(mm.remove("testdir", handler))
 	{
@@ -119,6 +118,7 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 		BOOST_FOREACH(auto &i, mm.watchers)
 			sum += i.paths.size();
 		std::cout << "Number of Paths beign monitored is: " << sum << std::endl;
+		BOOST_CHECK(sum == 1);
 	}
 
 /*
