@@ -53,6 +53,16 @@ monitor::~monitor()
 	std::cout << "Monitor is being destroyed" << std::endl;
 	running = false;
 	std::cout << "running is false" << std::endl;
+
+	BOOST_FOREACH(auto &i, watchers)
+	{
+		BOOST_FOREACH(auto &j, i.paths)
+		{
+			BOOST_FOREACH(auto &k, j.second.handlers)
+				remove(j.second.path, *k.handler);
+		}
+	}
+	std::cout << "Watchers have been stoped (i think)..." << std::endl;
 	finished.get();
 	std::cout << "future has completed" << std::endl;
 	/*if(my_thread && my_thread->joinable())
@@ -92,6 +102,13 @@ monitor::Watcher::Watcher(monitor* _parent) : parent(_parent), can_run(false)
 
 monitor::Watcher::~Watcher()
 {
+	// attempt to get all outstanding futures
+	/*while(!future_queue.empty())
+	{
+		std::future<void> *temp;
+		if(future_queue.pop(temp))
+			temp->get();
+	}*/
 #ifdef USE_WINAPI
 	if(latch)
 	{
@@ -99,7 +116,7 @@ monitor::Watcher::~Watcher()
 		latch=0;
 	}
 #endif
-	std::cout << "watcher is being destroyed" << std::endl;
+	std::cout << "watcher has been destroyed" << std::endl;
 }
 
 #ifdef USE_WINAPI
@@ -453,11 +470,8 @@ void monitor::Watcher::Path::callHandlers()
 	{	
 		handler = &(*it);	
 		std::cout << "handlers size is: " << handlers.size() <<std::endl;
-		// Detach changes per dispatch
-
+		//parent->future_queue.bounded_push(parent->parent->threadpool->enqueue([handler, &changes](){ handler->invoke(changes); }));
 		parent->parent->threadpool->enqueue([handler, &changes](){ handler->invoke(changes); });
-		//do we need to keep these futures???
-		//handler->callvs.push_back();
 	}
 
 	// update pathdir and entry_dict
@@ -472,7 +486,9 @@ void monitor::Watcher::Path::callHandlers()
 
 void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler)
 {
-	BOOST_AFIO_LOCK_GUARD<monitor> lh((*this));
+
+	std::cout << "adding a directory to monitor " << path.string() << std::endl;
+	//BOOST_AFIO_LOCK_GUARD<monitor> lh((*this));
 	Watcher *w = nullptr;
 	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
 	{
@@ -552,14 +568,14 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 	h=new Watcher::Path::Handler(p, handler);
 	p->handlers.push_back(h);
 	unh.dismiss();
-	//std::cout << "finished adding" << std::endl;
+	std::cout << "Successfuly added " << path.string() << std::endl;
 }
 
 bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler &handler)
 {
 	std::cout << "Starting to remove..." <<std::endl;
 	//BOOST_AFIO_LOCK_GUARD<monitor> hl(*this);
-	std::cout << "Lock guard aquired" <<std::endl;
+	//std::cout << "Lock guard aquired" <<std::endl;
 	Watcher *w;
 	for(auto it = watchers.begin(); it != watchers.end(); ++it)
 	{
@@ -617,7 +633,11 @@ void monitor::process_watchers()
 			if(i.can_run.load())
 				i.run();
 		}
-		catch(...){ continue;}
+		catch(...)
+		{
+			std::cout << "An error was detected in process_watchers!!!! \n";
+			continue;
+		}
 	}
 	std::cout << "process_watchers called" << std::endl;
 }

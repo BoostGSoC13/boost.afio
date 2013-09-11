@@ -21,6 +21,7 @@
 #include "boost/thread.hpp"		// May undefine USE_WINAPI and USE_POSIX
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/ptr_container/ptr_list.hpp>
+#include <boost/lockfree/queue.hpp>
 #include <vector>
 #include <algorithm>
 #include <future>
@@ -455,6 +456,7 @@ namespace boost{
 
 			monitor* parent;
 			std::atomic<bool> can_run;
+			//boost::lockfree::queue<std::future<void>> future_queue;
 			std::unordered_map< std::filesystem::path, Path> paths;
 	#ifdef USE_WINAPI
 			HANDLE latch;

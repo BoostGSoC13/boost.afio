@@ -96,8 +96,13 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	boost::afio::monitor mm;
 	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;
 	mm.add("testdir", handler);
+	mm.add("tools", handler);
 	std::this_thread::sleep_for( dur);
 	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
+	size_t sum = 0;	
+	BOOST_FOREACH(auto &i, mm.watchers)
+		sum += i.paths.size();
+	std::cout << "Number of Paths beign monitored is: " << sum << std::endl;
 	std::ofstream file("testdir/test.txt");
 	file <<  "testint = " << testint << std::endl;
 	file.close();
@@ -110,6 +115,10 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that the change clas
 	if(mm.remove("testdir", handler))
 	{
 		std::cout << "Number of watchers after removing is now: " << mm.watchers.size() << std::endl;;
+		sum = 0;
+		BOOST_FOREACH(auto &i, mm.watchers)
+			sum += i.paths.size();
+		std::cout << "Number of Paths beign monitored is: " << sum << std::endl;
 	}
 
 /*
