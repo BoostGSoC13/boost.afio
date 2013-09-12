@@ -51,6 +51,7 @@
 namespace boost{
 	namespace afio{
 		
+#if 0
 		//maybe adding operators for this is a mistake??? but I want to compare so ...
 		struct timespec
 		{
@@ -200,7 +201,7 @@ public://cheating here for now, need to fix this if it works
 			//! A bitfield of what metadata is available on this platform. This doesn't mean all is available for every filing system.
 			static have_metadata_flags metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW;
 		};// end directory_entry
-
+#endif
 		class BOOST_AFIO_DECL dir_monitor
 		{
 			typedef unsigned long event_no;
@@ -255,9 +256,9 @@ public://cheating here for now, need to fix this if it works
 		};// end dir_monitor
 
 		//! Starts the enumeration of a directory. This actually simply opens the directory and returns the fd or `HANDLE`.
-	extern BOOST_AFIO_DECL void *begin_enumerate_directory(std::filesystem::path path);
+	//extern BOOST_AFIO_DECL void *begin_enumerate_directory(std::filesystem::path path);
 	//! Ends the enumeration of a directory. This simply closes the fd or `HANDLE`.
-	extern BOOST_AFIO_DECL void end_enumerate_directory(void *h);
+	//extern BOOST_AFIO_DECL void end_enumerate_directory(void *h);
 	/*! \brief Enumerates a directory as quickly as possible, retrieving all zero-cost metadata.
 
 	Note that maxitems items may not be retreived for various reasons, including that glob filtered them out.
@@ -279,7 +280,7 @@ public://cheating here for now, need to fix this if it works
 	end_enumerate_directory(h);
 	\endcode
 	*/
-	extern BOOST_AFIO_DECL std::unique_ptr<std::vector<directory_entry>> enumerate_directory(void *h, size_t maxitems, std::filesystem::path glob, bool namesonly);
+	//extern BOOST_AFIO_DECL std::unique_ptr<std::vector<directory_entry>> enumerate_directory(void *h, size_t maxitems, std::filesystem::path glob, bool namesonly);
 
 	}//namespace afio
 }// namspace boost
@@ -295,9 +296,18 @@ namespace std
 		size_t operator()(const boost::afio::directory_entry& p) const
 		{
 			size_t seed = 0;
+			boost::hash_combine(seed, p.st_ino());
+			try{
+			boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count()));
 			//boost::hash_combine(seed, p.leafname);
 			//boost::hash_combine(seed, p.have_metadata);
-			boost::hash_combine(seed, p.stat);
+			}
+			catch(std::exception &e)
+			{
+				std::cout <<"the metadata is: " << (size_t)p.metadata_ready() << std::endl;
+				std::cout << "this hash failed horribly <------------\n" << e.what() <<std::endl;
+				throw;
+			}
 			return seed;
 		}
 	};
@@ -413,7 +423,7 @@ namespace boost{
 				boost::ptr_vector<Handler> handlers;
 				const std::filesystem::path path;
 				Path(Watcher *_parent, const std::filesystem::path &_path)
-					: parent(_parent), path(_path), pathdir(nullptr)
+					: parent(_parent), path(std::filesystem::absolute(_path)), pathdir(nullptr)
 	#if defined(USE_WINAPI) || defined(USE_INOTIFY)
 					, h(0)
 	#endif
@@ -421,27 +431,32 @@ namespace boost{
 	#if defined(USE_KQUEUES)
 					memset(&h, 0, sizeof(h));
 	#endif
-					void *addr = begin_enumerate_directory(path);
-					//std::cout << std::filesystem::absolute(path) << std::endl;
-					std::unique_ptr<std::vector<directory_entry>> chunk;
-					while((chunk = enumerate_directory(addr, NUMBER_OF_FILES)))
-						if(!pathdir)
-							pathdir=std::move(chunk);
-						else
-							pathdir->insert(pathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
-					end_enumerate_directory(addr);
-					//entry_dict.clear();
-					//if(pathdir)
-					//std::sort(pathdir->begin(), pathdir->end(), [](directory_entry a, directory_entry b){return a.name() < b.name();});
-					
-					//BOOST_FOREACH(auto &i, *pathdir)
+
+					auto rootdir(parent->parent->dispatcher->dir(boost::afio::async_path_op_req(path)));
+
+					std::pair<std::vector<boost::afio::directory_entry>, bool> list;
+					// This is used to reset the enumeration to the start
+					bool restart=true;
+					do
+					{
+					    // Schedule an enumeration of an open directory handle
+					    std::pair<
+					        boost::afio::future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
+					        boost::afio::async_io_op
+					    >  enumeration(
+					        parent->parent->dispatcher->enumerate(boost::afio::async_enumerate_op_req(
+					        	rootdir,boost::afio::directory_entry::compatibility_maximum(), restart)));
+					    restart=false;
+
+					    list=enumeration.first.get();
+					} while(list.second);
+
+					pathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
+
 					for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 					{	
 						entry_dict.insert(std::make_pair(*it, *it));
-						//std::cout << it->name() << std::endl;
 					}
-
-					//std::cout << pathdir->size() << std::endl;
 				}
 				
 				~Path();
@@ -481,6 +496,7 @@ namespace boost{
 	#endif
 		boost::ptr_list<Watcher> watchers;
 		std::shared_ptr<std_thread_pool> threadpool;
+		std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher;
 		std::atomic<bool> running;
 		bool is_running(){return running.load(); }
 		future<void> finished;

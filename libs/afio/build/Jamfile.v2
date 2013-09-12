@@ -24,7 +24,7 @@ lib boost_afio
     : #sources
       afio.cpp 
       directory_monitor.cpp 
-      directory_enum.cpp
+      #directory_enum.cpp
       ../detail/ErrorHandling.cpp
       ../../system/build//boost_system
       ../../filesystem/build//boost_filesystem 
@@ -35,7 +35,7 @@ lib boost_afio
       <include>../../../boost/afio 
       <include>../../../boost/afio/detail
       <toolset>gcc:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
-      <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE"
+      <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE -Wno-missing-braces"
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>gcc:<linkflags>"-lgomp"
       <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"

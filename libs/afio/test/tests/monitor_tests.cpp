@@ -81,23 +81,27 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 	testint = 0;
 */
 
+//auto ent = directory_entry();
 
+//std::unordered_map<directory_entry, directory_entry> test_dict;
+//test_dict[directory_entry()]= directory_entry();
 
-
+//BOOST_CHECK(test_dict.size() ==1);
+#if 1
 
 //test how ptr_vector works for myself
 	//boost::ptr_vector<boost::afio::monitor::Watcher::Path::Handler> handlers;
 	//boost::afio::monitor::Watcher::Path::Handler* ptr_h = new boost::afio::monitor::Watcher::Path::Handler(path.get(), handler);
 	//handlers.push_back(ptr_h);
 
-	std::chrono::seconds dur(5);
+	std::chrono::seconds dur(1);
 	std::remove("testdir/test.txt");
 	//test monitor
 	boost::afio::monitor mm;
 	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;
 	mm.add("testdir", handler);
 	mm.add("tools", handler);
-	std::this_thread::sleep_for( dur);
+	//std::this_thread::sleep_for( dur);
 	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
 	size_t sum = 0;	
 	BOOST_FOREACH(auto &i, mm.watchers)
@@ -139,5 +143,5 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 
 
 
-
+#endif
 }

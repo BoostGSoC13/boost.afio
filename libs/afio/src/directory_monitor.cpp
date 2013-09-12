@@ -29,7 +29,9 @@ namespace boost {
 monitor::monitor() : running(true)
 {
 	std::cout << "monitor constructed" << std::endl;
+	dispatcher = boost::afio::make_async_file_io_dispatcher();
 	threadpool = process_threadpool();
+
 	finished = threadpool->enqueue([this](){
 		std::cout << "this lambda was called" << std::endl;
 		while(this->is_running())
@@ -382,15 +384,28 @@ void monitor::Watcher::Path::callHandlers()
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
 	BOOST_AFIO_LOCK_GUARD<monitor> lk(*this->parent->parent);
 	std::cout << "callHandlers was called" <<std::endl;
-	void *addr=begin_enumerate_directory(path);
-	std::unique_ptr<std::vector<directory_entry>> newpathdir, chunk;
+	auto ab_path = std::filesystem::absolute(path);
+	
+	auto rootdir(parent->parent->dispatcher->dir(boost::afio::async_path_op_req(ab_path)));
 
-	while((chunk=enumerate_directory(addr, NUMBER_OF_FILES)))
-		if(!newpathdir)
-			newpathdir=std::move(chunk);
-		else
-			newpathdir->insert(newpathdir->end(), std::make_move_iterator(chunk->begin()), std::make_move_iterator(chunk->end()));
-	end_enumerate_directory(addr);
+	std::pair<std::vector<boost::afio::directory_entry>, bool> list;
+	// This is used to reset the enumeration to the start
+	bool restart=true;
+	do
+	{
+	    // Schedule an enumeration of an open directory handle
+	    std::pair<
+	        boost::afio::future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
+	        boost::afio::async_io_op
+	    >  enumeration(
+	       parent->parent-> dispatcher->enumerate(boost::afio::async_enumerate_op_req(
+	        	rootdir,boost::afio::directory_entry::compatibility_maximum(), restart)));
+	    restart=false;
+
+	    list=enumeration.first.get();
+	   
+	} while(list.second);
+	std::shared_ptr<std::vector<directory_entry>> newpathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
 
 	std::list<Change> changes;
 	static unsigned long eventcounter=0;
@@ -410,8 +425,8 @@ void monitor::Watcher::Path::callHandlers()
 				changed = true;
 				renamed = true;
 			}
-			if(temp.st_mtim()!= it->st_mtim()
-					|| temp.st_size()	!= it->st_size() 
+			/*if(temp.st_mtim()!= it->st_mtim()
+					|| temp.st_size() != it->st_size() 
 					|| temp.st_allocated() != it->st_allocated())
 			{
 				modified = true;
@@ -421,7 +436,7 @@ void monitor::Watcher::Path::callHandlers()
 			{
 				changed = true;
 				security = true;
-			}
+			}*/
 			if(changed)
 			{
 				Change ch(temp, (*it));
@@ -445,9 +460,10 @@ void monitor::Watcher::Path::callHandlers()
 			ch.change.setCreated();
 			changes.push_back(ch);
 		}
-		catch(...)
+		catch(std::exception &e)
 		{
-			std::cout << "another type of error occured that is ruining this\n";
+			std::cout << "another type of error occured that is ruining this\n" << e.what() <<std::endl;;
+			throw;
 		}
 	}
 #endif
@@ -487,8 +503,9 @@ void monitor::Watcher::Path::callHandlers()
 
 void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler)
 {
+	auto ab_path = std::filesystem::absolute(path);
 
-	std::cout << "adding a directory to monitor " << path.string() << std::endl;
+	std::cout << "adding a directory to monitor: " << ab_path.string() << std::endl;
 	//BOOST_AFIO_LOCK_GUARD<monitor> lh((*this));
 	Watcher *w = nullptr;
 	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
@@ -508,17 +525,20 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 		watchers.push_back(w);
 		unnew.dismiss();
 	}
+
 	Watcher::Path *p;
-	auto temp = w->paths.find(path);
+	auto temp = w->paths.find(ab_path);
 	if (temp != w->paths.end())
 		p = &(temp->second);
 	else
 	{
+		std::cout << "making new Paths" << std::endl;
 		auto unnew = boost::afio::detail::Undoer([&p]{delete p; p = nullptr;});
-		w->paths.insert(std::make_pair(path, Watcher::Path(w, path)));
+		w->paths.insert(std::make_pair(ab_path, Watcher::Path(w, path)));
 		
 		// fix this to be safe and compliant!!!!!!!!!!!!
-		temp = w->paths.find(path);
+		std::cout << "We are now here !!!!!!!!!!!!!!" << std::endl;
+		temp = w->paths.find(ab_path);
 		if (temp != w->paths.end())
 			p = &(temp->second);
 		else
@@ -536,16 +556,15 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 #endif
 #ifdef USE_INOTIFY
 		int h = 0;
-		auto full_path = std::filesystem::absolute(path);
 		//std::cout <<"C string path: " << full_path.c_str() << std::endl;
-		BOOST_AFIO_ERRHOS(h=inotify_add_watch(this->inotifyh, full_path.c_str(), IN_ALL_EVENTS&~(IN_ACCESS|IN_CLOSE_NOWRITE|IN_OPEN)));
+		BOOST_AFIO_ERRHOS(h=inotify_add_watch(this->inotifyh, ab_path.c_str(), IN_ALL_EVENTS&~(IN_ACCESS|IN_CLOSE_NOWRITE|IN_OPEN)));
 		//std::cout << "inotifyh value is: " << this->inotifyh <<  " h value is: " << h << std::endl;
 		p->h=h;
 		w->pathByHandle.insert(std::make_pair(h, p));
 #endif
 #ifdef USE_KQUEUES
 		int h;
-		BOOST_AFIO_ERRHOS(h=::open(path.c_str(),
+		BOOST_AFIO_ERRHOS(h=::open(ab_path.c_str(),
 #ifdef __APPLE__
 			O_RDONLY|O_EVTONLY));		// Stop unmounts being prevented by open handle
 #else
@@ -557,7 +576,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 		w->pathByHandle.insert(h, p);
 #endif
 		//std::cout << "made it here 1" << std::endl;
-		//w->paths.insert(std::make_pair(path, *p));
+		//w->paths.insert(std::make_pair(ab_path, *p));
 		//p = w->paths[path];
 		//std::cout << "made it here 2" << std::endl;
 		unnew.dismiss();
@@ -569,7 +588,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 	h=new Watcher::Path::Handler(p, handler);
 	p->handlers.push_back(h);
 	unh.dismiss();
-	std::cout << "Successfuly added " << path.string() << std::endl;
+	std::cout << "Successfuly added " << ab_path.string() << std::endl;
 }
 
 bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler &handler)
@@ -577,13 +596,14 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 	std::cout << "Starting to remove..." <<std::endl;
 	//BOOST_AFIO_LOCK_GUARD<monitor> hl(*this);
 	//std::cout << "Lock guard aquired" <<std::endl;
+	auto ab_path = std::filesystem::absolute(path);
 	Watcher *w;
 	for(auto it = watchers.begin(); it != watchers.end(); ++it)
 	{
 		std::cout << "Going through watchers ..." <<std::endl;
 		w = &(*it);
 		Watcher::Path *p;
-		auto iter = w->paths.find(path);
+		auto iter = w->paths.find(ab_path);
 		if(iter != w->paths.end())
 			p = &(iter->second);
 		else
@@ -604,7 +624,7 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 					BOOST_AFIO_ERRHWIN(SetEvent(w->latch));
 #endif
 					std::cout << "Removing a Path" <<std::endl;	
-					w->paths.erase(path);
+					w->paths.erase(ab_path);
 					w->pathByHandle.erase(p->h);
 					p=0;
 					if(w->paths.empty())
