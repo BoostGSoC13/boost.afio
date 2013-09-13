@@ -45,7 +45,7 @@
  #endif
 #endif
 
-#define NUMBER_OF_FILES 100000
+//maybe move this into the afio header and remove from this and afio.cpp...
 #define BOOST_AFIO_LOCK_GUARD boost::lock_guard
 
 namespace boost{
@@ -297,6 +297,9 @@ namespace std
 		{
 			size_t seed = 0;
 			boost::hash_combine(seed, p.st_ino());
+			boost::hash_combine(seed, p.st_type());
+			boost::hash_combine(seed, p.name());
+		#if 0
 			try{
 			boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count()));
 			//boost::hash_combine(seed, p.leafname);
@@ -308,6 +311,7 @@ namespace std
 				std::cout << "this hash failed horribly <------------\n" << e.what() <<std::endl;
 				throw;
 			}
+		#endif
 			return seed;
 		}
 	};
