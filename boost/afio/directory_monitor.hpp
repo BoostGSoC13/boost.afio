@@ -25,6 +25,7 @@
 #include <vector>
 #include <algorithm>
 #include <future>
+#include <bitset>
 
 #define USE_POSIX
 #ifndef USE_POSIX
@@ -297,17 +298,19 @@ namespace std
 		{
 			size_t seed = 0;
 			boost::hash_combine(seed, p.st_ino());
-			boost::hash_combine(seed, p.st_type());
-			boost::hash_combine(seed, p.name());
-		#if 0
+			//boost::hash_combine(seed, p.st_type());
+			//boost::hash_combine(seed, p.name());
+
+		#if 1
 			try{
-			boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count()));
+				boost::hash_combine(seed, p.st_ctim().time_since_epoch().count());
+			//boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count())); //<<------ This was perfect :(
 			//boost::hash_combine(seed, p.leafname);
 			//boost::hash_combine(seed, p.have_metadata);
 			}
 			catch(std::exception &e)
 			{
-				std::cout <<"the metadata is: " << (size_t)p.metadata_ready() << std::endl;
+				std::cout <<"the metadata is: " << (std::bitset<sizeof(size_t)*8>)(size_t)p.metadata_ready() << std::endl;
 				std::cout << "this hash failed horribly <------------\n" << e.what() <<std::endl;
 				throw;
 			}
@@ -435,7 +438,7 @@ namespace boost{
 	#if defined(USE_KQUEUES)
 					memset(&h, 0, sizeof(h));
 	#endif
-
+					boost:afio::async_io_op my_op;
 					auto rootdir(parent->parent->dispatcher->dir(boost::afio::async_path_op_req(path)));
 
 					std::pair<std::vector<boost::afio::directory_entry>, bool> list;
@@ -451,14 +454,15 @@ namespace boost{
 					        parent->parent->dispatcher->enumerate(boost::afio::async_enumerate_op_req(
 					        	rootdir,boost::afio::directory_entry::compatibility_maximum(), restart)));
 					    restart=false;
-
+					    my_op = enumeration.second;
 					    list=enumeration.first.get();
 					} while(list.second);
 
 					pathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
-
+					auto handle_ptr = my_op.h->get();
 					for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 					{	
+						auto stat = it->full_lstat(handle_ptr);
 						entry_dict.insert(std::make_pair(*it, *it));
 					}
 				}
@@ -471,6 +475,7 @@ namespace boost{
 				}
 
 				void callHandlers();
+				//void compare_entries();
 			};
 
 			monitor* parent;

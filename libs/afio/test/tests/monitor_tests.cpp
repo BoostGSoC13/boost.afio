@@ -96,18 +96,20 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 
 	std::chrono::seconds dur(1);
 	std::remove("testdir/test.txt");
+	std::remove("testdir/test2.txt");
 	//test monitor
 	boost::afio::monitor mm;
 	std::cout << "Number of watchers is: " << mm.watchers.size() << std::endl;
 	mm.add("testdir", handler);
 	mm.add("tools", handler);
-	//std::this_thread::sleep_for( dur);
 	std::cout << "Number of watchers after adding is: " << mm.watchers.size() << std::endl;
 	size_t sum = 0;	
 	BOOST_FOREACH(auto &i, mm.watchers)
 		sum += i.paths.size();
 	std::cout << "Number of Paths beign monitored is: " << sum << std::endl;
 	BOOST_CHECK(sum == 2);
+	
+	std::this_thread::sleep_for( dur);
 	std::ofstream file("testdir/test.txt");
 	file <<  "testint = " << testint << std::endl;
 	file.close();
@@ -115,6 +117,22 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 	std::cout << "testint = " << testint << std::endl;
 	BOOST_CHECK(testint == 1);
 
+	std::this_thread::sleep_for( dur);
+
+	file.open("testdir/test2.txt");
+	file <<  "testint = " << testint << std::endl;
+	file.close();
+	std::this_thread::sleep_for( dur);
+	std::cout << "testint = " << testint << std::endl;
+	BOOST_CHECK(testint == 2);
+	
+	std::remove("testdir/test.txt");
+	std::this_thread::sleep_for(dur);
+	std::remove("testdir/test2.txt");
+	std::this_thread::sleep_for(dur);
+	
+	std::cout << "testint = " << testint << std::endl;
+	BOOST_CHECK(testint == 4);
 	if(mm.remove("testdir", handler))
 	{
 		std::cout << "Number of watchers after removing is now: " << mm.watchers.size() << std::endl;;

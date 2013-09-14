@@ -36,7 +36,7 @@ monitor::monitor() : running(true)
 		std::cout << "this lambda was called" << std::endl;
 		while(this->is_running())
 		{
-			std::cout << "running was true here" << std::endl;
+			//std::cout << "running was true here" << std::endl;
 			this->process_watchers(); 
 		}
 		std::cout << "this lambda is ending..." << std::endl;
@@ -71,9 +71,10 @@ monitor::~monitor()
 	/*if(my_thread && my_thread->joinable())
 		my_thread->join();*/
 	watchers.clear();
-	std::cout << "stopping the threadpool ..." <<std::endl;
-	threadpool.reset();
-	std::cout << "Threadpool stopped." <<std::endl;
+	//std::cout << "stopping the threadpool ..." <<std::endl;
+	//threadpool.reset();
+	//dispatcher.reset();
+	//std::cout << "Threadpool stopped." <<std::endl;
 	#ifdef USE_INOTIFY
 		if(inotifyh)
 		{
@@ -97,7 +98,6 @@ monitor::Watcher::Watcher(monitor* _parent) : parent(_parent), can_run(false)
 	, latch(0)
 #endif
 {
-	paths.clear();
 #ifdef USE_WINAPI
 	BOOST_AFIO_ERRHWIN(latch=CreateEvent(NULL, FALSE, FALSE, NULL));
 #endif
@@ -119,6 +119,7 @@ monitor::Watcher::~Watcher()
 		latch=0;
 	}
 #endif
+	paths.clear();
 	std::cout << "watcher has been destroyed" << std::endl;
 }
 
@@ -174,17 +175,20 @@ void monitor::Watcher::run()
 	//{
 		try
 		{
-
 			if(0 <= (ret=read(parent->inotifyh, buffer, sizeof(buffer))))
 			{
 				std::cout << "run() made it to the if statement" << std::endl;
 				BOOST_AFIO_ERRHOS(ret);
 				for(inotify_event *ev=(inotify_event *) buffer; ((char *)ev)-buffer<ret; ev+=ev->len+sizeof(inotify_event))
 				{
+					if(ev->mask & IN_IGNORED)
+						continue;
 #if 1
 //#ifdef DEBUG
 					printf("dir_monitor: inotify reports wd=%d, mask=%u, cookie=%u, name=%s\n", ev->wd, ev->mask, ev->cookie, ev->name);
 #endif
+					//if the event is the watch being removed, we don't care, so dont callHandler()
+					
 					//BOOST_AFIO_LOCK_GUARD<monitor> h(*parent);
 					auto it = pathByHandle.find(ev->wd); 
 					Path* p = (it == pathByHandle.end()) ? NULL : it->second;
@@ -319,7 +323,7 @@ monitor::Watcher::Path::~Path()
 
 monitor::Watcher::Path::Handler::~Handler()
 {
-	//I think that the destruction from std_thread_pool takes care of all of this
+	
 /*
 	BOOST_AFIO_LOCK_GUARD<monitor> h((*this));
 	while(!callvs.empty())
@@ -334,9 +338,11 @@ monitor::Watcher::Path::Handler::~Handler()
 
 void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*, future_handle callv*/)
 {
+	//BOOST_AFIO_LOCK_GUARD<monitor> h(*parent->parent->parent);
 	std::cout << "invoke() was called" <<std::endl;
 	//fxmessage("dir_monitor dispatch %p\n", callv);
-	for(auto it=changes.begin(); it!=changes.end(); ++it)
+	size_t i=1;
+	for(auto it=changes.begin(); it!=changes.end(); ++it, ++i)
 	{
 		//const Change &ch=*it;
 		//const directory_entry &oldfi = it->oldfi ? *it->oldfi : directory_entry();
@@ -359,11 +365,11 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 			//callvs.remove(callv); //I think this will be OK instead of removeReffrom QptrList
 			//h.unlock();
 		}
-		std::cout << "invoke() called the handler" <<std::endl;
-		std::cout << "The handler address is " << handler <<std::endl;
+		printf("invoke() called the handler %d times so far\n", i);
+		//std::cout << "The handler address is " << handler <<std::endl;
 		(*handler)(it->change, it->oldfi, it->newfi);
 	}
-	std::cout << "invoke() has completed" <<std::endl;
+	//std::cout << "invoke() has completed" <<std::endl;
 }
 
 
@@ -376,6 +382,72 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 	}
 	return 0;
 }*/
+
+#if 0
+void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<Change>* changes)
+{
+
+	try// this all worked better when I could hash w/ birthtim...
+	{
+		it->full_lstat(my_op.h->get());//think this is wrong...
+
+		// try to find the directory_entry
+		// if it exists, then determine if anything has changed
+		// if the hash is successful then it has the same inode and ctim
+		auto temp = entry_dict.at(*it);
+
+		bool changed = false, renamed = false, modified = false, security = false;
+		// determine if any changes
+		if(temp.name() != it->name())
+		{
+			changed = true;
+			renamed = true;
+		}
+		if(temp.st_mtim(handle_ptr)!= it->st_mtim(handle_ptr)
+				|| temp.st_size(handle_ptr) != it->st_size(handle_ptr) 
+				|| temp.st_allocated(handle_ptr) != it->st_allocated(handle_ptr))
+		{
+			modified = true;
+			changed = true;
+		}
+		if(temp.st_type(handle_ptr) != it->st_type(handle_ptr))// mode is linux only...
+		{
+			changed = true;
+			security = true;
+		}
+		BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
+		if(changed)
+		{
+			Change ch(temp, (*it));
+			ch.change.eventNo=++eventcounter;
+			ch.change.setRenamed(renamed);
+			ch.change.setModified(modified);
+			ch.change.setSecurity(security);
+			BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
+			changes.push_back(ch);
+		}
+
+		// we found this entry, so remove it to later 
+		// determine what has been deleted
+		entry_dict.erase(temp); 
+	}
+	catch(std::out_of_range &e)
+	{
+		std::cout << "we have a new file\n";
+		//We've never seen this before
+		Change ch(directory_entry(), (*it));
+		ch.change.eventNo=++eventcounter;
+		ch.change.setCreated();
+		changes.push_back(ch);
+	}
+	catch(std::exception &e)
+	{
+		std::cout << "another type of error occured that is ruining this\n" << e.what() <<std::endl;;
+		throw;
+	}
+
+}
+#endif
 void monitor::Watcher::Path::callHandlers()
 {	
 
@@ -383,11 +455,15 @@ void monitor::Watcher::Path::callHandlers()
 	//std::cout << pathdir->size();
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
 	BOOST_AFIO_LOCK_GUARD<monitor> lk(*this->parent->parent);
-	std::cout << "callHandlers was called" <<std::endl;
-	auto ab_path = std::filesystem::absolute(path);
+	std::cout << "callHandlers() was called" <<std::endl;
 	
-	auto rootdir(parent->parent->dispatcher->dir(boost::afio::async_path_op_req(ab_path)));
 
+	//enumeratate the directory
+	auto ab_path = std::filesystem::absolute(path);//maybe add FASTDIRECTRORY ENUMERATION flag???
+	
+	// enumerate directory
+	auto rootdir(parent->parent->dispatcher->dir(boost::afio::async_path_op_req(ab_path)));
+	boost::afio::async_io_op my_op;
 	std::pair<std::vector<boost::afio::directory_entry>, bool> list;
 	// This is used to reset the enumeration to the start
 	bool restart=true;
@@ -403,19 +479,23 @@ void monitor::Watcher::Path::callHandlers()
 	    restart=false;
 
 	    list=enumeration.first.get();
-	   
+	   	my_op = enumeration.second;
 	} while(list.second);
 	std::shared_ptr<std::vector<directory_entry>> newpathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
 
 	std::list<Change> changes;
+	auto handle_ptr = my_op.h->get();
 	static unsigned long eventcounter=0;
 #if 1
 	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
-		try
+		try// this all worked better when I could hash w/ birthtim...
 		{
+			it->full_lstat(my_op.h->get());//think this is wrong...
+
 			// try to find the directory_entry
 			// if it exists, then determine if anything has changed
+			// if the hash is successful then it has the same inode and ctim
 			auto temp = entry_dict.at(*it);
 
 			bool changed = false, renamed = false, modified = false, security = false;
@@ -425,18 +505,18 @@ void monitor::Watcher::Path::callHandlers()
 				changed = true;
 				renamed = true;
 			}
-			/*if(temp.st_mtim()!= it->st_mtim()
-					|| temp.st_size() != it->st_size() 
-					|| temp.st_allocated() != it->st_allocated())
+			if(temp.st_mtim(handle_ptr)!= it->st_mtim(handle_ptr)
+					|| temp.st_size(handle_ptr) != it->st_size(handle_ptr) 
+					|| temp.st_allocated(handle_ptr) != it->st_allocated(handle_ptr))
 			{
 				modified = true;
 				changed = true;
 			}
-			if(temp.st_mode() != it->st_mode())
+			if(temp.st_type(handle_ptr) != it->st_type(handle_ptr))// mode is linux only...
 			{
 				changed = true;
 				security = true;
-			}*/
+			}
 			if(changed)
 			{
 				Change ch(temp, (*it));
@@ -490,7 +570,7 @@ void monitor::Watcher::Path::callHandlers()
 		//parent->future_queue.bounded_push(parent->parent->threadpool->enqueue([handler, &changes](){ handler->invoke(changes); }));
 		parent->parent->threadpool->enqueue([handler, &changes](){ handler->invoke(changes); });
 	}
-
+	resetchanges.dismiss();
 	// update pathdir and entry_dict
 	pathdir=std::move(newpathdir);
 	for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
@@ -532,17 +612,17 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 		p = &(temp->second);
 	else
 	{
-		std::cout << "making new Paths" << std::endl;
+
 		auto unnew = boost::afio::detail::Undoer([&p]{delete p; p = nullptr;});
 		w->paths.insert(std::make_pair(ab_path, Watcher::Path(w, path)));
 		
 		// fix this to be safe and compliant!!!!!!!!!!!!
-		std::cout << "We are now here !!!!!!!!!!!!!!" << std::endl;
+
 		temp = w->paths.find(ab_path);
 		if (temp != w->paths.end())
 			p = &(temp->second);
 		else
-			std::cout << "horrible error here !!!!!!!!!!!!!" << std::endl;
+			std::cout << "horrible error here !!!!!!!!!!!!!" << std::endl; //<----------------------------------Fix this!!!
 		
 
 #ifdef USE_WINAPI
@@ -593,14 +673,14 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 
 bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler &handler)
 {
-	std::cout << "Starting to remove..." <<std::endl;
+	//std::cout << "Starting to remove..." <<std::endl;
 	//BOOST_AFIO_LOCK_GUARD<monitor> hl(*this);
 	//std::cout << "Lock guard aquired" <<std::endl;
 	auto ab_path = std::filesystem::absolute(path);
 	Watcher *w;
 	for(auto it = watchers.begin(); it != watchers.end(); ++it)
 	{
-		std::cout << "Going through watchers ..." <<std::endl;
+		//std::cout << "Going through watchers ..." <<std::endl;
 		w = &(*it);
 		Watcher::Path *p;
 		auto iter = w->paths.find(ab_path);
@@ -611,11 +691,11 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 		Watcher::Path::Handler *h;
 		for(auto it2 = p->handlers.begin(); it2 != p->handlers.end(); ++it2)
 		{
-			std::cout << "looking for a handler to remove ..." <<std::endl;
+			//std::cout << "looking for a handler to remove ..." <<std::endl;
 			h = &(*it2);
 			if(h->handler == &handler)
 			{
-				std::cout << "Found the handler to remove!!!" <<std::endl;
+				//std::cout << "Found the handler to remove!!!" <<std::endl;
 				p->handlers.erase(it2);
 				h = NULL;
 				if(p->handlers.empty())
@@ -623,7 +703,7 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 #ifdef USE_WINAPI
 					BOOST_AFIO_ERRHWIN(SetEvent(w->latch));
 #endif
-					std::cout << "Removing a Path" <<std::endl;	
+					//std::cout << "Removing a Path" <<std::endl;	
 					w->paths.erase(ab_path);
 					w->pathByHandle.erase(p->h);
 					p=0;
@@ -660,7 +740,7 @@ void monitor::process_watchers()
 			continue;
 		}
 	}
-	std::cout << "process_watchers called" << std::endl;
+	//std::cout << "process_watchers called" << std::endl;
 }
 
 

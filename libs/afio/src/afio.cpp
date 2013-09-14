@@ -3207,6 +3207,7 @@ void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io
 		path/=leafname;
 		BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path.c_str(), &s), path);
 		fill_stat_t(stat, s, wanted);
+		have_metadata = have_metadata | wanted;
 	}
 }
 
