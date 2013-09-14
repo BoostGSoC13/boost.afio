@@ -425,6 +425,7 @@ namespace boost{
 				};
 				
 				Watcher *parent;
+				boost::mutex mtx;
 				std::shared_ptr<std::vector<directory_entry>> pathdir;
 				std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
 				boost::ptr_vector<Handler> handlers;
@@ -469,6 +470,14 @@ namespace boost{
 					}
 				}
 				
+				Path(const Path& other): parent(other.parent), path(other.path), pathdir(other.pathdir), entry_dict(other.entry_dict), handlers(other.handlers), mtx() 
+	#if defined(USE_WINAPI) || defined(USE_INOTIFY)
+					, h(other.h)
+	#endif		
+	#if defined(USE_KQUEUES)
+					, h(other.h)
+	#endif
+				{}
 				~Path();
 				void resetChanges(std::list<Change> *changes)
 				{
@@ -482,6 +491,7 @@ namespace boost{
 
 			monitor* parent;
 			std::atomic<bool> can_run;
+			boost::mutex mtx;
 			//boost::lockfree::queue<std::future<void>> future_queue;
 			std::unordered_map< std::filesystem::path, Path> paths;
 	#ifdef USE_WINAPI

@@ -133,7 +133,7 @@ void monitor::Watcher::run()
 	{
 		//QMtxHold h(f);
 		//(*this).lock();
-		BOOST_AFIO_LOCK_GUARD<monitor> h((*this), boost::adopt_lock);
+		//BOOST_AFIO_LOCK_GUARD<monitor> h((*this), boost::adopt_lock);
 		Path *p;
 		int idx=1;
 		for(auto it = paths.begin(); it != paths.end(); ++it)
@@ -167,7 +167,7 @@ void monitor::Watcher::run()
 #ifdef USE_INOTIFY
 void monitor::Watcher::run()
 {
-	//BOOST_AFIO_LOCK_GUARD<monitor> lg(*this->parent);
+	BOOST_AFIO_LOCK_GUARD<boost::mutex> lg(mtx);
 	int ret;
 	char buffer[4096];
 	std::cout << "run() was called" << std::endl;
@@ -189,7 +189,6 @@ void monitor::Watcher::run()
 #endif
 					//if the event is the watch being removed, we don't care, so dont callHandler()
 					
-					//BOOST_AFIO_LOCK_GUARD<monitor> h(*parent);
 					auto it = pathByHandle.find(ev->wd); 
 					Path* p = (it == pathByHandle.end()) ? NULL : it->second;
 					//assert(p);
@@ -257,7 +256,7 @@ void monitor::Watcher::run()
 					if(cancelWaiterHandle==kev->ident)
 						QThread::current()->checkForTerminate();
 #endif
-					BOOST_AFIO_LOCK_GUARD<monitor> h((*this));
+					//BOOST_AFIO_LOCK_GUARD<monitor> h((*this));
 					Path *p=pathByHandle.[(kev->ident)];
 					assert(p);
 					if(p)
@@ -338,7 +337,7 @@ monitor::Watcher::Path::Handler::~Handler()
 
 void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*, future_handle callv*/)
 {
-	//BOOST_AFIO_LOCK_GUARD<monitor> h(*parent->parent->parent);
+	BOOST_AFIO_LOCK_GUARD<boost::mutex> h(parent->mtx);
 	std::cout << "invoke() was called" <<std::endl;
 	//fxmessage("dir_monitor dispatch %p\n", callv);
 	size_t i=1;
@@ -387,6 +386,7 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<Change>& changes, std::shared_ptr< async_io_handle > dirh)
 {
 
+	std::cout << "started the comparisons" <<std::endl;
 	try// this all worked better when I could hash w/ birthtim...
 	{
 		entry.full_lstat(dirh);//think this is wrong...
@@ -415,7 +415,7 @@ void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<C
 			changed = true;
 			security = true;
 		}
-		BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
+		BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 		if(changed)
 		{
 			Change ch(temp, entry);
@@ -438,7 +438,7 @@ void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<C
 		Change ch(directory_entry(), entry);
 		//ch.change.eventNo=++(parent->parent->eventcounter);
 		ch.change.setCreated();
-		//BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
+		BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 		changes.push_back(ch);
 	}
 	catch(std::exception &e)
@@ -452,7 +452,7 @@ void monitor::Watcher::Path::callHandlers()
 {	
 	//std::cout << pathdir->size();
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
-	//BOOST_AFIO_LOCK_GUARD<monitor> lk(*this->parent->parent);
+	BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 	std::cout << "callHandlers() was called" <<std::endl;
 	
 
@@ -480,7 +480,8 @@ void monitor::Watcher::Path::callHandlers()
 	   	my_op = enumeration.second;
 	} while(list.second);
 	std::shared_ptr<std::vector<directory_entry>> newpathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
-std::cout <<"enumeration completed" <<std::endl;
+	
+	std::cout <<"enumeration completed" <<std::endl;
 	std::list<Change> changes;
 	auto handle_ptr = my_op.h->get();
 	
@@ -491,7 +492,7 @@ std::cout <<"enumeration completed" <<std::endl;
 	{
 		//ops.push_back(my_op);
 		//closures.push_back(std::bind(&boost::afio::monitor::Watcher::Path::compare_entries, this, *it, changes, handle_ptr));
-		//dispatcher->call()
+		
 #if 1
 		try// this all worked better when I could hash w/ birthtim...
 		{
@@ -552,10 +553,11 @@ std::cout <<"enumeration completed" <<std::endl;
 #endif
 	}
 #endif
-	//std::cout <<"ops are bound" <<std::endl;
-	//auto called_ops(parent->parent->dispatcher->call(ops, closures));
-	//std::cout <<"ops have been scheduled" <<std::endl;
-	//when_all(called_ops.second.begin(), called_ops.second.end()).wait();
+	/*std::cout <<"ops are bound" <<std::endl;
+	auto called_ops(parent->parent->dispatcher->call(ops, closures));
+	std::cout <<"ops have been scheduled" <<std::endl;
+	when_all(called_ops.second.begin(), called_ops.second.end()).wait();
+	std::cout << "comparisons are complete" << std::endl;*/
 	// anything left in entry_dict has been deleted
 	for(auto it = entry_dict.begin(); it != entry_dict.end(); ++it)
 	{
@@ -623,7 +625,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 	{
 
 		auto unnew = boost::afio::detail::Undoer([&p]{delete p; p = nullptr;});
-		w->paths.insert(std::make_pair(ab_path, Watcher::Path(w, path)));
+		w->paths.insert(std::make_pair(ab_path, std::move(Watcher::Path(w, ab_path))));
 		
 		// fix this to be safe and compliant!!!!!!!!!!!!
 
