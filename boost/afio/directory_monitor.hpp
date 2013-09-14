@@ -429,6 +429,7 @@ namespace boost{
 				std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
 				boost::ptr_vector<Handler> handlers;
 				const std::filesystem::path path;
+				
 				Path(Watcher *_parent, const std::filesystem::path &_path)
 					: parent(_parent), path(std::filesystem::absolute(_path)), pathdir(nullptr)
 	#if defined(USE_WINAPI) || defined(USE_INOTIFY)
@@ -438,6 +439,7 @@ namespace boost{
 	#if defined(USE_KQUEUES)
 					memset(&h, 0, sizeof(h));
 	#endif
+				
 					boost:afio::async_io_op my_op;
 					auto rootdir(parent->parent->dispatcher->dir(boost::afio::async_path_op_req(path)));
 
@@ -475,7 +477,7 @@ namespace boost{
 				}
 
 				void callHandlers();
-				//void compare_entries();
+				void compare_entries(directory_entry& entry, std::list<Change>& changes, std::shared_ptr< async_io_handle > dirh);
 			};
 
 			monitor* parent;
@@ -507,6 +509,7 @@ namespace boost{
 		std::shared_ptr<std_thread_pool> threadpool;
 		std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher;
 		std::atomic<bool> running;
+		std::atomic<unsigned long> eventcounter;
 		bool is_running(){return running.load(); }
 		future<void> finished;
 		//std::shared_ptr<thread> my_thread;

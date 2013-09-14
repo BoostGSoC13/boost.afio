@@ -26,7 +26,7 @@ namespace boost {
 
 
 
-monitor::monitor() : running(true)
+monitor::monitor() : running(true), eventcounter(0)
 {
 	std::cout << "monitor constructed" << std::endl;
 	dispatcher = boost::afio::make_async_file_io_dispatcher();
@@ -167,7 +167,7 @@ void monitor::Watcher::run()
 #ifdef USE_INOTIFY
 void monitor::Watcher::run()
 {
-	BOOST_AFIO_LOCK_GUARD<monitor> lg(*this->parent);
+	//BOOST_AFIO_LOCK_GUARD<monitor> lg(*this->parent);
 	int ret;
 	char buffer[4096];
 	std::cout << "run() was called" << std::endl;
@@ -383,34 +383,34 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 	return 0;
 }*/
 
-#if 0
-void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<Change>* changes)
+#if 1
+void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<Change>& changes, std::shared_ptr< async_io_handle > dirh)
 {
 
 	try// this all worked better when I could hash w/ birthtim...
 	{
-		it->full_lstat(my_op.h->get());//think this is wrong...
+		entry.full_lstat(dirh);//think this is wrong...
 
 		// try to find the directory_entry
 		// if it exists, then determine if anything has changed
 		// if the hash is successful then it has the same inode and ctim
-		auto temp = entry_dict.at(*it);
+		auto temp = entry_dict.at(entry);
 
 		bool changed = false, renamed = false, modified = false, security = false;
 		// determine if any changes
-		if(temp.name() != it->name())
+		if(temp.name() != entry.name())
 		{
 			changed = true;
 			renamed = true;
 		}
-		if(temp.st_mtim(handle_ptr)!= it->st_mtim(handle_ptr)
-				|| temp.st_size(handle_ptr) != it->st_size(handle_ptr) 
-				|| temp.st_allocated(handle_ptr) != it->st_allocated(handle_ptr))
+		if(temp.st_mtim(dirh)!= entry.st_mtim(dirh)
+				|| temp.st_size(dirh) != entry.st_size(dirh) 
+				|| temp.st_allocated(dirh) != entry.st_allocated(dirh))
 		{
 			modified = true;
 			changed = true;
 		}
-		if(temp.st_type(handle_ptr) != it->st_type(handle_ptr))// mode is linux only...
+		if(temp.st_type(dirh) != entry.st_type(dirh))// mode is linux only...
 		{
 			changed = true;
 			security = true;
@@ -418,12 +418,12 @@ void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<C
 		BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
 		if(changed)
 		{
-			Change ch(temp, (*it));
-			ch.change.eventNo=++eventcounter;
+			Change ch(temp, entry);
+			//ch.change.eventNo=++(parent->parent->eventcounter);
 			ch.change.setRenamed(renamed);
 			ch.change.setModified(modified);
 			ch.change.setSecurity(security);
-			BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
+			//BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
 			changes.push_back(ch);
 		}
 
@@ -435,9 +435,10 @@ void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<C
 	{
 		std::cout << "we have a new file\n";
 		//We've never seen this before
-		Change ch(directory_entry(), (*it));
-		ch.change.eventNo=++eventcounter;
+		Change ch(directory_entry(), entry);
+		//ch.change.eventNo=++(parent->parent->eventcounter);
 		ch.change.setCreated();
+		//BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
 		changes.push_back(ch);
 	}
 	catch(std::exception &e)
@@ -445,16 +446,13 @@ void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<C
 		std::cout << "another type of error occured that is ruining this\n" << e.what() <<std::endl;;
 		throw;
 	}
-
 }
 #endif
 void monitor::Watcher::Path::callHandlers()
 {	
-
-
 	//std::cout << pathdir->size();
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
-	BOOST_AFIO_LOCK_GUARD<monitor> lk(*this->parent->parent);
+	//BOOST_AFIO_LOCK_GUARD<monitor> lk(*this->parent->parent);
 	std::cout << "callHandlers() was called" <<std::endl;
 	
 
@@ -474,7 +472,7 @@ void monitor::Watcher::Path::callHandlers()
 	        boost::afio::future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
 	        boost::afio::async_io_op
 	    >  enumeration(
-	       parent->parent-> dispatcher->enumerate(boost::afio::async_enumerate_op_req(
+	       parent->parent->dispatcher->enumerate(boost::afio::async_enumerate_op_req(
 	        	rootdir,boost::afio::directory_entry::compatibility_maximum(), restart)));
 	    restart=false;
 
@@ -482,13 +480,19 @@ void monitor::Watcher::Path::callHandlers()
 	   	my_op = enumeration.second;
 	} while(list.second);
 	std::shared_ptr<std::vector<directory_entry>> newpathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
-
+std::cout <<"enumeration completed" <<std::endl;
 	std::list<Change> changes;
 	auto handle_ptr = my_op.h->get();
-	static unsigned long eventcounter=0;
+	
 #if 1
+	//std::vector<async_io_op> ops(newpathdir->size());
+	//std::vector<std::function<void()>> closures(newpathdir->size());
 	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
+		//ops.push_back(my_op);
+		//closures.push_back(std::bind(&boost::afio::monitor::Watcher::Path::compare_entries, this, *it, changes, handle_ptr));
+		//dispatcher->call()
+#if 1
 		try// this all worked better when I could hash w/ birthtim...
 		{
 			it->full_lstat(my_op.h->get());//think this is wrong...
@@ -520,7 +524,7 @@ void monitor::Watcher::Path::callHandlers()
 			if(changed)
 			{
 				Change ch(temp, (*it));
-				ch.change.eventNo=++eventcounter;
+				ch.change.eventNo=++(parent->parent->eventcounter);
 				ch.change.setRenamed(renamed);
 				ch.change.setModified(modified);
 				ch.change.setSecurity(security);
@@ -536,7 +540,7 @@ void monitor::Watcher::Path::callHandlers()
 			std::cout << "we have a new file\n";
 			//We've never seen this before
 			Change ch(directory_entry(), (*it));
-			ch.change.eventNo=++eventcounter;
+			ch.change.eventNo=++(parent->parent->eventcounter);
 			ch.change.setCreated();
 			changes.push_back(ch);
 		}
@@ -545,14 +549,19 @@ void monitor::Watcher::Path::callHandlers()
 			std::cout << "another type of error occured that is ruining this\n" << e.what() <<std::endl;;
 			throw;
 		}
+#endif
 	}
 #endif
+	//std::cout <<"ops are bound" <<std::endl;
+	//auto called_ops(parent->parent->dispatcher->call(ops, closures));
+	//std::cout <<"ops have been scheduled" <<std::endl;
+	//when_all(called_ops.second.begin(), called_ops.second.end()).wait();
 	// anything left in entry_dict has been deleted
 	for(auto it = entry_dict.begin(); it != entry_dict.end(); ++it)
 	{
 		
 		Change ch((it->second), directory_entry());
-		ch.change.eventNo=++eventcounter;
+		//ch.change.eventNo=++(parent->parent->eventcounter);
 		ch.change.setDeleted();
 		changes.push_back(std::move(ch));
 	}
@@ -726,7 +735,7 @@ bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandl
 
 void monitor::process_watchers()
 {
-	BOOST_AFIO_LOCK_GUARD<monitor> h(*this);
+	//BOOST_AFIO_LOCK_GUARD<monitor> h(*this);
 	BOOST_FOREACH( auto &i, this->watchers)
 	{
 		try
