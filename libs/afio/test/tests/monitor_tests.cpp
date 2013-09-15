@@ -94,7 +94,7 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 	//boost::afio::monitor::Watcher::Path::Handler* ptr_h = new boost::afio::monitor::Watcher::Path::Handler(path.get(), handler);
 	//handlers.push_back(ptr_h);
 
-	std::chrono::seconds dur(5);
+	std::chrono::seconds dur(1);
 	std::remove("testdir/test.txt");
 	std::remove("testdir/test2.txt");
 	//test monitor

@@ -310,7 +310,7 @@ namespace std
 			}
 			catch(std::exception &e)
 			{
-				std::cout <<"the metadata is: " << (std::bitset<sizeof(size_t)*8>)(size_t)p.metadata_ready() << std::endl;
+				std::cout <<"the metadata for " << p.name() << " is: " << (std::bitset<sizeof(size_t)*8>)(size_t)p.metadata_ready() << std::endl;
 				std::cout << "this hash failed horribly <------------\n" << e.what() <<std::endl;
 				throw;
 			}
@@ -425,7 +425,8 @@ namespace boost{
 				};
 				
 				Watcher *parent;
-				boost::mutex mtx;
+				//boost::mutex mtx;
+				recursive_mutex mtx;
 				std::shared_ptr<std::vector<directory_entry>> pathdir;
 				std::unordered_map<directory_entry, directory_entry> entry_dict;// each entry is also the hash of itself
 				boost::ptr_vector<Handler> handlers;
@@ -463,10 +464,12 @@ namespace boost{
 
 					pathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
 					auto handle_ptr = my_op.h->get();
+					entry_dict.reserve(pathdir->size());
 					for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 					{	
 						auto stat = it->full_lstat(handle_ptr);
 						entry_dict.insert(std::make_pair(*it, *it));
+						//std::cout << it->name() << std::endl;
 					}
 				}
 				
@@ -486,7 +489,7 @@ namespace boost{
 				}
 
 				void callHandlers();
-				void compare_entries(directory_entry& entry, std::list<Change>& changes, std::shared_ptr< async_io_handle > dirh);
+				std::pair<Change*, directory_entry*> compare_entries(directory_entry& entry, std::shared_ptr< async_io_handle > dirh);
 			};
 
 			monitor* parent;

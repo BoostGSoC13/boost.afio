@@ -199,11 +199,11 @@ void monitor::Watcher::run()
 						{
 							p->callHandlers();
 						}
-						catch(...)
+						catch(std::exception &e)
 						{
-							std::cout << "An error occurred durring callHandlers() ..." <<std::endl;	
+							std::cout << "An error occurred durring callHandlers() ...\n" << e.what() <<std::endl;	
 							//std::abort();
-							throw;
+							throw(e);
 						}
 						std::cout << "done with call from callHandlers()" <<std::endl;
 					}
@@ -216,6 +216,7 @@ void monitor::Watcher::run()
 		catch(std::exception &e)
 		{
 			std::cout << "Error from boost::afio::monitor::Watcher::run(): " << e.what() << std::endl;
+			throw(e);
 			return;
 		}
 		
@@ -337,7 +338,7 @@ monitor::Watcher::Path::Handler::~Handler()
 
 void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*, future_handle callv*/)
 {
-	BOOST_AFIO_LOCK_GUARD<boost::mutex> h(parent->mtx);
+	//BOOST_AFIO_LOCK_GUARD<recursive_mutex> h(parent->mtx);
 	std::cout << "invoke() was called" <<std::endl;
 	//fxmessage("dir_monitor dispatch %p\n", callv);
 	size_t i=1;
@@ -383,19 +384,23 @@ void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*,
 }*/
 
 #if 1
-void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<Change>& changes, std::shared_ptr< async_io_handle > dirh)
+std::pair<monitor::Watcher::Path::Change*, directory_entry*> monitor::Watcher::Path::compare_entries(directory_entry& entry, std::shared_ptr< async_io_handle > dirh)
 {
-
-	std::cout << "started the comparisons" <<std::endl;
+	Change* ret = nullptr;
+	directory_entry* ptr = nullptr;
+	//entry.full_lstat(dirh);
+	//std::cout << "stated file:" << entry.name() <<std::endl;
+		//std::cout << "stat has completed" <<std::endl;
+	//std::cout << "started the comparisons" <<std::endl;
 	try// this all worked better when I could hash w/ birthtim...
 	{
-		entry.full_lstat(dirh);//think this is wrong...
-
+		
 		// try to find the directory_entry
 		// if it exists, then determine if anything has changed
 		// if the hash is successful then it has the same inode and ctim
-		auto temp = entry_dict.at(entry);
-
+		ptr = &entry_dict.at(entry);
+		auto temp = *ptr;
+		//std::cout << "hash was successful" <<std::endl;
 		bool changed = false, renamed = false, modified = false, security = false;
 		// determine if any changes
 		if(temp.name() != entry.name())
@@ -415,44 +420,48 @@ void monitor::Watcher::Path::compare_entries(directory_entry& entry, std::list<C
 			changed = true;
 			security = true;
 		}
-		BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
+		//BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 		if(changed)
 		{
-			Change ch(temp, entry);
-			//ch.change.eventNo=++(parent->parent->eventcounter);
-			ch.change.setRenamed(renamed);
-			ch.change.setModified(modified);
-			ch.change.setSecurity(security);
+			ret = new Change(temp, entry);
+			ret->change.eventNo=++(parent->parent->eventcounter);
+			ret->change.setRenamed(renamed);
+			ret->change.setModified(modified);
+			ret->change.setSecurity(security);
 			//BOOST_AFIO_LOCK_GUARD<monitor> lk(*parent->parent);
-			changes.push_back(ch);
+			//changes.push_back(ch);
+			//return *ret;
 		}
 
 		// we found this entry, so remove it to later 
 		// determine what has been deleted
-		entry_dict.erase(temp); 
+		// this shouldn't invalidate any iterators, but maybe its still not good
+		//entry_dict.erase(temp); 
 	}
 	catch(std::out_of_range &e)
 	{
-		std::cout << "we have a new file\n";
+		std::cout << "we have a new file: "  << entry.name() <<std::endl;
 		//We've never seen this before
-		Change ch(directory_entry(), entry);
-		//ch.change.eventNo=++(parent->parent->eventcounter);
-		ch.change.setCreated();
-		BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
-		changes.push_back(ch);
+		ret = new Change(directory_entry(), entry);
+		ret->change.eventNo=++(parent->parent->eventcounter);
+		ret->change.setCreated();
+		//BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
+		//changes.push_back(ch);
+		//return *ret;
 	}
 	catch(std::exception &e)
 	{
 		std::cout << "another type of error occured that is ruining this\n" << e.what() <<std::endl;;
-		throw;
+		throw(e);
 	}
+	return std::make_pair(ret, ptr);	
 }
 #endif
 void monitor::Watcher::Path::callHandlers()
 {	
 	//std::cout << pathdir->size();
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
-	BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
+	BOOST_AFIO_LOCK_GUARD<recursive_mutex> lk(mtx);
 	std::cout << "callHandlers() was called" <<std::endl;
 	
 
@@ -484,16 +493,24 @@ void monitor::Watcher::Path::callHandlers()
 	std::cout <<"enumeration completed" <<std::endl;
 	std::list<Change> changes;
 	auto handle_ptr = my_op.h->get();
+
 	
 #if 1
-	//std::vector<async_io_op> ops(newpathdir->size());
-	//std::vector<std::function<void()>> closures(newpathdir->size());
+	std::vector<async_io_op> ops;
+	ops.reserve(newpathdir->size());
+	std::vector<std::function<std::pair<Change*, directory_entry*>()>> closures;
+	closures.reserve(newpathdir->size());
+	std::vector<std::function<void()>> full_stat;
+	full_stat.reserve(newpathdir->size());
 	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
-		//ops.push_back(my_op);
-		//closures.push_back(std::bind(&boost::afio::monitor::Watcher::Path::compare_entries, this, *it, changes, handle_ptr));
+		directory_entry* my_ptr = &(*it);
+		full_stat.push_back([my_ptr, &handle_ptr](){my_ptr->full_lstat(handle_ptr);});
+		//it->full_lstat(handle_ptr);
+		ops.push_back(my_op);
+		//closures.push_back(std::bind(&boost::afio::monitor::Watcher::Path::compare_entries, this, *it, handle_ptr));
 		
-#if 1
+#if 0
 		try// this all worked better when I could hash w/ birthtim...
 		{
 			it->full_lstat(my_op.h->get());//think this is wrong...
@@ -553,22 +570,57 @@ void monitor::Watcher::Path::callHandlers()
 #endif
 	}
 #endif
-	/*std::cout <<"ops are bound" <<std::endl;
-	auto called_ops(parent->parent->dispatcher->call(ops, closures));
-	std::cout <<"ops have been scheduled" <<std::endl;
+	//std::cout <<"prepare for async stating" <<std::endl;
+	// execute stats asynchonously
+	auto stat_execute(parent->parent->dispatcher->call(ops, full_stat));
+	//std::cout <<"stating scheduled..." <<std::endl;
+	when_all(stat_execute.second.begin(), stat_execute.second.end()).wait();
+	//std::cout <<"stating complete" <<std::endl;
+	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
+	{
+		closures.push_back(std::bind(&boost::afio::monitor::Watcher::Path::compare_entries, this, *it, handle_ptr));
+	}
+	//std::cout <<"closures created" <<std::endl;
+	auto called_ops(parent->parent->dispatcher->call(stat_execute.second, closures));
+	//std::cout <<"closures scheduled" <<std::endl;
 	when_all(called_ops.second.begin(), called_ops.second.end()).wait();
-	std::cout << "comparisons are complete" << std::endl;*/
+	//std::cout <<"closures completed successfully" <<std::endl;
+
+	BOOST_FOREACH(auto &i, called_ops.first)// after this works make it async
+	{
+		try
+		{	std::pair<Change*, directory_entry*> result;
+			try{result = i.get();}catch(...){std::cout << "trouble getting results of comps\n"; throw;}
+			if(result.first != nullptr)
+				changes.push_back(*result.first);
+			if(result.second != nullptr)
+			{
+				try{
+					//result.second->full_lstat(handle_ptr);
+					entry_dict.erase(*result.second);
+				}catch(...){std::cout << "bad data from comps!!!!!!\n"; throw;}
+			}
+		}
+		catch(std::exception &e){
+			std::cout << "error moveing changes\n" << e.what() << std::endl;
+			throw(e);
+		}
+		
+	}
+
+	std::cout << "list of changes created" << std::endl;
 	// anything left in entry_dict has been deleted
 	for(auto it = entry_dict.begin(); it != entry_dict.end(); ++it)
 	{
-		
+		std::cout << "File was deleted: "  << it->second.name() <<std::endl;
 		Change ch((it->second), directory_entry());
-		//ch.change.eventNo=++(parent->parent->eventcounter);
+		ch.change.eventNo=++(parent->parent->eventcounter);
 		ch.change.setDeleted();
 		changes.push_back(std::move(ch));
 	}
 	entry_dict.clear();
 	
+	std::cout << "Number of changes: "<< changes.size() << std::endl; 
 	//this seems wrong...
 	auto resetchanges = boost::afio::detail::Undoer([this, &changes](){ this->resetChanges(&changes); } );
 
@@ -583,9 +635,10 @@ void monitor::Watcher::Path::callHandlers()
 	}
 	resetchanges.dismiss();
 	// update pathdir and entry_dict
-	pathdir=std::move(newpathdir);
+	pathdir.swap(newpathdir);
 	for(auto it = pathdir->begin(); it != pathdir->end(); ++it)
 	{
+		//it->full_lstat(handle_ptr);
 		entry_dict.insert(std::make_pair(*it, *it));
 	}
 	std::cout <<"Exiting callHandlers()" << std::endl;
