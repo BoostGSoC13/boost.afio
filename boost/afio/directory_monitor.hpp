@@ -527,6 +527,7 @@ namespace boost{
 		future<void> finished;
 		//std::shared_ptr<thread> my_thread;
 		monitor();
+		monitor(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher);
 		~monitor();
 		void add(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler);
 		bool remove(const std::filesystem::path &path, dir_monitor::ChangeHandler& handler);

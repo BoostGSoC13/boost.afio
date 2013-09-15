@@ -28,18 +28,18 @@ namespace boost {
 
 monitor::monitor() : running(true), eventcounter(0)
 {
-	std::cout << "monitor constructed" << std::endl;
+	//std::cout << "monitor constructed" << std::endl;
 	dispatcher = boost::afio::make_async_file_io_dispatcher();
 	threadpool = process_threadpool();
 
 	finished = threadpool->enqueue([this](){
-		std::cout << "this lambda was called" << std::endl;
+	//	std::cout << "this lambda was called" << std::endl;
 		while(this->is_running())
 		{
 			//std::cout << "running was true here" << std::endl;
 			this->process_watchers(); 
 		}
-		std::cout << "this lambda is ending..." << std::endl;
+	//	std::cout << "this lambda is ending..." << std::endl;
 	});
 #ifdef USE_INOTIFY
 	BOOST_AFIO_ERRHOS(inotifyh=inotify_init());
@@ -48,6 +48,24 @@ monitor::monitor() : running(true), eventcounter(0)
 	BOOST_AFIO_ERRHOS(kqueueh=kqueue());
 #endif
 
+}
+
+monitor::monitor(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher):running(true), eventcounter(0), dispatcher(_dispatcher)
+{
+	dispatcher = boost::afio::make_async_file_io_dispatcher();
+	threadpool = process_threadpool();
+	finished = threadpool->enqueue([this](){
+		while(this->is_running())
+		{
+			this->process_watchers(); 
+		}
+	});
+#ifdef USE_INOTIFY
+	BOOST_AFIO_ERRHOS(inotifyh=inotify_init());
+#endif
+#ifdef USE_KQUEUES
+	BOOST_AFIO_ERRHOS(kqueueh=kqueue());
+#endif
 }
 
 monitor::~monitor()
@@ -170,14 +188,14 @@ void monitor::Watcher::run()
 	BOOST_AFIO_LOCK_GUARD<boost::mutex> lg(mtx);
 	int ret;
 	char buffer[4096];
-	std::cout << "run() was called" << std::endl;
+	//std::cout << "run() was called" << std::endl;
 	//for(;;)
 	//{
 		try
 		{
 			if(0 <= (ret=read(parent->inotifyh, buffer, sizeof(buffer))))
 			{
-				std::cout << "run() made it to the if statement" << std::endl;
+				//std::cout << "run() made it to the if statement" << std::endl;
 				BOOST_AFIO_ERRHOS(ret);
 				for(inotify_event *ev=(inotify_event *) buffer; ((char *)ev)-buffer<ret; ev+=ev->len+sizeof(inotify_event))
 				{
@@ -194,7 +212,7 @@ void monitor::Watcher::run()
 					//assert(p);
 					if(p != NULL)
 					{
-						std::cout << "making the call to callHandlers()" <<std::endl;
+						//std::cout << "making the call to callHandlers()" <<std::endl;
 						try
 						{
 							p->callHandlers();
@@ -205,7 +223,7 @@ void monitor::Watcher::run()
 							//std::abort();
 							throw(e);
 						}
-						std::cout << "done with call from callHandlers()" <<std::endl;
+						//std::cout << "done with call from callHandlers()" <<std::endl;
 					}
 					else
 						std::cout << "Some thing is wrong with p in run()..." <<std::endl;	
@@ -339,60 +357,35 @@ monitor::Watcher::Path::Handler::~Handler()
 void monitor::Watcher::Path::Handler::invoke(const std::list<Change> &changes/*, future_handle callv*/)
 {
 	//BOOST_AFIO_LOCK_GUARD<recursive_mutex> h(parent->mtx);
-	std::cout << "invoke() was called" <<std::endl;
+	//std::cout << "invoke() was called" <<std::endl;
 	//fxmessage("dir_monitor dispatch %p\n", callv);
 	size_t i=1;
+
+	std::vector<async_io_op> ops;
+	ops.reserve(changes.size());
+	std::vector<std::function<void()>> closures;
+	closures.reserve(changes.size());
 	for(auto it=changes.begin(); it!=changes.end(); ++it, ++i)
 	{
-		//const Change &ch=*it;
-		//const directory_entry &oldfi = it->oldfi ? *it->oldfi : directory_entry();
-		//const directory_entry &newfi = it->newfi ? *it->newfi : directory_entry();
-#ifdef DEBUG
-		{
-			/*FXString file(oldfi.filePath()), chs;
-			if(ch.change.modified) chs.append("modified ");
-			if(ch.change.created)  { chs.append("created "); file=newfi.filePath(); }
-			if(ch.change.deleted)  chs.append("deleted ");
-			if(ch.change.renamed)  chs.append("renamed (to "+newfi.filePath()+") ");
-			if(ch.change.attrib)   chs.append("attrib ");
-			if(ch.change.security) chs.append("security ");
-			message("dir_monitor: File %s had changes: %s at %s\n", file.text(), chs.text(), (ch.newfi ? *ch.newfi : *ch.oldfi).lastModified().asString().text());
-		*/}
-#endif
-		{
-			//BOOST_AFIO_LOCK_GUARD<monitor> h((*this));
-			//callv.get();
-			//callvs.remove(callv); //I think this will be OK instead of removeReffrom QptrList
-			//h.unlock();
-		}
-		printf("invoke() called the handler %d times so far\n", i);
+		auto ch = *it;
+		//printf("invoke() called the handler %d times so far\n", i);
 		//std::cout << "The handler address is " << handler <<std::endl;
-		(*handler)(it->change, it->oldfi, it->newfi);
+		auto func = this->handler;
+		ops.push_back(async_io_op());
+		closures.push_back([func, ch](){(*func)(ch.change, ch.oldfi, ch.newfi);});
 	}
+	parent->parent->parent->dispatcher->call(ops, closures);
 	//std::cout << "invoke() has completed" <<std::endl;
 }
-
-
-/*static const directory_entry& findFIByName(const std::unique_ptr<std::vector<directory_entry>>  list, const std::filesystem::path &name)
-{
-	for(auto it=list->begin(); it!=list->end(); ++it)
-	{
-		// Need a case sensitive compare
-		if((*it).name()==name) return *it;
-	}
-	return 0;
-}*/
 
 #if 1
 std::pair<monitor::Watcher::Path::Change*, directory_entry*> monitor::Watcher::Path::compare_entries(directory_entry& entry, std::shared_ptr< async_io_handle > dirh)
 {
 	Change* ret = nullptr;
 	directory_entry* ptr = nullptr;
-	//entry.full_lstat(dirh);
+	//entry.full_lstat(dirh);// this does happen elsewhere, but just in case while testing...
 	//std::cout << "stated file:" << entry.name() <<std::endl;
-		//std::cout << "stat has completed" <<std::endl;
-	//std::cout << "started the comparisons" <<std::endl;
-	try// this all worked better when I could hash w/ birthtim...
+	try
 	{
 		
 		// try to find the directory_entry
@@ -400,9 +393,7 @@ std::pair<monitor::Watcher::Path::Change*, directory_entry*> monitor::Watcher::P
 		// if the hash is successful then it has the same inode and ctim
 		ptr = &entry_dict.at(entry);
 		auto temp = *ptr;
-		//std::cout << "hash was successful" <<std::endl;
 		bool changed = false, renamed = false, modified = false, security = false;
-		// determine if any changes
 		if(temp.name() != entry.name())
 		{
 			changed = true;
@@ -440,7 +431,7 @@ std::pair<monitor::Watcher::Path::Change*, directory_entry*> monitor::Watcher::P
 	}
 	catch(std::out_of_range &e)
 	{
-		std::cout << "we have a new file: "  << entry.name() <<std::endl;
+		//std::cout << "we have a new file: "  << entry.name() <<std::endl;
 		//We've never seen this before
 		ret = new Change(directory_entry(), entry);
 		ret->change.eventNo=++(parent->parent->eventcounter);
@@ -462,7 +453,7 @@ void monitor::Watcher::Path::callHandlers()
 	//std::cout << pathdir->size();
 	//std::cout << std::filesystem::absolute(this->path) << std::endl;
 	BOOST_AFIO_LOCK_GUARD<recursive_mutex> lk(mtx);
-	std::cout << "callHandlers() was called" <<std::endl;
+	//std::cout << "callHandlers() was called" <<std::endl;
 	
 
 	//enumeratate the directory
@@ -490,7 +481,7 @@ void monitor::Watcher::Path::callHandlers()
 	} while(list.second);
 	std::shared_ptr<std::vector<directory_entry>> newpathdir = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
 	
-	std::cout <<"enumeration completed" <<std::endl;
+	//std::cout <<"enumeration completed" <<std::endl;
 	std::list<Change> changes;
 	auto handle_ptr = my_op.h->get();
 
@@ -608,11 +599,11 @@ void monitor::Watcher::Path::callHandlers()
 		
 	}
 
-	std::cout << "list of changes created" << std::endl;
+	//std::cout << "list of changes created" << std::endl;
 	// anything left in entry_dict has been deleted
 	for(auto it = entry_dict.begin(); it != entry_dict.end(); ++it)
 	{
-		std::cout << "File was deleted: "  << it->second.name() <<std::endl;
+		//std::cout << "File was deleted: "  << it->second.name() <<std::endl;
 		Change ch((it->second), directory_entry());
 		ch.change.eventNo=++(parent->parent->eventcounter);
 		ch.change.setDeleted();
@@ -620,7 +611,7 @@ void monitor::Watcher::Path::callHandlers()
 	}
 	entry_dict.clear();
 	
-	std::cout << "Number of changes: "<< changes.size() << std::endl; 
+	//std::cout << "Number of changes: "<< changes.size() << std::endl; 
 	//this seems wrong...
 	auto resetchanges = boost::afio::detail::Undoer([this, &changes](){ this->resetChanges(&changes); } );
 
@@ -629,7 +620,7 @@ void monitor::Watcher::Path::callHandlers()
 	for(auto it = handlers.begin(); it != handlers.end(); ++it)
 	{	
 		handler = &(*it);	
-		std::cout << "handlers size is: " << handlers.size() <<std::endl;
+		//std::cout << "handlers size is: " << handlers.size() <<std::endl;
 		//parent->future_queue.bounded_push(parent->parent->threadpool->enqueue([handler, &changes](){ handler->invoke(changes); }));
 		parent->parent->threadpool->enqueue([handler, &changes](){ handler->invoke(changes); });
 	}
@@ -641,7 +632,7 @@ void monitor::Watcher::Path::callHandlers()
 		//it->full_lstat(handle_ptr);
 		entry_dict.insert(std::make_pair(*it, *it));
 	}
-	std::cout <<"Exiting callHandlers()" << std::endl;
+	//std::cout <<"Exiting callHandlers()" << std::endl;
 
 }
 
