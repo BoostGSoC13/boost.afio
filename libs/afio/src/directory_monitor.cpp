@@ -83,9 +83,9 @@ monitor::~monitor()
 				remove(j.second.path, *k.handler);
 		}
 	}
-	std::cout << "Watchers have been stoped (i think)..." << std::endl;
+	//std::cout << "Watchers have been stoped (i think)..." << std::endl;
 	finished.get();
-	std::cout << "future has completed" << std::endl;
+	//std::cout << "future has completed" << std::endl;
 	/*if(my_thread && my_thread->joinable())
 		my_thread->join();*/
 	watchers.clear();
@@ -96,10 +96,10 @@ monitor::~monitor()
 	#ifdef USE_INOTIFY
 		if(inotifyh)
 		{
-			std::cout << "trying to close inotify ..." << std::endl;
+			//std::cout << "trying to close inotify ..." << std::endl;
 			BOOST_AFIO_ERRHOS(::close(inotifyh));
 			inotifyh=0;
-			std::cout << "inotify closed!" << std::endl;
+			//std::cout << "inotify closed!" << std::endl;
 		}
 	#endif
 	#ifdef USE_KQUEUES
@@ -138,7 +138,7 @@ monitor::Watcher::~Watcher()
 	}
 #endif
 	paths.clear();
-	std::cout << "watcher has been destroyed" << std::endl;
+	//std::cout << "watcher has been destroyed" << std::endl;
 }
 
 #ifdef USE_WINAPI
@@ -486,22 +486,22 @@ void monitor::Watcher::Path::callHandlers()
 	auto handle_ptr = my_op.h->get();
 
 	
-#if 1
+#ifdef ASYNC_
+	/*
 	std::vector<async_io_op> ops;
 	ops.reserve(newpathdir->size());
 	std::vector<std::function<std::pair<Change*, directory_entry*>()>> closures;
 	closures.reserve(newpathdir->size());
 	std::vector<std::function<void()>> full_stat;
-	full_stat.reserve(newpathdir->size());
+	full_stat.reserve(newpathdir->size());*/
+#endif
 	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
+#ifdef ASYNC_
 		directory_entry* my_ptr = &(*it);
 		full_stat.push_back([my_ptr, &handle_ptr](){my_ptr->full_lstat(handle_ptr);});
-		//it->full_lstat(handle_ptr);
 		ops.push_back(my_op);
-		//closures.push_back(std::bind(&boost::afio::monitor::Watcher::Path::compare_entries, this, *it, handle_ptr));
-		
-#if 0
+#else
 		try// this all worked better when I could hash w/ birthtim...
 		{
 			it->full_lstat(my_op.h->get());//think this is wrong...
@@ -546,7 +546,7 @@ void monitor::Watcher::Path::callHandlers()
 		}
 		catch(std::out_of_range &e)
 		{
-			std::cout << "we have a new file\n";
+			//std::cout << "we have a new file\n";
 			//We've never seen this before
 			Change ch(directory_entry(), (*it));
 			ch.change.eventNo=++(parent->parent->eventcounter);
@@ -560,7 +560,9 @@ void monitor::Watcher::Path::callHandlers()
 		}
 #endif
 	}
-#endif
+
+#ifdef ASYNC_
+	
 	//std::cout <<"prepare for async stating" <<std::endl;
 	// execute stats asynchonously
 	auto stat_execute(parent->parent->dispatcher->call(ops, full_stat));
@@ -598,6 +600,7 @@ void monitor::Watcher::Path::callHandlers()
 		}
 		
 	}
+#endif
 
 	//std::cout << "list of changes created" << std::endl;
 	// anything left in entry_dict has been deleted
@@ -641,7 +644,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 	auto ab_path = std::filesystem::absolute(path);
 
 	std::cout << "adding a directory to monitor: " << ab_path.string() << std::endl;
-	//BOOST_AFIO_LOCK_GUARD<monitor> lh((*this));
+	BOOST_AFIO_LOCK_GUARD<monitor> lh((*this));
 	Watcher *w = nullptr;
 	for(auto it = watchers.begin(); it != watchers.end() && !w; ++it)
 	{
@@ -723,13 +726,13 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 	h=new Watcher::Path::Handler(p, handler);
 	p->handlers.push_back(h);
 	unh.dismiss();
-	std::cout << "Successfuly added " << ab_path.string() << std::endl;
+	//std::cout << "Successfuly added " << ab_path.string() << std::endl;
 }
 
 bool monitor::remove(const std::filesystem::path &path, dir_monitor::ChangeHandler &handler)
 {
 	//std::cout << "Starting to remove..." <<std::endl;
-	//BOOST_AFIO_LOCK_GUARD<monitor> hl(*this);
+	BOOST_AFIO_LOCK_GUARD<monitor> hl(*this);
 	//std::cout << "Lock guard aquired" <<std::endl;
 	auto ab_path = std::filesystem::absolute(path);
 	Watcher *w;

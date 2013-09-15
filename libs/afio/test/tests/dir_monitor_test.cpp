@@ -90,7 +90,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
 {
 	using boost::afio::ratio;
 	const size_t num = 1000;
-	std::chrono::seconds dur(10);
+	std::chrono::seconds dur(20);
  	auto dispatcher=boost::afio::make_async_file_io_dispatcher();
  	boost::afio::monitor mon(dispatcher);
 
