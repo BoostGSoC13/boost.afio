@@ -485,15 +485,15 @@ void monitor::Watcher::Path::callHandlers()
 	std::list<Change> changes;
 	auto handle_ptr = my_op.h->get();
 
-	
+#define ASYNC_	
 #ifdef ASYNC_
-	/*
+	
 	std::vector<async_io_op> ops;
 	ops.reserve(newpathdir->size());
 	std::vector<std::function<std::pair<Change*, directory_entry*>()>> closures;
 	closures.reserve(newpathdir->size());
 	std::vector<std::function<void()>> full_stat;
-	full_stat.reserve(newpathdir->size());*/
+	full_stat.reserve(newpathdir->size());
 #endif
 	for(auto it = newpathdir->begin(); it != newpathdir->end(); ++it)
 	{
@@ -659,7 +659,7 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 		auto unnew = boost::afio::detail::Undoer([&w]{delete w; w = nullptr;});
 		w=new Watcher(this);
 		//w->start();
-		w->can_run = true;
+		//w->can_run = true;
 		watchers.push_back(w);
 		unnew.dismiss();
 	}
@@ -726,6 +726,8 @@ void monitor::add(const std::filesystem::path &path, dir_monitor::ChangeHandler&
 	h=new Watcher::Path::Handler(p, handler);
 	p->handlers.push_back(h);
 	unh.dismiss();
+	if(w)
+		w->can_run = true;
 	//std::cout << "Successfuly added " << ab_path.string() << std::endl;
 }
 

@@ -89,8 +89,8 @@ static void handler(boost::afio::dir_monitor::dir_event change,  directory_entry
 BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring implementation works", 90)
 {
 	using boost::afio::ratio;
-	const size_t num = 1000;
-	std::chrono::seconds dur(20);
+	const size_t num = 100;
+	std::chrono::seconds dur(10);
  	auto dispatcher=boost::afio::make_async_file_io_dispatcher();
  	boost::afio::monitor mon(dispatcher);
 
@@ -103,7 +103,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
 	boost::afio::dir_monitor::ChangeHandler h = handler;
     auto mkmon(dispatcher->call(mkdir, [&mon, &h](){mon.add("testdir", h);}));
 
-
+std::this_thread::sleep_for( dur);
 	auto begin=chrono::high_resolution_clock::now();
     std::vector<boost::afio::async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(num);
@@ -138,7 +138,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
    // sleep(10);
 
 	//printDir(list);
-
+std::this_thread::sleep_for( dur);
     // Delete each of those num files once they are closed
     auto del_it= manytruncatedfiles.begin();
     BOOST_FOREACH(auto &i, manyfilereqs)
@@ -159,7 +159,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
 	//BOOST_CHECK(called >= 3);
 	
 	//sleep(20);
-	//mon.remove("testdir", h);
+	mon.remove("testdir", h);
 
 	BOOST_CHECK(called.load() >= 2*num);
 	BOOST_CHECK(created.load() == num);
@@ -167,5 +167,5 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
 	BOOST_CHECK(security.load() == 0);
 	BOOST_CHECK(modified.load() == 0);
 	BOOST_CHECK(renamed.load() == 0);
-	printf("called =%d, created = %d, deleted = %d, security=%d, modified=%d, renamed=%d", called.load(), created.load(), deleted.load(), security.load(), modified.load(), renamed.load());
+	printf("called =%d, created = %d, deleted = %d, security=%d, modified=%d, renamed=%d\n", called.load(), created.load(), deleted.load(), security.load(), modified.load(), renamed.load());
 }
