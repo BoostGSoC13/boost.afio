@@ -1,4 +1,4 @@
-#include "path.hpp"
+#include "../../../boost/afio/path.hpp"
 
 
 
@@ -6,30 +6,42 @@ namespace boost{
 	namespace afio{
 		std::pair< future< bool >, async_io_op > Path::remove_ent(const async_io_op & req, const directory_entry& ent)
 		{
-			auto func = std::bind(remove_ent, ent);
+			auto func = [this, &ent]() -> bool {
+				return this->remove_ent(ent);
+			};
+			
 			return dispatcher->call(req, func);
 		}
 
 		std::pair< future< bool >, async_io_op > Path::add_ent(const async_io_op & req, const directory_entry& ent)
 		{
-			auto func = std::bind(add_ent, ent);
+			auto func = [this, &ent]() -> bool {
+				return this->add_ent(ent);
+			};
 			return dispatcher->call(req, func);
 		}
 
 		std::pair< future< void >, async_io_op > Path::schedule(const async_io_op & req)
 		{
-			return dispatcher->call(req, schedule);
-		}
-
-		std::pair< future< bool >, async_io_op > Path::add_handler(const async_io_op & req, const Handler& h)
-		{
-			auto func = std::bind(add_handler, ent);
+			auto func = [this](){
+				this->schedule();
+			};
 			return dispatcher->call(req, func);
 		}
 
-		std::pair< future< bool >, async_io_op > Path::remove_handler(const async_io_op & req, const Handler& h)
+		std::pair< future< bool >, async_io_op > Path::add_handler(const async_io_op & req, Handler& h)
 		{
-			auto func = std::bind(remove_handler, ent);
+			auto func = [this, &h]() -> bool {
+				return this->add_handler(h);
+			};
+			return dispatcher->call(req, func);
+		}
+
+		std::pair< future< bool >, async_io_op > Path::remove_handler(const async_io_op & req, Handler& h)
+		{
+			auto func = [this, &h]() -> bool {
+				return this->remove_handler(h);
+			};
 			return dispatcher->call(req, func);
 		}
 
@@ -72,17 +84,22 @@ namespace boost{
 
 		void Path::schedule()
 		{
-			auto io = dispatcher->threadsource()->io_service();
-			boost::asio::high_resoloution_timer t(io, boost::afio::chrono::miliseconds(500));
+			auto t_source(dispatcher->threadsource().lock());
 			
-			t.async_wait(std::bind(&Path::monitor, this));
-			t.run();
+			//why don't the other timers work????
+			boost::asio::high_resolution_timer t(t_source->io_service());
+			t.expires_from_now(milli_sec(500));
+			//boost::asio::deadline_timer t(t_source->io_service(), boost::posix_time::seconds(1));
+			
+			t.async_wait(std::bind(&Path::monitor, this, &t));
+			t_source->io_service().run();
 		}
 
-		void Path::monitor(const boost::system::error_code& ec, boost::asio::high_resoloution_timer* t)
+		void Path::monitor(const boost::system::error_code& ec, boost::asio::high_resolution_timer* t)
 		{
 			if(!ec)
 			{
+
 				auto dir(dispatcher->dir(boost::afio::async_path_op_req(name)));
 				
 				
@@ -91,9 +108,9 @@ namespace boost{
 			    // This is used to reset the enumeration to the start
 			    bool restart=true;
 			    do{				        
-			        auto enumerate(dispatcher->enumerate(dir,boost::afio::directory_entry::compatibility_maximum()));
+			        auto enumerate(dispatcher->enumerate(boost::afio::async_enumerate_op_req(dir,boost::afio::directory_entry::compatibility_maximum())));
 			        restart=false;
-			        list=enumeration.first.get();			        
+			        list=enumerate.first.get();			        
 			        my_op = enumerate.second;
 			    } while(list.second);
 
@@ -104,78 +121,78 @@ namespace boost{
 				ops.reserve(new_ents->size());
 				std::vector<Handler> closures;
 				closures.reserve(new_ents->size());
-				std::vector<std::function<void()>> full_stat;
+				std::vector<std::function<directory_entry()>> full_stat;
 				full_stat.reserve(new_ents->size());
 			    BOOST_FOREACH( auto &i, *new_ents)
 			    {
-			    	full_stat.push_back( [&i, &handle_ptr](){ i.full_lstat(handle_ptr); return i; } );
+			    	full_stat.push_back( [&i, &handle_ptr]()->directory_entry&{ i.fetch_lstat(handle_ptr); return i; } );
 					ops.push_back(my_op);
 			    }
 
 			    auto stat_ents(dispatcher->call(ops, full_stat));
 
-			    auto compare(dispatcher->call(stat_ents.second,[](){
-			    	
-			    	std::vector<std::function<void()>> funcs;
-			    	funcs.reserve(new_ents->size());
-			    	for (int i = 0; i < new_ents->size(); ++i)
-			    	{
-			    		auto func = std::bind(compare_entries, this, stat_ents.fist[i].get(), handle_ptr)
-			    		//dispatcher->call(stat_ents.second[i], func)
-			    		funcs.push_back(func);
-			    	}
-			    	return dispatcher->call(stat_ents.second, funcs);
-			    }; ));
+			    std::vector<std::function<void()>> comp_funcs;
+		    	comp_funcs.reserve(new_ents->size());
+		    	BOOST_FOREACH(auto &i, stat_ents.first)
+		    	{
+		    		auto func = [this, &i, &handle_ptr](){this->compare_entries(i, handle_ptr);};
+		    		//std::bind(&Path::compare_entries, this, stat_ents.first[i].get(), handle_ptr)
+		    		//dispatcher->call(stat_ents.second[i], func)
+		    		comp_funcs.push_back(func);
+		    	}
+		    
 
-			    auto barrier(boost::afio::barrier(compare.first.begin(), compare.first.end()));
+			    auto compare(dispatcher->call(stat_ents.second,comp_funcs));
 
-			    auto clean_dict(dispatcher->call(barrier, [](){
-			    	std::vector<std::function<void()>> funcs;
-			    	std::vector<async_io_op> ops;
-			    	funcs.reserve(dict.size());
-			    	ops.reserve(dict.size());
-			    	BOOST_FOREACH(auto &i, dict)
-			    	{
-			    		ops.push_back(barrier);
-			    		funcs.push_back(std::bind(Path::clean, this, i));
-			    	}
-			    	return dispatcher->call(ops, funcs);
-			    }; ));
+			    auto comp_barrier(dispatcher->barrier(compare.second));
 
-			    auto barrier_move(boost::afio::barrier(clean_dict.first.begin(), clean_dict.first.end()));
 
-			    auto remake_dict(dispatcher->call(barrier_move, [&new_ents, &barrier_move](){
-			    	BOOST_FOREACH(auto &i, new_ents)
-				    {
-				    	ops.push_back(barrier_move);
-				    	funcs.push_back(std::bind(add_ent, this, i));
-				    }
-				    return dispatcher->call(ops, funcs);
-			    }));
-			    auto fut = remake_dict.first.get();
-			    when_all(fut.begin(), fut.end()).wait();
+
+				std::vector<std::function<void()>> clean_funcs;		    	
+		    	clean_funcs.reserve(dict.size());
+		    	BOOST_FOREACH(auto &i, dict)
+		    		clean_funcs.push_back([this, &i](){ this->clean(i.second);});
+		    			    	
+			    auto clean_dict(dispatcher->call(comp_barrier, clean_funcs)); 
+
+			    auto barrier_move(dispatcher->barrier(clean_dict.second));
+
+			    std::vector<std::function<bool()>> move_funcs;
+			    move_funcs.reserve(new_ents->size());
+			    BOOST_FOREACH(auto &i, *new_ents)
+			      	move_funcs.push_back([this, &i](){return this->add_ent(i);});
+			      		
+			    			    
+			    auto remake_dict(dispatcher->call(barrier_move, move_funcs)); 
+			    auto fut = &remake_dict.first;
+			    when_all(fut->begin(), fut->end()).wait();
+
+			    t->expires_at(t->expires_at() + milli_sec(500) );
+			    t.async_wait(std::bind(&Path::monitor, this, t));
 			}
 
 		}
 
-		void clean(directory_entry& ent)
+		void Path::clean(directory_entry& ent)
 		{
 			// anything left in dict has been deleted
-			dir_event event();
-			event.eventNo=++(parent->parent->eventcounter);
+			dir_event event;
+			event.eventNo=++(*eventcounter);
 			event.setDeleted();
 			BOOST_FOREACH(auto &i, handlers)
-				dispatcher->call(async_io_op(), std::bind(i, event));
+				dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
 
 			remove_ent(ent);
 		}
 
-		void Path::compare_entries(directory_entry& entry, std::shared_ptr< async_io_handle> dirh)
+		void Path::compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh)
 		{
-			static std::atomic<int> eventcounter(0);
+			//static std::atomic<int> eventcounter(0);
 			dir_event* ret = nullptr;
 			try
 			{
+				auto entry = fut.get();
+
 				
 				// try to find the directory_entry
 				// if it exists, then determine if anything has changed
@@ -204,7 +221,7 @@ namespace boost{
 				if(changed)
 				{
 					ret = new dir_event();
-					ret->eventNo = ++eventcounter;
+					ret->eventNo = ++(*eventcounter);
 					ret->setRenamed(renamed);
 					ret->setModified(modified);
 					ret->setSecurity(security);
@@ -220,7 +237,7 @@ namespace boost{
 				//std::cout << "we have a new file: "  << entry.name() <<std::endl;
 				//We've never seen this before
 				ret = new dir_event();
-				ret->eventNo=++eventcounter;
+				ret->eventNo=++(*eventcounter);
 				ret->setCreated();
 			}
 			catch(std::exception &e)
@@ -229,11 +246,14 @@ namespace boost{
 				throw(e);
 			}
 			if(ret)
+			{
+				auto event = *ret;
 				BOOST_FOREACH(auto &i, handlers)
-					dispatcher->call(async_io_op(), std::bind(i, *ret));				
+					dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
+			}
 		}
 
-		bool Path::add_handler(const Handler& h)
+		bool Path::add_handler(Handler& h)
 		{
 			sp_lock.lock();
 			try
@@ -252,7 +272,7 @@ namespace boost{
 
 		}
 
-		bool Path::remove_handler(const Handler& h)
+		bool Path::remove_handler(Handler& h)
 		{
 			sp_lock.lock();
 			try

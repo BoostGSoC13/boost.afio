@@ -1,39 +1,40 @@
-#include "directory_monitor_v2.hpp"
+#include "../../../boost/afio/directory_monitor_v2.hpp"
 
 namespace boost{
 	namespace afio{
 		
 		
-		std::pair< future< bool >, async_io_op > dir_monitor::remove(const async_io_op & req, const path& path, const Handler& handler)
+		std::pair< future< bool >, async_io_op > dir_monitor::remove(const async_io_op & req, const path& path, Handler& handler)
 		{
-			auto func = std::bind(remove_path(path, handler));
+			auto func = std::bind(&dir_monitor::remove_path, this, path, handler);
 			return dispatcher->call(req, func);
 		}
 
-		std::pair< future< bool >, async_io_op > dir_monitor::add(const async_io_op & req, const path& path, const Handler& handler)
+		std::pair< future< bool >, async_io_op > dir_monitor::add(const async_io_op & req, const path& path, Handler& handler)
 		{
-			auto func = std::bind(add_path(path, handler));
+			auto func = std::bind(&dir_monitor::add_path, this, path, handler);
 			return dispatcher->call(req, func);
 		}
 		
 
-		bool dir_monitor::remove_path(const path& path, const Handler& handler)
+		bool dir_monitor::remove_path(const path& path, Handler& handler)
 		{
 			//lock this durring removal
 			mtx.lock();
+			Path* p = nullptr;
 			try
 			{
-				Path* p;
-				p = hash.at(path);
-
+				p = &hash.at(path);
 			}
-			catch(std::outofrange& e)
+			catch(std::out_of_range &e)
 			{
 				// if it wasn't in the hash we're not monitoring it
 				// consider an exception here with a useful message
 				return false;
 			}
 			
+			if(!p)
+				return false;
 			// if we can't find the handler return false
 			// again an exception might be more informative
 			if(!p->remove_handler(handler))
@@ -50,17 +51,18 @@ namespace boost{
 		}
 
 
-		bool dir_monitor::add_path(const path& path, const Handler& handler)
+		bool dir_monitor::add_path(const path& path, Handler& handler)
 		{
+			Path* p;
 			try
 			{
-				Path* p;
-				p = hash.at(path);
+				
+				p = &hash.at(path);
 
 			}
-			catch(std::outofrange& e)
+			catch(std::out_of_range& e)
 			{
-				p = new Path(path);
+				p = new Path(dispatcher, path, eventcounter);
 				if(!hash_insert(path, *p))
 					return false;
 			}
@@ -74,7 +76,7 @@ namespace boost{
 			sp_lock.lock();
 			try{
 				
-				if(hash.emplace(ent, ent).second)
+				if(hash.emplace(path, dir).second)
 					return true;
 				else
 					return false;

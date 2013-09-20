@@ -25,7 +25,7 @@
 * $Id:                                                                          *
 ********************************************************************************/
 
-#include "../../../../boost/afio/directory_monitor.hpp"
+#include "../../../../boost/afio/directory_monitor_v2.hpp"
 #include <iostream>
 typedef boost::afio::directory_entry directory_entry;
 
@@ -103,7 +103,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor, "Tests that the directory monitoring impl
 	boost::afio::dir_monitor::ChangeHandler h = handler;
     auto mkmon(dispatcher->call(mkdir, [&mon, &h](){mon.add("testdir", h);}));
 
-std::this_thread::sleep_for( dur);
+	std::this_thread::sleep_for( dur);
 	auto begin=chrono::high_resolution_clock::now();
     std::vector<boost::afio::async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(num);

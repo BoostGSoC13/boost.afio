@@ -921,6 +921,52 @@ decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh=s
 	static size_t compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW;
 };
 
+	}//namespace afio
+}//namespace boost
+
+namespace std
+{
+	template<> struct hash<boost::afio::directory_entry>
+	{
+	public:
+		size_t operator()(const boost::afio::directory_entry& p) const
+		{
+			size_t seed = 0;
+			boost::hash_combine(seed, p.st_ino());
+			//boost::hash_combine(seed, p.st_type());
+			//boost::hash_combine(seed, p.name());
+
+		#if 1
+			try{
+				boost::hash_combine(seed, p.st_ctim().time_since_epoch().count());
+			//boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count())); //<<------ This was perfect :(
+			//boost::hash_combine(seed, p.leafname);
+			//boost::hash_combine(seed, p.have_metadata);
+			}
+			catch(std::exception &e)
+			{
+				std::cout <<"the metadata for " << p.name() << " is: " << (std::bitset<sizeof(size_t)*8>)(size_t)p.metadata_ready() << std::endl;
+				std::cout << "this hash failed horribly <------------\n" << e.what() <<std::endl;
+				throw;
+			}
+		#endif
+			return seed;
+		}
+	};
+
+	template<> struct hash<std::filesystem::path>
+	{
+	public:
+		size_t operator()(const std::filesystem::path& p) const
+		{
+			return boost::filesystem::hash_value(p);
+		}
+	};
+}//namesapce std
+
+namespace boost{
+	namespace afio{
+
 /*! \brief The abstract base class encapsulating a platform-specific file handle
 */
 class async_io_handle : public std::enable_shared_from_this<async_io_handle>

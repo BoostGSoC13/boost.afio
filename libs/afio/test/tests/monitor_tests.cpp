@@ -11,7 +11,7 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 {
 
 	static std::atomic<int> testint(0);
-	boost::afio::dir_monitor::Handler handler = [&testint](boost::afio::dir_monitor::dir_event change,  directory_entry oldfi,  directory_entry newfi){
+	boost::afio::dir_monitor::Handler handler = [&testint](boost::afio::dir_event change){
 		testint++;
 	};
 
@@ -57,9 +57,10 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 	
 	std::cout << "testint = " << testint << std::endl;
 	BOOST_CHECK(testint == 4);
-	if(mm.remove(add_tools.second, "testdir", handler))
+
+	auto removed(mm.remove(add_tools.second, "testdir", handler));
+	if(removed.first.get())
 	{
-		std::cout << "Number of watchers after removing is now: " << mm.watchers.size() << std::endl;;
-		mm.hash.size()
+		std::cout << "Number of watchers after removing is now: " << mm.hash.size() << std::endl;
 	}
 }
