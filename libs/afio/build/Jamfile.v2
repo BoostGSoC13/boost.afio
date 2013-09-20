@@ -23,7 +23,7 @@ project boost/afio
 lib boost_afio 
     : #sources
       afio.cpp 
-      directory_monitor.cpp 
+      directory_monitor_v2.cpp 
       #directory_enum.cpp
       ../detail/ErrorHandling.cpp
       ../../system/build//boost_system

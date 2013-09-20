@@ -1,5 +1,5 @@
 #include "../test_functions.hpp"
-#include "../../../../boost/afio/directory_monitor.hpp"
+#include "../../../../boost/afio/directory_monitor_v2.hpp"
 #include <iostream>
 #include <atomic>
 #include <chrono>
@@ -11,7 +11,7 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 {
 
 	static std::atomic<int> testint(0);
-	boost::afio::dir_monitor::ChangeHandler handler = [&testint](boost::afio::dir_monitor::dir_event change,  directory_entry oldfi,  directory_entry newfi){
+	boost::afio::dir_monitor::Handler handler = [&testint](boost::afio::dir_monitor::dir_event change,  directory_entry oldfi,  directory_entry newfi){
 		testint++;
 	};
 
@@ -24,15 +24,14 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 	std::remove("testdir/test.txt");
 	std::remove("testdir/test2.txt");
 	
-	boost::afio::monitor mm(dispatcher);
-	BOOST_CHECK(mm.watchers.size() == 0);
-	mm.add("testdir", handler);
-	mm.add("tools", handler);
+	boost::afio::dir_monitor mm(dispatcher);
+	BOOST_CHECK(mm.hash.size() == 0);
+	auto add_test(mm.add(mkdir, "testdir", handler));
+	auto add_tools(mm.add(add_test.second, "tools", handler));
 	size_t sum = 0;	
-	BOOST_CHECK(mm.watchers.size() == 1);
-	BOOST_FOREACH(auto &i, mm.watchers)
-		sum += i.paths.size();
-	BOOST_CHECK(sum == 2);
+	BOOST_CHECK(mm.hash.size() == 1);
+	
+	
 	
 	std::this_thread::sleep_for( dur);
 	std::ofstream file("testdir/test.txt");
@@ -58,13 +57,9 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 	
 	std::cout << "testint = " << testint << std::endl;
 	BOOST_CHECK(testint == 4);
-	if(mm.remove("testdir", handler))
+	if(mm.remove(add_tools.second, "testdir", handler))
 	{
 		std::cout << "Number of watchers after removing is now: " << mm.watchers.size() << std::endl;;
-		sum = 0;
-		BOOST_FOREACH(auto &i, mm.watchers)
-			sum += i.paths.size();
-		std::cout << "Number of Paths beign monitored is: " << sum << std::endl;
-		BOOST_CHECK(sum == 1);
+		mm.hash.size()
 	}
 }
