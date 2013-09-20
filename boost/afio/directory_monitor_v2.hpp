@@ -12,7 +12,7 @@
 namespace boost{
 	namespace afio{
 
-		class dir_monitor
+		class BOOST_AFIO_DECL dir_monitor
 		{
 			
 		public:

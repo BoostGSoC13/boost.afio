@@ -25,7 +25,6 @@ lib boost_afio
       afio.cpp 
       directory_monitor_v2.cpp 
       path.cpp
-      #directory_enum.cpp
       ../detail/ErrorHandling.cpp
       ../../system/build//boost_system
       ../../filesystem/build//boost_filesystem 

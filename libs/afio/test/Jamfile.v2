@@ -10,8 +10,6 @@
 import modules ;
 .argv = [ modules.peek : ARGV ] ;
 
-#local boost-path = [ modules.peek : BOOST_ROOT ] ; #can probably get rid of this
-
 import os ;
 import testing ;
 

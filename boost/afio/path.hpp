@@ -11,7 +11,10 @@
 #include <boost/thread/mutex.hpp>
 #endif
 #include <boost/smart_ptr/detail/spinlock.hpp>
-#include <boost/asio/high_resolution_timer.hpp>
+//#include <boost/asio/high_resolution_timer.hpp>
+#include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 
 
 namespace boost{
@@ -23,7 +26,7 @@ namespace boost{
 		typedef unsigned int event_flag;
 		typedef boost::filesystem::path dir_path;
 
-		struct event_flags
+		struct BOOST_AFIO_DECL event_flags
 		{
 			event_flag modified	: 1;		//!< When an entry is modified
 			event_flag created	: 1;		//!< When an entry is created
@@ -33,7 +36,7 @@ namespace boost{
 			event_flag security	: 1;		//!< When the security of an entry is changed
 		};
 
-		struct dir_event
+		struct BOOST_AFIO_DECL dir_event
 		{
 			event_no eventNo;				//!< Non zero event number index
 			event_flags flags;				//!< bit-field of director events
@@ -61,10 +64,12 @@ namespace boost{
 
 		
 
-		class Path
+		class BOOST_AFIO_DECL Path
 		{	
 			typedef std::function<void(dir_event)> Handler; 
-			typedef chrono::duration<double, ratio<1, 1000>> milli_sec;
+			//typedef chrono::duration<double, ratio<1, 1000>> milli_sec;
+			//typedef boost::chrono::milliseconds milli_sec;
+			typedef boost::posix_time::millisec milli_sec;
 		//private:
 		public:
 			//private data
@@ -84,7 +89,8 @@ namespace boost{
 			void schedule();
 			bool add_handler(Handler& h);
 			bool remove_handler(Handler& h);
-			void monitor(const boost::system::error_code& ec, boost::asio::high_resolution_timer* t);
+			//void monitor(boost::asio::high_resolution_timer* t);
+			void monitor(boost::asio::deadline_timer* t);
 			void compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh);
 			void clean(directory_entry& ent);
 			
