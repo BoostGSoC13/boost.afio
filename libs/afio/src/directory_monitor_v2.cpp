@@ -20,7 +20,7 @@ namespace boost{
 		bool dir_monitor::remove_path(const path& path, Handler& handler)
 		{
 			//lock this durring removal
-			mtx.lock();
+			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
 			Path* p = nullptr;
 			try
 			{
@@ -53,29 +53,38 @@ namespace boost{
 
 		bool dir_monitor::add_path(const path& path, Handler& handler)
 		{
+			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
 			Path* p;
 			try
-			{
-				
+			{	
 				p = &hash.at(path);
-
 			}
 			catch(std::out_of_range& e)
 			{
+				std::cout << "making the Path ...\n";
 				p = new Path(dispatcher, path, eventcounter);
+				std::cout << "Created the Path\n";
 				if(!hash_insert(path, *p))
+				{
+					std::cout << "something wrong with the insertion\n";
 					return false;
+				}
+				std::cout << "completed the catch block\n";
 			}
+			std::cout << "going to try to add a new handler\n";
 			p->add_handler(handler);
+			std::cout << "added the Handler\n";
 			p->schedule();
+			std::cout << "Scheduled\n";
 			return true;
 		}
 
 		bool dir_monitor::hash_insert(const path& path, const Path& dir)
 		{
-			sp_lock.lock();
+			std::cout <<"try to aquire lock...\n";
+			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try{
-				
+				std::cout <<"try to insert into hash...\n";
 				if(hash.emplace(path, dir).second)
 					return true;
 				else
@@ -90,7 +99,7 @@ namespace boost{
 		}
 		bool dir_monitor::hash_remove(const path& path)
 		{
-			sp_lock.lock();
+			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				if(hash.erase(path) > 0)

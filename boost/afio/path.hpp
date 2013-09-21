@@ -19,7 +19,9 @@
 
 namespace boost{
 	namespace afio{
-
+// libstdc++ doesn't come with std::lock_guard
+#define BOOST_AFIO_SPIN_LOCK_GUARD boost::lock_guard<boost::detail::spinlock>
+		
 		typedef boost::afio::directory_entry directory_entry;
 		
 		typedef unsigned long event_no;
@@ -62,16 +64,19 @@ namespace boost{
 			dir_event &setSecurity(bool v=true) throw()		{ flags.security=v; return *this; }
 		};//end dir_event
 
-		
-
+		//forward declare dir_monitor
+		class dir_monitor;
 		class BOOST_AFIO_DECL Path
 		{	
 			typedef std::function<void(dir_event)> Handler; 
 			//typedef chrono::duration<double, ratio<1, 1000>> milli_sec;
 			//typedef boost::chrono::milliseconds milli_sec;
 			typedef boost::posix_time::millisec milli_sec;
-		//private:
-		public:
+
+			
+			friend class boost::afio::dir_monitor;
+		private:
+		
 			//private data
 			boost::mutex mtx;
 			boost::detail::spinlock sp_lock;
@@ -86,6 +91,7 @@ namespace boost{
 			//private member functions
 			bool remove_ent(const directory_entry& ent);
 			bool add_ent(const directory_entry& ent);
+			bool add_ent(future<directory_entry>& fut){ return add_ent(fut.get());}
 			void schedule();
 			bool add_handler(Handler& h);
 			bool remove_handler(Handler& h);
@@ -94,7 +100,7 @@ namespace boost{
 			void compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh);
 			void clean(directory_entry& ent);
 			
-		//public:
+		public:
 
 			//constructors
 			Path(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher, const dir_path& _path, std::shared_ptr<std::atomic<int>> evt_ctr): dispatcher(_dispatcher), name(std::filesystem::absolute(_path)), eventcounter(evt_ctr) 
@@ -109,20 +115,31 @@ namespace boost{
 			        list=enumerate.first.get();			        
 			        my_op = enumerate.second;
 			    } while(list.second);
-
-			    std::vector<async_io_op> ops;
-			    ops.reserve(list.first.size());
-			    std::vector<std::function<bool()>> funcs;
-			    funcs.reserve(list.first.size());
-			    BOOST_FOREACH(auto &i, list.first)
+			    auto size = list.first.size();
+				auto handle_ptr = my_op.h->get();
+			    std::vector<async_io_op> stat_ops;
+				stat_ops.reserve(size);
+				std::vector<Handler> closures;
+				closures.reserve(size);
+				std::vector<std::function<directory_entry()>> full_stat;
+				full_stat.reserve(size);
+			    BOOST_FOREACH( auto &i, list.first)
 			    {
-			    	ops.push_back(my_op);
-			    	funcs.push_back([&]()-> bool { this->add_ent(i); return true; } );
+			    	full_stat.push_back( [&i, &handle_ptr]()->directory_entry&{ i.fetch_lstat(handle_ptr); return i; } );
+					stat_ops.push_back(my_op);
 			    }
-			    auto make_dict(dispatcher->call(ops, funcs));
+
+			    auto stat_ents(dispatcher->call(stat_ops, full_stat));
+
+			    std::vector<std::function<bool()>> funcs;
+			    funcs.reserve(size);
+			    BOOST_FOREACH(auto &i, stat_ents.first)
+			       	funcs.push_back([&]()-> bool { return this->add_ent(i); } );
+			    
+			    auto make_dict(dispatcher->call(stat_ents.second, funcs));
+			  
 			    when_all(make_dict.first.begin(), make_dict.first.end()).wait();
 			    
-
 			}
 
 			Path(const Path& o): name(std::filesystem::absolute(o.name)), dispatcher(o.dispatcher), dict(o.dict), handlers(o.handlers), eventcounter(o.eventcounter) {}

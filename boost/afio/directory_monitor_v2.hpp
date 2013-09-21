@@ -12,6 +12,8 @@
 namespace boost{
 	namespace afio{
 
+#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
+
 		class BOOST_AFIO_DECL dir_monitor
 		{
 			
@@ -39,7 +41,7 @@ namespace boost{
 			std::pair< future< bool >, async_io_op > add(const async_io_op & req, const path& path, Handler& handler);
 			//change time interval???
 
-		//private:
+		private:
 
 			//private data
 			std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher;

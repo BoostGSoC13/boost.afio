@@ -1,4 +1,5 @@
 #include "../../../boost/afio/path.hpp"
+#include "../../../boost/afio/directory_monitor_v2.hpp"
 
 
 
@@ -48,7 +49,7 @@ namespace boost{
 
 		bool Path::remove_ent(const directory_entry& ent)
 		{
-			sp_lock.lock();
+			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				if(dict.erase(ent) > 0)
@@ -65,10 +66,11 @@ namespace boost{
 
 		bool Path::add_ent(const directory_entry& ent)
 		{
-			sp_lock.lock();
+			//sp_lock.lock();
+			// libstdc++ doesn't come with std::lock_guard
+			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
-				
 				if(dict.emplace(ent, ent).second)
 					return true;
 				else
@@ -91,12 +93,15 @@ namespace boost{
 			boost::asio::deadline_timer t(t_source->io_service(), milli_sec(100));
 			
 			t.async_wait(std::bind(&Path::monitor, this, &t));
+			std::cout << "Setup the async callback\n";
 			t_source->io_service().run();
+			std::cout <<"setup was successful\n";
 		}
 
 		//void Path::monitor(boost::asio::high_resolution_timer* t)
 		void Path::monitor(boost::asio::deadline_timer* t)
 		{
+			std::cout << "monitor has been called !!!\n";
 			auto dir(dispatcher->dir(boost::afio::async_path_op_req(name)));
 			
 			
@@ -187,7 +192,6 @@ namespace boost{
 			try
 			{
 				auto entry = fut.get();
-
 				
 				// try to find the directory_entry
 				// if it exists, then determine if anything has changed
@@ -250,7 +254,7 @@ namespace boost{
 
 		bool Path::add_handler(Handler& h)
 		{
-			sp_lock.lock();
+			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				if(handlers.emplace(&h, h).second)
@@ -269,7 +273,7 @@ namespace boost{
 
 		bool Path::remove_handler(Handler& h)
 		{
-			sp_lock.lock();
+			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				if(handlers.erase(&h) > 0)
