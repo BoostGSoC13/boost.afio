@@ -52,13 +52,20 @@ namespace boost{
 			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
-				if(dict.erase(ent) > 0)
+				if(0 < dict.erase(ent) )
+				{	
+					//std::cout << "remove_ent was successful\n";
 					return true;
+				}
 				else 
+				{
+					std::cout << "the ent could not be removed\n";
 					return false;
+				}
 			}
-			catch(...)//this should probably be more specific
+			catch(std::exception &e)//this should probably be more specific
 			{
+				std::cout << "remove_ent had an error\n" << e.what()<< std::endl;
 				//throw;//should this throw???
 				return false;
 			}
@@ -78,8 +85,8 @@ namespace boost{
 			}
 			catch(std::exception& e)
 			{
-				//std::cout << "error inserting " << path.string() 
-				//	<< " into the hash_table: "<< e.what()<<std::endl;
+				std::cout << "error inserting " << ent.name() 
+					<< " into the hash_table: "<< e.what()<<std::endl;
 				return false;
 			}
 		}
@@ -90,18 +97,26 @@ namespace boost{
 			
 			//why don't the other timers work????
 			//boost::asio::high_resolution_timer t(t_source->io_service(), milli_sec(500));
-			boost::asio::deadline_timer t(t_source->io_service(), milli_sec(100));
+			timer = new boost::asio::deadline_timer(t_source->io_service(), milli_sec(100));
 			
-			t.async_wait(std::bind(&Path::monitor, this, &t));
-			std::cout << "Setup the async callback\n";
-			t_source->io_service().run();
-			std::cout <<"setup was successful\n";
+			timer->async_wait(std::bind(&Path::monitor, this, timer));
+			//std::cout << "Setup the async callback\n";
+			dispatcher->call(async_io_op(), [t_source](){t_source->io_service().run();});
+			//std::cout <<"setup was successful\n";
 		}
 
 		//void Path::monitor(boost::asio::high_resolution_timer* t)
 		void Path::monitor(boost::asio::deadline_timer* t)
 		{
+			try{
+			t->expires_at(t->expires_at() + milli_sec(200) );
+			//t->expires_from_now( milli_sec(200) );
+		    t->async_wait(std::bind(&Path::monitor, this, t));
+		}
+		catch(std::exception &e){std::cout << "the main issue is from the timer\n" <<e.what() <<std::endl;}
+			BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 			std::cout << "monitor has been called !!!\n";
+		
 			auto dir(dispatcher->dir(boost::afio::async_path_op_req(name)));
 			
 			
@@ -115,14 +130,14 @@ namespace boost{
 		        list=enumerate.first.get();			        
 		        my_op = enumerate.second;
 		    } while(list.second);
-
+	
 		    auto new_ents = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
-
+		    
 		    auto handle_ptr = my_op.h->get();
 		    std::vector<async_io_op> ops;
 			ops.reserve(new_ents->size());
-			std::vector<Handler> closures;
-			closures.reserve(new_ents->size());
+			//std::vector<Handler> closures;
+			//closures.reserve(new_ents->size());
 			std::vector<std::function<directory_entry()>> full_stat;
 			full_stat.reserve(new_ents->size());
 		    BOOST_FOREACH( auto &i, *new_ents)
@@ -132,73 +147,137 @@ namespace boost{
 		    }
 
 		    auto stat_ents(dispatcher->call(ops, full_stat));
-
+std::pair<std::vector<future<bool>>, std::vector<async_io_op>> clean_dict;
+		  //  when_all(stat_ents.second.begin(), stat_ents.second.end()).wait();
+		    
 		    std::vector<std::function<void()>> comp_funcs;
 	    	comp_funcs.reserve(new_ents->size());
+	    	std::pair<std::vector<future<void>>, std::vector<async_io_op>> compare;
+	    	try{
 	    	BOOST_FOREACH(auto &i, stat_ents.first)
 	    	{
-	    		auto func = [this, &i, &handle_ptr](){this->compare_entries(i, handle_ptr);};
-	    		//std::bind(&Path::compare_entries, this, stat_ents.first[i].get(), handle_ptr)
-	    		//dispatcher->call(stat_ents.second[i], func)
+	    		auto func = [this, &i, &handle_ptr](){
+	    			try{ this->compare_entries(i, handle_ptr);}
+	    			catch(std::exception &e){std::cout << " error from compare_lambda\n" << e.what() <<std::endl; }
+	    		};
 	    		comp_funcs.push_back(func);
 	    	}
 	    
-
-		    auto compare(dispatcher->call(stat_ents.second,comp_funcs));
+		    compare = (dispatcher->call(stat_ents.second, comp_funcs));
+		    when_all(compare.second.begin(), compare.second.end()).wait();
+		    }
+	    catch(...){std::cout << "It really was the compre!\n";}
 
 		    auto comp_barrier(dispatcher->barrier(compare.second));
+		try{    
+		    // there is a better way to schedule this but I'm missing it. 
+		    // I want dict to hold only the deleted files, but I need to schedule
+		    // the next op in the lambda, and then I don't know how to 
+		    // finish the rest
+		    when_all(comp_barrier.begin(), comp_barrier.end()).wait();
 
-
-
-			std::vector<std::function<void()>> clean_funcs;		    	
+		   // std::cout << "comparisons have finished\n";
+			std::vector<std::function<bool()>> clean_funcs;
+			std::vector<async_io_op> clean_ops;
+			clean_ops.reserve(dict.size());
 	    	clean_funcs.reserve(dict.size());
 	    	BOOST_FOREACH(auto &i, dict)
-	    		clean_funcs.push_back([this, &i](){ this->clean(i.second);});
+	    	{
+	    		clean_ops.push_back(comp_barrier.front());
+	    		clean_funcs.push_back([this, &i](){
+	    			try{ return this->clean(i.second);}
+	    			catch(std::exception &e){std::cout << "error from the clean lambda\n"<< e.what() <<std::endl;}
+	    		});
+	    	}
+	    	
+	    	//std::vector<async_io_op> barrier_move;
 	    			    	
-		    auto clean_dict(dispatcher->call(comp_barrier, clean_funcs)); 
+		    clean_dict = ( dispatcher->call(clean_ops, clean_funcs)); 
 
-		    auto barrier_move(dispatcher->barrier(clean_dict.second));
+		    when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
+	}catch(std::exception &e){std::cout <<"Cleaning the dictionary is the issue!!!!!!!!!!\n" << e.what()<<std::endl;}
+
+		   // auto barrier_move = (dispatcher->barrier(clean_dict.second));
+try{
+		  //  when_all(barrier_move.begin(), barrier_move.end()).wait();
+		    
+	
+		    
+		   // std::cout <<"Dictionary has been cleaned. Size: " <<dict.size() <<std::endl;
+		    //assert(dict.empty());
 
 		    std::vector<std::function<bool()>> move_funcs;
+		    std::vector<async_io_op> move_ops;
 		    move_funcs.reserve(new_ents->size());
+		    move_ops.reserve(new_ents->size());
 		    BOOST_FOREACH(auto &i, *new_ents)
+		    {
+		    	move_ops.push_back(async_io_op());
 		      	move_funcs.push_back([this, &i](){return this->add_ent(i);});
-		      		
+		    }		      		
 		    			    
-		    auto remake_dict(dispatcher->call(barrier_move, move_funcs)); 
-		    auto fut = &remake_dict.first;
-		    when_all(fut->begin(), fut->end()).wait();
+		    auto remake_dict(dispatcher->call(move_ops, move_funcs)); 
+		    //auto fut = &remake_dict.first;
+		    when_all(remake_dict.second.begin(), remake_dict.second.end()).wait();
+		    //std::cout << "dict has been remade\n";
+		    assert(dict.size() <= new_ents->size());
+		    }
+			catch(...){std::cout << "Monitor is throwing an error\n";}
+#if 0
+			/*std::cout << "contents of dict:\n";
+			BOOST_FOREACH(auto &i, dict)
+				std::cout << i.second.name() << std::endl;*/
 
-		    t->expires_at(t->expires_at() + milli_sec(500) );
-		    t->async_wait(std::bind(&Path::monitor, this, t));
+		  #endif
+
 		}
 
-		void Path::clean(directory_entry& ent)
+		bool Path::clean(directory_entry& ent)
 		{
+			try{
+			//std::cout << "Cleaning the dict... \n";
 			// anything left in dict has been deleted
 			dir_event event;
 			event.eventNo=++(*eventcounter);
 			event.setDeleted();
-			BOOST_FOREACH(auto &i, handlers)
+			event.path = ent.name();
+			BOOST_FOREACH(auto i, handlers)
 				dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
 
-			remove_ent(ent);
+			if(remove_ent(ent))
+			{
+				std::cout << "successful removal of ent " << ent.name() << " from dict\n";
+				return true;
+			}
+			else
+			{
+				std::cout << "Problem cleaning the dict\n";
+				return false;
+			}
+			}
+			catch(...){std::cout << "the issue is in clean!!!\n"; throw; }
+
 		}
 
 		void Path::compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh)
 		{
+			//std::cout << "comparing entries... \n";
 			//static std::atomic<int> eventcounter(0);
-			dir_event* ret = nullptr;
+			std::shared_ptr<dir_event> ret;
+			 auto entry = fut.get(); //}catch(std::exception &e){std::cout << "Getting this future cuased and error\n" << e.what() <<std::endl;}
 			try
-			{
-				auto entry = fut.get();
-				
+			{			
 				// try to find the directory_entry
 				// if it exists, then determine if anything has changed
 				// if the hash is successful then it has the same inode and ctim
-				auto temp =dict.at(entry);
+				auto temp = dict.at(entry);
 				
-				bool changed = false, renamed = false, modified = false, security = false;
+				bool changed = false;
+				bool renamed = false;
+				bool modified = false;
+				bool security = false;
+
+				try{
 				if(temp.name() != entry.name())
 				{
 					changed = true;
@@ -216,45 +295,59 @@ namespace boost{
 					changed = true;
 					security = true;
 				}
+			}catch(std::exception &e){std::cout << "flag comparisons are the causing issues\n" << e.what()<<std::endl; throw(e);}
 				//BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 				if(changed)
 				{
-					ret = new dir_event();
+					try{
+					std::cout << "Found a changed entry!\n";
+					ret = std::make_shared<dir_event>();
 					ret->eventNo = ++(*eventcounter);
+					ret->path = entry.name();
 					ret->setRenamed(renamed);
 					ret->setModified(modified);
 					ret->setSecurity(security);
+				}catch(std::exception &e){std::cout << "new event couldn't allocate memory after a change...\n" <<e.what() <<std::endl; throw(e);}
 				}
 
 				// we found this entry, so remove it to later 
 				// determine what has been deleted
 				// this shouldn't invalidate any iterators, but maybe its still not good
-				remove_ent(temp);
+				try{remove_ent(temp);}catch(std::exception &e){std::cout << "remove ent couldn't allocate memory...\n" <<e.what() <<std::endl; throw(e);}
 			}
 			catch(std::out_of_range &e)
 			{
 				//std::cout << "we have a new file: "  << entry.name() <<std::endl;
 				//We've never seen this before
-				ret = new dir_event();
+				try{
+				ret = std::make_shared<dir_event>();
 				ret->eventNo=++(*eventcounter);
+				ret->path = entry.name();
 				ret->setCreated();
+				}catch(std::exception &e){std::cout << "new event couldn't allocate memory durring creation ...\n" <<e.what() <<std::endl; throw(e);}
 			}
 			catch(std::exception &e)
 			{
-				std::cout << "another type of error occured that is ruining this\n" << e.what() <<std::endl;;
+				std::cout << "Durring comparison of " << entry.name() <<" another type of error occured that is ruining this\n" << e.what() <<std::endl;;
 				throw(e);
 			}
+			try{
 			if(ret)
 			{
-				auto event = *ret;
+				std::cout << "Scheduling handlers...\n";
+				auto event = std::move(*ret);
 				BOOST_FOREACH(auto &i, handlers)
 					dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
+				//delete ret;
 			}
+			//std::cout << "comparisons finished this round\n";
+			}
+			catch(...){ std::cout << "Somehow thre is an error in the comparions\n";}
 		}
 
 		bool Path::add_handler(Handler& h)
 		{
-			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				if(handlers.emplace(&h, h).second)
@@ -273,7 +366,7 @@ namespace boost{
 
 		bool Path::remove_handler(Handler& h)
 		{
-			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				if(handlers.erase(&h) > 0)

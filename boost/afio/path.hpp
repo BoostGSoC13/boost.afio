@@ -44,8 +44,8 @@ namespace boost{
 			event_flags flags;				//!< bit-field of director events
 			dir_path path; 					//!< Path to event/file
 
-			dir_event() : eventNo(0) { flags.modified = false; flags.created = false; flags.deleted = false; flags.security = false; }
-			dir_event(int) : eventNo(0) { flags.modified = true; flags.created = true; flags.deleted = true; flags.security = true; }
+			dir_event() : eventNo(0) { flags.modified = false; flags.created = false; flags.deleted = false; flags.attrib = false; flags.security = false; }
+			dir_event(int) : eventNo(0) { flags.modified = true; flags.created = true; flags.deleted = true; flags.attrib = true; flags.security = true; }
 			operator event_flags() const throw()
 			{
 				return this->flags;
@@ -73,8 +73,8 @@ namespace boost{
 			//typedef boost::chrono::milliseconds milli_sec;
 			typedef boost::posix_time::millisec milli_sec;
 
-			
 			friend class boost::afio::dir_monitor;
+
 		private:
 		
 			//private data
@@ -87,6 +87,7 @@ namespace boost{
 			//std::shared_ptr<std::vector<directory_entry>> ents;
 			std::unordered_map<Handler*, Handler> handlers;
 			std::shared_ptr<std::atomic<int>> eventcounter;
+			boost::asio::deadline_timer* timer;//make this a smart pointer after I fix everything
 
 			//private member functions
 			bool remove_ent(const directory_entry& ent);
@@ -98,7 +99,7 @@ namespace boost{
 			//void monitor(boost::asio::high_resolution_timer* t);
 			void monitor(boost::asio::deadline_timer* t);
 			void compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh);
-			void clean(directory_entry& ent);
+			bool clean(directory_entry& ent);
 			
 		public:
 
@@ -139,6 +140,7 @@ namespace boost{
 			    auto make_dict(dispatcher->call(stat_ents.second, funcs));
 			  
 			    when_all(make_dict.first.begin(), make_dict.first.end()).wait();
+			    assert(dict.size() == size);
 			    
 			}
 
