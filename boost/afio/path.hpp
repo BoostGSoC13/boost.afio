@@ -44,8 +44,8 @@ namespace boost{
 			event_flags flags;				//!< bit-field of director events
 			dir_path path; 					//!< Path to event/file
 
-			dir_event() : eventNo(0) { flags.modified = false; flags.created = false; flags.deleted = false; flags.attrib = false; flags.security = false; }
-			dir_event(int) : eventNo(0) { flags.modified = true; flags.created = true; flags.deleted = true; flags.attrib = true; flags.security = true; }
+			dir_event() : eventNo(0) { flags.modified = false; flags.created = false; flags.deleted = false; flags.attrib = false; flags.security = false; flags.renamed = false;}
+			dir_event(int) : eventNo(0) { flags.modified = true; flags.created = true; flags.deleted = true; flags.attrib = true; flags.security = true; flags.renamed = true;}
 			operator event_flags() const throw()
 			{
 				return this->flags;
@@ -87,15 +87,15 @@ namespace boost{
 			//std::shared_ptr<std::vector<directory_entry>> ents;
 			std::unordered_map<Handler*, Handler> handlers;
 			std::shared_ptr<std::atomic<int>> eventcounter;
-			boost::asio::deadline_timer* timer;//make this a smart pointer after I fix everything
+			std::shared_ptr<boost::asio::deadline_timer> timer;
 
 			//private member functions
 			bool remove_ent(const directory_entry& ent);
 			bool add_ent(const directory_entry& ent);
 			bool add_ent(future<directory_entry>& fut){ return add_ent(fut.get());}
 			void schedule();
-			bool add_handler(Handler& h);
-			bool remove_handler(Handler& h);
+			bool add_handler(Handler* h);
+			bool remove_handler(Handler* h);
 			//void monitor(boost::asio::high_resolution_timer* t);
 			void monitor(boost::asio::deadline_timer* t);
 			void compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh);
@@ -152,8 +152,8 @@ namespace boost{
 			std::pair< future< bool >, async_io_op > remove_ent(const async_io_op & req, const directory_entry& ent);
 			std::pair< future< bool >, async_io_op > add_ent(const async_io_op & req, const directory_entry& ent);
 			std::pair< future< void >, async_io_op > schedule(const async_io_op & req);
-			std::pair< future< bool >, async_io_op > add_handler(const async_io_op & req, Handler& h);
-			std::pair< future< bool >, async_io_op > remove_handler(const async_io_op & req, Handler& h);
+			std::pair< future< bool >, async_io_op > add_handler(const async_io_op & req, Handler* h);
+			std::pair< future< bool >, async_io_op > remove_handler(const async_io_op & req, Handler* h);
 		};
 
 	}

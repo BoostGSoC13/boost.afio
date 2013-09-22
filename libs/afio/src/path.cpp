@@ -2,7 +2,7 @@
 #include "../../../boost/afio/directory_monitor_v2.hpp"
 
 
-
+size_t poll_rate = 250;
 namespace boost{
 	namespace afio{
 		std::pair< future< bool >, async_io_op > Path::remove_ent(const async_io_op & req, const directory_entry& ent)
@@ -30,17 +30,17 @@ namespace boost{
 			return dispatcher->call(req, func);
 		}
 
-		std::pair< future< bool >, async_io_op > Path::add_handler(const async_io_op & req, Handler& h)
+		std::pair< future< bool >, async_io_op > Path::add_handler(const async_io_op & req, Handler* h)
 		{
-			auto func = [this, &h]() -> bool {
+			auto func = [this, h]() -> bool {
 				return this->add_handler(h);
 			};
 			return dispatcher->call(req, func);
 		}
 
-		std::pair< future< bool >, async_io_op > Path::remove_handler(const async_io_op & req, Handler& h)
+		std::pair< future< bool >, async_io_op > Path::remove_handler(const async_io_op & req, Handler* h)
 		{
-			auto func = [this, &h]() -> bool {
+			auto func = [this, h]() -> bool {
 				return this->remove_handler(h);
 			};
 			return dispatcher->call(req, func);
@@ -97,9 +97,9 @@ namespace boost{
 			
 			//why don't the other timers work????
 			//boost::asio::high_resolution_timer t(t_source->io_service(), milli_sec(500));
-			timer = new boost::asio::deadline_timer(t_source->io_service(), milli_sec(100));
+			timer = std::make_shared<boost::asio::deadline_timer>(t_source->io_service(), milli_sec(poll_rate));
 			
-			timer->async_wait(std::bind(&Path::monitor, this, timer));
+			timer->async_wait(std::bind(&Path::monitor, this, timer.get()));
 			//std::cout << "Setup the async callback\n";
 			dispatcher->call(async_io_op(), [t_source](){t_source->io_service().run();});
 			//std::cout <<"setup was successful\n";
@@ -108,12 +108,12 @@ namespace boost{
 		//void Path::monitor(boost::asio::high_resolution_timer* t)
 		void Path::monitor(boost::asio::deadline_timer* t)
 		{
-			try{
-			t->expires_at(t->expires_at() + milli_sec(200) );
-			//t->expires_from_now( milli_sec(200) );
+			//try{
+			//t->expires_at(t->expires_at() + milli_sec(poll_rate) );
+			t->expires_from_now( milli_sec(poll_rate) );
 		    t->async_wait(std::bind(&Path::monitor, this, t));
-		}
-		catch(std::exception &e){std::cout << "the main issue is from the timer\n" <<e.what() <<std::endl;}
+		//}catch(std::exception &e){std::cout << "the main issue is from the timer\n" <<e.what() <<std::endl;}
+			
 			BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 			std::cout << "monitor has been called !!!\n";
 		
@@ -165,8 +165,7 @@ std::pair<std::vector<future<bool>>, std::vector<async_io_op>> clean_dict;
 	    
 		    compare = (dispatcher->call(stat_ents.second, comp_funcs));
 		    when_all(compare.second.begin(), compare.second.end()).wait();
-		    }
-	    catch(...){std::cout << "It really was the compre!\n";}
+		    }catch(...){std::cout << "It really was the compre!\n";}
 
 		    auto comp_barrier(dispatcher->barrier(compare.second));
 		try{    
@@ -194,10 +193,10 @@ std::pair<std::vector<future<bool>>, std::vector<async_io_op>> clean_dict;
 	    			    	
 		    clean_dict = ( dispatcher->call(clean_ops, clean_funcs)); 
 
-		    when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
+		    //when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
 	}catch(std::exception &e){std::cout <<"Cleaning the dictionary is the issue!!!!!!!!!!\n" << e.what()<<std::endl;}
 
-		   // auto barrier_move = (dispatcher->barrier(clean_dict.second));
+		    auto barrier_move = (dispatcher->barrier(clean_dict.second));
 try{
 		  //  when_all(barrier_move.begin(), barrier_move.end()).wait();
 		    
@@ -220,21 +219,14 @@ try{
 		    //auto fut = &remake_dict.first;
 		    when_all(remake_dict.second.begin(), remake_dict.second.end()).wait();
 		    //std::cout << "dict has been remade\n";
-		    assert(dict.size() <= new_ents->size());
-		    }
-			catch(...){std::cout << "Monitor is throwing an error\n";}
-#if 0
-			/*std::cout << "contents of dict:\n";
-			BOOST_FOREACH(auto &i, dict)
-				std::cout << i.second.name() << std::endl;*/
-
-		  #endif
+		    //assert(dict.size() <= new_ents->size());
+		    }catch(...){std::cout << "Monitor is throwing an error\n";}
 
 		}
 
 		bool Path::clean(directory_entry& ent)
 		{
-			try{
+			//try{
 			//std::cout << "Cleaning the dict... \n";
 			// anything left in dict has been deleted
 			dir_event event;
@@ -246,7 +238,7 @@ try{
 
 			if(remove_ent(ent))
 			{
-				std::cout << "successful removal of ent " << ent.name() << " from dict\n";
+				//std::cout << "successful removal of ent " << ent.name() << " from dict\n";
 				return true;
 			}
 			else
@@ -254,8 +246,7 @@ try{
 				std::cout << "Problem cleaning the dict\n";
 				return false;
 			}
-			}
-			catch(...){std::cout << "the issue is in clean!!!\n"; throw; }
+			//}catch(...){std::cout << "the issue is in clean!!!\n"; throw; }
 
 		}
 
@@ -277,7 +268,7 @@ try{
 				bool modified = false;
 				bool security = false;
 
-				try{
+				
 				if(temp.name() != entry.name())
 				{
 					changed = true;
@@ -295,8 +286,8 @@ try{
 					changed = true;
 					security = true;
 				}
-			}catch(std::exception &e){std::cout << "flag comparisons are the causing issues\n" << e.what()<<std::endl; throw(e);}
-				//BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
+		
+				
 				if(changed)
 				{
 					try{
@@ -307,13 +298,11 @@ try{
 					ret->setRenamed(renamed);
 					ret->setModified(modified);
 					ret->setSecurity(security);
-				}catch(std::exception &e){std::cout << "new event couldn't allocate memory after a change...\n" <<e.what() <<std::endl; throw(e);}
+					}catch(std::exception &e){std::cout << "new event couldn't allocate memory after a change...\n" <<e.what() <<std::endl; throw;}
 				}
 
-				// we found this entry, so remove it to later 
-				// determine what has been deleted
-				// this shouldn't invalidate any iterators, but maybe its still not good
-				try{remove_ent(temp);}catch(std::exception &e){std::cout << "remove ent couldn't allocate memory...\n" <<e.what() <<std::endl; throw(e);}
+				
+				try{remove_ent(temp);}catch(std::exception &e){std::cout << "remove ent couldn't allocate memory...\n" <<e.what() <<std::endl; throw;}
 			}
 			catch(std::out_of_range &e)
 			{
@@ -324,33 +313,31 @@ try{
 				ret->eventNo=++(*eventcounter);
 				ret->path = entry.name();
 				ret->setCreated();
-				}catch(std::exception &e){std::cout << "new event couldn't allocate memory durring creation ...\n" <<e.what() <<std::endl; throw(e);}
+				}catch(std::exception &e){std::cout << "new event couldn't allocate memory durring creation ...\n" <<e.what() <<std::endl; throw;}
 			}
 			catch(std::exception &e)
 			{
-				std::cout << "Durring comparison of " << entry.name() <<" another type of error occured that is ruining this\n" << e.what() <<std::endl;;
-				throw(e);
+				std::cout << "Durring comparison of " << entry.name() <<" another type of error occured that is ruining this\n" << e.what() <<std::endl;
+				try{remove_ent(entry);}catch(std::exception &e){std::cout << "remove ent couldn't allocate memory...\n" <<e.what() <<std::endl; throw;}
+				throw;
 			}
-			try{
+			
 			if(ret)
 			{
-				std::cout << "Scheduling handlers...\n";
-				auto event = std::move(*ret);
+				//std::cout << "Scheduling handlers...\n";
+				auto event = *ret;
 				BOOST_FOREACH(auto &i, handlers)
 					dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
-				//delete ret;
-			}
-			//std::cout << "comparisons finished this round\n";
-			}
-			catch(...){ std::cout << "Somehow thre is an error in the comparions\n";}
+			}			
 		}
 
-		bool Path::add_handler(Handler& h)
+		bool Path::add_handler(Handler* h)
 		{
 			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
-				if(handlers.emplace(&h, h).second)
+				std::cout << "The handler address is: " << h << std::endl;
+				if(handlers.emplace(h, *h).second)
 					return true;
 				else
 					return false;
@@ -361,28 +348,32 @@ try{
 				//	<< " into the hash_table: "<< e.what()<<std::endl;
 				return false;
 			}
-
 		}
 
-		bool Path::remove_handler(Handler& h)
+		bool Path::remove_handler(Handler* h)
 		{
 			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
-				if(handlers.erase(&h) > 0)
+				std::cout << "The handler address is: " << h << std::endl;
+				
+				auto temp = handlers.size();
+				std::cout << "The size of handlers is "<< temp << std::endl;
+				if(handlers.erase(h) > 0)
 					return true;
 				else
+				{
+					std::cout << "The size of handlers is "<< temp << std::endl;
+					if(handlers.size() < temp)
+						return true;
 					return false;
+				}
 			}
 			catch(std::exception& e)
 			{
-				//std::cout << "error inserting " << path.string() 
-				//	<< " into the hash_table: "<< e.what()<<std::endl;
+				std::cout << "error removing a handler from the hash_table: "<< e.what() << std::endl;
 				return false;
 			}
-
-
 		}
-
-	}
-}
+	}// namespace afio
+}//namespace boost

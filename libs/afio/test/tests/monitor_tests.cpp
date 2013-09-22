@@ -48,18 +48,20 @@ BOOST_AFIO_AUTO_TEST_CASE(directory_monitor_testing, "Tests that directory monit
 
 	};
 try{
+
+	std::cout << "The handler address is: " << &handler << std::endl;
 	auto dispatcher = boost::afio::make_async_file_io_dispatcher();
 	auto mkdir(dispatcher->dir(boost::afio::async_path_op_req("testdir", boost::afio::file_flags::Create)));
 	mkdir.h->get();
 
-	std::chrono::milliseconds dur(500);
+	std::chrono::milliseconds dur(100);
 	//in case these files exist remove them
 	std::remove("testdir/test.txt");
 	std::remove("testdir/test2.txt");
 	
 	boost::afio::dir_monitor mm(dispatcher);
 	//BOOST_CHECK(mm.hash.size() == 0);
-	auto add_test(mm.add(mkdir, "testdir", handler));
+	auto add_test(mm.add(mkdir, "testdir", &handler));
 	//auto add_tools(mm.add(add_test.second, "tools", handler));
 	size_t sum = 0;	
 	//BOOST_CHECK(mm.hash.size() == 2);
@@ -92,12 +94,12 @@ try{
 	std::cout << "testint = " << testint << std::endl;
 	//BOOST_CHECK(testint == 4);
 
-	//auto removed(mm.remove(add_test.second, "testdir", handler));
-	//std::cout << "Scheduled removal of testdir...\n";
-	/*if(removed.first.get())
+	auto removed(mm.remove(add_test.second, "testdir", &handler));
+	std::cout << "Scheduled removal of testdir...\n";
+	if(removed.first.get())
 	{
 		std::cout << "Removed a directory that was monitored" << std::endl;
-	}*/
+	}
 
 		std::cout << "exiting\n";
 	}catch(std::exception &e){ std::cout << "Error in the test!!!!<------------\n"<< e.what()<< std::endl;}

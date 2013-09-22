@@ -37,8 +37,8 @@ namespace boost{
 			    \exceptionmodelstd
 			    \qexample{enumerate_example}
 			*/
-			std::pair< future< bool >, async_io_op > remove(const async_io_op & req, const path& path, Handler& handler);
-			std::pair< future< bool >, async_io_op > add(const async_io_op & req, const path& path, Handler& handler);
+			std::pair< future< bool >, async_io_op > remove(const async_io_op & req, const path& path, Handler* handler);
+			std::pair< future< bool >, async_io_op > add(const async_io_op & req, const path& path, Handler* handler);
 			//change time interval???
 
 		private:
@@ -51,8 +51,8 @@ namespace boost{
 			std::shared_ptr<std::atomic<int>> eventcounter;
 
 			// private member functions
-			bool remove_path(const path& path, Handler& handler);
-			bool add_path(const path& path, Handler& handler);
+			bool remove_path(const path& path, Handler* handler);
+			bool add_path(const path& path, Handler* handler);
 			bool hash_insert(const path& path, const Path& dir);
 			bool hash_remove(const path& path);
 		};
