@@ -2,7 +2,7 @@
 #include "../../../boost/afio/directory_monitor_v2.hpp"
 
 
-size_t poll_rate = 250;
+size_t poll_rate = 50;
 namespace boost{
 	namespace afio{
 		std::pair< future< bool >, async_io_op > Path::remove_ent(const async_io_op & req, const directory_entry& ent)
@@ -143,59 +143,69 @@ namespace boost{
 		    BOOST_FOREACH( auto &i, *new_ents)
 		    {
 		    	full_stat.push_back( [&i, &handle_ptr]()->directory_entry&{ i.fetch_lstat(handle_ptr); return i; } );
-				ops.push_back(my_op);
+				ops.push_back(async_io_op());
 		    }
 
 		    auto stat_ents(dispatcher->call(ops, full_stat));
 std::pair<std::vector<future<bool>>, std::vector<async_io_op>> clean_dict;
-		  //  when_all(stat_ents.second.begin(), stat_ents.second.end()).wait();
+		    //when_all(stat_ents.first.begin(), stat_ents.first.end()).wait();
 		    
-		    std::vector<std::function<void()>> comp_funcs;
+		    std::vector<std::function<bool()>> comp_funcs;
 	    	comp_funcs.reserve(new_ents->size());
-	    	std::pair<std::vector<future<void>>, std::vector<async_io_op>> compare;
+	    	std::pair<std::vector<future<bool>>, std::vector<async_io_op>> compare;
 	    	try{
 	    	BOOST_FOREACH(auto &i, stat_ents.first)
-	    	{
-	    		auto func = [this, &i, &handle_ptr](){
-	    			try{ this->compare_entries(i, handle_ptr);}
+	    	{    //i.wait();
+	    		auto ptr = &i;
+	    		comp_funcs.push_back(std::bind(
+	    			[this, &handle_ptr](future<directory_entry>* fut)->bool{
+	    			try{return this->compare_entries(std::move(*fut), handle_ptr);}
 	    			catch(std::exception &e){std::cout << " error from compare_lambda\n" << e.what() <<std::endl; }
-	    		};
-	    		comp_funcs.push_back(func);
+	    		}, 
+	    		ptr));
+	    		
+	    		
 	    	}
 	    
 		    compare = (dispatcher->call(stat_ents.second, comp_funcs));
-		    when_all(compare.second.begin(), compare.second.end()).wait();
+		    when_all(compare.first.begin(), compare.first.end()).wait();
 		    }catch(...){std::cout << "It really was the compre!\n";}
 
-		    auto comp_barrier(dispatcher->barrier(compare.second));
+		   // auto comp_barrier(dispatcher->barrier(compare.second));
 		try{    
 		    // there is a better way to schedule this but I'm missing it. 
 		    // I want dict to hold only the deleted files, but I need to schedule
 		    // the next op in the lambda, and then I don't know how to 
 		    // finish the rest
-		    when_all(comp_barrier.begin(), comp_barrier.end()).wait();
+		    //when_all(comp_barrier.begin(), comp_barrier.end()).wait();
 
 		   // std::cout << "comparisons have finished\n";
-			std::vector<std::function<bool()>> clean_funcs;
+		    std::vector<std::function<bool()>> clean_funcs;
 			std::vector<async_io_op> clean_ops;
-			clean_ops.reserve(dict.size());
-	    	clean_funcs.reserve(dict.size());
-	    	BOOST_FOREACH(auto &i, dict)
-	    	{
-	    		clean_ops.push_back(comp_barrier.front());
-	    		clean_funcs.push_back([this, &i](){
-	    			try{ return this->clean(i.second);}
-	    			catch(std::exception &e){std::cout << "error from the clean lambda\n"<< e.what() <<std::endl;}
-	    		});
-	    	}
+
+		    auto setup_removal(dispatcher->call(async_io_op(), [&](){
+
+				clean_ops.reserve(dict.size());
+		    	clean_funcs.reserve(dict.size());
+		    	BOOST_FOREACH(auto &i, dict)
+		    	{
+		    		clean_ops.push_back(async_io_op());
+		    		clean_funcs.push_back([this, &i](){
+		    			try{ return this->clean(i.second);}
+		    			catch(std::exception &e){std::cout << "error from the clean lambda\n"<< e.what() <<std::endl;}
+		    		});
+		    	}
+		    }));
 	    	
 	    	//std::vector<async_io_op> barrier_move;
-	    			    	
+	    	//setup_removal.first.wait();
+
 		    clean_dict = ( dispatcher->call(clean_ops, clean_funcs)); 
 
-		    //when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
-	}catch(std::exception &e){std::cout <<"Cleaning the dictionary is the issue!!!!!!!!!!\n" << e.what()<<std::endl;}
+		    when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
+	    	}catch(std::exception &e){std::cout <<"Cleaning the dictionary is the issue!!!!!!!!!!\n" << e.what()<<std::endl;}
 
+	
 		    auto barrier_move = (dispatcher->barrier(clean_dict.second));
 try{
 		  //  when_all(barrier_move.begin(), barrier_move.end()).wait();
@@ -220,7 +230,7 @@ try{
 		    when_all(remake_dict.second.begin(), remake_dict.second.end()).wait();
 		    //std::cout << "dict has been remade\n";
 		    //assert(dict.size() <= new_ents->size());
-		    }catch(...){std::cout << "Monitor is throwing an error\n";}
+		    }catch(std::exception &e){std::cout << "Monitor is throwing an error\n"<< e.what() <<std::endl;}
 
 		}
 
@@ -250,12 +260,12 @@ try{
 
 		}
 
-		void Path::compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh)
+		bool Path::compare_entries(future<directory_entry> fut, std::shared_ptr< async_io_handle> dirh)
 		{
 			//std::cout << "comparing entries... \n";
 			//static std::atomic<int> eventcounter(0);
 			std::shared_ptr<dir_event> ret;
-			 auto entry = fut.get(); //}catch(std::exception &e){std::cout << "Getting this future cuased and error\n" << e.what() <<std::endl;}
+			auto entry = fut.get(); //}catch(std::exception &e){std::cout << "Getting this future cuased and error\n" << e.what() <<std::endl;}
 			try
 			{			
 				// try to find the directory_entry
@@ -263,6 +273,8 @@ try{
 				// if the hash is successful then it has the same inode and ctim
 				auto temp = dict.at(entry);
 				
+		// cnsider replacing this whole section with XORs and using a metadata_flags
+		// to track the changes to the files, will require changing dir_event
 				bool changed = false;
 				bool renamed = false;
 				bool modified = false;
@@ -274,14 +286,20 @@ try{
 					changed = true;
 					renamed = true;
 				}
-				if(temp.st_mtim(dirh)!= entry.st_mtim(dirh)
-						|| temp.st_size(dirh) != entry.st_size(dirh) 
-						|| temp.st_allocated(dirh) != entry.st_allocated(dirh))
+				if(temp.st_mtim()!= entry.st_mtim()
+						|| temp.st_ctim() != entry.st_ctim()
+						|| temp.st_size() != entry.st_size() 
+						|| temp.st_allocated() != entry.st_allocated())
 				{
 					modified = true;
 					changed = true;
 				}
-				if(temp.st_type(dirh) != entry.st_type(dirh))// mode is linux only...
+				if(temp.st_type() != entry.st_type()
+		#ifndef WIN32
+						|| temp.st_mode() != entry.st_mode()
+		#endif
+						)
+
 				{
 					changed = true;
 					security = true;
@@ -328,7 +346,8 @@ try{
 				auto event = *ret;
 				BOOST_FOREACH(auto &i, handlers)
 					dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
-			}			
+			}
+			return true;			
 		}
 
 		bool Path::add_handler(Handler* h)

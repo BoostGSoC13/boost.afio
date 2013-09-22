@@ -936,12 +936,15 @@ namespace std
 			//boost::hash_combine(seed, p.st_type());
 			//boost::hash_combine(seed, p.name());
 
-		#if 1
+	#if 1
 			try{
-				boost::hash_combine(seed, p.st_ctim().time_since_epoch().count());
-			//boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count())); //<<------ This was perfect :(
-			//boost::hash_combine(seed, p.leafname);
-			//boost::hash_combine(seed, p.have_metadata);
+	#ifndef __linux__
+				boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count())); //<<------ This was perfect :(
+	#endif
+				//boost::hash_combine(seed, p.st_ctim().time_since_epoch().count());
+				//boost::hash_combine(seed, boost::hash_value(p.st_birthtim().time_since_epoch().count())); //<<------ This was perfect :(
+				//boost::hash_combine(seed, p.leafname);
+				//boost::hash_combine(seed, p.have_metadata);
 			}
 			catch(std::exception &e)
 			{
@@ -949,7 +952,7 @@ namespace std
 				std::cout << "this hash failed horribly <------------\n" << e.what() <<std::endl;
 				throw;
 			}
-		#endif
+	#endif
 			return seed;
 		}
 	};

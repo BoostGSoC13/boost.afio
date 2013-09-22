@@ -50,47 +50,48 @@ static std::atomic<size_t> security(0);
 static void handler(boost::afio::dir_event change)
 {
 	called++;
-	//std::cout <<("Item changed to:\n");
-	//print(newfi);
+	
 #if 1
+	//std::cout << "------->Event #: " << change.eventNo << " File: " << change.path << std::endl;
 	if(change.flags.modified)
 	{
 		++modified;
-		//std::cout <<("Code was modified\n\n");
+		//std::cout <<("- The file was modified\n");
 	}
 	if(change.flags.created)
 	{
 		++created;
-		//std::cout <<("Code was created\n\n");
+		//std::cout <<("- The file was created\n");
 	}
 	if(change.flags.deleted)
 	{
 		++deleted;
-		//std::cout <<("Code was deleted\n\n");
+		//std::cout <<("- The file was deleted\n");
 	}
 	if(change.flags.renamed)
 	{
 		++renamed;
-		//auto str = sprintf("Code was renamed (from %s)\n\n", oldfi.name().c_str());
-		//std::cout <<(str);
+		//auto str = sprintf("The file was renamed (from %s)\n\n", oldfi.name().c_str());
+		//std::cout <<"- The file was renamed\n";
 	}
-/*	if(change.flags.attrib)
+	if(change.flags.attrib)
 	{
-		std::cout <<("Code was attributes changed\n\n");
-	}*/
+		//std::cout <<("The file's attributes changed\n");
+	}
 	if(change.flags.security)
 	{
 		++security;
-		//std::cout <<("Code was security changed\n\n");
+		//std::cout <<("- The file's security changed\n");
 	}
+	//std::cout << std::endl;
 #endif
 }
 
 BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 90)
 {
 	using boost::afio::ratio;
-	const size_t num = 100;
-	std::chrono::milliseconds dur(1000);
+	const size_t num = 1000;
+	std::chrono::milliseconds dur(500);
 
  	auto dispatcher=boost::afio::make_async_file_io_dispatcher();
  	boost::afio::dir_monitor mon(dispatcher);
@@ -131,7 +132,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
     //sizes.reserve(num);
     /*BOOST_FOREACH(auto &i, sizes)
     	i = 1024;*/
-    auto manytruncatedfiles(dispatcher->truncate(manyclosedfiles, sizes));
+    //auto manytruncatedfiles(dispatcher->truncate(manyclosedfiles, sizes));
 
 
     // Close each of those num files once one byte has been written
@@ -141,9 +142,10 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
 	//printDir(list);
 std::this_thread::sleep_for( dur);
     // Delete each of those num files once they are closed
-    auto del_it= manytruncatedfiles.begin();
-    BOOST_FOREACH(auto &i, manyfilereqs)
-            i.precondition=*del_it++;
+   // auto del_it= manytruncatedfiles.begin();
+
+    //BOOST_FOREACH(auto &i, manyfilereqs)
+           // i.precondition=*del_it++;
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
 
     

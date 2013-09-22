@@ -98,7 +98,7 @@ namespace boost{
 			bool remove_handler(Handler* h);
 			//void monitor(boost::asio::high_resolution_timer* t);
 			void monitor(boost::asio::deadline_timer* t);
-			void compare_entries(future<directory_entry>& fut, std::shared_ptr< async_io_handle> dirh);
+			bool compare_entries(future<directory_entry> fut, std::shared_ptr< async_io_handle> dirh);
 			bool clean(directory_entry& ent);
 			
 		public:
