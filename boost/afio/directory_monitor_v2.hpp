@@ -23,7 +23,7 @@ namespace boost{
 			//constructors
 			dir_monitor(){}
 			dir_monitor(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher):dispatcher(_dispatcher), eventcounter(std::make_shared<std::atomic<int>>(0)) {}
-
+			virtual ~dir_monitor(){}
 			//public functions
 			/*! \brief  Schedules the removal of a handler on an associated directory after the preceding operation
 				

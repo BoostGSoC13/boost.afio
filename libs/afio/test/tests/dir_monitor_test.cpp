@@ -87,11 +87,11 @@ static void handler(boost::afio::dir_event change)
 #endif
 }
 
-BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 90)
+BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 60)
 {
 	using boost::afio::ratio;
-	const size_t num = 1000;
-	std::chrono::milliseconds dur(500);
+	const size_t num = 500;
+	std::chrono::milliseconds dur(1000);
 
  	auto dispatcher=boost::afio::make_async_file_io_dispatcher();
  	boost::afio::dir_monitor mon(dispatcher);
@@ -109,10 +109,14 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
 	auto begin=chrono::high_resolution_clock::now();
     std::vector<boost::afio::async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(num);
-    for(size_t n=0; n<num; n++)
+    for(size_t n=0; n<num; ++n)
             manyfilereqs.push_back(boost::afio::async_path_op_req(mkmon.second, "testdir/"+boost::to_string(n), boost::afio::file_flags::Create|boost::afio::file_flags::Write));
     auto manyopenfiles(dispatcher->file(manyfilereqs));
 
+    std::cout << "Creating files ...";
+    when_all(manyopenfiles.begin(), manyopenfiles.end()).wait();
+//std::this_thread::sleep_for( dur);
+    std::cout << "Finished!\n";
 
     // Write to each of those num files as they are opened
     std::vector<boost::afio::async_data_op_req<const char>> manyfilewrites;
@@ -122,54 +126,70 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
         manyfilewrites.push_back(boost::afio::async_data_op_req<const char>(*openit++, &towrite.front(), towrite.size(), 0));
     auto manywrittenfiles(dispatcher->write(manyfilewrites));
 
+//std::this_thread::sleep_for( dur);
+    std::cout << "Writing files ...";
+	when_all(manywrittenfiles.begin(), manywrittenfiles.end()).wait();
+	std::cout << "Finished!\n";
 
- auto manyclosedfiles(dispatcher->close(manywrittenfiles));
+	std::cout << "Closing files ...";
+	auto manyclosedfiles(dispatcher->close(manywrittenfiles));
+	when_all(manyclosedfiles.begin(), manyclosedfiles.end()).wait();
+	std::cout << "Finished!\n";
 
 	auto it(manyclosedfiles.begin());
     BOOST_FOREACH(auto &i, manyfilereqs)
         i.precondition=*it++;
-    std::vector<long long unsigned int> sizes(num, 1024);
+    //std::vector<long long unsigned int> sizes(num, 1024);
     //sizes.reserve(num);
     /*BOOST_FOREACH(auto &i, sizes)
     	i = 1024;*/
-    //auto manytruncatedfiles(dispatcher->truncate(manyclosedfiles, sizes));
-
-
+    /*std::cout << "Truncating Files...";
+    auto manytruncatedfiles(dispatcher->truncate(manyclosedfiles, sizes));
+    when_all(manytruncatedfiles.begin(), manytruncatedfiles.end()).wait();
+	std::cout << "Finished!\n";*/
     // Close each of those num files once one byte has been written
    
    // sleep(10);
 
 	//printDir(list);
-std::this_thread::sleep_for( dur);
+//std::this_thread::sleep_for( dur);
     // Delete each of those num files once they are closed
-   // auto del_it= manytruncatedfiles.begin();
+    //auto del_it= manytruncatedfiles.begin();
 
     //BOOST_FOREACH(auto &i, manyfilereqs)
-           // i.precondition=*del_it++;
+      //     i.precondition=*del_it++;
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
+
 
     
     // Wait for all files to delete
+    std::cout << "Deleting Files...";
     when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
-    std::this_thread::sleep_for( dur);
+    std::cout << "Finished!\n";
+std::this_thread::sleep_for( dur);
     auto end=chrono::high_resolution_clock::now(); 
-    auto rmdir(dispatcher->rmdir(boost::afio::async_path_op_req("testdir")));
+    //auto deleted_barrier(dispatcher->barrier(manydeletedfiles));
+	//auto removed_mon(mon.remove(deleted_barrier.front(), "testdir", &h));
+	auto removed_mon(mon.remove(manydeletedfiles.front(), "testdir", &h));
+	removed_mon.first.get();
+
+    auto rmdir(dispatcher->rmdir(boost::afio::async_path_op_req(removed_mon.second, "testdir")));
     // Fetch any outstanding error
     //mon.remove("testdir", h);
+    rmdir.h->get();
     auto diff=chrono::duration_cast<secs_type>(end-begin);
     std::cout << "It took " << diff.count() << " secs to do all operations" << std::endl;
-    rmdir.h->get();
+    
 	//BOOST_CHECK(called >= 3);
 	
 	//sleep(20);
-	//auto removed_mon(mon.remove(rmdir, "testdir", &h));
-	//removed_mon.first.get();
+	
 
-	BOOST_CHECK(called.load() >= 2*num);
+	BOOST_CHECK(called.load() >= 3*num);
 	BOOST_CHECK(created.load() == num);
 	BOOST_CHECK(deleted.load() == num);
 	BOOST_CHECK(security.load() == 0);
-	BOOST_CHECK(modified.load() == 0);
+	BOOST_CHECK(modified.load() == num);
 	BOOST_CHECK(renamed.load() == 0);
 	printf("called =%d, created = %d, deleted = %d, security=%d, modified=%d, renamed=%d\n", called.load(), created.load(), deleted.load(), security.load(), modified.load(), renamed.load());
 

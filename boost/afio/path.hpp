@@ -87,7 +87,7 @@ namespace boost{
 			//std::shared_ptr<std::vector<directory_entry>> ents;
 			std::unordered_map<Handler*, Handler> handlers;
 			std::shared_ptr<std::atomic<int>> eventcounter;
-			std::shared_ptr<boost::asio::deadline_timer> timer;
+			std::vector<std::shared_ptr<boost::asio::deadline_timer>> timers;
 
 			//private member functions
 			bool remove_ent(const directory_entry& ent);
@@ -147,6 +147,12 @@ namespace boost{
 			Path(const Path& o): name(std::filesystem::absolute(o.name)), dispatcher(o.dispatcher), dict(o.dict), handlers(o.handlers), eventcounter(o.eventcounter) {}
 			Path(Path&& o):  name(std::move(std::filesystem::absolute(o.name))), dispatcher(std::move(o.dispatcher)), dict(std::move(o.dict)), handlers(std::move(o.handlers)), eventcounter(std::move(o.eventcounter)) {}
 
+
+			virtual ~Path()
+			{	//is this neccessary?
+				BOOST_FOREACH(auto &i, timers)
+					i->cancel();
+			}
 
 			// public member functions
 			std::pair< future< bool >, async_io_op > remove_ent(const async_io_op & req, const directory_entry& ent);

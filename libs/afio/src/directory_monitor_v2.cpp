@@ -20,13 +20,26 @@ namespace boost{
 		bool dir_monitor::remove_path(const path& path, Handler* handler)
 		{
 			//lock this durring removal
-			//BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
+			std::cout << "Trying to remove the Path\n";
+			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
 			Path* p = nullptr;
-			try
+			bool found = true;
+			std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+			
 			{
-				p = &hash.at(path);
+				//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+				{
+					auto temp = hash.find(path);
+					if(temp == hash.end())
+						found = false;
+					else
+						p = &(temp->second);
+				}
 			}
-			catch(std::out_of_range &e)
+			std::cout << "destroying the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+
+
+			if(!found)
 			{
 				// if it wasn't in the hash we're not monitoring it
 				// consider an exception here with a useful message
@@ -39,6 +52,7 @@ namespace boost{
 				std::cout << "this is impossible!\n";
 				return false;
 			}
+			std::cout << "Removing Handler!\n";
 			// if we can't find the handler return false
 			// again an exception might be more informative
 			if(!p->remove_handler(handler))
@@ -51,35 +65,42 @@ namespace boost{
 			// then the monitoring is complete
 			if(p->handlers.empty())
 				hash_remove(path);
-
+			std::cout << "removed path\n";
 			// we have successfully found the path and handler,
 			// removed them, and done any clean up necessary
 			return true;
 		}
 
 
+		//figure out how to make this work with the spinlock. 
 		bool dir_monitor::add_path(const path& path, Handler* handler)
 		{
-			//BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
+			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
 			Path* p;
-			try
-			{	
-				p = &hash.at(path);
-				//std::cout << "going to try to add a new handler\n";
-				p->add_handler(handler);
-				//std::cout << "added the Handler\n";
-				//p->schedule();
-				//std::cout << "Scheduled\n";
-				return true;
-			}
-			catch(std::out_of_range& e)
+			bool scheduled = false;
+			std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
 			{
-				//std::cout << "making a new Path ...\n";
-				p = new Path(dispatcher, path, eventcounter);
-				//std::cout << "Created the Path\n";
-				//std::cout << "going to try to add a new handler\n";
-				p->add_handler(handler);
-				//std::cout << "added the Handler\n";
+				BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+				{
+					auto it = hash.find(path);
+					if(it == hash.end())
+						p = new Path(dispatcher, path, eventcounter);
+					else
+					{
+						scheduled = true;
+						p = &(it->second);
+					}
+				}
+			}//end of spin_lock scope
+			std::cout << "Destroying the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+
+			//std::cout << "going to try to add a new handler\n";
+			if(!p->add_handler(handler))
+				return false;			
+			//std::cout << "added the Handler\n";
+			
+			if(!scheduled) 
+			{
 				p->schedule();
 				//std::cout << "Scheduled\n";
 				if(!hash_insert(path, *p))
@@ -89,10 +110,11 @@ namespace boost{
 					p = nullptr;
 					return false;
 				}
-				//std::cout << "completed the catch block\n";
 			}
-			
-		}
+			std::cout << "added path\n";
+			return true;
+		}// end add_path()
+		
 
 		bool dir_monitor::hash_insert(const path& path, const Path& dir)
 		{
@@ -100,7 +122,7 @@ namespace boost{
 			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try{
 				//std::cout <<"try to insert into hash...\n";
-				if(hash.emplace(path, std::move(dir)).second)
+				if(hash.insert(std::make_pair(path, std::move(dir))).second)
 					return true;
 				else
 					return false;
@@ -111,10 +133,11 @@ namespace boost{
 				//	<< " into the hash_table: "<< e.what()<<std::endl;
 				return false;
 			}
-		}
+		}// end hash_inssert()
+
 		bool dir_monitor::hash_remove(const path& path)
 		{
-			//std::cout << "removing path from hash\n";
+			std::cout << "removing path from hash\n";
 			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
@@ -128,9 +151,9 @@ namespace boost{
 				//throw;//should this throw???
 				return false;
 			}
-		}
+		}// end hash_remove()
 
-	}
-}
+	}// namespace afio
+}// namespace boost
 
 		
