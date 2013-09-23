@@ -87,7 +87,7 @@ static void handler(boost::afio::dir_event change)
 #endif
 }
 
-BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 180)
+BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 90)
 {
 	using boost::afio::ratio;
 	const size_t num = 1000;
