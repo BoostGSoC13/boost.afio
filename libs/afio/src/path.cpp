@@ -2,7 +2,7 @@
 #include "../../../boost/afio/directory_monitor_v2.hpp"
 
 
-size_t poll_rate = 50;
+size_t poll_rate = 100;
 namespace boost{
 	namespace afio{
 		std::pair< future< bool >, async_io_op > Path::remove_ent(const async_io_op & req, const directory_entry& ent)
@@ -174,9 +174,7 @@ namespace boost{
 			    // I want dict to hold only the deleted files, but I need to schedule
 			    // the next op in the lambda, and then I don't know how to 
 			    // finish the rest
-			    //when_all(comp_barrier.begin(), comp_barrier.end()).wait();
-
-			   // std::cout << "comparisons have finished\n";
+			    
 			    std::vector<std::function<bool()>> clean_funcs;
 				std::vector<async_io_op> clean_ops;
 		
@@ -193,19 +191,19 @@ namespace boost{
 			    	}
 			    }));
 		    	
-		    	//std::vector<async_io_op> barrier_move;
+		    	
 		    	setup_removal.first.wait();
 
 			    auto clean_dict(dispatcher->call(clean_ops, clean_funcs)); 
 
 			    //when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
-			    //assert(dict.empty());
+			    
 		
 			    //auto barrier_move = (dispatcher->barrier(clean_dict.second));
 	
-			  //  when_all(barrier_move.begin(), barrier_move.end()).wait();
+			  	// when_all(barrier_move.begin(), barrier_move.end()).wait();
 			    
-			   // std::cout <<"Dictionary has been cleaned. Size: " <<dict.size() <<std::endl;
+			   	// std::cout <<"Dictionary has been cleaned. Size: " <<dict.size() <<std::endl;
 			    //assert(dict.empty());
 
 			    std::vector<std::function<bool()>> move_funcs;
@@ -226,7 +224,7 @@ namespace boost{
 			    //assert(dict.size() == new_ents->size());
 			}
 	
-		}
+		}// end monitor()
 
 		bool Path::clean(directory_entry& ent)
 		{
