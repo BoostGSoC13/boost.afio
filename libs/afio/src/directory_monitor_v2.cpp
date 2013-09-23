@@ -24,7 +24,7 @@ namespace boost{
 			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
 			Path* p = nullptr;
 			bool found = true;
-			std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+			//std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
 			
 			{
 				//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
@@ -36,7 +36,7 @@ namespace boost{
 						p = &(temp->second);
 				}
 			}
-			std::cout << "destroying the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+			//std::cout << "destroying the BOOST_AFIO_SPIN_LOCK_GUARD\n";
 
 
 			if(!found)
@@ -78,9 +78,10 @@ namespace boost{
 			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
 			Path* p;
 			bool scheduled = false;
-			std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+			//std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+			
 			{
-				BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+				//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 				{
 					auto it = hash.find(path);
 					if(it == hash.end())
@@ -92,7 +93,7 @@ namespace boost{
 					}
 				}
 			}//end of spin_lock scope
-			std::cout << "Destroying the BOOST_AFIO_SPIN_LOCK_GUARD\n";
+			//std::cout << "Destroying the BOOST_AFIO_SPIN_LOCK_GUARD\n";
 
 			//std::cout << "going to try to add a new handler\n";
 			if(!p->add_handler(handler))
@@ -111,7 +112,7 @@ namespace boost{
 					return false;
 				}
 			}
-			std::cout << "added path\n";
+			//std::cout << "added path\n";
 			return true;
 		}// end add_path()
 		

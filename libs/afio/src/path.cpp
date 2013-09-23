@@ -118,12 +118,10 @@ namespace boost{
 				
 				BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 				
-			
 				auto dir(dispatcher->dir(boost::afio::async_path_op_req(name)));
 				
-				
-	    		 std::pair<std::vector<boost::afio::directory_entry>, bool> list;
-	    		 async_io_op my_op;
+	    		std::pair<std::vector<boost::afio::directory_entry>, bool> list;
+	    		async_io_op my_op;
 			    
 			    // This is used to reset the enumeration to the start
 			    bool restart=true;
@@ -135,7 +133,7 @@ namespace boost{
 			    } while(list.second);
 		
 			    auto new_ents = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
-			    std::cout << "Dirctory size is: " << new_ents->size() <<std::endl;
+			    //std::cout << "Dirctory size is: " << new_ents->size() <<std::endl;
 
 			    auto handle_ptr = my_op.h->get();
 			    std::vector<async_io_op> ops;
@@ -150,12 +148,12 @@ namespace boost{
 			    }
 
 			    auto stat_ents(dispatcher->call(ops, full_stat));
-	std::pair<std::vector<future<bool>>, std::vector<async_io_op>> clean_dict;
+	//std::pair<std::vector<future<bool>>, std::vector<async_io_op>> clean_dict;
 			    //when_all(stat_ents.first.begin(), stat_ents.first.end()).wait();
 			    
 			    std::vector<std::function<bool()>> comp_funcs;
 		    	comp_funcs.reserve(new_ents->size());
-		    	std::pair<std::vector<future<bool>>, std::vector<async_io_op>> compare;
+		    	//std::pair<std::vector<future<bool>>, std::vector<async_io_op>> compare;
 		    	
 		    	BOOST_FOREACH(auto &i, stat_ents.first)
 		    	{    //i.wait();
@@ -167,7 +165,7 @@ namespace boost{
 		    		ptr));
 		    	}
 		    
-			    compare = (dispatcher->call(stat_ents.second, comp_funcs));
+			    auto compare(dispatcher->call(stat_ents.second, comp_funcs));
 			    when_all(compare.first.begin(), compare.first.end()).wait();
 
 			   // auto comp_barrier(dispatcher->barrier(compare.second));
@@ -198,9 +196,9 @@ namespace boost{
 		    	//std::vector<async_io_op> barrier_move;
 		    	setup_removal.first.wait();
 
-			    clean_dict = ( dispatcher->call(clean_ops, clean_funcs)); 
+			    auto clean_dict(dispatcher->call(clean_ops, clean_funcs)); 
 
-			    when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
+			    //when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
 			    //assert(dict.empty());
 		
 			    //auto barrier_move = (dispatcher->barrier(clean_dict.second));
@@ -216,16 +214,16 @@ namespace boost{
 			    move_ops.reserve(new_ents->size());
 			    BOOST_FOREACH(auto &i, *new_ents)
 			    {
-			    	//move_ops.push_back(async_io_op());
-			      	//move_funcs.push_back([this, &i](){return this->add_ent(i);});
-			      	add_ent(i);
+			    	move_ops.push_back(async_io_op());
+			      	move_funcs.push_back([this, &i](){return this->add_ent(i);});
+			      	//add_ent(i);
 			    }		      		
 			    			    
-			    //auto remake_dict(dispatcher->call(move_ops, move_funcs)); 
+			    auto remake_dict(dispatcher->call(move_ops, move_funcs)); 
 			    //auto fut = &remake_dict.first;
-			   // when_all(remake_dict.first.begin(), remake_dict.first.end()).wait();
+			    when_all(remake_dict.first.begin(), remake_dict.first.end()).wait();
 			    //std::cout << "dict has been remade\n";
-			    assert(dict.size() <= new_ents->size());
+			    //assert(dict.size() == new_ents->size());
 			}
 	
 		}
@@ -280,8 +278,6 @@ namespace boost{
 						temp = &(it->second);
 				}
 			}
-
-
 
 			if(new_file)
 			{
@@ -353,7 +349,7 @@ namespace boost{
 
 		bool Path::add_handler(Handler* h)
 		{
-			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try
 			{
 				//std::cout << "The handler address is: " << h << std::endl;
@@ -379,7 +375,7 @@ namespace boost{
 		bool Path::remove_handler(Handler* h)
 		{
 			//cant figure out how to do this better than with a try-catch...
-			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try{
 			
 				//std::cout << "The handler address is: " << h << std::endl;
