@@ -1,46 +1,8 @@
 #include "../test_functions.hpp"
-
-
-
-
-
-/********************************************************************************
-*                                                                               *
-*                       Test of filing system monitor                           *
-*                                                                               *
-*********************************************************************************
-*        Copyright (C) 2003-2007 by Niall Douglas.   All Rights Reserved.       *
-*       NOTE THAT I DO NOT PERMIT ANY OF MY CODE TO BE PROMOTED TO THE GPL      *
-*********************************************************************************
-* This code is free software; you can redistribute it and/or modify it under    *
-* the terms of the GNU Library General Public License v2.1 as published by the  *
-* Free Software Foundation EXCEPT that clause 3 does not apply ie; you may not  *
-* "upgrade" this code to the GPL without my prior written permission.           *
-* Please consult the file "License_Addendum2.txt" accompanying this file.       *
-*                                                                               *
-* This code is distributed in the hope that it will be useful,                  *
-* but WITHOUT ANY WARRANTY; without even the implied warranty of                *
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                          *
-*********************************************************************************
-* $Id:                                                                          *
-********************************************************************************/
-
 #include "../../../../boost/afio/directory_monitor_v2.hpp"
 #include <iostream>
 typedef boost::afio::directory_entry directory_entry;
 
-static void print( directory_entry &fi)
-{
-	auto str = sprintf("%s (size %d, modified %d) %d", fi.name().c_str(), fi.st_size(), fi.st_mtim(), fi.st_mode());
-	std::cout <<(str) << std::endl;
-}
-static void printDir(const std::shared_ptr<std::vector<directory_entry>> list)
-{
-	for(auto it=list->begin(); it!=list->end(); ++it)
-	{
-		print(*it);
-	}
-}
 static std::atomic<size_t> called(0);
 static std::atomic<size_t> created(0);
 static std::atomic<size_t> modified(0);
@@ -87,10 +49,10 @@ static void handler(boost::afio::dir_event change)
 #endif
 }
 
-BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 90)
+BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring implementation works", 180)
 {
 	using boost::afio::ratio;
-	const size_t num = 1000;
+	const size_t num = 2500;
 	std::chrono::milliseconds dur(1000);
 
  	auto dispatcher=boost::afio::make_async_file_io_dispatcher();
@@ -152,7 +114,7 @@ std::this_thread::sleep_for( dur);
    // sleep(10);
 
 	//printDir(list);
-std::this_thread::sleep_for( dur);
+//std::this_thread::sleep_for( dur);
     // Delete each of those num files once they are closed
     //auto del_it= manytruncatedfiles.begin();
 
@@ -170,6 +132,7 @@ std::this_thread::sleep_for( dur);
     auto end=chrono::high_resolution_clock::now(); 
     //auto deleted_barrier(dispatcher->barrier(manydeletedfiles));
 	//auto removed_mon(mon.remove(deleted_barrier.front(), "testdir", &h));
+	sleep(5);
 	auto removed_mon(mon.remove(manydeletedfiles.front(), "testdir", &h));
 	removed_mon.first.get();
 

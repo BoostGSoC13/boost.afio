@@ -2,7 +2,7 @@
 #include "../../../boost/afio/directory_monitor_v2.hpp"
 
 
-size_t poll_rate = 100;
+size_t poll_rate = 10;
 namespace boost{
 	namespace afio{
 		std::pair< future< bool >, async_io_op > Path::remove_ent(const async_io_op & req, const directory_entry& ent)
@@ -98,23 +98,22 @@ namespace boost{
 			//why don't the other timers work????
 			//boost::asio::high_resolution_timer t(t_source->io_service(), milli_sec(500));
 
-			auto timer = std::make_shared<boost::asio::deadline_timer>(t_source->io_service(), milli_sec(poll_rate));
-			timers.push_back(timer);
-			timer->async_wait(std::bind(&Path::monitor, this, timer.get()));
+			timer = std::make_shared<boost::asio::deadline_timer>(t_source->io_service(), milli_sec(poll_rate));
+			std::weak_ptr<boost::asio::deadline_timer> wk_timer = timer;
+			timer->async_wait(std::bind(&Path::monitor, this, wk_timer));
 			//std::cout << "Setup the async callback\n";
 			dispatcher->call(async_io_op(), [t_source](){t_source->io_service().run();});
 			//std::cout <<"setup was successful\n";
+			//timers.push_back(timer);
 		}
 
 		//void Path::monitor(boost::asio::high_resolution_timer* t)
-		void Path::monitor(boost::asio::deadline_timer* t)
+		void Path::monitor(std::weak_ptr<boost::asio::deadline_timer> t)
 		{
 			// stop monitoring if the directory no longer exists
 			if(std::filesystem::exists(name))
 			{
-				//t->expires_at(t->expires_at() + milli_sec(poll_rate) );
-				t->expires_from_now( milli_sec(poll_rate) );
-			    t->async_wait(std::bind(&Path::monitor, this, t));
+				
 				
 				BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 				
@@ -222,6 +221,12 @@ namespace boost{
 			    when_all(remake_dict.first.begin(), remake_dict.first.end()).wait();
 			    //std::cout << "dict has been remade\n";
 			    //assert(dict.size() == new_ents->size());
+			    if(auto atimer = t.lock())
+			    {
+			        //t->expires_at(t->expires_at() + milli_sec(poll_rate) );
+			        atimer->expires_from_now( milli_sec(poll_rate) );
+			    	atimer->async_wait(std::bind(&Path::monitor, this, t));
+			    }
 			}
 	
 		}// end monitor()
@@ -373,7 +378,7 @@ namespace boost{
 		bool Path::remove_handler(Handler* h)
 		{
 			//cant figure out how to do this better than with a try-catch...
-			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
 			try{
 			
 				//std::cout << "The handler address is: " << h << std::endl;

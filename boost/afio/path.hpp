@@ -87,7 +87,7 @@ namespace boost{
 			//std::shared_ptr<std::vector<directory_entry>> ents;
 			std::unordered_map<Handler*, Handler> handlers;
 			std::shared_ptr<std::atomic<int>> eventcounter;
-			std::vector<std::shared_ptr<boost::asio::deadline_timer>> timers;
+			std::shared_ptr<boost::asio::deadline_timer> timer;
 
 			//private member functions
 			bool remove_ent(const directory_entry& ent);
@@ -97,7 +97,7 @@ namespace boost{
 			bool add_handler(Handler* h);
 			bool remove_handler(Handler* h);
 			//void monitor(boost::asio::high_resolution_timer* t);
-			void monitor(boost::asio::deadline_timer* t);
+			void monitor(std::weak_ptr<boost::asio::deadline_timer> t);
 			bool compare_entries(future<directory_entry> fut, std::shared_ptr< async_io_handle> dirh);
 			bool clean(directory_entry& ent);
 			
@@ -150,8 +150,10 @@ namespace boost{
 
 			virtual ~Path()
 			{	//is this neccessary?
-				BOOST_FOREACH(auto &i, timers)
-					i->cancel();
+				//BOOST_FOREACH(auto &i, timers)
+				//	i->cancel();
+				if(timer)
+					timer->cancel();
 			}
 
 			// public member functions
