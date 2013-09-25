@@ -112,7 +112,7 @@ namespace boost{
 					return false;
 				}
 			}
-			//std::cout << "added path\n";
+			std::cout << "added path\n";
 			return true;
 		}// end add_path()
 		
