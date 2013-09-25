@@ -98,8 +98,8 @@ namespace boost{
 			//void monitor(boost::asio::high_resolution_timer* t);
 			void collect_data(std::weak_ptr<boost::asio::deadline_timer> t);
 			void monitor(std::vector<directory_entry> old_ents, std::vector<directory_entry> new_ents, std::shared_ptr<async_io_handle> dirh);
-			bool compare_entries(std::unordered_map<directory_entry, directory_entry>& dict, future<directory_entry> fut, std::shared_ptr< async_io_handle> dirh);
-			void clean(directory_entry& ent);
+			bool compare_entries(std::unordered_map<directory_entry, directory_entry>& dict, directory_entry& entry, std::shared_ptr< async_io_handle> dirh);
+			bool clean(directory_entry& ent);
 			
 			
 		public:

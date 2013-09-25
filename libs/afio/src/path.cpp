@@ -126,10 +126,24 @@ namespace boost{
 			        list=enumerate.first.get();			        
 			        my_op = enumerate.second;
 			    } while(list.second);
-		
+				auto dirh(my_op.h->get());
 			    auto new_ents = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
 
-			    dispatcher->call(async_io_op(), std::bind(&Path::monitor, this, *ents_ptr, *new_ents, my_op.h->get()));
+			    std::vector<std::function<bool()>> new_stat;
+				new_stat.reserve(new_ents->size());
+				std::vector<async_io_op> ops;
+				ops.reserve(new_ents->size());
+			    BOOST_FOREACH( auto &i, *new_ents)
+			    {
+			    	new_stat.push_back( [&i, dirh](){ i.fetch_lstat(dirh); return true; } );
+					ops.push_back(async_io_op());
+			    }
+				
+				auto new_stat_ents(dispatcher->call(ops, new_stat));
+				when_all(new_stat_ents.first.begin(), new_stat_ents.first.end()).wait();
+
+				//auto stat_barrier(new_stat_ents.second);
+			    dispatcher->call(async_io_op(), std::bind(&Path::monitor, this, std::move(*ents_ptr), *new_ents, dirh));
 			    ents_ptr = std::move(new_ents);
 
 			    if(auto atimer = t.lock())
@@ -139,13 +153,13 @@ namespace boost{
 			    	atimer->async_wait(std::bind(&Path::collect_data, this, t));
 			    }
 			}
-			std::cout << "data collected\n";
+			//std::cout << "data collected\n";
 		}
 
 		//void Path::monitor(boost::asio::high_resolution_timer* t)
 		void Path::monitor(std::vector<directory_entry> old_ents, std::vector<directory_entry> new_ents, std::shared_ptr<async_io_handle> dirh)
 		{
-			std::cout << "Monitor was caled\n";
+			//std::cout << "Monitor was caled\n";
 			std::unordered_map<directory_entry, directory_entry> dict;
 			std::vector<std::function<bool()>> move_funcs;
 		    std::vector<async_io_op> move_ops;
@@ -162,83 +176,65 @@ namespace boost{
 		    //auto fut = &remake_dict.first;
 		    when_all(make_dict.first.begin(), make_dict.first.end()).wait();
 		
-
-		    
-		    //std::vector<async_io_op> ops;
-			//ops.reserve(old_ents->size());
-			std::vector<std::function<directory_entry()>> old_stat;
-			old_stat.reserve(old_ents.size());
-
-		    BOOST_FOREACH( auto &i, old_ents)
-		    {
-		    	old_stat.push_back( [&i, dirh]()->directory_entry&{ i.fetch_lstat(dirh); return i; } );
-				//ops.push_back(async_io_op());
-		    }
-
-		    auto old_stat_ents(dispatcher->call(make_dict.second, old_stat));
-
-		    std::vector<std::function<directory_entry()>> new_stat;
-			new_stat.reserve(new_ents.size());
-
-		    BOOST_FOREACH( auto &i, new_ents)
-		    {
-		    	new_stat.push_back( [&i, dirh]()->directory_entry&{ i.fetch_lstat(dirh); return i; } );
-				//ops.push_back(async_io_op());
-		    }
-			
-			auto new_stat_ents(dispatcher->call(old_stat_ents.second, new_stat));
-		    //when_all(stat_ents.first.begin(), stat_ents.first.end()).wait();
-		    
+		   // std::cout << "After creation dict size is: " << dict.size() << std::endl;
 		    std::vector<std::function<bool()>> comp_funcs;
 	    	comp_funcs.reserve(new_ents.size());
 	    	//std::pair<std::vector<future<bool>>, std::vector<async_io_op>> compare;
 	    	
-	    	BOOST_FOREACH(auto &i, new_stat_ents.first)
-	    	{    //i.wait();
-	    		auto ptr = &i;
-	    		comp_funcs.push_back(std::bind(
-	    			[this, dirh, &dict](future<directory_entry>* fut)->bool{
-	    			return this->compare_entries(dict, std::move(*fut), dirh);		    			
-	    		}, 
-	    		ptr));
+	    	auto j = old_ents.size() - new_ents.size();
+	    	if (j != 0)
+	    	{
+	    	   	std::cout <<"Size difference: " << j << std::endl;
+	    	   	std::cout << "After creation dict size is: " << dict.size() << std::endl;
+	    	}
+
+	    	BOOST_FOREACH(auto &i, new_ents)
+	    	{   
+	    		comp_funcs.push_back([this, dirh, &i, &dict]()->bool{
+	    			return this->compare_entries(dict, i, dirh);		    			
+	    		});
 	    	}
 	    
-		    auto compare(dispatcher->call(new_stat_ents.second, comp_funcs));
+		    auto compare(dispatcher->call(make_dict.second, comp_funcs));
 		    when_all(compare.second.begin(), compare.second.end()).wait();
-
+		    std::cout << "Before clean, dict size is: " << dict.size() << std::endl;
 		   // auto comp_barrier(dispatcher->barrier(compare.second));
 		   
 		    // there is a better way to schedule this but I'm missing it. 
 		    // I want dict to hold only the deleted files, but I need to schedule
 		    // the next op in the lambda, and then I don't know how to 
 		    // finish the rest
-		    
-		    std::vector<std::function<void()>> clean_funcs;
-			std::vector<async_io_op> clean_ops;
-	
-		    auto setup_removal(dispatcher->call(async_io_op(), [&](){
+		    if(!dict.empty())
+		    {
+			    std::vector<std::function<void()>> clean_funcs;
+				std::vector<async_io_op> clean_ops;
+				
+		
+			    auto setup_removal(dispatcher->call(async_io_op(), [&](){
 
-				clean_ops.reserve(dict.size());
-		    	clean_funcs.reserve(dict.size());
-		    	BOOST_FOREACH(auto &i, dict)
-		    	{
-		    		clean_ops.push_back(async_io_op());
-		    		clean_funcs.push_back([this, &i](){
-		    			 return this->clean(i.second);
-		    		});
-		    	}
-		    }));
-	    	
-	    	
-	    	setup_removal.first.wait();
+					clean_ops.reserve(dict.size());
+			    	clean_funcs.reserve(dict.size());
+			    	BOOST_FOREACH(auto &i, dict)
+			    	{
+			    		clean_ops.push_back(async_io_op());
+			    		clean_funcs.push_back([this, &i](){
+			    			 return this->clean(i.second);
+			    		});
+			    	}
+			    }));
+		    	
+		    	
+		    	setup_removal.first.wait();
 
-		    auto clean_dict(dispatcher->call(clean_ops, clean_funcs)); 
+			    auto clean_dict(dispatcher->call(clean_ops, clean_funcs)); 
 
-		    //when_all(clean_dict.first.begin(), clean_dict.first.end()).wait();
+			    when_all(clean_dict.second.begin(), clean_dict.second.end()).wait();
+			    std::cout << "After clean dict size is: " << dict.size() << std::endl;
+			}
 	
 		}// end monitor()
 
-		void Path::clean(directory_entry& ent)
+		bool Path::clean(directory_entry& ent)
 		{
 			//try{
 			//std::cout << "Cleaning the dict... \n";
@@ -249,15 +245,15 @@ namespace boost{
 			event.path = ent.name();
 			BOOST_FOREACH(auto i, handlers)
 				dispatcher->call(async_io_op(), [i, event](){ i.second(event); });
-
+			return true;
 		}
 
-		bool Path::compare_entries(std::unordered_map<directory_entry, directory_entry>& dict, future<directory_entry> fut, std::shared_ptr< async_io_handle> dirh)
+		bool Path::compare_entries(std::unordered_map<directory_entry, directory_entry>& dict, directory_entry& entry, std::shared_ptr< async_io_handle> dirh)
 		{
 			//std::cout << "comparing entries... \n";
 			//static std::atomic<int> eventcounter(0);
 			std::shared_ptr<dir_event> ret;
-			auto entry = fut.get(); //}catch(std::exception &e){std::cout << "Getting this future cuased and error\n" << e.what() <<std::endl;}
+			//auto entry = fut.get(); //}catch(std::exception &e){std::cout << "Getting this future cuased and error\n" << e.what() <<std::endl;}
 			
 						
 				// try to find the directory_entry
