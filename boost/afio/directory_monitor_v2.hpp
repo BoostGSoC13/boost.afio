@@ -20,6 +20,8 @@ namespace boost{
 		public:
 			typedef std::filesystem::path path;
 			typedef std::function<void(dir_event)> Handler; 
+			typedef boost::posix_time::millisec milli_sec;
+
 			//constructors
 			dir_monitor(){}
 			dir_monitor(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher):dispatcher(_dispatcher), eventcounter(std::make_shared<std::atomic<int>>(0)) {}
@@ -45,10 +47,11 @@ namespace boost{
 
 			//private data
 			std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher;
-			recursive_mutex mtx;//consider a non-recursive mutex
+			boost::mutex mtx;
 			std::unordered_map<path, Path> hash;
 			boost::detail::spinlock sp_lock;
 			std::shared_ptr<std::atomic<int>> eventcounter;
+			std::shared_ptr<boost::asio::deadline_timer> timer;
 
 			// private member functions
 			bool remove_path(const path& path, Handler* handler);

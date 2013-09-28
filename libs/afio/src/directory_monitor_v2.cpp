@@ -21,7 +21,7 @@ namespace boost{
 		{
 			//lock this durring removal
 			std::cout << "Trying to remove the Path\n";
-			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
+			BOOST_AFIO_LOCK_GUARD <boost::mutex> lk(mtx);
 			Path* p = nullptr;
 			bool found = true;
 			//std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
@@ -75,9 +75,17 @@ namespace boost{
 		//figure out how to make this work with the spinlock. 
 		bool dir_monitor::add_path(const path& path, Handler* handler)
 		{
-			BOOST_AFIO_LOCK_GUARD <recursive_mutex> lk(mtx);
+			BOOST_AFIO_LOCK_GUARD <boost::mutex> lk(mtx);
 			Path* p;
 			bool scheduled = false;
+
+			if(hash.empty())
+			{
+				size_t poll_rate = 50;
+				//auto t_source = dispatcher->threadsource().lock()
+				timer = std::make_shared<boost::asio::deadline_timer>(dispatcher->threadsource().lock()->io_service(), milli_sec(poll_rate));
+				
+			}
 			//std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";
 			
 			{
@@ -85,7 +93,7 @@ namespace boost{
 				{
 					auto it = hash.find(path);
 					if(it == hash.end())
-						p = new Path(dispatcher, path, eventcounter);
+						p = new Path(dispatcher, path, eventcounter, timer);
 					else
 					{
 						scheduled = true;

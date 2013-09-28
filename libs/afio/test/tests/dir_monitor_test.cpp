@@ -77,7 +77,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
 
     std::cout << "Creating files ...";
     when_all(manyopenfiles.begin(), manyopenfiles.end()).wait();
-std::this_thread::sleep_for( dur);
+//std::this_thread::sleep_for( dur);
     std::cout << "Finished!\n";
 
     // Write to each of those num files as they are opened
@@ -88,7 +88,7 @@ std::this_thread::sleep_for( dur);
         manyfilewrites.push_back(boost::afio::async_data_op_req<const char>(*openit++, &towrite.front(), towrite.size(), 0));
     auto manywrittenfiles(dispatcher->write(manyfilewrites));
 
-std::this_thread::sleep_for( dur);
+//std::this_thread::sleep_for( dur);
     std::cout << "Writing files ...";
 	when_all(manywrittenfiles.begin(), manywrittenfiles.end()).wait();
 	std::cout << "Finished!\n";
@@ -128,11 +128,11 @@ std::this_thread::sleep_for( dur);
     std::cout << "Deleting Files...";
     when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
     std::cout << "Finished!\n";
-std::this_thread::sleep_for( dur);
+//std::this_thread::sleep_for( dur);
     auto end=chrono::high_resolution_clock::now(); 
     //auto deleted_barrier(dispatcher->barrier(manydeletedfiles));
 	//auto removed_mon(mon.remove(deleted_barrier.front(), "testdir", &h));
-	sleep(15);
+	//sleep(15);
 	//auto removed_mon(mon.remove(manydeletedfiles.front(), "testdir", &h));
 	//removed_mon.first.get();
 

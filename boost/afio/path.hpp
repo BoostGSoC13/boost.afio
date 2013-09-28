@@ -105,7 +105,7 @@ namespace boost{
 		public:
 
 			//constructors
-			Path(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher, const dir_path& _path, std::shared_ptr<std::atomic<int>> evt_ctr): dispatcher(_dispatcher), name(std::filesystem::absolute(_path)), eventcounter(evt_ctr) 
+			Path(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher, const dir_path& _path, std::shared_ptr<std::atomic<int>> evt_ctr, std::shared_ptr<boost::asio::deadline_timer> _timer): dispatcher(_dispatcher), name(std::filesystem::absolute(_path)), eventcounter(evt_ctr), timer(_timer)
 			{
 				auto dir(dispatcher->dir(boost::afio::async_path_op_req( name)));		
 	    		std::pair<std::vector<boost::afio::directory_entry>, bool> list;
@@ -120,8 +120,8 @@ namespace boost{
 			    
 			}
 
-			Path(const Path& o): name(std::filesystem::absolute(o.name)), dispatcher(o.dispatcher), handlers(o.handlers), eventcounter(o.eventcounter) {}
-			Path(Path&& o):  name(std::move(std::filesystem::absolute(o.name))), dispatcher(std::move(o.dispatcher)), handlers(std::move(o.handlers)), eventcounter(std::move(o.eventcounter)) {}
+			Path(const Path& o): name(std::filesystem::absolute(o.name)), dispatcher(o.dispatcher), handlers(o.handlers), eventcounter(o.eventcounter), timer(o.timer) {}
+			Path(Path&& o):  name(std::move(std::filesystem::absolute(o.name))), dispatcher(std::move(o.dispatcher)), handlers(std::move(o.handlers)), eventcounter(std::move(o.eventcounter)), timer(std::move(o.timer)) {}
 
 
 			virtual ~Path()

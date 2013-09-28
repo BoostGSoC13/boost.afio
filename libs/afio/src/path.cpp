@@ -1,7 +1,6 @@
 #include "../../../boost/afio/path.hpp"
 #include "../../../boost/afio/directory_monitor_v2.hpp"
 
-
 size_t poll_rate = 50;
 namespace boost{
 	namespace afio{
@@ -50,6 +49,7 @@ namespace boost{
 		bool Path::remove_ent(std::unordered_map<directory_entry, directory_entry>& dict,const directory_entry& ent)
 		{
 			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			assert(!sp_lock.try_lock());
 			try
 			{
 				if(0 < dict.erase(ent) )
@@ -75,6 +75,7 @@ namespace boost{
 		{
 			// libstdc++ doesn't come with std::lock_guard
 			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			assert(!sp_lock.try_lock());
 			try
 			{
 				if(dict.insert(std::make_pair(ent, ent)).second)
@@ -92,17 +93,19 @@ namespace boost{
 
 		void Path::schedule()
 		{
-			//BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
-			auto t_source(dispatcher->threadsource().lock());
-			
-			//why don't the other timers work????
-			//boost::asio::high_resolution_timer t(t_source->io_service(), milli_sec(500));
-
-			timer = std::make_shared<boost::asio::deadline_timer>(t_source->io_service(), milli_sec(poll_rate));
 			std::weak_ptr<boost::asio::deadline_timer> wk_timer = timer;
+			timer->expires_at(timer->expires_at() + milli_sec(1));
 			timer->async_wait(std::bind(&Path::collect_data, this, wk_timer));
+			if(timer->get_io_service().stopped())
+				timer->get_io_service().run();
+				//timer->async_wait([this](){this->timer->get_io_service().run();});
+					//std::bind([](boost::asio::io_service& service){service.run();}, timer->get_io_service()));
+
+
+
 			//std::cout << "Setup the async callback\n";
-			dispatcher->call(async_io_op(), [t_source](){t_source->io_service().run();});
+			//timer->async_wait([t_source](){t_source->io_service().run();});
+			//dispatcher->call(async_io_op(), [t_source](){t_source->io_service().run();});
 			//std::cout <<"setup was successful\n";
 			//timers.push_back(timer);
 		}
@@ -112,7 +115,7 @@ namespace boost{
 			if(std::filesystem::exists(name))
 			{
 				BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
-				
+				assert(!mtx.try_lock());
 				auto dir(dispatcher->dir(boost::afio::async_path_op_req(name)));
 				
 	    		std::pair<std::vector<boost::afio::directory_entry>, bool> list;
@@ -148,8 +151,8 @@ namespace boost{
 
 			    if(auto atimer = t.lock())
 			    {
-			        //t->expires_at(t->expires_at() + milli_sec(poll_rate) );
-			        atimer->expires_from_now( milli_sec(poll_rate) );
+			        atimer->expires_at(atimer->expires_at() + milli_sec(poll_rate) );
+			        //atimer->expires_from_now( milli_sec(poll_rate) );
 			    	atimer->async_wait(std::bind(&Path::collect_data, this, t));
 			    }
 			}
@@ -175,7 +178,7 @@ namespace boost{
 		    auto make_dict(dispatcher->call(move_ops, move_funcs)); 
 		    //auto fut = &remake_dict.first;
 		    when_all(make_dict.first.begin(), make_dict.first.end()).wait();
-		
+			assert(old_ents.size() == dict.size());
 		   // std::cout << "After creation dict size is: " << dict.size() << std::endl;
 		    std::vector<std::function<bool()>> comp_funcs;
 	    	comp_funcs.reserve(new_ents.size());
@@ -204,6 +207,9 @@ namespace boost{
 		    // I want dict to hold only the deleted files, but I need to schedule
 		    // the next op in the lambda, and then I don't know how to 
 		    // finish the rest
+		    //if(j > 0)
+		        //assert(!(dict.empty()));
+
 		    if(!dict.empty())
 		    {
 			    std::vector<std::function<void()>> clean_funcs;
@@ -264,6 +270,7 @@ namespace boost{
 
 			{
 				BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+				assert(!sp_lock.try_lock());
 				{
 					auto it = dict.find(entry);
 					if(it == dict.end())
@@ -344,6 +351,7 @@ namespace boost{
 		bool Path::add_handler(Handler* h)
 		{
 			BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
+			assert(!sp_lock.try_lock());
 			try
 			{
 				//std::cout << "The handler address is: " << h << std::endl;
