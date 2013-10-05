@@ -11,11 +11,11 @@ project boost/afio
       <threading>multi                          #<-- do we need this?
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1  
       <link>shared:<define>BOOST_AFIO_SOURCE=1
+      <link>static:<define>BOOST_AFIO_SOURCE=1
       
     : usage-requirements 
       <include>. 
 
-      <link>shared:<define>BOOST_AFIO_SOURCE=1
     : source-location ../src
 
 ;
@@ -25,7 +25,6 @@ lib boost_afio
       afio.cpp 
       directory_monitor_v2.cpp 
       path.cpp
-      ../detail/ErrorHandling.cpp
       ../../system/build//boost_system
       ../../filesystem/build//boost_filesystem 
       ../../atomic/build//boost_atomic

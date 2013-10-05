@@ -83,7 +83,7 @@ namespace boost{
 			{
 				size_t poll_rate = 50;
 				//auto t_source = dispatcher->threadsource().lock()
-				timer = std::make_shared<boost::asio::deadline_timer>(dispatcher->threadsource().lock()->io_service(), milli_sec(poll_rate));
+				timer = std::make_shared<boost::asio::deadline_timer>(dispatcher->threadsource()->io_service(), milli_sec(poll_rate));
 				
 			}
 			//std::cout << "creating the BOOST_AFIO_SPIN_LOCK_GUARD\n";

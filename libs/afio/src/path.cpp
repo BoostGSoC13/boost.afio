@@ -1,7 +1,7 @@
 #include "../../../boost/afio/path.hpp"
 #include "../../../boost/afio/directory_monitor_v2.hpp"
 
-size_t poll_rate = 50;
+size_t poll_rate = 10;
 namespace boost{
 	namespace afio{
 		std::pair< future< bool >, async_io_op > Path::remove_ent(std::unordered_map<directory_entry, directory_entry>& dict, const async_io_op & req, const directory_entry& ent)
@@ -177,14 +177,14 @@ namespace boost{
 		    			    
 		    auto make_dict(dispatcher->call(move_ops, move_funcs)); 
 		    //auto fut = &remake_dict.first;
-		    when_all(make_dict.first.begin(), make_dict.first.end()).wait();
+		when_all(make_dict.first.begin(), make_dict.first.end()).wait();
 			assert(old_ents.size() == dict.size());
 		   // std::cout << "After creation dict size is: " << dict.size() << std::endl;
 		    std::vector<std::function<bool()>> comp_funcs;
 	    	comp_funcs.reserve(new_ents.size());
 	    	//std::pair<std::vector<future<bool>>, std::vector<async_io_op>> compare;
 	    	
-	    	auto j = old_ents.size() - new_ents.size();
+	    	auto j = abs(old_ents.size() - new_ents.size());
 	    	if (j != 0)
 	    	{
 	    	   	std::cout <<"Size difference: " << j << std::endl;
@@ -199,8 +199,9 @@ namespace boost{
 	    	}
 	    
 		    auto compare(dispatcher->call(make_dict.second, comp_funcs));
-		    when_all(compare.second.begin(), compare.second.end()).wait();
-		    std::cout << "Before clean, dict size is: " << dict.size() << std::endl;
+		when_all(compare.second.begin(), compare.second.end()).wait();
+			if( j != 0)		
+			    std::cout << "Before clean, dict size is: " << dict.size() << std::endl;
 		   // auto comp_barrier(dispatcher->barrier(compare.second));
 		   
 		    // there is a better way to schedule this but I'm missing it. 
@@ -234,7 +235,7 @@ namespace boost{
 
 			    auto clean_dict(dispatcher->call(clean_ops, clean_funcs)); 
 
-			    when_all(clean_dict.second.begin(), clean_dict.second.end()).wait();
+		when_all(clean_dict.second.begin(), clean_dict.second.end()).wait();
 			    std::cout << "After clean dict size is: " << dict.size() << std::endl;
 			}
 	

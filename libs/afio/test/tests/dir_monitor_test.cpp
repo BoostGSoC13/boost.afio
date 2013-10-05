@@ -1,6 +1,8 @@
 #include "../test_functions.hpp"
 #include "../../../../boost/afio/directory_monitor_v2.hpp"
 #include <iostream>
+#include <chrono>
+#include <thread>
 typedef boost::afio::directory_entry directory_entry;
 
 static std::atomic<size_t> called(0);
@@ -53,7 +55,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
 {
 	using boost::afio::ratio;
 	const size_t num = 2500;
-	std::chrono::milliseconds dur(1000);
+	std::chrono::milliseconds dur(4000);
 
  	auto dispatcher=boost::afio::make_async_file_io_dispatcher();
  	boost::afio::dir_monitor mon(dispatcher);
@@ -67,7 +69,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
 	boost::afio::dir_monitor::Handler h = handler;
     auto mkmon(mon.add(mkdir, "testdir", &h));
 
-	std::this_thread::sleep_for( dur);
+//std::this_thread::sleep_for( dur);
 	auto begin=chrono::high_resolution_clock::now();
     std::vector<boost::afio::async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(num);
@@ -128,7 +130,7 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
     std::cout << "Deleting Files...";
     when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
     std::cout << "Finished!\n";
-//std::this_thread::sleep_for( dur);
+std::this_thread::sleep_for( dur);
     auto end=chrono::high_resolution_clock::now(); 
     //auto deleted_barrier(dispatcher->barrier(manydeletedfiles));
 	//auto removed_mon(mon.remove(deleted_barrier.front(), "testdir", &h));
