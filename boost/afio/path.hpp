@@ -130,6 +130,7 @@ namespace boost{
 				//	i->cancel();
 				if(timer)
 					timer->cancel();
+				//std::cout <<"Path was successfully destroyed\n"
 			}
 
 			// public member functions

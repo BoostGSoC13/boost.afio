@@ -98,16 +98,6 @@ namespace boost{
 			timer->async_wait(std::bind(&Path::collect_data, this, wk_timer));
 			if(timer->get_io_service().stopped())
 				timer->get_io_service().run();
-				//timer->async_wait([this](){this->timer->get_io_service().run();});
-					//std::bind([](boost::asio::io_service& service){service.run();}, timer->get_io_service()));
-
-
-
-			//std::cout << "Setup the async callback\n";
-			//timer->async_wait([t_source](){t_source->io_service().run();});
-			//dispatcher->call(async_io_op(), [t_source](){t_source->io_service().run();});
-			//std::cout <<"setup was successful\n";
-			//timers.push_back(timer);
 		}
 
 		void Path::collect_data(std::weak_ptr<boost::asio::deadline_timer> t)
@@ -146,11 +136,14 @@ namespace boost{
 				when_all(new_stat_ents.first.begin(), new_stat_ents.first.end()).wait();
 
 				//auto stat_barrier(new_stat_ents.second);
-			    dispatcher->call(async_io_op(), std::bind(&Path::monitor, this, std::move(*ents_ptr), *new_ents, dirh));
-			    ents_ptr = std::move(new_ents);
-
+			    //dispatcher->call(async_io_op(), std::bind(&Path::monitor, this, std::move(*ents_ptr), *new_ents, dirh));
+			    
 			    if(auto atimer = t.lock())
 			    {
+			    	// try to move these into the conditional to avoid problems
+			    	atimer->async_wait(std::bind(&Path::monitor, this, std::move(*ents_ptr), *new_ents, std::move(dirh)));
+			    	ents_ptr = std::move(new_ents);
+
 			        atimer->expires_at(atimer->expires_at() + milli_sec(poll_rate) );
 			        //atimer->expires_from_now( milli_sec(poll_rate) );
 			    	atimer->async_wait(std::bind(&Path::collect_data, this, t));
@@ -238,7 +231,7 @@ namespace boost{
 		when_all(clean_dict.second.begin(), clean_dict.second.end()).wait();
 			    std::cout << "After clean dict size is: " << dict.size() << std::endl;
 			}
-	
+			std::cout << "End Monitor()\n\n";
 		}// end monitor()
 
 		bool Path::clean(directory_entry& ent)

@@ -130,18 +130,24 @@ BOOST_AFIO_AUTO_TEST_CASE(dir_monitor_test, "Tests that the directory monitoring
     std::cout << "Deleting Files...";
     when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
     std::cout << "Finished!\n";
-std::this_thread::sleep_for( dur);
-    auto end=chrono::high_resolution_clock::now(); 
-    //auto deleted_barrier(dispatcher->barrier(manydeletedfiles));
-	//auto removed_mon(mon.remove(deleted_barrier.front(), "testdir", &h));
+
+
+//std::this_thread::sleep_for( dur);
+    
+    std::cout << "We're OK before barrier...\n";
+    auto deleted_barrier(dispatcher->barrier(manydeletedfiles));
+	auto removed_mon(mon.remove(deleted_barrier.front(), "testdir", &h));
 	//sleep(15);
 	//auto removed_mon(mon.remove(manydeletedfiles.front(), "testdir", &h));
 	//removed_mon.first.get();
-
-    auto rmdir(dispatcher->rmdir(boost::afio::async_path_op_req(/*removed_mon.second,*/ "testdir")));
+std::cout << "We're OK after barrier/removed_mon...\n";
+    auto rmdir(dispatcher->rmdir(boost::afio::async_path_op_req(removed_mon.second, "testdir")));
     // Fetch any outstanding error
-    //mon.remove("testdir", h);
+     std::cout << "We're OK after rmdir...\n";
     rmdir.h->get();
+    std::cout << "We're OK after directory removal...\n";
+    auto end=chrono::high_resolution_clock::now();
+     
     auto diff=chrono::duration_cast<secs_type>(end-begin);
     std::cout << "It took " << diff.count() << " secs to do all operations" << std::endl;
     
