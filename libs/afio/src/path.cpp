@@ -170,8 +170,10 @@ namespace boost{
 		    			    
 		    auto make_dict(dispatcher->call(move_ops, move_funcs)); 
 		    //auto fut = &remake_dict.first;
+	try{
 		when_all(make_dict.first.begin(), make_dict.first.end()).wait();
 			assert(old_ents.size() == dict.size());
+		}catch(...){std::cout <<"MONITOR(1) had the error\n"; throw;}
 		   // std::cout << "After creation dict size is: " << dict.size() << std::endl;
 		    std::vector<std::function<bool()>> comp_funcs;
 	    	comp_funcs.reserve(new_ents.size());
@@ -192,7 +194,9 @@ namespace boost{
 	    	}
 	    
 		    auto compare(dispatcher->call(make_dict.second, comp_funcs));
+	try{
 		when_all(compare.second.begin(), compare.second.end()).wait();
+		}catch(...){std::cout <<"MONITOR(2) had the error\n"; throw;}
 			if( j != 0)		
 			    std::cout << "Before clean, dict size is: " << dict.size() << std::endl;
 		   // auto comp_barrier(dispatcher->barrier(compare.second));
@@ -227,11 +231,13 @@ namespace boost{
 		    	setup_removal.first.wait();
 
 			    auto clean_dict(dispatcher->call(clean_ops, clean_funcs)); 
-
+	try{
 		when_all(clean_dict.second.begin(), clean_dict.second.end()).wait();
+		}catch(...){std::cout <<"MONITOR(3) had the error\n"; throw;}
 			    std::cout << "After clean dict size is: " << dict.size() << std::endl;
 			}
 			std::cout << "End Monitor()\n\n";
+
 		}// end monitor()
 
 		bool Path::clean(directory_entry& ent)
