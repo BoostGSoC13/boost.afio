@@ -6,8 +6,9 @@ a BSD licence. See its documentation.
 
 * 4-SHA256 is derived, with many improvements including an ARM NEON
 implementation by me, from https://github.com/wereHamster/sha256-sse by
-Tomas Carnecky. Licensing includes the Common Development and Distribution
-License (CDDL) from OpenSolaris (sha256-ref.c is directly from there).
+Tomas Carnecky. Its licence (confirmed with Tomas) for all files is the
+Common Development and Distribution License (CDDL) from OpenSolaris
+(sha256-ref.c is directly from there).
 
 * SpookyHash comes from http://burtleburtle.net/bob/hash/spooky.html by
 Bob Jenkins. It is public domain.
