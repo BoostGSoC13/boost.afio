@@ -19,21 +19,49 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\detail\ErrorHandling.cpp" />
-    <ClCompile Include="..\detail\SpookyV2.cpp" />
-    <ClCompile Include="..\src\afio.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\profile.c" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\sha256-neon.c" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\sha256-ref.c" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\sha256-sse.c" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\test.c" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\city-test.cc" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\city.cc" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\spookyhash\SpookyV2.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\src\afio.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\boost\afio\afio.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\config.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\Aligned_Allocator.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\ErrorHandling.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\Preprocessor_variadic.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\SpookyV2.h" />
-    <ClInclude Include="..\..\..\boost\afio\detail\std_filesystem.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\Undoer.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\Utility.hpp" />
-    <ClInclude Include="..\..\..\boost\afio\detail\variadic.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\afio.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\config.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Aligned_Allocator.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\ErrorHandling.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\sha256.h" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\config.h" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\city.h" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\citycrc.h" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\config.h" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\spookyhash\SpookyV2.h" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\nt_kernel_stuff.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Int128_256.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\MemoryTransactions.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Preprocessor_variadic.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\std_atomic_mutex_chrono.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\std_filesystem.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Undoer.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Utility.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\afio.ipp">
+      <FileType>CppHeader</FileType>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\afio_iocp.ipp">
+      <FileType>CppHeader</FileType>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\ErrorHandling.ipp">
+      <FileType>CppHeader</FileType>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\Int128_256.ipp">
+      <FileType>CppHeader</FileType>
+    </ClInclude>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{31A5E53D-7416-4E1D-891A-1C69EF8553BD}</ProjectGuid>

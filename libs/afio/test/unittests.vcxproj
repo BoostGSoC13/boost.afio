@@ -91,12 +91,61 @@
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\adopt_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\barrier_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\benchmark_asio.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\benchmark_chained1.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\benchmark_chained2.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\benchmark_unchained1.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\benchmark_unchained2.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\call_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\closure_execution_afio_io_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\closure_execution_traditional_io_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\completion_example1.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\completion_example2.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\current_exception_hack.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\enumerate_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\filecopy_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\filedir_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\find_in_files_afio.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\find_in_files_iostreams.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\readwrite_example.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\examples\readwrite_example_traditional.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\4-sha256_works.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_data_op_req_compilation.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_adopt_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_barrier_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_enumerate_works.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_errors_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_lstat_works.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_pagesize.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_sync_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_threadpool_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_torture_autoflush_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_torture_direct_sync_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_torture_direct_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_torture_sync_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_torture_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_1_autoflush_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_1_prime_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_1_sync_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_1_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_64_autoflush_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_64_directsync_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_64_direct_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_64_sync_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\async_io_works_64_test.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\hash128_works.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\hash256_works.cpp" />
+    <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\int128_256_works.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\build\afio.vcxproj">
       <Project>{31a5e53d-7416-4e1d-891a-1c69ef8553bd}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\..\..\boost.afio\libs\afio\test\test_functions.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
