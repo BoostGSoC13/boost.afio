@@ -15,35 +15,6 @@
 #include <cstddef>
 #include "../config.hpp"
 
-
-//! \def BOOST_AFIO_TYPEALIGNMENT(bytes) The markup this compiler uses to mark a type as having some given alignment
-#ifndef BOOST_AFIO_TYPEALIGNMENT
-#if __cplusplus>=201103L && GCC_VERSION > 40900
-#define BOOST_AFIO_TYPEALIGNMENT(bytes) alignas(bytes)
-#else
-#ifdef BOOST_MSVC
-#define BOOST_AFIO_TYPEALIGNMENT(bytes) __declspec(align(bytes))
-#elif defined(__GNUC__)
-#define BOOST_AFIO_TYPEALIGNMENT(bytes) __attribute__((aligned(bytes)))
-#else
-#define BOOST_AFIO_TYPEALIGNMENT(bytes) unknown_type_alignment_markup_for_this_compiler
-#endif
-#endif
-#endif
-
-//! \def BOOST_AFIO_PACKEDTYPE(typedecl) The markup this compiler uses to pack a structure as tightly as possible
-#ifndef BOOST_AFIO_PACKEDTYPE
-#ifdef BOOST_MSVC
-#define BOOST_AFIO_PACKEDTYPE(typedecl) __pragma(pack(push, 1)) typedecl __pragma(pack(pop))
-#elif defined(__GNUC__)
-#define BOOST_AFIO_PACKEDTYPE(typedecl) typedecl __attribute__((packed))
-#else
-#define BOOST_AFIO_PACKEDTYPE(typedecl) unknown_type_pack_markup_for_this_compiler
-#endif
-#endif
-
-
-
 namespace boost{
     namespace afio{
         namespace detail {
