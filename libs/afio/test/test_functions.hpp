@@ -12,6 +12,9 @@ Created: Feb 2013
 // Reduces CPU cores used to execute, which can be useful for certain kinds of race condition.
 //#define MAXIMUM_TEST_CPUS 1
 
+// Some tests can reports CPU cycles per op if this is set correctly
+#define CPU_CYCLES_PER_SEC 3500000000ULL
+
 #ifdef __MINGW32__
 #include <stdlib.h> // To pull in __MINGW64_VERSION_MAJOR
 #ifndef __MINGW64_VERSION_MAJOR
@@ -30,7 +33,7 @@ extern "C" void tzset(void);
 #include <algorithm>
 #include <unordered_set>
 #include "../../../boost/afio/afio.hpp"
-#include "../../../boost/afio/detail/impl/hashes/spookyhash/SpookyV2.h"
+#include "../../../boost/afio/detail/Hash128_256.hpp"
 #include "../../../boost/afio/detail/Aligned_Allocator.hpp"
 #include "../../../boost/afio/detail/MemoryTransactions.hpp"
 #include "../../../boost/afio/detail/valgrind/memcheck.h"

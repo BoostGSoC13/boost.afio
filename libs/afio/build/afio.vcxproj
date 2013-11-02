@@ -33,7 +33,9 @@
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\afio.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\config.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Aligned_Allocator.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\AsyncRandomness.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\ErrorHandling.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Hash128_256.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\4-sha256\sha256.h" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\config.h" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\city.h" />
@@ -41,6 +43,7 @@
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\cityhash\src\config.h" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\hashes\spookyhash\SpookyV2.h" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\nt_kernel_stuff.hpp" />
+    <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\incl_stl_allocator_override.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Int128_256.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\MemoryTransactions.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Preprocessor_variadic.hpp" />

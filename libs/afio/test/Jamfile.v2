@@ -53,7 +53,7 @@ project boost/afio/test
 #;
 
 # the required cpp file for the unit tests (for some reason gcc wants this availible to all tests)
-local reqs = ../../../boost/afio/detail/impl/hashes/spookyhash/SpookyV2.cpp   ;
+local reqs = ; # ../../../boost/afio/detail/impl/hashes/spookyhash/SpookyV2.cpp   ;
 
 # look in the commandline args for "--valgrind=" and capture its contents in VALGRIND_ARGS
 local VALGRIND_ARGS = [ MATCH --valgrind=(.*) : $(.argv) ] ;
