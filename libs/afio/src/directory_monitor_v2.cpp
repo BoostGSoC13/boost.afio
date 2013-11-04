@@ -64,8 +64,11 @@ namespace boost{
 			// if this path doesn't have any more handlers, 
 			// then the monitoring is complete
 			if(p->handlers.empty())
-				hash_remove(path);
-			std::cout << "removed path\n";
+				//hash_remove(path);
+				if(hash.erase(path) > 0)
+					std::cout << "removed path\n";
+				else
+					std::cout << "the path wasn't in the hash" << std::endl;
 			// we have successfully found the path and handler,
 			// removed them, and done any clean up necessary
 			return true;
@@ -93,7 +96,7 @@ namespace boost{
 				{
 					auto it = hash.find(path);
 					if(it == hash.end())
-						p = new Path(dispatcher, path, eventcounter, timer);
+						p = new Path(shared_from_this(), path, eventcounter, timer);
 					else
 					{
 						scheduled = true;
@@ -106,13 +109,14 @@ namespace boost{
 			//std::cout << "going to try to add a new handler\n";
 			if(!p->add_handler(handler))
 				return false;			
-			//std::cout << "added the Handler\n";
+			std::cout << "added the Handler\n";
 			
 			if(!scheduled) 
 			{
 				p->schedule();
-				//std::cout << "Scheduled\n";
-				if(!hash_insert(path, *p))
+				std::cout << "Scheduled\n";
+				//if(!hash_insert(path, *p))
+				if(!hash.emplace(path, std::move(*p)).second)
 				{
 					std::cout << "something wrong with the insertion\n";
 					delete p;
@@ -123,25 +127,26 @@ namespace boost{
 			std::cout << "added path\n";
 			return true;
 		}// end add_path()
-		
-
+	
+// hash_insert and hash_remove might be junk....	
+#if 0
 		bool dir_monitor::hash_insert(const path& path, const Path& dir)
 		{
 			//std::cout <<"try to aquire lock...\n";
 			//BOOST_AFIO_SPIN_LOCK_GUARD lk(sp_lock);
-			try{
-				//std::cout <<"try to insert into hash...\n";
-				if(hash.insert(std::make_pair(path, std::move(dir))).second)
+			//try{
+				std::cout <<"try to insert into hash...\n";
+				if(hash.emplace(path, std::move(dir)).second)
 					return true;
 				else
 					return false;
-			}
-			catch(std::exception& e)
-			{
+			//}
+			//catch(std::exception& e)
+			//{
 				//std::cout << "error inserting " << path.string() 
 				//	<< " into the hash_table: "<< e.what()<<std::endl;
-				return false;
-			}
+				//return false;
+			//}
 		}// end hash_inssert()
 
 		bool dir_monitor::hash_remove(const path& path)
@@ -161,6 +166,7 @@ namespace boost{
 				return false;
 			}
 		}// end hash_remove()
+#endif
 
 	}// namespace afio
 }// namespace boost

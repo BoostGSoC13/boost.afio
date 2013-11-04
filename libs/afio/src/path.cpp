@@ -4,6 +4,23 @@
 size_t poll_rate = 10;
 namespace boost{
 	namespace afio{
+
+		Path::Path(std::shared_ptr<boost::afio::dir_monitor> _monitor, const dir_path& _path, std::shared_ptr<std::atomic<int>> evt_ctr, std::shared_ptr<boost::asio::deadline_timer> _timer): parent_monitor(_monitor), dispatcher(_monitor->get_dispatcher()), name(std::filesystem::absolute(_path)), eventcounter(evt_ctr), timer(_timer)
+		{
+			auto dir(dispatcher->dir(boost::afio::async_path_op_req( name)));		
+    		std::pair<std::vector<boost::afio::directory_entry>, bool> list;
+		    bool restart=true;
+		    do{				        
+		        auto enumerate(dispatcher->enumerate(boost::afio::async_enumerate_op_req(dir,boost::afio::directory_entry::compatibility_maximum())));
+		        restart=false;
+		        list=enumerate.first.get();			        
+		    } while(list.second);
+		    
+		    ents_ptr = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
+		    
+		}
+
+
 		std::pair< future< bool >, async_io_op > Path::remove_ent(std::unordered_map<directory_entry, directory_entry>& dict, const async_io_op & req, const directory_entry& ent)
 		{
 			auto func = [this, &ent, &dict]() -> bool {
@@ -138,6 +155,8 @@ namespace boost{
 				//auto stat_barrier(new_stat_ents.second);
 			    //dispatcher->call(async_io_op(), std::bind(&Path::monitor, this, std::move(*ents_ptr), *new_ents, dirh));
 			    
+			    // if there is no timer, ie. the aquasition from the wk_pr fails,
+			    // then we won't schedule another round of monitoring
 			    if(auto atimer = t.lock())
 			    {
 			    	// try to move these into the conditional to avoid problems
@@ -148,6 +167,21 @@ namespace boost{
 			        //atimer->expires_from_now( milli_sec(poll_rate) );
 			    	atimer->async_wait(std::bind(&Path::collect_data, this, t));
 			    }
+			}
+			else
+			{
+				std::cout << "We no longer have a directory!!!" << std::endl;
+				//auto mon = parent_monitor.lock();
+				//if(mon)
+				//	mon->hash.erase(name);
+				return;
+				//BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
+				//auto parent = parent_monitor.lock();
+				/*BOOST_FOREACH(auto handler, handlers)
+				{
+					parent->remove(name, handler.first);
+				}*/
+				//parent->hash_remove(name);
 			}
 			//std::cout << "data collected\n";
 		}
@@ -188,14 +222,13 @@ namespace boost{
 
 	    	BOOST_FOREACH(auto &i, new_ents)
 	    	{   
-	    		comp_funcs.push_back([this, dirh, &i, &dict]()->bool{
-	    			return this->compare_entries(dict, i, dirh);		    			
-	    		});
+
+	    		comp_funcs.push_back(std::bind(&boost::afio::Path::compare_entries, this, dict, i, dirh));
 	    	}
 	    
 		    auto compare(dispatcher->call(make_dict.second, comp_funcs));
 	try{
-		when_all(compare.second.begin(), compare.second.end()).wait();
+		when_all(compare.first.begin(), compare.first.end()).wait();
 		}catch(...){std::cout <<"MONITOR(2) had the error\n"; throw;}
 			if( j != 0)		
 			    std::cout << "Before clean, dict size is: " << dict.size() << std::endl;
@@ -236,7 +269,7 @@ namespace boost{
 		}catch(...){std::cout <<"MONITOR(3) had the error\n"; throw;}
 			    std::cout << "After clean dict size is: " << dict.size() << std::endl;
 			}
-			std::cout << "End Monitor()\n\n";
+			//std::cout << "End Monitor()\n\n";
 
 		}// end monitor()
 

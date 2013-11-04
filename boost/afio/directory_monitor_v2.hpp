@@ -12,11 +12,9 @@
 namespace boost{
 	namespace afio{
 
-#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
-
-		class BOOST_AFIO_DECL dir_monitor
+		class BOOST_AFIO_DECL dir_monitor: public std::enable_shared_from_this<dir_monitor>
 		{
-			
+			friend class boost::afio::Path;
 		public:
 			typedef std::filesystem::path path;
 			typedef std::function<void(dir_event)> Handler; 
@@ -25,7 +23,14 @@ namespace boost{
 			//constructors
 			dir_monitor(){}
 			dir_monitor(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher):dispatcher(_dispatcher), eventcounter(std::make_shared<std::atomic<int>>(0)) {}
-			virtual ~dir_monitor(){}
+			virtual ~dir_monitor()
+			{
+				//BOOST_AFIO_SPIN_LOCK_GUARD sp_lk(sp_lock);
+				BOOST_AFIO_LOCK_GUARD <boost::mutex> lk(mtx);
+				if(timer)
+					timer->cancel();
+			}
+
 			//public functions
 			/*! \brief  Schedules the removal of a handler on an associated directory after the preceding operation
 				
@@ -41,6 +46,12 @@ namespace boost{
 			*/
 			std::pair< future< bool >, async_io_op > remove(const async_io_op & req, const path& path, Handler* handler);
 			std::pair< future< bool >, async_io_op > add(const async_io_op & req, const path& path, Handler* handler);
+
+			//accessors
+			inline std::shared_ptr<boost::afio::async_file_io_dispatcher_base> get_dispatcher(){return dispatcher;}
+			inline std::unordered_map<path, Path>& get_hash(){return hash;}
+			inline bool add_p(const path& path, Handler* handler){ return add_path(path, handler); }
+			inline bool remove_p(const path& path, Handler* handler){ return remove_path(path, handler); }
 			//change time interval???
 
 		private:
@@ -58,7 +69,10 @@ namespace boost{
 			bool add_path(const path& path, Handler* handler);
 			bool hash_insert(const path& path, const Path& dir);
 			bool hash_remove(const path& path);
+			
 		};
+
+		inline std::shared_ptr<dir_monitor> make_monitor(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher){return std::make_shared<dir_monitor>( _dispatcher);}
 	}//namespace afio
 }//namespace boost
 #endif

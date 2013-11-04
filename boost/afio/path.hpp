@@ -20,6 +20,7 @@
 namespace boost{
 	namespace afio{
 // libstdc++ doesn't come with std::lock_guard
+#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
 #define BOOST_AFIO_SPIN_LOCK_GUARD boost::lock_guard<boost::detail::spinlock>
 		
 		typedef boost::afio::directory_entry directory_entry;
@@ -87,6 +88,7 @@ namespace boost{
 			std::unordered_map<Handler*, Handler> handlers;
 			std::shared_ptr<std::atomic<int>> eventcounter;
 			std::shared_ptr<boost::asio::deadline_timer> timer;
+			std::weak_ptr<boost::afio::dir_monitor> parent_monitor;
 
 			//private member functions
 			bool remove_ent(std::unordered_map<directory_entry, directory_entry>& dict, const directory_entry& ent);
@@ -105,29 +107,18 @@ namespace boost{
 		public:
 
 			//constructors
-			Path(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> _dispatcher, const dir_path& _path, std::shared_ptr<std::atomic<int>> evt_ctr, std::shared_ptr<boost::asio::deadline_timer> _timer): dispatcher(_dispatcher), name(std::filesystem::absolute(_path)), eventcounter(evt_ctr), timer(_timer)
-			{
-				auto dir(dispatcher->dir(boost::afio::async_path_op_req( name)));		
-	    		std::pair<std::vector<boost::afio::directory_entry>, bool> list;
-			    bool restart=true;
-			    do{				        
-			        auto enumerate(dispatcher->enumerate(boost::afio::async_enumerate_op_req(dir,boost::afio::directory_entry::compatibility_maximum())));
-			        restart=false;
-			        list=enumerate.first.get();			        
-			    } while(list.second);
-			    
-			    ents_ptr = std::make_shared<std::vector<directory_entry>>(std::move(list.first));
-			    
-			}
+			Path(std::shared_ptr<boost::afio::dir_monitor> _monitor, const dir_path& _path, std::shared_ptr<std::atomic<int>> evt_ctr, std::shared_ptr<boost::asio::deadline_timer> _timer);
 
-			Path(const Path& o): name(std::filesystem::absolute(o.name)), dispatcher(o.dispatcher), handlers(o.handlers), eventcounter(o.eventcounter), timer(o.timer) {}
-			Path(Path&& o):  name(std::move(std::filesystem::absolute(o.name))), dispatcher(std::move(o.dispatcher)), handlers(std::move(o.handlers)), eventcounter(std::move(o.eventcounter)), timer(std::move(o.timer)) {}
+			Path(const Path& o): parent_monitor(o.parent_monitor.lock()), name(std::filesystem::absolute(o.name)), dispatcher(o.dispatcher), handlers(o.handlers), eventcounter(o.eventcounter), timer(o.timer) {}
+			Path(Path&& o): parent_monitor(std::move(o.parent_monitor)), name(std::move(std::filesystem::absolute(o.name))), dispatcher(std::move(o.dispatcher)), handlers(std::move(o.handlers)), eventcounter(std::move(o.eventcounter)), timer(std::move(o.timer)) {}
 
 
 			virtual ~Path()
 			{	//is this neccessary?
 				//BOOST_FOREACH(auto &i, timers)
 				//	i->cancel();
+				BOOST_AFIO_SPIN_LOCK_GUARD sp_lk(sp_lock);
+				BOOST_AFIO_LOCK_GUARD<boost::mutex> lk(mtx);
 				if(timer)
 					timer->cancel();
 				//std::cout <<"Path was successfully destroyed\n"
