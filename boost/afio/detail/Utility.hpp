@@ -114,6 +114,14 @@ namespace boost {
 #pragma warning(pop)
 #endif
 
+// Support for turning types into type_infos. Abstracted to prepare for Boost.TypeIndex passing peer review.
+#include <typeinfo>
+namespace boost {
+	namespace afio {
+		typedef std::type_info type_info;
+		template<typename T> const type_info &type_id() { return typeid(T); }
+	}
+}
 
 
 #endif  /* BOOST_AFIO_UTILITY_HPP */

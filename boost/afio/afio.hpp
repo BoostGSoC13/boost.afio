@@ -117,16 +117,19 @@ private:
 protected:
     boost::asio::io_service service;
     std::unique_ptr<boost::asio::io_service::work> working;
-    thread_source() : working(new boost::asio::io_service::work(service))
+	std::atomic<size_t> _workers;
+	thread_source() : working(new boost::asio::io_service::work(service)), _workers(0)
     {
     }
-    thread_source(size_t concurrency_hint) : service(concurrency_hint), working(new boost::asio::io_service::work(service))
+	thread_source(size_t concurrency_hint) : service(concurrency_hint), working(new boost::asio::io_service::work(service)), _workers(0)
     {
     }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~thread_source() { }
 public:
     //! Returns the underlying io_service
     boost::asio::io_service &io_service() { return service; }
+	//! Returns the number of workers available
+	size_t workers() const { return _workers; }
     //! Sends some callable entity to the thread pool for execution \return A future for the enqueued callable \tparam "class F" Any callable type \param f Any instance of a callable type F
     template<class F> future<typename std::result_of<F()>::type> enqueue(F f)
     {
@@ -184,7 +187,7 @@ class std_thread_pool : public thread_source {
     };
     friend class worker;
 
-    std::vector< std::unique_ptr<thread> > workers;
+    std::vector< std::unique_ptr<thread> > myworkers;
 public:
     /*! \brief Constructs a thread pool of \em no workers
     \param no The number of worker threads to create
@@ -211,9 +214,12 @@ public:
     //! Adds more workers to the thread pool \param no The number of worker threads to add
     void add_workers(size_t no)
     {
-        workers.reserve(workers.size()+no);
-        for(size_t n=0; n<no; n++)
-            workers.push_back(std::unique_ptr<thread>(new thread(worker(this))));
+        myworkers.reserve(myworkers.size()+no);
+		for(size_t n=0; n<no; n++)
+		{
+			myworkers.push_back(std::unique_ptr<thread>(new thread(worker(this))));
+			++_workers;
+		}
     }
     //! Destroys the thread pool, waiting for worker threads to exit beforehand.
     void destroy()
@@ -222,8 +228,8 @@ public:
         {
             // Tell the threads there is no more work to do
             working.reset();
-            BOOST_FOREACH(auto &i, workers) { i->join(); }
-            workers.clear();
+            BOOST_FOREACH(auto &i, myworkers) { i->join(); }
+            myworkers.clear();
             // For some reason ASIO occasionally thinks there is still more work to do
             if(!service.stopped())
                 service.run();
