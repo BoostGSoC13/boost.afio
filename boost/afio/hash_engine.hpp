@@ -27,8 +27,10 @@ namespace boost { namespace afio {
 		typedef unsigned char value_type;
 		//! Type used to store an op of this type
 		typedef unsigned char op_type;
-		//! Allocator used to allocate a hash or op of this type
+		//! Allocator used to allocate a hash of this type
 		typedef std::allocator<value_type> allocator_type;
+		//! Allocator used to allocate an op of this type
+		typedef std::allocator<op_type> op_allocator_type;
 		//! Bytes in a hash round of this type i.e. the ideal granularity with which data will be processed
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=0;
 		//! Minimum bytes in a hash round of this type i.e. the minimum granularity with which data will be processed
@@ -67,6 +69,7 @@ namespace boost { namespace afio {
 			}
 		};
 		typedef detail::aligned_allocator<value_type, 32> allocator_type;
+		typedef detail::aligned_allocator<op_type, 32> op_allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=64;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=64;
 #if BOOST_AFIO_HAVE_M128 || defined(BOOST_AFIO_HAVE_NEON128)
@@ -76,7 +79,21 @@ namespace boost { namespace afio {
 #endif
 		static void hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work)
 		{
-
+			size_t batch=work.size()>=4 ? 4 : 1;
+			for(size_t n=0; n<work.size(); n+=batch)
+			{
+				batch=(work.size()-n)>=4 ? 4 : 1;
+				if(4==batch)
+				{
+					// SIMD
+					std::cout << "4-SHA256" << std::endl;
+				}
+				else
+				{
+					// Singles
+					std::cout << "SHA256" << std::endl;
+				}
+			}
 		}
 	};
 	//! Personality type for a 128 bit CityHash
@@ -94,6 +111,7 @@ namespace boost { namespace afio {
 			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()) { }
 		};
 		typedef detail::aligned_allocator<value_type, 16> allocator_type;
+		typedef detail::aligned_allocator<op_type, 16> op_allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=256;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=128;
 		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
@@ -113,6 +131,7 @@ namespace boost { namespace afio {
 			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()) { }
 		};
 		typedef detail::aligned_allocator<value_type, 16> allocator_type;
+		typedef detail::aligned_allocator<op_type, 16> op_allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=256;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=192;
 		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
@@ -131,7 +150,6 @@ namespace boost { namespace afio {
 	template<class hash_impl> class async_hash_engine : std::enable_shared_from_this<async_hash_engine<hash_impl>>
 	{
 		std::shared_ptr<thread_source> threadsource;
-		typename hash_impl::allocator_type alloc;
 	public:
 		//! A block of data to be added to the specified hashing operation
 		struct block
@@ -142,13 +160,43 @@ namespace boost { namespace afio {
 			std::function<void(block&)> *done;		//!< Optional block processed callback
 			block(const char *_data=nullptr, size_t _length=0, void *_p=nullptr, std::function<void(block&)> *_done=nullptr) : data(_data), length(_length), p(_p), done(_done) { }
 		};
-		struct op : hash_impl::op_type
+		struct op
 		{
+		private:
+			// Need to jump through some hoops due to the state alignment problem. C++11/14 still makes
+			// this surprisingly harder than it ought to be.
+			struct int_state_deleter
+			{
+				void operator()(typename hash_impl::op_type *p) const
+				{
+					typename hash_impl::op_allocator_type alloc;
+					alloc.destroy(p);
+					alloc.deallocate(p, 1);
+				}
+			};
+			typedef std::unique_ptr<typename hash_impl::op_type, int_state_deleter> state_ptr_t;
+			static state_ptr_t int_state_creator(typename hash_impl::op_allocator_type &alloc)
+			{
+				auto p=alloc.allocate(1);
+				try
+				{
+					// Can't use construct() as it needs a const ref temporary which would be misaligned
+					new(p) typename hash_impl::op_type;
+				}
+				catch(...)
+				{
+					alloc.deallocate(p, 1);
+					throw;
+				}
+				return state_ptr_t(p, int_state_deleter());
+			}
+		public:
+			state_ptr_t state; // Needs to be kept separate due to alignment requirements
 			future<typename hash_impl::value_type> hash_value;
 			detail::spinlock<size_t> lock; std::deque<std::pair<std::unique_ptr<promise<block>>, block>> queue;
 			size_t offset;
 			bool terminated;
-			op() : offset(0), terminated(false) { }
+			op(typename hash_impl::op_allocator_type &alloc) : state(int_state_creator(alloc)), offset(0), terminated(false) { }
 		};
 		typedef std::shared_ptr<op> op_t;
 	private:
@@ -166,10 +214,11 @@ namespace boost { namespace afio {
 		*/
 		std::vector<op_t> begin(size_t no)
 		{
+			typename hash_impl::op_allocator_type alloc;
 			std::vector<op_t> ret; ret.reserve(no);
 			for(size_t n=0; n<no; n++)
 			{
-				ret.push_back(std::allocate_shared<op>(alloc));
+				ret.push_back(std::make_shared<op>(alloc));
 				BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
 				{
 					ops.push_back(ret.back());
@@ -184,7 +233,7 @@ namespace boost { namespace afio {
 		*/
 		op_t begin()
 		{
-			op_t ret=std::allocate_shared<op>(alloc);
+			op_t ret=std::make_shared<op>(typename hash_impl::op_allocator_type());
 			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
 			{
 				ops.push_back(ret);
@@ -290,7 +339,7 @@ namespace boost { namespace afio {
 						op *o=workrefs[n].get();
 						// Should be safe to skip locking here
 						block &b=o->queue.front().second;
-						work.push_back(std::make_tuple(o, b.data+o->offset, b.length-o->offset));
+						work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, b.length-o->offset));
 					}
 					hash_impl::hash_round(work);
 					for(size_t n=0; n<workrefs.size(); n++)
