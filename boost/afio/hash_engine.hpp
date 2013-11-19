@@ -326,4 +326,9 @@ namespace boost { namespace afio {
 
 } } }
 
+#if BOOST_AFIO_HEADERS_ONLY == 1
+#undef BOOST_AFIO_VALIDATE_INPUTS // Let BOOST_AFIO_NEVER_VALIDATE_INPUTS take over
+#include "detail/impl/hash_engine.ipp"
+#endif
+
 #endif

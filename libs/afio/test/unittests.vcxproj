@@ -138,6 +138,7 @@
     <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\hash128_works.cpp" />
     <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\hash256_works.cpp" />
     <ClCompile Include="..\..\..\..\..\boost.afio\libs\afio\test\tests\int128_256_works.cpp" />
+    <ClCompile Include="tests\async_hash_engine_works.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\build\afio.vcxproj">
