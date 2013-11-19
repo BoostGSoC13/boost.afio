@@ -118,10 +118,10 @@ protected:
     boost::asio::io_service service;
     std::unique_ptr<boost::asio::io_service::work> working;
 	std::atomic<size_t> _workers;
-	thread_source() : working(new boost::asio::io_service::work(service)), _workers(0)
+	thread_source() : working(make_unique<boost::asio::io_service::work>(service)), _workers(0)
     {
     }
-	thread_source(size_t concurrency_hint) : service(concurrency_hint), working(new boost::asio::io_service::work(service)), _workers(0)
+	thread_source(size_t concurrency_hint) : service(concurrency_hint), working(make_unique<boost::asio::io_service::work>(service)), _workers(0)
     {
     }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~thread_source() { }
@@ -217,7 +217,7 @@ public:
         myworkers.reserve(myworkers.size()+no);
 		for(size_t n=0; n<no; n++)
 		{
-			myworkers.push_back(std::unique_ptr<thread>(new thread(worker(this))));
+			myworkers.push_back(std::make_unique<thread>(worker(this)));
 			++_workers;
 		}
     }
