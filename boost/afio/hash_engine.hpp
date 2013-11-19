@@ -1,18 +1,19 @@
-/* batch_hash_engine
+/* hash_engine
 Provides an asynchonous batch data hashing engine
 (C) 2013 Niall Douglas http://www.nedprod.com/
 File Created: Nov 2013
 */
 
-#ifndef BOOST_AFIO_BATCH_HASH_HPP
-#define BOOST_AFIO_BATCH_HASH_HPP
+#ifndef BOOST_AFIO_BATCH_HASH_ENGINE_HPP
+#define BOOST_AFIO_BATCH_HASH_ENGINE_HPP
 
 #include "afio.hpp"
 #include "detail/Int128_256.hpp"
+#include <deque>
 
 namespace boost { namespace afio {
 	//! Namespace containing batch, parallel, hash implementations
-	namespace batch_hash {
+	namespace hash {
 
 	//! Abstract base type for hash implementations
 	struct hash_impl_base
@@ -33,7 +34,7 @@ namespace boost { namespace afio {
 		//! Minimum bytes in a hash round of this type i.e. the minimum granularity with which data will be processed
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=0;
 		//! Stream implementations available
-		static BOOST_CONSTEXPR_OR_CONST size_t stream_impls[]={ 1 };
+		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 
 		// For convenience for subclasses
 		static BOOST_CONSTEXPR const unsigned *int_init_iv()
@@ -47,13 +48,12 @@ namespace boost { namespace afio {
 	//! Personality type for a SHA256 hash
 	struct SHA256 : hash_impl_base
 	{
-		static BOOST_CONSTEXPR detail::Int128 int_unique_id()
+		static BOOST_CONSTEXPR detail::Int128 unique_id()
 		{
 			static BOOST_CONSTEXPR BOOST_AFIO_TYPEALIGNMENT(16) const unsigned int_iv[]={ 0x5adf05b5, 0xf3b412a8, 0x8a0b4220, 0xe5202f95 }; // b505df5aa812b4f320420b8a952f20e5 = SHA256
 			return *((detail::Int128 *) int_iv);
 		}
-		static BOOST_CONSTEXPR_OR_CONST detail::Int128 unique_id=int_unique_id();
-		typedef detail::Hash256 value_type;
+		typedef detail::Int256 value_type;
 		struct op_type                         // 128 bytes each
 		{
 			value_type hash;                   // 32
@@ -69,22 +69,25 @@ namespace boost { namespace afio {
 		typedef detail::aligned_allocator<value_type, 32> allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=64;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=64;
-		static BOOST_CONSTEXPR_OR_CONST size_t stream_impls[]={
 #if BOOST_AFIO_HAVE_M128 || defined(BOOST_AFIO_HAVE_NEON128)
-			4,
+		static BOOST_CONSTEXPR std::array<size_t, 2> stream_impls() { std::array<size_t, 2> ret; ret[0]=4; ret[1]=1; return ret; }
+#else
+		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 #endif
-		1 };
+		static void hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work)
+		{
+
+		}
 	};
 	//! Personality type for a 128 bit CityHash
 	struct CityHash128 : hash_impl_base
 	{
-		static BOOST_CONSTEXPR detail::Int128 int_unique_id()
+		static BOOST_CONSTEXPR detail::Int128 unique_id()
 		{
 			static BOOST_CONSTEXPR BOOST_AFIO_TYPEALIGNMENT(16) const unsigned int_iv[]={ 0x3a1afedc, 0xf8c3a1ef, 0xdb8df12d, 0x95714c49 }; // dcfe1a3aefa1c3f82df18ddb494c7195 = CityHash128
 			return *((detail::Int128 *) int_iv);
 		}
-		static BOOST_CONSTEXPR_OR_CONST detail::Int128 unique_id=int_unique_id();
-		typedef detail::Hash128 value_type;
+		typedef detail::Int128 value_type;
 		struct op_type
 		{
 			value_type hash;
@@ -93,17 +96,17 @@ namespace boost { namespace afio {
 		typedef detail::aligned_allocator<value_type, 16> allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=256;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=128;
+		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 	};
 	//! Personality type for a 128 bit SpookyHash
 	struct SpookyHash128 : hash_impl_base
 	{
-		static BOOST_CONSTEXPR detail::Int128 int_unique_id()
+		static BOOST_CONSTEXPR detail::Int128 unique_id()
 		{
 			static BOOST_CONSTEXPR BOOST_AFIO_TYPEALIGNMENT(16) const unsigned int_iv[]={ 0xebd78b3b, 0x3767c454, 0xbc39062b, 0xb49c5fd5 }; // 3b8bd7eb54c467372b0639bcd55f9cb4 = SpookyHash128
 			return *((detail::Int128 *) int_iv);
 		}
-		static BOOST_CONSTEXPR_OR_CONST detail::Int128 unique_id=int_unique_id();
-		typedef detail::Hash128 value_type;
+		typedef detail::Int128 value_type;
 		struct op_type
 		{
 			value_type hash;
@@ -112,6 +115,7 @@ namespace boost { namespace afio {
 		typedef detail::aligned_allocator<value_type, 16> allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=256;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=192;
+		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 	};
 
 	/*! \brief Returns the process threadpool for hashing data
@@ -124,7 +128,7 @@ namespace boost { namespace afio {
 	/*! \class async_hash_engine
 	\brief Schedules the asynchronous hashing of blocks of data
 	*/
-	template<class hash_impl> class async_hash_engine : std::enable_shared_from_this<hash_engine>
+	template<class hash_impl> class async_hash_engine : std::enable_shared_from_this<async_hash_engine<hash_impl>>
 	{
 		std::shared_ptr<thread_source> threadsource;
 		typename hash_impl::allocator_type alloc;
@@ -132,27 +136,28 @@ namespace boost { namespace afio {
 		//! A block of data to be added to the specified hashing operation
 		struct block
 		{
-			const char *data;
-			size_t length;
-			void *p;
-			block(const char *_data=nullptr, size_t _length=0, void *_p=nullptr) : data(_data), length(_length), p(_p) { }
+			const char *data;						//!< The block of memory to be hashed
+			size_t length;							//!< Number of bytes to be hashed
+			void *p;								//!< Optional user supplied pointer
+			std::function<void(block&)> *done;		//!< Optional block processed callback
+			block(const char *_data=nullptr, size_t _length=0, void *_p=nullptr, std::function<void(block&)> *_done=nullptr) : data(_data), length(_length), p(_p), done(_done) { }
 		};
-		struct op : typename hash_impl::op_type
+		struct op : hash_impl::op_type
 		{
 			future<typename hash_impl::value_type> hash_value;
-			spinlock<size_t> lock; std::deque<std::pair<promise<block>, block>> queue;
+			detail::spinlock<size_t> lock; std::deque<std::pair<std::unique_ptr<promise<block>>, block>> queue;
 			size_t offset;
 			bool terminated;
 			op() : offset(0), terminated(false) { }
 		};
 		typedef std::shared_ptr<op> op_t;
 	private:
-		spinlock<size_t> opslock; std::deque<std::weak_ptr<op>> ops;
-		spinlock<size_t> schedulerlock;
+		detail::spinlock<size_t> opslock; std::deque<std::weak_ptr<op>> ops;
+		detail::spinlock<size_t> schedulerlock;
 		atomic<size_t> non_empty_queues, scheduled;
 	public:
 		//! Constructs a new hash engine using the specified threadsource
-		hash_engine(std::shared_ptr<thread_source> _threadsource) : threadsource(std::move(_threadsource)), non_empty_queues(0), scheduled(0) { }
+		async_hash_engine(std::shared_ptr<thread_source> _threadsource) : threadsource(std::move(_threadsource)), non_empty_queues(0), scheduled(0) { }
 
 		/*! \brief Begins a number of hashing operations
 
@@ -173,21 +178,40 @@ namespace boost { namespace afio {
 			}
 			return ret;
 		}
+		/*! \brief Begins a single of hash operations
+
+		\return A new hashing operation
+		*/
+		op_t begin()
+		{
+			op_t ret=std::allocate_shared<op>(alloc);
+			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
+			{
+				ops.push_back(ret);
+			}
+			BOOST_END_MEMORY_TRANSACTION(opslock)
+			return ret;
+		}
 		/*! \brief Adds new blocks of data to be hashed to their given hashing operation
 
 		\return A batch of futures corresponding to the input batch, becoming ready when
-		that block has been fully consumed.
+		that block has been fully consumed. Empty unless retfutures is true.
 		\param reqs A batch of new blocks of data to be hashed to their given hashing
 		operations. A block pointer of null means to terminate that hashing operation.
+		\param retfutures Set to true to return a batch of futures.
 		*/
-		std::vector<future<block>> add(std::vector<std::pair<op_t, block>> reqs)
+		std::vector<future<block>> add(std::vector<std::pair<op_t, block>> reqs, bool retfutures=false)
 		{
-			std::vector<future<block>> ret; ret.reserve(reqs.size());
+			std::vector<future<block>> ret; if(retfutures) ret.reserve(reqs.size());
 			bool do_scheduling=false;
-			BOOST_FOREACH(auto &i : reqs)
+			BOOST_FOREACH(auto &i, reqs)
 			{
-				promise<block> p;
-				ret.push_back(p.get_future());
+				std::unique_ptr<promise<block>> p;
+				if(retfutures)
+				{
+					p=std::unique_ptr<promise<block>>(new promise<block>);
+					ret.push_back(p->get_future());
+				}
 				op &o=*i.first;
 				BOOST_BEGIN_MEMORY_TRANSACTION(o.lock)
 				{
@@ -203,6 +227,16 @@ namespace boost { namespace afio {
 			if(do_scheduling)
 				int_doscheduling();
 			return ret;
+		}
+		/*! \brief Adds a new block of data to be hashed to its given hashing operation
+
+		\param op The operator to add the block to.
+		\param b The block to add.
+		*/
+		void add(op_t op, block b)
+		{
+			std::vector<std::pair<op_t, block>> reqs(1, std::make_pair(std::move(op), std::move(b)));
+			add(reqs);
 		}
 	private:
 		void int_doscheduling()
@@ -226,7 +260,7 @@ namespace boost { namespace afio {
 			size_t workers=threadsource->workers();
 			std::vector<std::vector<op_t>> ops_set(workers);
 			BOOST_FOREACH(auto &i, ops_set)
-				i.reserve(hash_impl::stream_impls[0]);
+				i.reserve(hash_impl::stream_impls()[0]);
 			auto opsit=ops_set.begin();
 			// Lock the shared pointers for the first valid set of ops for available workers
 			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
@@ -234,10 +268,10 @@ namespace boost { namespace afio {
 				for(auto it=ops.begin(); it!=ops.end() && opsit!=ops_set.end(); ++it)
 				{
 					auto o=it->lock();
-					if(o && !o->terminated && !p->queue.empty() /* probably thread safe */)
+					if(o && !o->terminated && !o->queue.empty() /* probably thread safe */)
 					{
 						opsit->push_back(std::move(o));
-						if(opsit->size()==hash_impl::stream_impls[0])
+						if(opsit->size()==hash_impl::stream_impls()[0])
 							if(++opsit==ops_set.end())
 								break;
 					}
@@ -248,7 +282,8 @@ namespace boost { namespace afio {
 			BOOST_FOREACH(auto &i, ops_set)
 			{
 				++scheduled;
-				threadsource->enqueue(std::bind([this](std::vector<op_t> workrefs){
+				threadsource->enqueue(std::bind([this](std::vector<op_t> workrefs)
+				{
 					std::vector<std::tuple<typename hash_impl::op_type *, const char *, size_t>> work; work.reserve(workrefs.size());
 					for(size_t n=0; n<workrefs.size(); n++)
 					{
@@ -269,7 +304,8 @@ namespace boost { namespace afio {
 						if(o->offset>=b.length || o->terminated)
 						{
 							// Indicate this block is now done
-							o->queue.front().first.set_value(b);
+							std::unique_ptr<promise<block>> &prom=o->queue.front().first;
+							if(prom) prom->set_value(b);
 							BOOST_BEGIN_MEMORY_TRANSACTION(o->lock)
 							{
 								o->queue.pop_front();
@@ -284,7 +320,7 @@ namespace boost { namespace afio {
 					}
 				}, i));
 			}
-			return true; // leave scheduler lock locked
+			return !ops_set.empty(); // leave scheduler lock locked
 		}
 	};
 

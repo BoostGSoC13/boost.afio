@@ -51,6 +51,7 @@
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\std_filesystem.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Undoer.hpp" />
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\Utility.hpp" />
+    <ClInclude Include="..\..\..\boost\afio\hash_engine.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\boost.afio\boost\afio\detail\impl\afio.ipp">
