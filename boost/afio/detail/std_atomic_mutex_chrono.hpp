@@ -26,6 +26,7 @@ namespace boost {
         typedef boost::thread thread;
         namespace this_thread=boost::this_thread;
         inline boost::thread::id get_this_thread_id() { return boost::this_thread::get_id(); }
+		inline unsigned get_number_of_cpus() { return boost::thread::hardware_concurrency(); }
         // libstdc++ 4.6, VS2010 need this, but not Mingw-w64
 #if 1 || (defined(BOOST_MSVC) && BOOST_MSVC < 1700 /* <= VS2010 */) || (defined(__GLIBCXX__) && __GLIBCXX__ < 20120322 /* < libstdc++ 4.7 */)
         namespace detail { struct vs2010_lack_of_decent_current_exception_support_hack_t { }; BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC boost::exception_ptr &vs2010_lack_of_decent_current_exception_support_hack(); }
@@ -50,7 +51,8 @@ namespace boost {
         typedef std::thread thread;
         namespace this_thread=std::this_thread;
         inline std::thread::id get_this_thread_id() { return std::this_thread::get_id(); }
-        inline std::exception_ptr current_exception() { return std::current_exception(); }
+		inline unsigned get_number_of_cpus() { return std::thread::hardware_concurrency(); }
+		inline std::exception_ptr current_exception() { return std::current_exception(); }
 #define BOOST_AFIO_THROW(x) throw x
 #define BOOST_AFIO_RETHROW throw
         typedef std::mutex mutex;
