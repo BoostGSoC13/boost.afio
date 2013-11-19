@@ -7,6 +7,14 @@ File Created: Sept 2013
 #ifndef BOOST_AFIO_MAP_IN_CPP11_STL
 #define BOOST_AFIO_MAP_IN_CPP11_STL
 
+#ifndef BOOST_THREAD_PROVIDES_FUTURE_CTOR_ALLOCATORS
+#define BOOST_THREAD_PROVIDES_FUTURE_CTOR_ALLOCATORS 1
+#endif
+
+#if !BOOST_THREAD_PROVIDES_FUTURE_CTOR_ALLOCATORS
+#error Boost.AFIO: I need the ability to supply custom allocators to futures! Please define BOOST_THREAD_PROVIDES_FUTURE_CTOR_ALLOCATORS to 1.
+#endif
+
 #include "boost/thread/thread.hpp"
 #include "boost/thread/future.hpp"
 

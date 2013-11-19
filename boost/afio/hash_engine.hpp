@@ -56,19 +56,25 @@ namespace boost { namespace afio {
 			return *((detail::Int128 *) int_iv);
 		}
 		typedef detail::Int256 value_type;
-		struct op_type                         // 128 bytes each
+		typedef detail::aligned_allocator<value_type, 32> allocator_type;
+		struct op_type                         // 160 bytes each
 		{
 			value_type hash;                   // 32
 			char d[64];                        // 64
 			size_t pos, length;                // 8-16
-			char ___pad[32-2*sizeof(size_t)];  // 16-24
-			op_type()
+			promise<value_type> done;          // size is implementation dependent
+			char ___pad[64-2*sizeof(size_t)-sizeof(promise<value_type>)];  // 16-24
+			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), pos(0), length(0), done(boost::promise<value_type>(boost::allocator_arg_t(), allocator_type()))
 			{
-				memset(this, 0, sizeof(*this));
-				hash=*(value_type *) hash_impl_base::int_init_iv();
+				static_assert(sizeof(op_type)==160, "sizeof(op_type) is not 160 bytes!");
+				memset(d, 0, sizeof(d));
+				memset(___pad, 0, sizeof(___pad));
+			}
+			future<value_type> get_future()
+			{
+				return done.get_future();
 			}
 		};
-		typedef detail::aligned_allocator<value_type, 32> allocator_type;
 		typedef detail::aligned_allocator<op_type, 32> op_allocator_type;
 		static BOOST_CONSTEXPR_OR_CONST size_t round_size=64;
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=64;
@@ -107,8 +113,18 @@ namespace boost { namespace afio {
 		typedef detail::Int128 value_type;
 		struct op_type
 		{
-			value_type hash;
-			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()) { }
+			value_type hash;                   // 16
+			promise<value_type> done;          // size is implementation dependent
+			char ___pad[48-sizeof(promise<value_type>)];  // 0-48
+			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), done(boost::promise<value_type>(boost::allocator_arg_t(), allocator_type()))
+			{
+				static_assert(sizeof(op_type)==64, "sizeof(op_type) is not 64 bytes!");
+				memset(___pad, 0, sizeof(___pad));
+			}
+			future<value_type> get_future()
+			{
+				return done.get_future();
+			}
 		};
 		typedef detail::aligned_allocator<value_type, 16> allocator_type;
 		typedef detail::aligned_allocator<op_type, 16> op_allocator_type;
@@ -128,7 +144,17 @@ namespace boost { namespace afio {
 		struct op_type
 		{
 			value_type hash;
-			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()) { }
+			promise<value_type> done;          // size is implementation dependent
+			char ___pad[48-sizeof(promise<value_type>)];  // 0-48
+			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), done(boost::promise<value_type>(boost::allocator_arg_t(), allocator_type()))
+			{
+				static_assert(sizeof(op_type)==64, "sizeof(op_type) is not 64 bytes!");
+				memset(___pad, 0, sizeof(___pad));
+			}
+			future<value_type> get_future()
+			{
+				return done.get_future();
+			}
 		};
 		typedef detail::aligned_allocator<value_type, 16> allocator_type;
 		typedef detail::aligned_allocator<op_type, 16> op_allocator_type;
@@ -196,7 +222,7 @@ namespace boost { namespace afio {
 			detail::spinlock<size_t> lock; std::deque<std::pair<std::unique_ptr<promise<block>>, block>> queue;
 			size_t offset;
 			bool terminated;
-			op(typename hash_impl::op_allocator_type &alloc) : state(int_state_creator(alloc)), offset(0), terminated(false) { }
+			op(typename hash_impl::allocator_type &alloc, typename hash_impl::op_allocator_type &op_alloc) : state(int_state_creator(op_alloc)), hash_value(state->get_future()), offset(0), terminated(false) { }
 		};
 		typedef std::shared_ptr<op> op_t;
 	private:
@@ -214,11 +240,12 @@ namespace boost { namespace afio {
 		*/
 		std::vector<op_t> begin(size_t no)
 		{
-			typename hash_impl::op_allocator_type alloc;
+			typename hash_impl::allocator_type alloc;
+			typename hash_impl::op_allocator_type op_alloc;
 			std::vector<op_t> ret; ret.reserve(no);
 			for(size_t n=0; n<no; n++)
 			{
-				ret.push_back(std::make_shared<op>(alloc));
+				ret.push_back(std::make_shared<op>(alloc, op_alloc));
 				BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
 				{
 					ops.push_back(ret.back());
@@ -233,7 +260,7 @@ namespace boost { namespace afio {
 		*/
 		op_t begin()
 		{
-			op_t ret=std::make_shared<op>(typename hash_impl::op_allocator_type());
+			op_t ret=std::make_shared<op>(typename hash_impl::allocator_type(), typename hash_impl::op_allocator_type());
 			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
 			{
 				ops.push_back(ret);
