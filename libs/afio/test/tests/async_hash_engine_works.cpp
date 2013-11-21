@@ -23,6 +23,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 	for(size_t n=0; n<testslen; n++)
 	{
 		engine.add(reqs[n].first, reqs[n].second);
+		engine.add(reqs[n].first, engine_t::block()); // terminate
 		auto hash=o[n]->hash_value.get();
 		BOOST_CHECK(hash->asHexString()==tests[n][1]);
 	}
@@ -30,7 +31,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 	// Test 4-hash
 	o=engine.begin(testslen);
 	for(size_t n=0; n<testslen; n++)
+	{
 		reqs.push_back(std::make_pair(o[n], engine_t::block(tests[n][0], strlen(tests[n][0]))));
+		reqs.push_back(std::make_pair(o[n], engine_t::block())); // terminate
+	}
 	engine.add(reqs);
 	for(size_t n=0; n<testslen; n++)
 	{
