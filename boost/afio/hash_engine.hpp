@@ -37,6 +37,8 @@ namespace boost { namespace afio {
 		static BOOST_CONSTEXPR_OR_CONST size_t min_round_size=0;
 		//! Stream implementations available
 		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
+		//! Performs a round of hashing
+		static std::vector<bool> hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work);
 
 		// For convenience for subclasses
 		static BOOST_CONSTEXPR const unsigned *int_init_iv()
@@ -57,20 +59,17 @@ namespace boost { namespace afio {
 		}
 		typedef detail::Int256 value_type;
 		typedef detail::aligned_allocator<value_type, 32> allocator_type;
-		struct op_type                         // 160 bytes each
+		struct op_type
 		{
 			value_type hash;                   // 32
 			char d[64];                        // 64
 			size_t pos, length;                // 8-16
-			promise<value_type> done;          // size is implementation dependent
-			char ___pad[64-2*sizeof(size_t)-sizeof(promise<value_type>)];  // 16-24
-			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), pos(0), length(0), done(boost::promise<value_type>(boost::allocator_arg_t(), allocator_type()))
+			promise<value_type *> done;        // size is implementation dependent
+			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), pos(0), length(0), done(boost::promise<value_type *>(boost::allocator_arg_t(), allocator_type()))
 			{
-				static_assert(sizeof(op_type)==160, "sizeof(op_type) is not 160 bytes!");
 				memset(d, 0, sizeof(d));
-				memset(___pad, 0, sizeof(___pad));
 			}
-			future<value_type> get_future()
+			future<value_type *> get_future()
 			{
 				return done.get_future();
 			}
@@ -83,8 +82,9 @@ namespace boost { namespace afio {
 #else
 		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 #endif
-		static void hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work)
+		static std::vector<bool> hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work)
 		{
+			std::vector<bool> ret(work.size());
 			size_t batch=work.size()>=4 ? 4 : 1;
 			for(size_t n=0; n<work.size(); n+=batch)
 			{
@@ -99,7 +99,14 @@ namespace boost { namespace afio {
 					// Singles
 					std::cout << "SHA256" << std::endl;
 				}
+				for(size_t i=0; i<batch; i++)
+					if(!get<1>(work[n+i]))
+					{
+						get<0>(work[n+i])->done.set_value(&get<0>(work[n+i])->hash);
+						ret[n+i]=true;
+					}
 			}
+			return ret;
 		}
 	};
 	//! Personality type for a 128 bit CityHash
@@ -114,14 +121,11 @@ namespace boost { namespace afio {
 		struct op_type
 		{
 			value_type hash;                   // 16
-			promise<value_type> done;          // size is implementation dependent
-			char ___pad[48-sizeof(promise<value_type>)];  // 0-48
-			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), done(boost::promise<value_type>(boost::allocator_arg_t(), allocator_type()))
+			promise<value_type *> done;          // size is implementation dependent
+			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), done(boost::promise<value_type *>(boost::allocator_arg_t(), allocator_type()))
 			{
-				static_assert(sizeof(op_type)==64, "sizeof(op_type) is not 64 bytes!");
-				memset(___pad, 0, sizeof(___pad));
 			}
-			future<value_type> get_future()
+			future<value_type *> get_future()
 			{
 				return done.get_future();
 			}
@@ -144,14 +148,11 @@ namespace boost { namespace afio {
 		struct op_type
 		{
 			value_type hash;
-			promise<value_type> done;          // size is implementation dependent
-			char ___pad[48-sizeof(promise<value_type>)];  // 0-48
-			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), done(boost::promise<value_type>(boost::allocator_arg_t(), allocator_type()))
+			promise<value_type *> done;          // size is implementation dependent
+			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), done(boost::promise<value_type *>(boost::allocator_arg_t(), allocator_type()))
 			{
-				static_assert(sizeof(op_type)==64, "sizeof(op_type) is not 64 bytes!");
-				memset(___pad, 0, sizeof(___pad));
 			}
-			future<value_type> get_future()
+			future<value_type *> get_future()
 			{
 				return done.get_future();
 			}
@@ -217,21 +218,28 @@ namespace boost { namespace afio {
 				return state_ptr_t(p, int_state_deleter());
 			}
 		public:
+			detail::spinlock<size_t> lock; // Locked while a thread is working on this op
 			state_ptr_t state; // Needs to be kept separate due to alignment requirements
-			future<typename hash_impl::value_type> hash_value;
-			detail::spinlock<size_t> lock; std::deque<std::pair<std::unique_ptr<promise<block>>, block>> queue;
+			future<typename hash_impl::value_type *> hash_value;
+			detail::spinlock<size_t> queue_lock; std::deque<std::pair<std::unique_ptr<promise<block>>, block>> queue;
 			size_t offset;
 			bool terminated;
 			op(typename hash_impl::allocator_type &alloc, typename hash_impl::op_allocator_type &op_alloc) : state(int_state_creator(op_alloc)), hash_value(state->get_future()), offset(0), terminated(false) { }
 		};
 		typedef std::shared_ptr<op> op_t;
 	private:
-		detail::spinlock<size_t> opslock; std::deque<std::weak_ptr<op>> ops;
-		detail::spinlock<size_t> schedulerlock;
-		atomic<size_t> non_empty_queues, scheduled;
+		detail::spinlock<size_t> scheduledlock; std::deque<op_t> scheduled;							// ops waiting to be processed
+		detail::spinlock<size_t> schedulelock; std::vector<std::vector<op_t>> schedule;				// ops being processed by threadsource
+		std::atomic<size_t> liveworkers; // Number of pinned threads taken from thread source
 	public:
 		//! Constructs a new hash engine using the specified threadsource
-		async_hash_engine(std::shared_ptr<thread_source> _threadsource) : threadsource(std::move(_threadsource)), non_empty_queues(0), scheduled(0) { }
+		async_hash_engine(std::shared_ptr<thread_source> _threadsource) : threadsource(std::move(_threadsource)), schedule(threadsource->workers()), liveworkers(0)
+		{
+			BOOST_FOREACH(auto &i, schedule)
+			{
+				i.reserve(hash_impl::stream_impls()[0]);
+			}
+		}
 
 		/*! \brief Begins a number of hashing operations
 
@@ -246,11 +254,6 @@ namespace boost { namespace afio {
 			for(size_t n=0; n<no; n++)
 			{
 				ret.push_back(std::make_shared<op>(alloc, op_alloc));
-				BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
-				{
-					ops.push_back(ret.back());
-				}
-				BOOST_END_MEMORY_TRANSACTION(opslock)
 			}
 			return ret;
 		}
@@ -261,11 +264,6 @@ namespace boost { namespace afio {
 		op_t begin()
 		{
 			op_t ret=std::make_shared<op>(typename hash_impl::allocator_type(), typename hash_impl::op_allocator_type());
-			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
-			{
-				ops.push_back(ret);
-			}
-			BOOST_END_MEMORY_TRANSACTION(opslock)
 			return ret;
 		}
 		/*! \brief Adds new blocks of data to be hashed to their given hashing operation
@@ -289,16 +287,23 @@ namespace boost { namespace afio {
 					ret.push_back(p->get_future());
 				}
 				op &o=*i.first;
+				bool add_to_scheduled=false;
 				BOOST_BEGIN_MEMORY_TRANSACTION(o.lock)
 				{
 					if(o.queue.empty())
-					{
-						++non_empty_queues;
-						do_scheduling=true;
-					}
+						add_to_scheduled=true;
 					o.queue.push_back(std::make_pair(std::move(p), i.second));
 				}
 				BOOST_END_MEMORY_TRANSACTION(o.lock)
+				if(add_to_scheduled)
+				{
+					BOOST_BEGIN_MEMORY_TRANSACTION(scheduledlock)
+					{
+						scheduled.push_back(i.first);
+					}
+					BOOST_END_MEMORY_TRANSACTION(scheduledlock)
+					do_scheduling=true;
+				}
 			}
 			if(do_scheduling)
 				int_doscheduling();
@@ -317,86 +322,140 @@ namespace boost { namespace afio {
 	private:
 		void int_doscheduling()
 		{
-			if(!schedulerlock.try_lock())
-				return;
-			auto unlock=detail::Undoer([this]{ schedulerlock.unlock(); });
-			if(_int_doscheduling())
-				unlock.dismiss();
-		}
-		bool _int_doscheduling()
-		{
-			// Remove any stale ops from the front
-			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
+			// Collapse as many threads of work into as few as possible
+			size_t workersneeded=0;
 			{
-				op_t temp;
-				while(ops.front().expired() || !(temp=ops.front().lock()) || temp->terminated)
-					ops.pop_front();
-			}
-			BOOST_END_MEMORY_TRANSACTION(opslock)
-			size_t workers=threadsource->workers();
-			std::vector<std::vector<op_t>> ops_set(workers);
-			BOOST_FOREACH(auto &i, ops_set)
-				i.reserve(hash_impl::stream_impls()[0]);
-			auto opsit=ops_set.begin();
-			// Lock the shared pointers for the first valid set of ops for available workers
-			BOOST_BEGIN_MEMORY_TRANSACTION(opslock)
-			{
-				for(auto it=ops.begin(); it!=ops.end() && opsit!=ops_set.end(); ++it)
+				bool reallydone=false;
+				BOOST_AFIO_LOCK_GUARD<decltype(schedulelock)> lockh(schedulelock);
+				for(auto to1=schedule.begin(); to1!=schedule.end() && !reallydone; ++to1)
 				{
-					auto o=it->lock();
-					if(o && !o->terminated && !o->queue.empty() /* probably thread safe */)
+					// Resize this slot to maximum capacity
+					to1->resize(to1->capacity());
+					workersneeded++;
+					for(auto to2=to1->begin(); to2!=to1->end() && !reallydone; ++to2)
 					{
-						opsit->push_back(std::move(o));
-						if(opsit->size()==hash_impl::stream_impls()[0])
-							if(++opsit==ops_set.end())
-								break;
-					}
-				}
-			}
-			BOOST_END_MEMORY_TRANSACTION(opslock)
-			// Enqueue a round of hashing
-			BOOST_FOREACH(auto &i, ops_set)
-			{
-				++scheduled;
-				threadsource->enqueue(std::bind([this](std::vector<op_t> workrefs)
-				{
-					std::vector<std::tuple<typename hash_impl::op_type *, const char *, size_t>> work; work.reserve(workrefs.size());
-					for(size_t n=0; n<workrefs.size(); n++)
-					{
-						op *o=workrefs[n].get();
-						// Should be safe to skip locking here
-						block &b=o->queue.front().second;
-						work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, b.length-o->offset));
-					}
-					hash_impl::hash_round(work);
-					for(size_t n=0; n<workrefs.size(); n++)
-					{
-						op *o=workrefs[n].get();
-						block &b=o->queue.front().second;
-						if(nullptr==b.data)
-							o->terminated=true;
-						else
-							o->offset+=hash_impl::round_size;
-						if(o->offset>=b.length || o->terminated)
+						// Are you an empty slot?
+						if(!*to2)
 						{
-							// Indicate this block is now done
-							std::unique_ptr<promise<block>> &prom=o->queue.front().first;
-							if(prom) prom->set_value(b);
-							BOOST_BEGIN_MEMORY_TRANSACTION(o->lock)
+							if(!scheduled.empty()) // probably threadsafe
 							{
-								o->queue.pop_front();
+								BOOST_BEGIN_MEMORY_TRANSACTION(scheduledlock)
+								{
+									if(!scheduled.empty())
+									{
+										std::swap(*to2, scheduled.front());
+										scheduled.pop_front();
+									}
+								}
+								BOOST_END_MEMORY_TRANSACTION(scheduledlock)
 							}
-							BOOST_END_MEMORY_TRANSACTION(o->lock)
-							o->offset=0;
+						}
+						// Still empty? See if I can coalesce threads into SIMD
+						if(to1->capacity()>1 && !*to2)
+						{
+							bool done=false;
+							reallydone=true;
+							// Find the last work item and swap it to here
+							for(auto from1=schedule.rbegin(); from1!=schedule.rend() && !done; ++from1)
+							{
+								for(auto from2=from1->rbegin(); from2!=from1->rend() && !done; ++from2)
+								{
+									if(!*from2)
+										continue;
+									else
+										reallydone=false;
+									if(*to2==*from2)
+									{
+										done=true;
+										break;
+									}
+									(*from2)->lock.lock();
+									std::swap(*from2, *to2);
+									(*to2)->lock.unlock();
+									done=true;
+									break;
+								}
+								// Remove any null op refs from end
+								while(!from1->back())
+									from1->pop_back();
+							}
 						}
 					}
-					if(!--scheduled)
-					{
-						_int_doscheduling();
-					}
-				}, i));
+				}
+				// If the last thread is not a full SIMD round, split it amongst more threads
+				/*if(schedule[workersneeded].size()<schedule[workersneeded].capacity())
+				{
+
+				}*/
 			}
-			return !ops_set.empty(); // leave scheduler lock locked
+			// schedule is now optimal, so enqueue more workers if needs be
+			size_t newworker;
+			while((newworker=++liveworkers)<workersneeded)
+			{
+				threadsource->enqueue(std::bind([this](size_t schedule_idx)
+				{
+					std::vector<op_t> &myschedule=schedule[schedule_idx];
+					for(;;)
+					{
+						// Stop the scheduler from running while I lock my work items to prevent the scheduler messing with them
+						{
+							BOOST_AFIO_LOCK_GUARD<decltype(schedulelock)> lockh(schedulelock);
+							// Do I have no work? If not, return this thread to its source.
+							if(myschedule.empty())
+							{
+								--liveworkers;
+								return;
+							}
+							BOOST_FOREACH(auto &i, myschedule)
+							{
+								i->lock.lock();
+							}
+						}
+						// Construct a work queue
+						std::vector<std::tuple<typename hash_impl::op_type *, const char *, size_t>> work; work.reserve(myschedule.size());
+						BOOST_FOREACH(auto &i, myschedule)
+						{
+							op *o=i.get();
+							// Should be safe to skip locking here
+							block &b=o->queue.front().second;
+							work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, b.length-o->offset));
+						}
+						std::vector<bool> workfinished=hash_impl::hash_round(work);
+						bool reschedule=false;
+						for(size_t n=0; n<myschedule.size(); n++)
+						{
+							op *o=myschedule[n].get();
+							if(workfinished[n])
+								o->terminated=true;
+							block &b=o->queue.front().second;
+							o->offset+=hash_impl::round_size;
+							if(o->offset>=b.length)
+							{
+								bool done=false;
+								// Indicate this block is now done
+								std::unique_ptr<promise<block>> &prom=o->queue.front().first;
+								if(prom) prom->set_value(b);
+								BOOST_BEGIN_MEMORY_TRANSACTION(o->queue_lock)
+								{
+									o->queue.pop_front();
+									done=o->queue.empty();
+								}
+								BOOST_END_MEMORY_TRANSACTION(o->queue_lock)
+								o->offset=0;
+								if(done)
+								{
+									// No more queue
+									myschedule[n].reset();
+									reschedule=true;
+								}
+							}
+							o->lock.unlock();
+						}
+						if(reschedule)
+							int_doscheduling();
+					}
+				}, newworker));
+			}
 		}
 	};
 

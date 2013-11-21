@@ -1,7 +1,7 @@
 #include "../test_functions.hpp"
 #include "../../../../boost/afio/hash_engine.hpp"
 
-BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine works as per reference", 3)
+BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine works as per reference", 300)
 {
     using namespace boost::afio::hash;
 	typedef async_hash_engine<SHA256> engine_t;
@@ -24,7 +24,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 	{
 		engine.add(reqs[n].first, reqs[n].second);
 		auto hash=o[n]->hash_value.get();
-		BOOST_CHECK(hash.asHexString()==tests[n][1]);
+		BOOST_CHECK(hash->asHexString()==tests[n][1]);
 	}
 	reqs.clear();
 	// Test 4-hash
@@ -35,6 +35,6 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 	for(size_t n=0; n<testslen; n++)
 	{
 		auto hash=o[n]->hash_value.get();
-		BOOST_CHECK(hash.asHexString()==tests[n][1]);
+		BOOST_CHECK(hash->asHexString()==tests[n][1]);
 	}
 }

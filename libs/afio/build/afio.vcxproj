@@ -67,6 +67,9 @@
       <FileType>CppHeader</FileType>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\boost\afio\detail\impl\hash_engine.ipp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{31A5E53D-7416-4E1D-891A-1C69EF8553BD}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
