@@ -176,11 +176,18 @@ namespace boost { namespace afio {
 				// Append the termination byte in case we need to terminate right now
 				o->d.data[partialblk]=0x80;
 				o->pos=partialblk;
-				// Need to early adjust length
-				o->length+=partialblk;
 				// If there is enough space for length this round, we must terminate immediately
 				if(partialblk<56)
+				{
+					// Need to early adjust length
+					o->length+=partialblk;
 					terminating=true;
+				}
+				else
+				{
+					// Need to offset length
+					o->length-=round_size-partialblk;
+				}
 			}
 			if(terminating)
 			{
@@ -450,7 +457,7 @@ namespace boost { namespace afio {
 							{
 								for(auto from2=from1->rbegin(); from2!=from1->rend() && !done; ++from2)
 								{
-									if(to2->get()==from2->get())
+									if(&(*to2)==&(*from2))
 									{
 										done=true;
 										break;
@@ -467,7 +474,11 @@ namespace boost { namespace afio {
 								}
 								// Remove any null op refs from end
 								while(!from1->empty() && !from1->back())
+								{
+									if(&(*to1)==&(*from1))
+										reallydone=true;
 									from1->pop_back();
+								}
 							}
 						}
 						if(reallydone) break;
@@ -484,6 +495,7 @@ namespace boost { namespace afio {
 					size_t newworker;
 					while((newworker=liveworkers++)<workersneeded)
 					{
+						std::cout << "Thread grabbed from pool." << std::endl;
 						threadsource->enqueue(std::bind([this](size_t schedule_idx)
 						{
 							std::vector<op_t> &myschedule=schedule[schedule_idx];
@@ -496,10 +508,12 @@ namespace boost { namespace afio {
 									if(myschedule.empty())
 									{
 										--liveworkers;
+										std::cout << "Thread returns to pool." << std::endl;
 										return;
 									}
 									BOOST_FOREACH(auto &i, myschedule)
 									{
+										assert(i);
 										i->lock.lock();
 									}
 								}
