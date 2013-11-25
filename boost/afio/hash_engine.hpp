@@ -10,6 +10,23 @@ File Created: Nov 2013
 #include "afio.hpp"
 #include "detail/Int128_256.hpp"
 #include <deque>
+#ifdef _MSC_VER
+#pragma warning(push, 0)
+#endif
+#include "detail/impl/hashes/cityhash/src/city.cc"
+#ifndef BOOST_AFIO_TEST_FUNCTIONS_HPP
+#include "detail/impl/hashes/spookyhash/SpookyV2.cpp"
+#endif
+#include "detail/impl/hashes/4-sha256/sha256-ref.c"
+#if BOOST_AFIO_HAVE_M128
+#include "detail/impl/hashes/4-sha256/sha256-sse.c"
+#endif
+#if BOOST_AFIO_HAVE_NEON128
+#include "detail/impl/hashes/sha256/sha256-neon.c"
+#endif
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 namespace boost { namespace afio {
 	//! Namespace containing batch, parallel, hash implementations
@@ -62,12 +79,17 @@ namespace boost { namespace afio {
 		struct op_type
 		{
 			value_type hash;                   // 32
-			char d[64];                        // 64
+			BOOST_AFIO_PACKEDTYPE(struct termination_t
+			{
+				unsigned char data[56];
+				uint64_t length;
+			}) d;
 			size_t pos, length;                // 8-16
 			promise<value_type *> done;        // size is implementation dependent
 			op_type() : hash(*(value_type *) hash_impl_base::int_init_iv()), pos(0), length(0), done(boost::promise<value_type *>(boost::allocator_arg_t(), allocator_type()))
 			{
-				memset(d, 0, sizeof(d));
+				static_assert(sizeof(d)==64, "termination_t is not sized exactly 64 bytes!");
+				memset(d.data, 0, sizeof(d));
 			}
 			future<value_type *> get_future()
 			{
@@ -84,29 +106,97 @@ namespace boost { namespace afio {
 #endif
 		static std::vector<bool> hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work)
 		{
+			using namespace SHA256_1;
+			using namespace SHA256_4;
 			std::vector<bool> ret(work.size());
+#if BOOST_AFIO_HAVE_M128 || defined(BOOST_AFIO_HAVE_NEON128)
 			size_t batch=work.size()>=4 ? 4 : 1;
+#else
+			size_t batch=1;
+#endif
 			for(size_t n=0; n<work.size(); n+=batch)
 			{
+#if BOOST_AFIO_HAVE_M128 || defined(BOOST_AFIO_HAVE_NEON128)
 				batch=(work.size()-n)>=4 ? 4 : 1;
 				if(4==batch)
 				{
-					// SIMD
-					std::cout << "4-SHA256" << std::endl;
+					const __sha256_block_t *blks[4];
+					__sha256_hash_t *out[4];
+					for(size_t i=0; i<batch; i++)
+					{
+						ret[n+i]=int_getblk(blks[i], work[n+i]);
+						out[i]=(__sha256_hash_t *) const_cast<unsigned int *>(std::get<0>(work[n+i])->hash.asInts());
+					}
+					__sha256_int(blks, out);
 				}
 				else
+#endif
 				{
-					// Singles
-					std::cout << "SHA256 blk=" << (void *) std::get<1>(work[n]) << " len=" << std::get<2>(work[n]) << std::endl;
+					const __sha256_block_t *blk; ret[n]=int_getblk(blk, work[n]);
+					__sha256_hash_t *out=(__sha256_hash_t *) const_cast<unsigned int *>(std::get<0>(work[n])->hash.asInts());
+					__sha256_osol(*blk, *out);
 				}
 				for(size_t i=0; i<batch; i++)
-					if(!std::get<1>(work[n+i]))
+				{
+					if(std::get<1>(work[n+i]) && !ret[n+i])
 					{
-						std::get<0>(work[n+i])->done.set_value(&std::get<0>(work[n+i])->hash);
+						std::get<0>(work[n+i])->length+=round_size;
+					}
+					else
+					{
+						op_type *o=std::get<0>(work[n+i]);
+						// As we're little endian flip back the words
+						for(size_t m=0; m<8; m++)
+							*const_cast<unsigned int *>(o->hash.asInts()+m)=LOAD_BIG_32(o->hash.asInts()+m);
+						o->done.set_value(&o->hash);
 						ret[n+i]=true;
 					}
+				}
 			}
 			return ret;
+		}
+	private:
+		static bool int_getblk(const SHA256_1::__sha256_block_t *&blk, const std::tuple<op_type *, const char *, size_t> &work)
+		{
+			using namespace SHA256_1;
+			bool done=false, terminating=!std::get<1>(work);
+			op_type *o=std::get<0>(work);
+			if(!terminating)
+			{
+				size_t partialblk=std::get<2>(work)&(round_size-1);
+				if(!partialblk && std::get<2>(work))
+				{
+					blk=(const __sha256_block_t *) std::get<1>(work);
+					return false;
+				}
+				if(o->pos)
+					throw std::runtime_error("Feeding SHA-256 with chunks not exactly divisible by 64 bytes, except as the very final chunk, is currently not supported.");
+				// Copy our partial block into scratch
+				memcpy(o->d.data, std::get<1>(work), partialblk);
+				// Append the termination byte in case we need to terminate right now
+				o->d.data[partialblk]=0x80;
+				o->pos=partialblk;
+				// Need to early adjust length
+				o->length+=partialblk;
+				// If there is enough space for length this round, we must terminate immediately
+				if(partialblk<56)
+					terminating=true;
+			}
+			if(terminating)
+			{
+				// If scratch never used, we received an exact 64 byte multiple in
+				if(!o->pos)
+					o->d.data[0]=0x80;
+				else if(!std::get<1>(work))
+				{
+					// Reset the scratch
+					memset(o->d.data, 0, sizeof(o->d.data));
+				}
+				o->d.length=bswap_64(8*o->length);
+				done=true;
+			}
+			blk=(const __sha256_block_t *) o->d.data;
+			return done;
 		}
 	};
 	//! Personality type for a 128 bit CityHash
@@ -418,17 +508,32 @@ namespace boost { namespace afio {
 								BOOST_FOREACH(auto &i, myschedule)
 								{
 									op *o=i.get();
-									// Should be safe to skip locking here
-									block &b=o->queue.front().second;
-									work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, b.length-o->offset));
+									if(!o->terminated)
+									{
+										// Should be safe to skip locking here
+										block &b=o->queue.front().second;
+										size_t length=(b.length-o->offset)>hash_impl::round_size ? hash_impl::round_size : (b.length-o->offset);
+										work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, length));
+									}
 								}
 								std::vector<bool> workfinished=hash_impl::hash_round(work);
+								for(size_t n=0; n<work.size(); n++)
+								{
+									if(workfinished[n])
+									{
+										// This O(N^2) is okay as myschedule is never more than 4 big
+										BOOST_FOREACH(auto &i, myschedule)
+										{
+											op *o=i.get();
+											if(o->state.get()==std::get<0>(work[n]))
+												o->terminated=true;
+										}
+									}
+								}
 								bool reschedule=false;
 								for(size_t n=0; n<myschedule.size(); n++)
 								{
 									op *o=myschedule[n].get();
-									if(workfinished[n])
-										o->terminated=true;
 									block &b=o->queue.front().second;
 									o->offset+=hash_impl::round_size;
 									if(o->offset>=b.length)

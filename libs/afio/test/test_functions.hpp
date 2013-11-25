@@ -33,7 +33,7 @@ extern "C" void tzset(void);
 #include <algorithm>
 #include <unordered_set>
 #include "../../../boost/afio/afio.hpp"
-#include "../../../boost/afio/detail/Hash128_256.hpp"
+#include "../../../boost/afio/detail/impl/hashes/spookyhash/SpookyV2.cpp"
 #include "../../../boost/afio/detail/Aligned_Allocator.hpp"
 #include "../../../boost/afio/detail/MemoryTransactions.hpp"
 #include "../../../boost/afio/detail/valgrind/memcheck.h"
@@ -446,9 +446,9 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                 
     // a vector to hold the hash values from SpookyHash
     //SpookyHash returns 2 64bit integers for a 128 bit hash, so we store them as a pair
-    vector<std::pair<uint64, uint64>> memhashes(no);
+    vector<std::pair<uint64_t, uint64_t>> memhashes(no);
     //  variables to seed and return the hashed values
-    uint64 hash1, hash2, seed;
+    uint64_t hash1, hash2, seed;
     seed = 1; //initialize the seed value. Completely arbitrary, but it needs to remain consistent 
               
     for(size_t i = 0; i < no; ++i)
