@@ -101,7 +101,7 @@ template<class generator_type> inline void FillRandom(char *buffer, size_t lengt
 #endif
         const size_t thislength=(length/partitions)&~(sizeof(typename generator_type::result_type)-1);
         const size_t thisno=thislength/sizeof(typename generator_type::result_type);
-        random_device rd;
+        std::random_device rd;
         generator_type gen(rd());
         typename generator_type::result_type *tofill=(typename generator_type::result_type *) buffer;
         if(thispartition)

@@ -33,6 +33,8 @@
 #include <algorithm>
 #include <string.h>  // for memcpy and memset
 
+namespace CityHash {
+
 using namespace std;
 
 static uint64 UNALIGNED_LOAD64(const char *p) {
@@ -619,3 +621,5 @@ uint128 CityHashCrc128(const char *s, size_t len) {
 }
 #endif
 #endif
+
+} // namespace

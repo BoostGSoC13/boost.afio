@@ -12,7 +12,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-typedef uint8_t __sha256_block_t[64];
-typedef uint32_t __sha256_hash_t[8];
+namespace SHA256_1 {
+
+	typedef uint8_t __sha256_block_t[64];
+	typedef uint32_t __sha256_hash_t[8];
+
+}
 
 #endif

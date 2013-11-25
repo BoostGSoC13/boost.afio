@@ -7,6 +7,9 @@
 #include <emmintrin.h>
 #include <stdint.h>
 
+namespace SHA256_4 {
+	using namespace SHA256_1;
+
 static const uint32_t sha256_consts[] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, /*  0 */
     0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -271,3 +274,5 @@ void __sha256_int(const __sha256_block_t *blk[4], __sha256_hash_t *hash[4])
     store(g, 6);
     store(h, 7);
 }
+
+} // namespace

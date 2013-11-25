@@ -7,6 +7,9 @@
 #include <arm_neon.h>
 #include <stdint.h>
 
+namespace SHA256_4 {
+	using namespace SHA256_1;
+
 #define	SHA256_CONST_(x)		(SHA256_CONST_ ## x)
 
 /* constants, as provided in FIPS 180-2 */
@@ -408,3 +411,5 @@ void __sha256_int(const __sha256_block_t *__restrict blk[4], __sha256_hash_t *__
     store(g, 6);
     store(h, 7);
 }
+
+} // namespace

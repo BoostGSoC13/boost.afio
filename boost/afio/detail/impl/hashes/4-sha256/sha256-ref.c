@@ -32,6 +32,8 @@
 #include <errno.h>
 #include <stdio.h>
 
+namespace SHA256_1 {
+
 #define	SHA256_CONST_(x)		(SHA256_CONST_ ## x)
 
 /* constants, as provided in FIPS 180-2 */
@@ -393,3 +395,5 @@ __sha256_osol(const __sha256_block_t blk, __sha256_hash_t ctx)
 	ctx[7] += h;
     
 }
+
+} // namespace
