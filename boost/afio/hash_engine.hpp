@@ -55,7 +55,7 @@ namespace boost { namespace afio {
 		//! Stream implementations available
 		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 		//! Performs a round of hashing
-		static std::vector<bool> hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work);
+		static void hash_round(std::vector<char> &ret, const std::vector<std::tuple<op_type *, const char *, size_t>> &work);
 
 		// For convenience for subclasses
 		static BOOST_CONSTEXPR const unsigned *int_init_iv()
@@ -104,11 +104,10 @@ namespace boost { namespace afio {
 #else
 		static BOOST_CONSTEXPR std::array<size_t, 1> stream_impls() { std::array<size_t, 1> ret; ret[0]=1; return ret; }
 #endif
-		static std::vector<bool> hash_round(std::vector<std::tuple<op_type *, const char *, size_t>> work)
+		static void hash_round(std::vector<char> &ret, const std::vector<std::tuple<op_type *, const char *, size_t>> &work)
 		{
 			using namespace SHA256_1;
 			using namespace SHA256_4;
-			std::vector<bool> ret(work.size());
 #if BOOST_AFIO_HAVE_M128 || defined(BOOST_AFIO_HAVE_NEON128)
 			size_t batch=work.size()>=4 ? 4 : 1;
 #else
@@ -153,7 +152,6 @@ namespace boost { namespace afio {
 					}
 				}
 			}
-			return ret;
 		}
 	private:
 		static bool int_getblk(const SHA256_1::__sha256_block_t *&blk, const std::tuple<op_type *, const char *, size_t> &work)
@@ -520,11 +518,14 @@ namespace boost { namespace afio {
 						threadsource->enqueue(std::bind([this](size_t schedule_idx)
 						{
 							std::vector<op_t> &myschedule=schedule[schedule_idx];
+							std::vector<char> workfinished(myschedule.size());
+							std::vector<std::tuple<typename hash_impl::op_type *, const char *, size_t>> work; work.reserve(myschedule.size());
 							for(;;)
 							{
 								// Stop the scheduler from running while I lock my work items to prevent the scheduler messing with them
 								const size_t SCHEDULE_EMPTY_DELAY_BEFORE_EXIT=4;
 								size_t schedule_empty_count;
+								bool work_changed=false;
 								for(schedule_empty_count=0; schedule_empty_count<SCHEDULE_EMPTY_DELAY_BEFORE_EXIT; schedule_empty_count++)
 								{
 									if(schedule_empty_count>0)
@@ -532,10 +533,10 @@ namespace boost { namespace afio {
 									BOOST_AFIO_LOCK_GUARD<decltype(schedulelock)> lockh(schedulelock);
 									if(myschedule.empty())
 										continue;
-									BOOST_FOREACH(auto &i, myschedule)
+									for(size_t n=0; n<myschedule.size(); n++)
 									{
-										assert(i);
-										i->lock.lock();
+										assert(myschedule[n]);
+										myschedule[n]->lock.lock();
 									}
 									break;
 								}
@@ -546,62 +547,100 @@ namespace boost { namespace afio {
 									//std::cout << "Thread " << schedule_idx << " returns to pool." << std::endl;
 									return;
 								}
-								// Construct a work queue
-								std::vector<std::tuple<typename hash_impl::op_type *, const char *, size_t>> work; work.reserve(myschedule.size());
-								BOOST_FOREACH(auto &i, myschedule)
-								{
-									op *o=i.get();
-									if(!o->terminated)
-									{
-										// Should be safe to skip locking here
-										block &b=o->queue.front().second;
-										size_t length=(b.length-o->offset)>hash_impl::round_size ? hash_impl::round_size : (b.length-o->offset);
-										work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, length));
-									}
-								}
-								std::vector<bool> workfinished=hash_impl::hash_round(work);
-								for(size_t n=0; n<work.size(); n++)
-								{
-									if(workfinished[n])
-									{
-										// This O(N^2) is okay as myschedule is never more than 4 big
-										BOOST_FOREACH(auto &i, myschedule)
-										{
-											op *o=i.get();
-											if(o->state.get()==std::get<0>(work[n]))
-												o->terminated=true;
-										}
-									}
-								}
 								bool reschedule=false;
-								for(size_t n=0; n<myschedule.size(); n++)
+								try
 								{
-									op *o=myschedule[n].get();
-									block &b=o->queue.front().second;
-									o->offset+=hash_impl::round_size;
-									if(o->offset>=b.length)
+									// Try to do up to 64 rounds between releasing the locks on the items
+									// So long as the last item in the schedule lock is held, the rescheduler
+									// will hang itself
+									for(size_t iterations=0; iterations<64 && !reschedule; iterations++)
 									{
-										bool done=false;
-										// Indicate this block is now done
-										std::unique_ptr<promise<block>> &prom=o->queue.front().first;
-										if(prom) prom->set_value(b);
-										BOOST_BEGIN_MEMORY_TRANSACTION(o->queue_lock)
+										// Construct a work queue
 										{
-											o->queue.pop_front();
-											done=o->queue.empty();
+											size_t n=0;
+											BOOST_FOREACH(auto &i, myschedule)
+											{
+												op *o=i.get();
+												if(!o->terminated)
+												{
+													// Should be safe to skip locking here
+													block &b=o->queue.front().second;
+													size_t length=(b.length-o->offset)>hash_impl::round_size ? hash_impl::round_size : (b.length-o->offset);
+													if(n+1>work.size())
+														work.push_back(std::make_tuple(o->state.get(), b.data+o->offset, length));
+													else
+													{
+														std::get<0>(work[n])=o->state.get();
+														std::get<1>(work[n])=b.data+o->offset;
+														std::get<2>(work[n])=length;
+													}
+													workfinished[n]=false;
+													n++;
+												}
+											}
+											work.resize(n);
 										}
-										BOOST_END_MEMORY_TRANSACTION(o->queue_lock)
-										o->offset=0;
-										if(done)
+										hash_impl::hash_round(workfinished, work);
 										{
-											// No more queue
-											o->lock.unlock();
-											myschedule[n].reset();
-											o=nullptr;
-											reschedule=true;
+											size_t n=0;
+											BOOST_FOREACH(auto &i, myschedule)
+											{
+												op *o=i.get();
+												if(!o->terminated)
+												{
+													if(workfinished[n])
+														o->terminated=true;
+													n++;
+												}
+											}
+										}
+										for(size_t n=0; n<myschedule.size(); n++)
+										{
+											op *o=myschedule[n].get();
+											block &b=o->queue.front().second;
+											o->offset+=hash_impl::round_size;
+											if(o->offset>=b.length)
+											{
+												bool done=false;
+												// Indicate this block is now done
+												std::unique_ptr<promise<block>> &prom=o->queue.front().first;
+												if(prom) prom->set_value(b);
+												BOOST_BEGIN_MEMORY_TRANSACTION(o->queue_lock)
+												{
+													o->queue.pop_front();
+													done=o->queue.empty();
+												}
+												BOOST_END_MEMORY_TRANSACTION(o->queue_lock)
+													o->offset=0;
+												if(done)
+												{
+													// No more queue
+													o->lock.unlock();
+													myschedule[n].reset();
+													o=nullptr;
+													reschedule=true;
+												}
+											}
 										}
 									}
-									if(o) o->lock.unlock();
+									// Unlock my schedule
+									BOOST_FOREACH(auto &i, myschedule)
+									{
+										if(i)
+											i->lock.unlock();
+									}
+								}
+								catch(...)
+								{
+									exception_ptr e(afio::make_exception_ptr(afio::current_exception()));
+									// Set an exception return for everything in this schedule, and reschedule
+									BOOST_FOREACH(auto &i, myschedule)
+									{
+										i->state->done.set_exception(e);
+										i->lock.unlock();
+										i.reset();
+									}
+									reschedule=true;
 								}
 								if(reschedule)
 									int_doscheduling();

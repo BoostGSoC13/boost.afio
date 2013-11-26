@@ -8,11 +8,15 @@ static char random_[25*1024*1024];
 
 /* Some interesting figures about the engine:
 
+With 1 thread available:
+  1-SHA256: single streams: 17.45 cycles/byte (max possible 14.89 cycles/byte, + 2.56)
+  1-SHA256: max throughput: ? cycles/byte
+  4-SHA256: max throughput: 7.64  cycles/byte (max possible 4.23 cycles/byte, + 3.41)
+
 With 8 threads available:
-  1-SHA256: single streams: 27.63 cycles/byte
-  1-SHA256: max throughput:  7.70 cycles/byte
-  4-SHA256: single streams: 27.05 cycles/byte
-  4-SHA256: max throughput:  2.92 cycles/byte
+  1-SHA256: single streams: 17.03 cycles/byte (max possible 14.89 cycles/byte, + 2.14)
+  1-SHA256: max throughput: ? cycles/byte
+  4-SHA256: max throughput: 1.854 cycles/byte
 
 */
 
@@ -84,12 +88,14 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 	// Overhead testing of engine. Reference SHA-256 ought to push 14.89 cycles/byte on modern Intel
 	std::cout << "\nSHA256 async engine overhead testing begins!" << std::endl;
 	const std::string shouldbe("c622abd5eedbedcc9b661a28d7d56d599ad2dc1bebc9546500b72e3b3b667bc8");
-	o=engine.begin(LOAD_HASHES/16);
+	o=engine.begin(LOAD_HASHES/4);
 	reqs.reserve(LOAD_HASHES);
 	BOOST_FOREACH(auto &i, o)
 	{
 		reqs.push_back(std::make_pair(i, engine_t::block(random_, sizeof(random_))));
 	}
+	std::cout << "\nAttach profiler!" << std::endl;
+	//getchar();
 	auto begin=std::chrono::high_resolution_clock::now();
 	BOOST_FOREACH(auto &i, reqs)
 	{
@@ -100,8 +106,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 		BOOST_CHECK(hashstring==shouldbe);
 	}
 	auto end=std::chrono::high_resolution_clock::now();
+	std::cout << "\nStop profiler!" << std::endl;
+	//getchar();
 	auto diff=std::chrono::duration_cast<secs_type>(end-begin);
-	std::cout << "SHA-256 hash engine does single streams at " << (CPU_CYCLES_PER_SEC*diff.count())/(LOAD_HASHES/16*sizeof(random_)) << " cycles/byte" << std::endl;
+	std::cout << "SHA-256 hash engine does single streams at " << (CPU_CYCLES_PER_SEC*diff.count())/(o.size()*sizeof(random_)) << " cycles/byte" << std::endl;
 	reqs.clear();
 
 	// Test engine under much load
@@ -112,8 +120,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 		reqs.push_back(std::make_pair(i, engine_t::block(random_, sizeof(random_))));
 		reqs.push_back(std::make_pair(i, engine_t::block())); // terminate
 	}
-	engine.add(reqs);
+	std::cout << "\nAttach profiler!" << std::endl;
+	//getchar();
 	begin=std::chrono::high_resolution_clock::now();
+	engine.add(reqs);
 	BOOST_FOREACH(auto &i, o)
 	{
 		auto hash=i->hash_value.get();
@@ -121,6 +131,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_hash_engine_works, "Tests that the hash engine w
 		BOOST_CHECK(hashstring==shouldbe);
 	}
 	end=std::chrono::high_resolution_clock::now();
+	std::cout << "\nStop profiler!" << std::endl;
+	//getchar();
 	diff=std::chrono::duration_cast<secs_type>(end-begin);
 	std::cout << "SHA-256 hash engine does a maximum of " << (CPU_CYCLES_PER_SEC*diff.count())/(LOAD_HASHES*sizeof(random_)) << " cycles/byte" << std::endl;
 	reqs.clear();
