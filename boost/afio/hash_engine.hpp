@@ -337,6 +337,11 @@ namespace boost { namespace afio {
 				i.reserve(hash_impl::stream_impls()[0]);
 			}
 		}
+		~async_hash_engine()
+		{
+			while(liveworkers)
+				boost::afio::this_thread::sleep_for(boost::afio::chrono::milliseconds(1));
+		}
 
 		/*! \brief Begins a number of hashing operations
 
@@ -447,9 +452,9 @@ namespace boost { namespace afio {
 								BOOST_END_MEMORY_TRANSACTION(scheduledlock)
 							}
 						}
-						// Still empty? See if I can coalesce threads into SIMD
-						if(to1->capacity()>1 && !*to2)
+						if(!*to2)
 						{
+							// Still empty? See if I can coalesce threads into SIMD
 							bool done=false;
 							reallydone=true;
 							// Find the last work item and swap it to here
@@ -479,8 +484,11 @@ namespace boost { namespace afio {
 										reallydone=true;
 									from1->pop_back();
 								}
+								if(to1->empty())
+									--workersneeded;
 							}
 						}
+						// Prevent increment of to2
 						if(reallydone) break;
 					}
 				}
@@ -490,32 +498,53 @@ namespace boost { namespace afio {
 
 				}*/
 				// schedule is now optimal, so enqueue more workers if needs be
+#if 0
+				std::cout << "Queued: " << scheduled.size() << " Schedule:";
+				BOOST_FOREACH(auto &i, schedule)
+				{
+					if(i.empty()) break;
+					std::cout << " ";
+					for(size_t n=0; n<i.capacity(); n++)
+					{
+						std::cout << (n<i.size() ? (i[n] ? "1" : "0") : "x");
+					}
+				}
+				std::cout << std::endl;
+#endif
 				if(liveworkers<workersneeded)
 				{
 					size_t newworker;
 					while((newworker=liveworkers++)<workersneeded)
 					{
-						std::cout << "Thread grabbed from pool." << std::endl;
+						//std::cout << "Thread grabbed from pool." << std::endl;
 						threadsource->enqueue(std::bind([this](size_t schedule_idx)
 						{
 							std::vector<op_t> &myschedule=schedule[schedule_idx];
 							for(;;)
 							{
 								// Stop the scheduler from running while I lock my work items to prevent the scheduler messing with them
+								const size_t SCHEDULE_EMPTY_DELAY_BEFORE_EXIT=4;
+								size_t schedule_empty_count;
+								for(schedule_empty_count=0; schedule_empty_count<SCHEDULE_EMPTY_DELAY_BEFORE_EXIT; schedule_empty_count++)
 								{
+									if(schedule_empty_count>0)
+										boost::afio::this_thread::sleep_for(boost::afio::chrono::milliseconds(1));
 									BOOST_AFIO_LOCK_GUARD<decltype(schedulelock)> lockh(schedulelock);
-									// Do I have no work? If not, return this thread to its source.
 									if(myschedule.empty())
-									{
-										--liveworkers;
-										std::cout << "Thread returns to pool." << std::endl;
-										return;
-									}
+										continue;
 									BOOST_FOREACH(auto &i, myschedule)
 									{
 										assert(i);
 										i->lock.lock();
 									}
+									break;
+								}
+								// Do I have no work? If not, return this thread to its source.
+								if(SCHEDULE_EMPTY_DELAY_BEFORE_EXIT==schedule_empty_count)
+								{
+									--liveworkers;
+									//std::cout << "Thread " << schedule_idx << " returns to pool." << std::endl;
+									return;
 								}
 								// Construct a work queue
 								std::vector<std::tuple<typename hash_impl::op_type *, const char *, size_t>> work; work.reserve(myschedule.size());
@@ -562,15 +591,17 @@ namespace boost { namespace afio {
 											done=o->queue.empty();
 										}
 										BOOST_END_MEMORY_TRANSACTION(o->queue_lock)
-											o->offset=0;
+										o->offset=0;
 										if(done)
 										{
 											// No more queue
+											o->lock.unlock();
 											myschedule[n].reset();
+											o=nullptr;
 											reschedule=true;
 										}
 									}
-									o->lock.unlock();
+									if(o) o->lock.unlock();
 								}
 								if(reschedule)
 									int_doscheduling();
