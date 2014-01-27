@@ -389,15 +389,15 @@ namespace windows_nt_kernel
         return p;
     }
 
-    static inline uint16_t to_st_type(ULONG FileAttributes, uint16_t mode=0)
+    static inline std::filesystem::file_type to_st_type(ULONG FileAttributes)
     {
         if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
-            mode|=S_IFLNK;
+            return std::filesystem::file_type::symlink_file;
+            //return std::filesystem::file_type::reparse_file;
         else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)
-            mode|=S_IFDIR;
+            return std::filesystem::file_type::directory_file;
         else
-            mode|=S_IFREG;
-        return mode;
+            return std::filesystem::file_type::regular_file;
     }
 
     static inline boost::afio::chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)
@@ -459,14 +459,20 @@ static inline int winftruncate(int fd, boost::afio::off_t _newsize)
 static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, boost::afio::metadata_flags wanted)
 {
     using namespace boost::afio;
+#ifndef WIN32
     if(!!(wanted&metadata_flags::dev)) { stat.st_dev=s.st_dev; }
+#endif
     if(!!(wanted&metadata_flags::ino)) { stat.st_ino=s.st_ino; }
-    if(!!(wanted&metadata_flags::type)) { stat.st_type=s.st_mode; }
-    if(!!(wanted&metadata_flags::mode)) { stat.st_mode=s.st_mode; }
+    if(!!(wanted&metadata_flags::type)) { stat.st_type=to_st_type(s.st_mode); }
+#ifndef WIN32
+    if(!!(wanted&metadata_flags::perms)) { stat.st_mode=s.st_perms; }
+#endif
     if(!!(wanted&metadata_flags::nlink)) { stat.st_nlink=s.st_nlink; }
+#ifndef WIN32
     if(!!(wanted&metadata_flags::uid)) { stat.st_uid=s.st_uid; }
     if(!!(wanted&metadata_flags::gid)) { stat.st_gid=s.st_gid; }
     if(!!(wanted&metadata_flags::rdev)) { stat.st_rdev=s.st_rdev; }
+#endif
     if(!!(wanted&metadata_flags::atim)) { stat.st_atim=chrono::system_clock::from_time_t(s.st_atime); }
     if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=chrono::system_clock::from_time_t(s.st_mtime); }
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=chrono::system_clock::from_time_t(s.st_ctime); }

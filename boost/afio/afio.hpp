@@ -1,6 +1,6 @@
 /* async_file_io
 Provides a threadpool and asynchronous file i/o infrastructure based on Boost.ASIO, Boost.Iostreams and filesystem
-(C) 2013 Niall Douglas http://www.nedprod.com/
+(C) 2013-2014 Niall Douglas http://www.nedprod.com/
 File Created: Mar 2013
 */
 
@@ -19,9 +19,6 @@ File Created: Mar 2013
 #if defined(BOOST_MSVC) && BOOST_MSVC < 1700 && (!defined(_VARIADIC_MAX) || _VARIADIC_MAX < 7)
 #error _VARIADIC_MAX needs to be set to at least seven to compile Boost.AFIO
 #endif
-
-// Define this to work around ASIO's io_service.post() not coping with move-only input
-#define BOOST_AFIO_WORK_AROUND_ASIO_IO_SERVICE_POST_NO_MOVE_ONLY_SUPPORT 1
 
 #include "config.hpp"
 #include "boost/asio.hpp"
@@ -78,6 +75,118 @@ namespace afio {
 typedef unsigned long long off_t;
 
 
+namespace detail
+{
+    template<class R> class enqueued_task_impl
+    {
+    protected:
+        struct Private
+        {
+            std::function<R()> task;
+            promise<R> r;
+            bool autoset;
+            atomic<int> done;
+            Private(std::function<R()> _task) : task(std::move(_task)), autoset(true), done(0) { }
+        };
+        std::shared_ptr<Private> p;
+    public:
+        //! Default constructor
+        enqueued_task_impl() { }
+        //! Constructs an enqueued task calling \em c
+        enqueued_task_impl(std::function<R()> c) : p(std::make_shared<Private>(std::move(c))) { }
+        //! Returns true if valid
+        bool valid() const BOOST_NOEXCEPT_OR_NOTHROW{ return p.get()!=nullptr; }
+            //! Swaps contents with another instance
+        void swap(enqueued_task_impl &o) BOOST_NOEXCEPT_OR_NOTHROW{ p.swap(o.p); }
+            //! Resets the contents
+        void reset() { p.reset(); }
+        //! Returns the future corresponding to the future return value of the task
+        future<R> get_future() { return p->r.get_future(); }
+        //! Sets the future corresponding to the future return value of the task.
+        void set_future_exception(exception_ptr e)
+        {
+            int _=0;
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_exception(e);
+        }
+        //! Disables the task setting the future return value.
+        void disable_auto_set_future(bool v=true) { p->autoset=!v; }
+    };
+}
+
+template<class R> class enqueued_task;
+/*! \class enqueued_task<R()>
+\brief Effectively our own custom std::packaged_task<>, with copy semantics and letting us early set value to significantly improve performance
+
+Unlike `std::packaged_task<>`, this custom variant is copyable though each copy always refers to the same
+internal state. Early future value setting is possible, with any subsequent value setting including that
+by the function being executed being ignored. Note that this behaviour opens the potential to lose exception
+state - if you set the future value early and then an exception is later thrown, the exception is swallowed.
+*/
+// Can't have args in callable type as that segfaults VS2010
+template<class R> class enqueued_task<R()> : public detail::enqueued_task_impl<R>
+{
+    typedef detail::enqueued_task_impl<R> Base;
+public:
+    //! Default constructor
+    enqueued_task() { }
+    //! Constructs an enqueued task calling \em c
+    enqueued_task(std::function<R()> c) : Base(std::move(c)) { }
+    //! Sets the future corresponding to the future return value of the task.
+    template<class T> void set_future_value(T v)
+    {
+        int _=0;
+        if(!Base::p->done.compare_exchange_strong(_, 1))
+            return;
+        Base::p->r.set_value(v);
+    }
+    //! Invokes the callable, setting the future to the value it returns
+    void operator()()
+    {
+        try
+        {
+            auto v(Base::p->task());
+            if(Base::p->autoset) set_future_value(v);
+        }
+        catch(...)
+        {
+            auto e(afio::make_exception_ptr(afio::current_exception()));
+            if(Base::p->autoset) Base::set_future_exception(e);
+        }
+    }
+};
+template<> class enqueued_task<void()> : public detail::enqueued_task_impl<void>
+{
+    typedef detail::enqueued_task_impl<void> Base;
+public:
+    //! Default constructor
+    enqueued_task() { }
+    //! Constructs an enqueued task calling \em c
+    enqueued_task(std::function<void()> c) : Base(std::move(c)) { }
+    //! Sets the future corresponding to the future return value of the task.
+    void set_future_value()
+    {
+        int _=0;
+        if(!Base::p->done.compare_exchange_strong(_, 1))
+            return;
+        Base::p->r.set_value();
+    }
+    //! Invokes the callable, setting the future to the value it returns
+    void operator()()
+    {
+        try
+        {
+            Base::p->task();
+            if(Base::p->autoset) set_future_value();
+        }
+        catch(...)
+        {
+            auto e(afio::make_exception_ptr(afio::current_exception()));
+            if(Base::p->autoset) Base::set_future_exception(e);
+        }
+    }
+};
 /*! \class thread_source
 \brief Abstract base class for a source of thread workers
 
@@ -85,27 +194,8 @@ Note that in Boost 1.54, and possibly later versions, `boost::asio::io_service` 
 destructed during static data deinit, hence why this inherits from `std::enable_shared_from_this<>` in order that it
 may be reference count deleted before static data deinit occurs.
 */
-class thread_source : public std::enable_shared_from_this<thread_source> {
-private:
-#if BOOST_AFIO_WORK_AROUND_ASIO_IO_SERVICE_POST_NO_MOVE_ONLY_SUPPORT
-    template<class T> struct copyable_packaged_task : std::shared_ptr<packaged_task<T>>
-    {
-        template<class B> explicit copyable_packaged_task(B &&v) BOOST_NOEXCEPT_OR_NOTHROW : std::shared_ptr<packaged_task<T>>(std::move(std::make_shared<packaged_task<T>>(std::forward<B>(v)))) {}
-        copyable_packaged_task(const copyable_packaged_task &v) : std::shared_ptr<packaged_task<T>>(v) { }
-        copyable_packaged_task(copyable_packaged_task &&v) BOOST_NOEXCEPT_OR_NOTHROW : std::shared_ptr<packaged_task<T>>(std::move(v)) { }
-        void operator()()
-        {
-            try
-            {
-                (*std::shared_ptr<packaged_task<T>>::get())();
-            }
-            catch(...)
-            {
-                std::cerr << "WARNING: packaged_task<> exits via exception which shouldn't happen. Exception was " << boost::current_exception_diagnostic_information(true) << std::endl;
-            }
-        }
-    };
-#endif
+class thread_source : public std::enable_shared_from_this<thread_source>
+{
 protected:
     boost::asio::io_service &service;
     thread_source(boost::asio::io_service &_service) : service(_service) { }
@@ -113,23 +203,22 @@ protected:
 public:
     //! Returns the underlying io_service
     boost::asio::io_service &io_service() { return service; }
-    //! Sends some callable entity to the thread pool for execution \return A future for the enqueued callable \tparam "class F" Any callable type \param f Any instance of a callable type F
+    //! Sends some callable entity to the thread pool for execution \tparam "class F" Any callable type with signature R(void) \param out An enqueued task for the enqueued callable \param f Any instance of a callable type \param autosetfuture Whether the enqueued_task will set its future on return of the callable
+    template<class F> void enqueue(enqueued_task<typename std::result_of<F()>::type()> &out, F f, bool autosetfuture=true)
+    {
+        typedef typename std::result_of<F()>::type R;
+        out=std::move(enqueued_task<R()>(std::move(f)));
+        out.disable_auto_set_future(!autosetfuture);
+        service.post(out);
+    }
+    //! Sends some callable entity to the thread pool for execution \return An enqueued task for the enqueued callable \tparam "class F" Any callable type with signature R(void) \param f Any instance of a callable type
     template<class F> future<typename std::result_of<F()>::type> enqueue(F f)
     {
         typedef typename std::result_of<F()>::type R;
-#if BOOST_AFIO_WORK_AROUND_ASIO_IO_SERVICE_POST_NO_MOVE_ONLY_SUPPORT
-        // Somewhat annoyingly, io_service.post() needs its parameter to be copy constructible,
-        // and packaged_task is only move constructible, so ...
-        auto task=copyable_packaged_task<R()>(std::move(f));
-        auto ret=task->get_future();
-        service.post(std::move(task));
+        enqueued_task<R()> out(std::move(f));
+        auto ret(out.get_future());
+        service.post(out);
         return std::move(ret);
-#else
-        auto task=packaged_task<R()>(std::move(f));
-        auto ret=task.get_future();
-        service.post(std::move(task));
-        return std::move(ret);
-#endif
     }
 };
 
@@ -385,9 +474,8 @@ BOOST_SCOPED_ENUM_UT_DECLARE_BEGIN(async_op_flags, size_t)
 enum class async_op_flags : size_t
 #endif
 {
-    None=0,                 //!< No flags set
-    DetachedFuture=1,       //!< The specified completion routine may choose to not complete immediately
-    ImmediateCompletion=2   //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
+    none=0,                 //!< No flags set
+    immediate=1             //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_SCOPED_ENUM_DECLARE_END(async_op_flags)
@@ -427,7 +515,7 @@ enum class metadata_flags : size_t
     dev=1<<0,
     ino=1<<1,
     type=1<<2,
-    mode=1<<3,
+    perms=1<<3,
     nlink=1<<4,
     uid=1<<5,
     gid=1<<6,
@@ -456,21 +544,36 @@ BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 
 This structure looks somewhat like a `struct stat`, and indeed it was derived from BSD's `struct stat`.
 However there are a number of changes to better interoperate with modern practice, specifically:
-(i) inode value containers are forced to 64 bits
+(i) inode value containers are forced to 64 bits.
 (ii) Timestamps use C++11's `std::chrono::system_clock::time_point` or Boost equivalent. The resolution
-of these may or may not equal what a `struct timespec` can do depending on your STL
-(iii) The type of a file, which is available on Windows and on POSIX without needing a `lstat()`, is provided by `st_type`.
+of these may or may not equal what a `struct timespec` can do depending on your STL.
+(iii) The type of a file, which is available on Windows and on POSIX without needing an additional
+syscall, is provided by `st_type` which is one of the values from `std::filesystem::file_type`.
+(iv) As type is now separate from permissions, there is no longer a `st_mode`, instead being a
+`st_perms` which is solely the permissions bits. If you want to test permission bits in `st_perms`
+but don't want to include platform specific headers, note that `std::filesystem::perms` contains
+definitions of the POSIX permissions flags.
 */
 struct stat_t
 {
-    uint64_t        st_dev;                       /*!< inode of device containing file (POSIX) */
+#ifndef WIN32
+    uint64_t        st_dev;                       /*!< inode of device containing file (POSIX only) */
+#endif
     uint64_t        st_ino;                       /*!< inode of file                   (Windows, POSIX) */
-    uint16_t        st_type;                      /*!< type of file                    (Windows, POSIX) */
-    uint16_t        st_mode;                      /*!< type and perms of file          (POSIX) */
+    std::filesystem::file_type st_type;           /*!< type of file                    (Windows, POSIX) */
+#ifndef WIN32
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+    uint16_t        st_perms;
+#else
+    std::filesystem::perms st_perms;              /*!< bitfield perms of file          (POSIX only) */
+#endif
+#endif
     int16_t         st_nlink;                     /*!< number of hard links            (Windows, POSIX) */
-    int16_t         st_uid;                       /*!< user ID of the file             (POSIX) */
-    int16_t         st_gid;                       /*!< group ID of the file            (POSIX) */
-    dev_t           st_rdev;                      /*!< id of file if special           (POSIX) */
+#ifndef WIN32
+    int16_t         st_uid;                       /*!< user ID of the file             (POSIX only) */
+    int16_t         st_gid;                       /*!< group ID of the file            (POSIX only) */
+    dev_t           st_rdev;                      /*!< id of file if special           (POSIX only) */
+#endif
     chrono::system_clock::time_point st_atim;     /*!< time of last access             (Windows, POSIX) */
     chrono::system_clock::time_point st_mtim;     /*!< time of last data modification  (Windows, POSIX) */
     chrono::system_clock::time_point st_ctim;     /*!< time of last status change      (Windows, POSIX) */
@@ -478,15 +581,27 @@ struct stat_t
     off_t           st_allocated;                 /*!< bytes allocated for file        (Windows, POSIX) */
     off_t           st_blocks;                    /*!< number of blocks allocated      (Windows, POSIX) */
     uint16_t        st_blksize;                   /*!< block size used by this device  (Windows, POSIX) */
-    uint32_t        st_flags;                     /*!< user defined flags for file     (FreeBSD, OS X) */
-    uint32_t        st_gen;                       /*!< file generation number          (FreeBSD, OS X)*/
-    chrono::system_clock::time_point st_birthtim; /*!< time of file creation           (Windows, FreeBSD, OS X) */
+    uint32_t        st_flags;                     /*!< user defined flags for file     (FreeBSD, OS X, zero otherwise) */
+    uint32_t        st_gen;                       /*!< file generation number          (FreeBSD, OS X, zero otherwise)*/
+    chrono::system_clock::time_point st_birthtim; /*!< time of file creation           (Windows, FreeBSD, OS X, zero otherwise) */
 
     //! Constructs a UNINITIALIZED instance i.e. full of random garbage
     stat_t() { }
     //! Constructs a zeroed instance
-    stat_t(std::nullptr_t) : st_dev(0), st_ino(0), st_type(0), st_mode(0), st_nlink(0), st_uid(0), st_gid(0), st_rdev(0),
-    st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0) { }
+    stat_t(std::nullptr_t) :
+#ifndef WIN32
+        st_dev(0),
+#endif
+        st_ino(0),
+        st_type(std::filesystem::file_type::type_unknown),
+#ifndef WIN32
+        st_perms(0),
+#endif
+        st_nlink(0),
+#ifndef WIN32
+        st_uid(0), st_gid(0), st_rdev(0),
+#endif
+        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0) { }
 };
 
 /*! \brief The abstract base class for an entry in a directory with lazily filled metadata.
@@ -564,22 +679,28 @@ decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh) 
 #define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
 decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh=std::shared_ptr<async_io_handle>()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #endif
+#ifndef WIN32
     //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(dev)
+#endif
     //! Returns st_ino \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ino)
     //! Returns st_type \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(type)
-    //! Returns st_mode \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
-    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(mode)
+#ifndef WIN32
+    //! Returns st_perms \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(perms)
+#endif
     //! Returns st_nlink \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(nlink)
+#ifndef WIN32
     //! Returns st_uid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(uid)
     //! Returns st_gid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gid)
     //! Returns st_rdev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(rdev)
+#endif
     //! Returns st_atim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(atim)
     //! Returns st_mtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using when_all(dirop).get().front().
@@ -784,9 +905,11 @@ public:
     typedef std::pair<bool, std::shared_ptr<async_io_handle>> completion_returntype;
     //! The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
     typedef completion_returntype completion_t(size_t, std::shared_ptr<async_io_handle>, exception_ptr *);
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
 #if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) || BOOST_AFIO_HEADERS_ONLY==0 // Only really used for benchmarking
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> &callbacks);
     inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback);
+#endif
 #endif
     /*! \brief Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete.
     \return A batch of op handles
@@ -813,7 +936,7 @@ public:
 
     /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
     
-    This is effectively a convenience wrapper for `completion()`. It creates a packaged_task matching the `completion_t`
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit.
     
     \return A pair with a batch of futures returning the result of each of the callables and a batch of op handles.
@@ -829,7 +952,7 @@ public:
     template<class R> inline std::pair<std::vector<future<R>>, std::vector<async_io_op>> call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables);
     /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
 
-    This is effectively a convenience wrapper for `completion()`. It creates a packaged_task matching the `completion_t`
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
     are seeing performance issues, using `completion()` directly will have much less overhead.
     
@@ -845,7 +968,7 @@ public:
     template<class R> std::pair<std::vector<future<R>>, std::vector<async_io_op>> call(const std::vector<std::function<R()>> &callables) { return call(std::vector<async_io_op>(), callables); }
     /*! \brief Schedule an asynchronous invocation of the specified bound function when its supplied precondition completes.
 
-    This is effectively a convenience wrapper for `completion()`. It creates a packaged_task matching the `completion_t`
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
     are seeing performance issues, using `completion()` directly will have much less overhead.
     
@@ -870,7 +993,7 @@ public:
     Note that this function essentially calls `std::bind()` on the callable and the args and passes it to the other call() overload taking a `std::function<>`.
     You should therefore use `std::ref()` etc. as appropriate.
 
-    This is effectively a convenience wrapper for `completion()`. It creates a packaged_task matching the `completion_t`
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
     are seeing performance issues, using `completion()` directly will have much less overhead.
     
@@ -1500,7 +1623,7 @@ namespace detail
                 size_t idx=0;
                 BOOST_FOREACH(auto &i, inputs)
                 {
-                    callbacks.push_back(std::make_pair(async_op_flags::ImmediateCompletion/*safe if nothrow*/, std::bind(&detail::when_all_count_completed_nothrow, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, state, idx++)));
+                    callbacks.push_back(std::make_pair(async_op_flags::immediate/*safe if nothrow*/, std::bind(&detail::when_all_count_completed_nothrow, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, state, idx++)));
                 }
                 inputs.front().parent->completion(inputs, callbacks);
                 return state->done.get_future();
@@ -1546,7 +1669,7 @@ namespace detail
                 size_t idx=0;
                 BOOST_FOREACH(auto &i, inputs)
                 {
-                    callbacks.push_back(std::make_pair(async_op_flags::None/*can't be immediate as may try to retrieve exception state of own precondition*/, std::bind(&detail::when_all_count_completed, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, state, idx++)));
+                    callbacks.push_back(std::make_pair(async_op_flags::none/*can't be immediate as may try to retrieve exception state of own precondition*/, std::bind(&detail::when_all_count_completed, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, state, idx++)));
                 }
                 inputs.front().parent->completion(inputs, callbacks);
                 return state->done.get_future();
@@ -2416,7 +2539,7 @@ namespace detail {
 }
 template<class R> inline std::pair<std::vector<future<R>>, std::vector<async_io_op>> async_file_io_dispatcher_base::call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables)
 {
-    typedef packaged_task<R()> tasktype;
+    typedef enqueued_task<R()> tasktype;
     std::vector<future<R>> retfutures;
     std::vector<std::pair<async_op_flags, std::function<completion_t>>> callbacks;
     retfutures.reserve(callables.size());
@@ -2426,7 +2549,7 @@ template<class R> inline std::pair<std::vector<future<R>>, std::vector<async_io_
     {
         std::shared_ptr<tasktype> c(std::make_shared<tasktype>(std::function<R()>(t)));
         retfutures.push_back(c->get_future());
-        callbacks.push_back(std::make_pair(async_op_flags::None, std::bind(&detail::doCall<tasktype>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::move(c))));
+        callbacks.push_back(std::make_pair(async_op_flags::none, std::bind(&detail::doCall<tasktype>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::move(c))));
     }
     return std::make_pair(std::move(retfutures), completion(ops, callbacks));
 }

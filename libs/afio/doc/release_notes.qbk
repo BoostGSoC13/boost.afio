@@ -12,6 +12,8 @@
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
+* Replace all shared_ptr<async_io_handle> in completion_t with async_io_op.
+
 * Async fast batch hash engine which provides transparent hashing of all async
 reads and writes (in progress).
   * New completion handler metaprogramming letting you bind add hash to each
@@ -58,6 +60,17 @@ single arg to the op convenience classes works as intended.
 Significantly optimised build system and added in precompiled headers support.
 Combined with --fast-build this provides an 8x build time improvement.
 
+boost::afio::stat_t::st_type() is now a boost::filesystem::file_type instead
+of replicating the POSIX file type codes. Thanks to Bjorn Reese for suggesting
+this.
+
+boost::afio::stat_t::st_mode() is now st_perms(). Also disabled unused fields in
+stat_t on Windows. Thanks to Bjorn Reese for suggesting this.
+
+Replaced all use of packaged_task with enqueued_task, a custom implementation
+which enables many performance improvements throughout the engine and makes
+possible replacing shared_ptr<async_io_handle> in completion handlers with
+async_io_op.
 
 [/=================]
 [heading Boost 1.55 AFIO v1.1]

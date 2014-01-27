@@ -536,7 +536,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                             manywrittenfiles[n]=dispatcher->write(op.req);
                     }
                     else
-                        manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<boost::afio::async_op_flags, std::function<boost::afio::async_file_io_dispatcher_base::completion_t>>(boost::afio::async_op_flags::None, std::bind(checkHash, ref(op), towriteptrs[n], placeholders::_1, placeholders::_2)));
+                        manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<boost::afio::async_op_flags, std::function<boost::afio::async_file_io_dispatcher_base::completion_t>>(boost::afio::async_op_flags::none, std::bind(checkHash, ref(op), towriteptrs[n], placeholders::_1, placeholders::_2)));
             }
             // After replay, read the entire file into memory
             manywrittenfiles[n]=dispatcher->read(boost::afio::async_data_op_req<char>(manywrittenfiles[n], towriteptrs[n], towritesizes[n], 0));
@@ -692,27 +692,42 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     using namespace boost::afio;
     auto entry=h->lstat(metadata_flags::All);
     std::cout << "Entry " << h->path() << " is a ";
-    if(S_IFLNK==(entry.st_type & S_IFLNK))
+    switch(entry.st_type)
+    {
+    case std::filesystem::file_type::symlink_file:
         std::cout << "link";
-    else if(S_IFDIR==(entry.st_type & S_IFDIR))
+        break;
+    case std::filesystem::file_type::directory_file:
         std::cout << "directory";
-    else
+        break;
+    case std::filesystem::file_type::regular_file:
         std::cout << "file";
+        break;
+    default:
+        std::cout << "unknown";
+        break;
+    }
     std::cout << " and it has the following information:" << std::endl;
-    if(S_IFLNK==(entry.st_type & S_IFLNK))
+    if(std::filesystem::file_type::symlink_file==entry.st_type)
     {
         std::cout << "  Target=" << h->target() << std::endl;
     }
 #define PRINT_FIELD(field) \
     std::cout << "  st_" #field ": "; if(!!(directory_entry::metadata_supported()&metadata_flags::field)) std::cout << entry.st_##field; else std::cout << "unknown"; std::cout << std::endl
+#ifndef WIN32
     PRINT_FIELD(dev);
+#endif
     PRINT_FIELD(ino);
     PRINT_FIELD(type);
-    PRINT_FIELD(mode);
+#ifndef WIN32
+    PRINT_FIELD(perms);
+#endif
     PRINT_FIELD(nlink);
+#ifndef WIN32
     PRINT_FIELD(uid);
     PRINT_FIELD(gid);
     PRINT_FIELD(rdev);
+#endif
     PRINT_FIELD(atim);
     PRINT_FIELD(mtim);
     PRINT_FIELD(ctim);
@@ -732,24 +747,39 @@ static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost
     using namespace boost::afio;
     std::cout << "Entry " << direntry.name() << " is a ";
     auto entry=direntry.fetch_lstat(dirh);
-    if(S_IFLNK==(entry.st_type & S_IFLNK))
+    switch(entry.st_type)
+    {
+    case std::filesystem::file_type::symlink_file:
         std::cout << "link";
-    else if(S_IFDIR==(entry.st_type & S_IFDIR))
+        break;
+    case std::filesystem::file_type::directory_file:
         std::cout << "directory";
-    else
+        break;
+    case std::filesystem::file_type::regular_file:
         std::cout << "file";
+        break;
+    default:
+        std::cout << "unknown";
+        break;
+    }
     std::cout << " and it has the following information:" << std::endl;
 
 #define PRINT_FIELD(field) \
     std::cout << "  st_" #field ": "; if(!!(direntry.metadata_ready()&metadata_flags::field)) std::cout << entry.st_##field; else std::cout << "unknown"; std::cout << std::endl
+#ifndef WIN32
     PRINT_FIELD(dev);
+#endif
     PRINT_FIELD(ino);
     PRINT_FIELD(type);
-    PRINT_FIELD(mode);
+#ifndef WIN32
+    PRINT_FIELD(perms);
+#endif
     PRINT_FIELD(nlink);
+#ifndef WIN32
     PRINT_FIELD(uid);
     PRINT_FIELD(gid);
     PRINT_FIELD(rdev);
+#endif
     PRINT_FIELD(atim);
     PRINT_FIELD(mtim);
     PRINT_FIELD(ctim);
