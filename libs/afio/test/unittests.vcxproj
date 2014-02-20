@@ -62,7 +62,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeOutput>unittests.exe</NMakeOutput>
     <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-    <NMakeBuildCommandLine>..\..\..\b2 --fast-build --running-in-ci --link-test link=static</NMakeBuildCommandLine>
+    <NMakeBuildCommandLine>..\..\..\b2 --fast-build --running-in-ci --link-test link=static --test=tests/monadic_continuations_test.cpp</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>..\..\..\b2 -a</NMakeReBuildCommandLine>
     <IncludePath>C:\Users\Project Kyo\Documents\GitHub\boost;$(IncludePath)</IncludePath>
   </PropertyGroup>
@@ -91,12 +91,64 @@
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\build\afio.vcxproj">
       <Project>{31a5e53d-7416-4e1d-891a-1c69ef8553bd}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="examples\adopt_example.cpp" />
+    <ClCompile Include="examples\barrier_example.cpp" />
+    <ClCompile Include="examples\benchmark_asio.cpp" />
+    <ClCompile Include="examples\benchmark_chained1.cpp" />
+    <ClCompile Include="examples\benchmark_chained2.cpp" />
+    <ClCompile Include="examples\benchmark_unchained1.cpp" />
+    <ClCompile Include="examples\benchmark_unchained2.cpp" />
+    <ClCompile Include="examples\call_example.cpp" />
+    <ClCompile Include="examples\closure_execution_afio_io_example.cpp" />
+    <ClCompile Include="examples\closure_execution_traditional_io_example.cpp" />
+    <ClCompile Include="examples\completion_example1.cpp" />
+    <ClCompile Include="examples\completion_example2.cpp" />
+    <ClCompile Include="examples\current_exception_hack.cpp" />
+    <ClCompile Include="examples\enumerate_example.cpp" />
+    <ClCompile Include="examples\filecopy_example.cpp" />
+    <ClCompile Include="examples\filedir_example.cpp" />
+    <ClCompile Include="examples\find_in_files_afio.cpp" />
+    <ClCompile Include="examples\find_in_files_iostreams.cpp" />
+    <ClCompile Include="examples\readallof_example.cpp" />
+    <ClCompile Include="examples\readwrite_example.cpp" />
+    <ClCompile Include="examples\readwrite_example_traditional.cpp" />
+    <ClCompile Include="tests\async_data_op_req_compilation.cpp" />
+    <ClCompile Include="tests\async_io_adopt_test.cpp" />
+    <ClCompile Include="tests\async_io_barrier_test.cpp" />
+    <ClCompile Include="tests\async_io_enumerate_works.cpp" />
+    <ClCompile Include="tests\async_io_errors_test.cpp" />
+    <ClCompile Include="tests\async_io_lstat_works.cpp" />
+    <ClCompile Include="tests\async_io_pagesize.cpp" />
+    <ClCompile Include="tests\async_io_sync_test.cpp" />
+    <ClCompile Include="tests\async_io_threadpool_test.cpp" />
+    <ClCompile Include="tests\async_io_torture_autoflush_test.cpp" />
+    <ClCompile Include="tests\async_io_torture_direct_sync_test.cpp" />
+    <ClCompile Include="tests\async_io_torture_direct_test.cpp" />
+    <ClCompile Include="tests\async_io_torture_sync_test.cpp" />
+    <ClCompile Include="tests\async_io_torture_test.cpp" />
+    <ClCompile Include="tests\async_io_works_1_autoflush_test.cpp" />
+    <ClCompile Include="tests\async_io_works_1_prime_test.cpp" />
+    <ClCompile Include="tests\async_io_works_1_sync_test.cpp" />
+    <ClCompile Include="tests\async_io_works_1_test.cpp" />
+    <ClCompile Include="tests\async_io_works_64_autoflush_test.cpp" />
+    <ClCompile Include="tests\async_io_works_64_directsync_test.cpp" />
+    <ClCompile Include="tests\async_io_works_64_direct_test.cpp" />
+    <ClCompile Include="tests\async_io_works_64_sync_test.cpp" />
+    <ClCompile Include="tests\async_io_works_64_test.cpp" />
+    <ClCompile Include="tests\op_container_deduced_compilation.cpp" />
+    <ClCompile Include="test_all.cpp" />
+    <ClCompile Include="test_inline_linkage1.cpp" />
+    <ClCompile Include="test_inline_linkage2.cpp" />
+    <ClCompile Include="test_inline_linkage_master.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="afio_pch.hpp" />
+    <ClInclude Include="test_functions.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
