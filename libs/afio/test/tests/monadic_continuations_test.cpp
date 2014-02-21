@@ -73,7 +73,7 @@ namespace continuations
 		template<class... Args> thenable(Args &&... args) : T(std::forward<Args>(args)...) { }
 #endif
 		// Continues calling f from value
-		template<class F> thenable<typename detail::return_type<F>::type> then(F &&f)
+		template<class F> typename std::result_of<thenable_impl<typename detail::return_type<F>::type, T, F>(T&, F&&)>::type then(F &&f)
 		{
 			return thenable_impl<typename detail::return_type<F>::type, T, F>()(*this, std::forward<F>(f));
 		}
@@ -84,15 +84,71 @@ namespace continuations
 		return thenable<T>(std::forward<T>(v));
 	}
 
+	// Overload tag type to invoke the right kind of close() overload etc
+	static async_io_op h;
+	template<class return_type> struct async_io_op_tag
+	{
+		std::function<return_type(async_file_io_dispatcher_base *, async_io_op)> f;
+		async_io_op_tag(std::function<return_type(async_file_io_dispatcher_base *, async_io_op)> _f) : f(std::move(_f)) { }
+		return_type operator()() { } // Purely for return type deduction
+	};
+	// Implements .then(async_io_op_tag) for the tagged dispatch
+	template<class return_type> struct thenable_impl<return_type, async_io_op, async_io_op_tag<return_type>>
+	{
+		thenable<return_type> operator()(async_io_op &prev, async_io_op_tag<return_type> &&f)
+		{
+			return f.f(/*this*/prev.parent, /*h*/prev);
+		}
+	};
+	inline async_io_op_tag<async_io_op> completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback)
+	{
+		using std::placeholders::_1;
+		using std::placeholders::_2;
+		return async_io_op_tag<async_io_op>(std::bind(
+			(async_io_op (async_file_io_dispatcher_base::*)(
+				const async_io_op &,
+				const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &))
+			&async_file_io_dispatcher_base::completion,
+			/*this*/_1, /*h*/_2,
+			callback));
+	}
+#if 0
+		Unknown,
+		UserCompletion,
+		dir,
+		rmdir,
+		file,
+		rmfile,
+		symlink,
+		rmsymlink,
+		sync,
+		close,
+		read,
+		write,
+		truncate,
+		barrier,
+		enumerate,
+		adopt,
+#endif
 
-	// Implements .then(async_io_op())
+	// Implements async_io_op.then(callable(async_io_op, completion_t)) for lambdas etc
+	template<class _> struct thenable_impl<async_file_io_dispatcher_base::completion_returntype, async_io_op, /*catch lambdas*/_>
+	{
+		thenable<async_io_op> operator()(async_io_op &prev, async_file_io_dispatcher_base::completion_t f)
+		{
+			return prev.parent->completion(prev, std::make_pair(async_op_flags::none, std::function<async_file_io_dispatcher_base::completion_t>(std::move(f))));
+		}
+	};
+#if 0
+	// Implements async_io_op.then(callable()) for lambdas etc
 	template<class return_type, class callable> struct thenable_impl<return_type, async_io_op, callable>
 	{
 		thenable<return_type> operator()(async_io_op &prev, callable &&f)
 		{
-			return prev.parent->completion(prev, std::make_pair(async_op_flags::none, std::function<async_file_io_dispatcher_base::completion_t>(std::forward<callable>(f))));
+			return prev.parent->call(prev, std::forward<callable>(f));
 		}
 	};
+#endif
 }
 
 BOOST_AFIO_AUTO_TEST_CASE(monadic_continuations_test, "Tests that the monadic continuations framework works as expected", 10)
@@ -103,8 +159,16 @@ BOOST_AFIO_AUTO_TEST_CASE(monadic_continuations_test, "Tests that the monadic co
 	{
 		using namespace continuations;
 		auto openedfile(make_thenable(dispatcher->file(async_path_op_req("example_file.txt", file_flags::ReadWrite))));
-		auto _dis(openedfile.parent);
+		auto _dis(openedfile.parent); // test decay to underlying type
+		// Test with lambda with completion spec
 		openedfile.then([](size_t id, async_io_op op) -> std::pair<bool, std::shared_ptr<async_io_handle>> { return std::make_pair(true, op.get()); });
+		// Test with tagged function
+		openedfile.then(completion(h, std::make_pair(
+			async_op_flags::none,
+			std::function<async_file_io_dispatcher_base::completion_t>(
+				[](size_t id, async_io_op op) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
+					return std::make_pair(true, op.get());
+				}))));
 	}
 	catch(...)
 	{
