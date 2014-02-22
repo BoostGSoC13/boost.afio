@@ -2210,6 +2210,38 @@ template<> struct async_data_op_req<const void> : public detail::async_data_op_r
     //! \async_data_op_req2
     async_data_op_req(async_io_op _precondition, std::vector<boost::asio::const_buffer> _buffers, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), _buffers, _where) {}
 };
+//! \brief A convenience bundle of precondition, data and where for writing from a `const char *`. Length is calculated using `strlen()`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
+template<> struct async_data_op_req<const char> : public detail::async_data_op_req_impl<true>
+{
+#ifdef DOXYGEN_SHOULD_SKIP_THIS
+	//! A precondition containing an open file handle for this operation
+	async_io_op precondition;
+	//! A sequence of const Boost.ASIO buffers to write from
+	std::vector<boost::asio::const_buffer> buffers;
+	//! The offset at which to write
+	off_t where;
+#endif
+	//! \constr
+	async_data_op_req() : detail::async_data_op_req_impl<true>() {}
+	//! \cconstr
+	async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) {}
+	//! \mconstr
+	async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) {}
+	//! \cconstr
+	async_data_op_req(const async_data_op_req<void> &o) : detail::async_data_op_req_impl<true>(o) {}
+	//! \mconstr
+	async_data_op_req(async_data_op_req<void> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) {}
+	//! \async_data_op_req1
+	async_data_op_req(async_io_op _precondition, const char *v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), v, strlen(v), _where) {}
+	//! \async_data_op_req1 \param _length The number of bytes to transfer
+	async_data_op_req(async_io_op _precondition, const char *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), v, _length, _where) {}
+	//! \async_data_op_req2
+	async_data_op_req(async_io_op _precondition, std::vector<boost::asio::const_buffer> _buffers, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), _buffers, _where) {}
+#ifndef BOOST_NO_CXX11_HDR_INITIALIZER_LIST
+	//! \async_data_op_req4
+	async_data_op_req(async_io_op _precondition, std::initializer_list<const char *> _buffers, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), std::vector<boost::asio::const_buffer>(), _where) { buffers.reserve(_buffers.size());  BOOST_FOREACH(auto &i, _buffers) { buffers.push_back(boost::asio::const_buffer(i, strlen(i))); } }
+#endif
+};
 //! \brief A convenience bundle of precondition, data and where for reading into a `std::vector<T, A>`. Data \b MUST stay around until the operation completes. \tparam "class T" Any type \tparam "class A" Any STL allocator \ingroup async_data_op_req
 template<class T, class A> struct async_data_op_req<std::vector<T, A>> : public detail::async_data_op_req_impl<false>
 {
@@ -2441,6 +2473,10 @@ template<class C, class T, class A> struct async_data_op_req<std::basic_string<C
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1
     async_data_op_req(async_io_op _precondition, std::basic_string<C, T, A> &v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), static_cast<void *>(&v.front()), v.size()*sizeof(A), _where) { }
+#ifndef BOOST_NO_CXX11_HDR_INITIALIZER_LIST
+	//! \async_data_op_req4
+	async_data_op_req(async_io_op _precondition, std::initializer_list<std::basic_string<C, T, A>> _buffers, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::vector<boost::asio::mutable_buffer>(), _where) { buffers.reserve(_buffers.size());  BOOST_FOREACH(auto &i, _buffers) { buffers.push_back(boost::asio::mutable_buffer(&i.front(), i.size()*sizeof(A))); } }
+#endif
 };
 //! \brief A convenience bundle of precondition, data and where for writing from a `const std::basic_string<C, T, A>`. Data \b MUST stay around until the operation completes.  \tparam "class C" Any character type \tparam "class T" Character traits type \tparam "class A" Any STL allocator \ingroup async_data_op_req
 template<class C, class T, class A> struct async_data_op_req<const std::basic_string<C, T, A>> : public detail::async_data_op_req_impl<true>
@@ -2469,6 +2505,10 @@ template<class C, class T, class A> struct async_data_op_req<const std::basic_st
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1
     async_data_op_req(async_io_op _precondition, const std::basic_string<C, T, A> &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), static_cast<const void *>(&v.front()), v.size()*sizeof(A), _where) { }
+#ifndef BOOST_NO_CXX11_HDR_INITIALIZER_LIST
+	//! \async_data_op_req4
+	async_data_op_req(async_io_op _precondition, std::initializer_list<std::basic_string<C, T, A>> _buffers, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), std::vector<boost::asio::const_buffer>(), _where) { buffers.reserve(_buffers.size());  BOOST_FOREACH(auto &i, _buffers) { buffers.push_back(boost::asio::const_buffer(&i.front(), i.size()*sizeof(A))); } }
+#endif
 };
 //! \brief A convenience bundle of precondition, data and where for reading into a `boost::asio::mutable_buffer`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
 template<> struct async_data_op_req<boost::asio::mutable_buffer> : public detail::async_data_op_req_impl<false>
@@ -2523,6 +2563,33 @@ template<> struct async_data_op_req<boost::asio::const_buffer> : public detail::
     template<class T> async_data_op_req(async_io_op _precondition, T v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), std::move(v), _where) { }
 };
 
+namespace detail
+{
+	template<class T> struct make_async_data_op_req_impl
+	{
+		typedef typename std::remove_pointer<typename std::decay<T>::type>::type _T;
+		typedef async_data_op_req<_T> return_type;
+		return_type operator()(async_io_op _precondition, T &v, off_t _where)
+		{
+			return async_data_op_req<_T>(_precondition, std::forward<T>(v), _where);
+		}
+		return_type operator()(async_io_op _precondition, T &v, size_t _length, off_t _where)
+		{
+			return async_data_op_req<_T>(_precondition, std::forward<T>(v), _length, _where);
+		}
+	};
+#ifndef BOOST_NO_CXX11_HDR_INITIALIZER_LIST
+	template<class T> struct make_async_data_op_req_impl<std::initializer_list<T>>
+	{
+		typedef typename std::remove_pointer<typename std::decay<T>::type>::type _T;
+		typedef async_data_op_req<_T> return_type;
+		return_type operator()(async_io_op _precondition, std::initializer_list<T> &v, off_t _where)
+		{
+			return async_data_op_req<_T>(_precondition, std::forward<std::initializer_list<T>>(v), _where);
+		}
+	};
+#endif
+}
 /*! \brief Convenience instantiator of a async_data_op_req, letting the compiler deduce the template specialisation to use.
 
 \return An async_data_op_req matching the supplied parameter type.
@@ -2534,10 +2601,9 @@ template<> struct async_data_op_req<boost::asio::const_buffer> : public detail::
 [readwrite_example]
 }
 */
-template<class T> inline async_data_op_req<typename std::remove_pointer<typename std::decay<T>::type>::type> make_async_data_op_req(async_io_op _precondition, T &&v, off_t _where)
+template<class T> inline typename detail::make_async_data_op_req_impl<T>::return_type make_async_data_op_req(async_io_op _precondition, T &v, off_t _where)
 {
-    typedef typename std::remove_pointer<typename std::decay<T>::type>::type _T;
-    return async_data_op_req<_T>(_precondition, v, _where);
+	return detail::make_async_data_op_req_impl<T>()(_precondition, std::forward<T>(v), _where);
 }
 /*! \brief Convenience instantiator of a async_data_op_req, letting the compiler deduce the template specialisation to use.
 
@@ -2551,10 +2617,9 @@ template<class T> inline async_data_op_req<typename std::remove_pointer<typename
 [readwrite_example]
 }
 */
-template<class T> inline async_data_op_req<typename std::remove_pointer<typename std::decay<T>::type>::type> make_async_data_op_req(async_io_op _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline typename detail::make_async_data_op_req_impl<T>::return_type make_async_data_op_req(async_io_op _precondition, T &v, size_t _length, off_t _where)
 {
-    typedef typename std::remove_pointer<typename std::decay<T>::type>::type _T;
-    return async_data_op_req<_T>(_precondition, v, _length, _where);
+	return detail::make_async_data_op_req_impl<T>()(_precondition, std::forward<T>(v), _length, _where);
 }
 
 

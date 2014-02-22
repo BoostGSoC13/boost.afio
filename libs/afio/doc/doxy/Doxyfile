@@ -59,6 +59,10 @@ ALIASES                = qbk{1}="\xmlonly <qbk>\1</qbk> \endxmlonly" \
 	\param _precondition An optional precondition for this operation \
 	\param _buffer A mutable/const Boost.ASIO buffer to read into/write from \
 	\param _where The offset at which to transfer" \
+            async_data_op_req4="\brief Constructs an instance. \
+	\param _precondition An optional precondition for this operation \
+	\param _buffer An initialiser list sequence from which mutable/const Boost.ASIO buffers to read into/write from can be constructed \
+	\param _where The offset at which to transfer" \
             qexample{1}="\xmlonly <qbk>[heading Example][\1]</qbk> \endxmlonly"
 
 OPTIMIZE_OUTPUT_FOR_C  = NO
