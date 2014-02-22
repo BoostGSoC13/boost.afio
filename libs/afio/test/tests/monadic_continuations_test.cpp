@@ -4,6 +4,7 @@ using namespace boost::afio;
 
 namespace continuations
 {
+	using boost::afio::off_t;
 	namespace detail
 	{
 		// Implement C++14 get<type>(tuple)
@@ -85,7 +86,8 @@ namespace continuations
 	}
 
 	// Overload tag type to invoke the right kind of close() overload etc
-	static async_io_op h;
+	struct async_io_op_tag_invoker {};
+	static async_io_op_tag_invoker async_io_op_invoker;
 	template<class return_type> struct async_io_op_tag
 	{
 		std::function<return_type(async_file_io_dispatcher_base *, async_io_op)> f;
@@ -100,7 +102,7 @@ namespace continuations
 			return f.f(/*this*/prev.parent, /*h*/prev);
 		}
 	};
-	inline async_io_op_tag<async_io_op> completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback)
+	inline async_io_op_tag<async_io_op> completion(const async_io_op_tag_invoker &, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback)
 	{
 		using std::placeholders::_1;
 		using std::placeholders::_2;
@@ -111,6 +113,29 @@ namespace continuations
 			&async_file_io_dispatcher_base::completion,
 			/*this*/_1, /*h*/_2,
 			callback));
+	}
+	inline async_io_op_tag<async_io_op> truncate(const async_io_op_tag_invoker &, off_t newsize)
+	{
+		using std::placeholders::_1;
+		using std::placeholders::_2;
+		return async_io_op_tag<async_io_op>(std::bind(
+			(async_io_op (async_file_io_dispatcher_base::*)(
+			const async_io_op &,
+			off_t))
+			&async_file_io_dispatcher_base::truncate,
+			/*this*/_1, /*h*/_2,
+			newsize));
+	}
+	template<class T> inline async_io_op_tag<async_io_op> write(const async_io_op_tag_invoker &, std::initializer_list<T> buffers, off_t where)
+	{
+		using std::placeholders::_1;
+		using std::placeholders::_2;
+		return async_io_op_tag<async_io_op>(std::bind([](async_file_io_dispatcher_base *d, async_io_op h, std::initializer_list<T> buffers, off_t where)
+			{
+				return d->write(make_async_data_op_req(h, buffers, where));
+			},
+			/*this*/_1, /*h*/_2,
+			buffers, where));
 	}
 #if 0
 		Unknown,
@@ -157,18 +182,27 @@ BOOST_AFIO_AUTO_TEST_CASE(monadic_continuations_test, "Tests that the monadic co
 
 	try
 	{
-		using namespace continuations;
-		auto openedfile(make_thenable(dispatcher->file(async_path_op_req("example_file.txt", file_flags::ReadWrite))));
-		auto _dis(openedfile.parent); // test decay to underlying type
-		// Test with lambda with completion spec
+		// Bring in the ADL tagged function invoker type
+		auto &h=continuations::async_io_op_invoker;
+		// In the future, all dispatcher APIs will return thenable<> anyway
+		// but for now monkey patch continuations support in
+		auto openedfile(continuations::make_thenable(dispatcher->file(async_path_op_req("example_file.txt", file_flags::ReadWrite))));
+
+		// Test decay to underlying type
+		auto _dis(openedfile.parent);
+		// Test lambda with completion spec invokes completion() not call()
 		openedfile.then([](size_t id, async_io_op op) -> std::pair<bool, std::shared_ptr<async_io_handle>> { return std::make_pair(true, op.get()); });
-		// Test with tagged function
+		// Test tagged function found via ADL
 		openedfile.then(completion(h, std::make_pair(
 			async_op_flags::none,
 			std::function<async_file_io_dispatcher_base::completion_t>(
 				[](size_t id, async_io_op op) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
 					return std::make_pair(true, op.get());
 				}))));
+		// Test two tagged functions output two output states
+		auto output=openedfile
+			.then(truncate(h, 12))
+			.then(continuations::write(h, { "He", "ll", "o ", "Wo", "rl", "d\n" }, 0));
 	}
 	catch(...)
 	{
