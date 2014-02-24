@@ -53,36 +53,52 @@ namespace continuations
 		{
 			typedef typename boost::function_types::result_type<decltype(&F::operator())>::type type;
 		};
+
+		// Append a type to a tuple
+		template<class... Types, class T> std::tuple<Types..., T> tuple_append(std::tuple<Types...> t, T v)
+		{
+			return std::tuple_cat(std::move(t), std::make_tuple(std::move(v)));
+		}
 	}
-	template<class T> struct thenable;
+	template<class T, class... Types> struct thenable;
 	// Implements .then()
-	template<class return_type, class continuation_type, class callable> struct thenable_impl
+	template<class return_type, class thenables, class callable> struct thenable_impl
 	{
 		// Implements .then()
-		thenable<return_type> operator()(continuation_type &prev, callable &&f)
+		thenable<return_type> operator()(thenables &prev, callable &&f)
 		{
 			static_assert(!std::is_same<callable, callable>::value, "thenable<T> not enabled for type T")
 		}
 	};
+	template<class T, class... Types> std::tuple<Types..., T> make_tuple(thenable<T, Types...> v);
 	// Wrapper for a type providing a continuation .then()
-	template<class T> struct thenable : public T
+	template<class T, class... Types> struct thenable : public T
 	{
+		template<class T, class... Types> friend std::tuple<Types..., T> make_tuple(thenable<T, Types...> v);
+		typedef T value_type;
+		typedef std::tuple<Types...> prev_thens_type;
+	private:
+		prev_thens_type prev_thens;
+	public:
 		// Perfect forwarding constructor
-#ifndef _MSC_VER
-		using T::T;
-#else
-		template<class... Args> thenable(Args &&... args) : T(std::forward<Args>(args)...) { }
-#endif
+		template<class... Args> thenable(prev_thens_type &&_prev_thens, Args &&... args) : T(std::forward<Args>(args)...), prev_thens(std::move(_prev_thens)) { }
 		// Continues calling f from value
-		template<class F> typename std::result_of<thenable_impl<typename detail::return_type<F>::type, T, F>(T&, F&&)>::type then(F &&f)
+		template<class F> typename std::result_of<thenable_impl<typename detail::return_type<F>::type, thenable, F>(thenable&&, F&&)>::type then(F &&f)
 		{
-			return thenable_impl<typename detail::return_type<F>::type, T, F>()(*this, std::forward<F>(f));
+			// WARNING: Does a destructive move despite not being a rvalue *this overload
+			//          FIXME: On newer compilers implement rvalue and lvalue *this overloads
+			return thenable_impl<typename detail::return_type<F>::type, thenable, F>()(std::move(*this), std::forward<F>(f));
 		}
 	};
 	// Convenience
 	template<class T> thenable<T> make_thenable(T &&v)
 	{
-		return thenable<T>(std::forward<T>(v));
+		return thenable<T>(std::tuple<>(), std::forward<T>(v));
+	}
+	// State extractor
+	template<class T, class... Types> std::tuple<Types..., T> make_tuple(thenable<T, Types...> v)
+	{
+		return detail::tuple_append(std::move(v.prev_thens), std::forward<T>(std::move(v)));
 	}
 
 	// Overload tag type to invoke the right kind of close() overload etc
@@ -95,11 +111,13 @@ namespace continuations
 		return_type operator()() { } // Purely for return type deduction
 	};
 	// Implements .then(async_io_op_tag) for the tagged dispatch
-	template<class return_type> struct thenable_impl<return_type, async_io_op, async_io_op_tag<return_type>>
+	template<class return_type, class... Types> struct thenable_impl<return_type, thenable<async_io_op, Types...>, async_io_op_tag<return_type>>
 	{
-		thenable<return_type> operator()(async_io_op &prev, async_io_op_tag<return_type> &&f)
+		thenable<return_type, async_io_op, Types...> operator()(thenable<async_io_op, Types...> &&prev, async_io_op_tag<return_type> &&f)
 		{
-			return f.f(/*this*/prev.parent, /*h*/prev);
+			return thenable<return_type, async_io_op, Types...>(
+				make_tuple(std::move(prev)),
+				f.f(/*this*/prev.parent, /*h*/prev));
 		}
 	};
 	inline async_io_op_tag<async_io_op> completion(const async_io_op_tag_invoker &, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback)
@@ -157,20 +175,34 @@ namespace continuations
 #endif
 
 	// Implements async_io_op.then(callable(async_io_op, completion_t)) for lambdas etc
-	template<class _> struct thenable_impl<async_file_io_dispatcher_base::completion_returntype, async_io_op, /*catch lambdas*/_>
+	template<class... Types, class _> struct thenable_impl<async_file_io_dispatcher_base::completion_returntype, thenable<async_io_op, Types...>, /*catch lambdas*/_>
 	{
-		thenable<async_io_op> operator()(async_io_op &prev, async_file_io_dispatcher_base::completion_t f)
+		thenable<async_io_op, async_io_op, Types...> operator()(thenable<async_io_op, Types...> &&prev, async_file_io_dispatcher_base::completion_t f)
 		{
-			return prev.parent->completion(prev, std::make_pair(async_op_flags::none, std::function<async_file_io_dispatcher_base::completion_t>(std::move(f))));
+			return thenable<async_io_op, async_io_op, Types...>(
+				make_tuple(std::move(prev)),
+				prev.parent->completion(prev, std::make_pair(async_op_flags::none, std::function<async_file_io_dispatcher_base::completion_t>(std::move(f)))));
+		}
+	};
+	// Implements async_io_op.then(callable()) for lambdas etc
+	template<class return_type, class... Types, class callable> struct thenable_impl<return_type, thenable<async_io_op, Types...>, callable>
+	{
+		thenable<shared_future<return_type>, async_io_op, Types...> operator()(thenable<async_io_op, Types...> &&prev, callable &&f)
+		{
+			return thenable<shared_future<return_type>, async_io_op, Types...>(
+				make_tuple(std::move(prev)),
+				prev.parent->call(prev, std::forward<callable>(f)).first);
 		}
 	};
 #if 0
-	// Implements async_io_op.then(callable()) for lambdas etc
-	template<class return_type, class callable> struct thenable_impl<return_type, async_io_op, callable>
+	// Implements shared_future<T>.then(callable()) for lambdas etc
+	template<class return_type, class T, class... Types, class callable> struct thenable_impl<return_type, thenable<shared_future<T>, Types...>, callable>
 	{
-		thenable<return_type> operator()(async_io_op &prev, callable &&f)
+		thenable<return_type, shared_future<T>, Types...> operator()(thenable<shared_future<T>, Types...> &&prev, callable &&f)
 		{
-			return prev.parent->call(prev, std::forward<callable>(f));
+			return thenable<return_type, shared_future<T>, Types...>(
+				make_tuple(std::move(prev)),
+				/* not implemented */ std::forward<shared_future<T>>();
 		}
 	};
 #endif
@@ -199,10 +231,30 @@ BOOST_AFIO_AUTO_TEST_CASE(monadic_continuations_test, "Tests that the monadic co
 				[](size_t id, async_io_op op) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
 					return std::make_pair(true, op.get());
 				}))));
-		// Test two tagged functions output two output states
+
+		// Test initiator plus two tagged functions output three output states
 		auto output=openedfile
 			.then(truncate(h, 12))
 			.then(continuations::write(h, { "He", "ll", "o ", "Wo", "rl", "d\n" }, 0));
+		// Type generated ought to be a thenable chain of async_io_ops
+		static_assert(std::is_same<decltype(output), continuations::thenable<async_io_op, async_io_op, async_io_op>>::value, "output does not have correct type!");
+		// Extract a tuple of outputs from a thenable chain
+		auto output_values=make_tuple(output);
+		static_assert(std::is_same<decltype(output_values), std::tuple<async_io_op, async_io_op, async_io_op>>::value, "output_values does not have correct type!");
+		assert(std::get<0>(output_values).id==openedfile.id);
+
+		// Test chaining a future generic lambda to async_io_ops
+		auto output2=output.then([]{
+			return 5;
+		});
+		// Type generated ought to be a chain
+		static_assert(std::is_same<decltype(output2), continuations::thenable<shared_future<int>, async_io_op, async_io_op, async_io_op>>::value, "output2 does not have correct type!");
+		// Extract a tuple of outputs from a thenable chain
+		auto output_values2=make_tuple(output2);
+		static_assert(std::is_same<decltype(output_values2), std::tuple<async_io_op, async_io_op, async_io_op, shared_future<int>>>::value, "output_values2 does not have correct type!");
+
+		// Test chaining an async_io_op to a future (not implemented yet)
+		//auto output3=output2.then(truncate(openedfile /* explicit handle */, 12));
 	}
 	catch(...)
 	{
