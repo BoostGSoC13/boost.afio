@@ -39,6 +39,22 @@ rule fast-build ( properties * )
    }
 }
 
+# Turn on LTO
+rule lto ( properties * )
+{
+   if "--lto" in $(.argv) 
+   {
+      if <toolset>gcc in $(properties)
+	  {
+		return <cxxflags>"-flto" ;
+	  }
+      if <toolset>msvc in $(properties)
+	  {
+        return <cxxflags>"/GL" <linkflags>"/LTCG" ;
+	  }
+   }
+}
+
 project boost/afio/test
     : requirements
       <threading>multi
@@ -66,6 +82,7 @@ project boost/afio/test
       <library>../../test/build//boost_test_exec_monitor
 	  <conditional>@running-in-ci
 	  <conditional>@fast-build
+	  <conditional>@lto
     ;
 
 cpp-pch test_functions : test_functions.hpp : <include>. ;

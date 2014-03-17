@@ -148,20 +148,24 @@ First release for end of Google Summer of Code 2013.
 [section:closure_performance What is the maximum throughput of AFIO's closure execution engine aka
 how many IOPS can I push with AFIO?]
 
-For v1.1, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
+For v1.2 of the engine, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
 use as a closure engine whereas the values for `completion()` might be for max filing system IOPS[footnote The phrase
 ["might be] is important: a null closure benchmark will always have dispatch rate problems i.e. the closures being executed
 take less time to execute than the time to dispatch them, so these figures are best read as maximum dispatch rate, not
 maximum IOPS.]:
 
-[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.1 i.e. NOT using transactional memory:
+[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.2[footnote Not using Intel TSX.
+Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
 [[Operating system][`call()` unchained][`call()` chained][`completion()` unchained][`completion()` chained][Raw ASIO]]
-[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 911963]][[role alignright 596318]][[role alignright 1555990]][[role alignright 726124]][[role alignright 2806070]]]
-[[Relative to ASIO][[role alignright 32%]][[role alignright 21%]][[role alignright 55%]][[role alignright 26%]][[role alignright 100%]]]
+[[Microsoft Windows 8 x64 with Visual Studio 2013 SP1[footnote I suspect there is something wrong with 2013 SP1 - benchmarks are
+very considerably slower (approx 40%) than 2013 RTM, in fact 2013 SP1 is now slower than VS2010!]][[role alignright 557632]][[role alignright 486827]][[role alignright 651855]][[role alignright 549417]][[role alignright 2376440]]]
+[[Relative to ASIO][[role alignright 23%]][[role alignright 20%]][[role alignright 27%]][[role alignright 23%]][[role alignright 100%]]]
+
 [[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1094780]][[role alignright 794384]][[role alignright 1432810]][[role alignright 968005]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
 [[Relative to ASIO][[role alignright 68%]][[role alignright 49%]][[role alignright 89%]][[role alignright 60%]][[role alignright 100%]]]
-[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright 649015]][[role alignright 469689]][[role alignright 1021630]][[role alignright 613816]][[role alignright 2725690]]]
-[[Relative to ASIO][[role alignright 24%]][[role alignright 17%]][[role alignright 37%]][[role alignright 23%]][[role alignright 100%]]]
+
+[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright 565395]][[role alignright 509622]][[role alignright 764045]][[role alignright 620807]][[role alignright 2387470]]]
+[[Relative to ASIO][[role alignright 24%]][[role alignright 21%]][[role alignright 32%]][[role alignright 26%]][[role alignright 100%]]]
 ]
 
 We hope that ~720k max IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
@@ -253,19 +257,27 @@ etc.
 
 [section:slow_compile Using AFIO really slows down my compile times. Can't you do something about that?]
 
-We know about that slowdown! The solution is easy: define `BOOST_AFIO_HEADERS_ONLY` to 0 for each compiland, and
-link to the AFIO shared library instead. Do the same for ASIO by defining `BOOST_ASIO_SEPARATE_COMPILATION`
-or `BOOST_ASIO_DYN_LINK` as is appropriate to your circumstances for each compiland, and link to the ASIO
+Here are some build time benchmarks for my developer workstation:
+
+[table:build_time Single thread build times for AFIO v1.2 for various compilers and options on a 3.5Ghz Intel Core i7 3770K
+[[Build flags][Microsoft Windows 8 x64 with Visual Studio 2013][Ubuntu 12.04 LTS Linux x64 with GCC 4.8][Ubuntu 12.04 LTS Linux x64 with clang 3.4]]
+[  [`--link-test --fast-build debug`][01m43s][?][?]]
+[               [`--link-test debug`][02m40s][?][?]]
+[       [`--link-test pch=off debug`][06m12s][?][?]]
+[         [`--link-test --lto debug`][09m36s][?][?]]
+[[`--link-test --fast-build release`][02m01s][?][?]]
+[             [`--link-test release`][03m09s][?][?]]
+[       [`--link-test --lto release`][10m24s][?][?]]
+]
+
+The benefit of `--fast-build` grows exponentially the less powerful the CPU: on my Intel Atom 220
+netbook `--fast-build` gets total build times under five minutes which is impressive compared to
+the twenty or so minutes without that flag.
+
+`--fast-build` works by defining `BOOST_AFIO_HEADERS_ONLY` to 0 for each compiland, and
+linking to the AFIO shared library instead. It also does the same for ASIO by defining `BOOST_ASIO_SEPARATE_COMPILATION`
+and `BOOST_ASIO_DYN_LINK` for each compiland, and links to the ASIO
 shared library instead (which is built via `boost/asio/impl/src.hpp`, see ASIO's docs).
-
-While those alone are a significant improvement, still further improvements can be gained by
-configuring precompiled headers support for your compiler. Getting this to work correctly is, as
-always, quite brittle but is very much worth it on low end CPUs. The Jamfile.v2 in the test
-directory implements an option `--fast-build` which is an example of how to achieve maximum
-build performance with AFIO.
-
-You should notice a 6x-10x improvement to compilation time, which is a huge win during debugging, or
-building on low end CPUs like first gen Intel Atom's.
 
 [endsect] [/slow_compile]
 
