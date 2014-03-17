@@ -420,19 +420,19 @@ namespace boost { namespace afio { namespace detail {
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-		void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const boost::system::error_code &ec, size_t bytes_transferred)
+        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const boost::system::error_code &ec, size_t bytes_transferred)
         {
-			if(!this->p->filters_buffers.empty())
-			{
-				BOOST_FOREACH(auto &i, this->p->filters_buffers)
-				{
-					if(i.first==OpType::Unknown || (!is_write && i.first==OpType::read) || (is_write && i.first==OpType::write))
-					{
-						i.second(is_write ? OpType::write : OpType::read, h.get(), std::get<2>(*bytes_to_transfer), std::get<0>(pars), std::get<1>(pars), std::get<2>(pars), ec, bytes_transferred);
-					}
-				}
-			}
-			if(ec)
+            if(!this->p->filters_buffers.empty())
+            {
+                BOOST_FOREACH(auto &i, this->p->filters_buffers)
+                {
+                    if(i.first==OpType::Unknown || (!is_write && i.first==OpType::read) || (is_write && i.first==OpType::write))
+                    {
+                        i.second(is_write ? OpType::write : OpType::read, h.get(), std::get<2>(*bytes_to_transfer), std::get<0>(pars), std::get<1>(pars), std::get<2>(pars), ec, bytes_transferred);
+                    }
+                }
+            }
+            if(ec)
             {
                 exception_ptr e;
                 // boost::system::system_error makes no attempt to ask windows for what the error code means :(
@@ -478,10 +478,10 @@ namespace boost { namespace afio { namespace detail {
             {
                 amount+=boost::asio::buffer_size(b);
             }
-			auto bytes_to_transfer=std::make_shared<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>>();
-			//mingw choked on atomic<T>::operator=, thought amount was atomic&, so changed to store to avoid issue
-			std::get<1>(*bytes_to_transfer).store(amount);
-			std::get<2>(*bytes_to_transfer)=req;
+            auto bytes_to_transfer=std::make_shared<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>>();
+            //mingw choked on atomic<T>::operator=, thought amount was atomic&, so changed to store to avoid issue
+            std::get<1>(*bytes_to_transfer).store(amount);
+            std::get<2>(*bytes_to_transfer)=req;
             // Are we using direct i/o, because then we get the magic scatter/gather special functions?
             if(!!(p->flags() & file_flags::OSDirect))
             {
@@ -524,7 +524,7 @@ namespace boost { namespace afio { namespace detail {
                 size_t offset=0, n=0;
                 BOOST_FOREACH(auto &b, req.buffers)
                 {
-					boost::asio::windows::overlapped_ptr ol(p->h->get_io_service(), boost::bind(&async_file_io_dispatcher_windows::boost_asio_readwrite_completion_handler, this, iswrite, id, h, bytes_to_transfer, std::make_tuple(req.where+offset, n, 1, boost::asio::buffer_size(b)), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+                    boost::asio::windows::overlapped_ptr ol(p->h->get_io_service(), boost::bind(&async_file_io_dispatcher_windows::boost_asio_readwrite_completion_handler, this, iswrite, id, h, bytes_to_transfer, std::make_tuple(req.where+offset, n, 1, boost::asio::buffer_size(b)), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
                     ol.get()->Offset=(DWORD) ((req.where+offset) & 0xffffffff);
                     ol.get()->OffsetHigh=(DWORD) (((req.where+offset)>>32) & 0xffffffff);
                     BOOL ok=iswrite ? WriteFile
@@ -541,7 +541,7 @@ namespace boost { namespace afio { namespace detail {
                     else
                         ol.release();
                     offset+=boost::asio::buffer_size(b);
-					n++;
+                    n++;
                 }
             }
         }
@@ -704,11 +704,11 @@ namespace boost { namespace afio { namespace detail {
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=std::get<1>(*state);
             async_enumerate_op_req &req=std::get<2>(*state);
             NTSTATUS ntstat;
-			UNICODE_STRING _glob={ 0 };
+            UNICODE_STRING _glob={ 0 };
             if(!req.glob.empty())
             {
                 _glob.Buffer=const_cast<std::filesystem::path::value_type *>(req.glob.c_str());
-				_glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(std::filesystem::path::value_type)))+sizeof(std::filesystem::path::value_type);
+                _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(std::filesystem::path::value_type)))+sizeof(std::filesystem::path::value_type);
             }
             boost::asio::windows::overlapped_ptr ol(p->h->get_io_service(), boost::bind(&async_file_io_dispatcher_windows::boost_asio_enumerate_completion_handler, this, id, op, state, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
             bool done;

@@ -555,56 +555,56 @@ namespace detail {
     template<bool for_writing> class async_data_op_req_impl;
 
 #ifdef DOXYGEN_NO_CLASS_ENUMS
-	enum OpType
+    enum OpType
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-	BOOST_SCOPED_ENUM_DECLARE_BEGIN(OpType)
+    BOOST_SCOPED_ENUM_DECLARE_BEGIN(OpType)
 #else
-	enum class OpType
+    enum class OpType
 #endif
-	{
-		Unknown,
-		UserCompletion,
-		dir,
-		rmdir,
-		file,
-		rmfile,
-		symlink,
-		rmsymlink,
-		sync,
-		close,
-		read,
-		write,
-		truncate,
-		barrier,
-		enumerate,
-		adopt,
+    {
+        Unknown,
+        UserCompletion,
+        dir,
+        rmdir,
+        file,
+        rmfile,
+        symlink,
+        rmsymlink,
+        sync,
+        close,
+        read,
+        write,
+        truncate,
+        barrier,
+        enumerate,
+        adopt,
 
-		Last
-	}
+        Last
+    }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-	BOOST_SCOPED_ENUM_DECLARE_END(OpType)
+    BOOST_SCOPED_ENUM_DECLARE_END(OpType)
 #else
-	;
+    ;
 #endif
-	static const char *optypes[]={
-		"unknown",
-		"UserCompletion",
-		"dir",
-		"rmdir",
-		"file",
-		"rmfile",
-		"symlink",
-		"rmsymlink",
-		"sync",
-		"close",
-		"read",
-		"write",
-		"truncate",
-		"barrier",
-		"enumerate",
-		"adopt"
-	};
-	static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
+    static const char *optypes[]={
+        "unknown",
+        "UserCompletion",
+        "dir",
+        "rmdir",
+        "file",
+        "rmfile",
+        "symlink",
+        "rmsymlink",
+        "sync",
+        "close",
+        "read",
+        "write",
+        "truncate",
+        "barrier",
+        "enumerate",
+        "adopt"
+    };
+    static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
 }
 
 class async_io_handle;
@@ -1082,52 +1082,52 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op op_from_scheduled_id(size_t id) const;
 
-	//! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
-	typedef void filter_t(detail::OpType, async_io_op &) BOOST_NOEXCEPT;
-	//! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
-	typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const boost::system::error_code &, size_t);
-	/*! \brief Clears the post op and readwrite filters. Not threadsafe.
+    //! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
+    typedef void filter_t(detail::OpType, async_io_op &) BOOST_NOEXCEPT;
+    //! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
+    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const boost::system::error_code &, size_t);
+    /*! \brief Clears the post op and readwrite filters. Not threadsafe.
 
-	\ingroup async_file_io_dispatcher_base__filter
-	\complexity{O(1).}
-	\qexample{filter_example}
-	*/
-	BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter_clear();
-	/*! \brief Install op filters for non-buffer taking ops. Not threadsafe.
+    \ingroup async_file_io_dispatcher_base__filter
+    \complexity{O(1).}
+    \qexample{filter_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter_clear();
+    /*! \brief Install op filters for non-buffer taking ops. Not threadsafe.
 
-	`std::function<async_file_io_dispatcher_base::filter_t>` will be called after every op of type `detail::OpType`
-	completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type and op output.
+    `std::function<async_file_io_dispatcher_base::filter_t>` will be called after every op of type `detail::OpType`
+    completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type and op output.
 
-	Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done
-	for every op completed. The filter is called straight after an op's future is set and before any completions
-	are issued. Any exceptions thrown by the filter are thrown away.
+    Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done
+    for every op completed. The filter is called straight after an op's future is set and before any completions
+    are issued. Any exceptions thrown by the filter are thrown away.
 
-	\param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`
-	\ingroup async_file_io_dispatcher_base__filter
-	\complexity{O(N) where N is the total number of filters currently configured.}
-	\qexample{filter_example}
-	*/
-	BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters);
-	/*! \brief Install read/write op filters, useful for tight ASIO integration. Not threadsafe.
+    \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`
+    \ingroup async_file_io_dispatcher_base__filter
+    \complexity{O(N) where N is the total number of filters currently configured.}
+    \qexample{filter_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters);
+    /*! \brief Install read/write op filters, useful for tight ASIO integration. Not threadsafe.
 
-	`std::function<async_file_io_dispatcher_base::filter_buffers_t>` will be called after every op of type `detail::OpType`
-	completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type, file handle, op input, 
-	file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write()
-	will be ignored, for those use post_op_filter().
+    `std::function<async_file_io_dispatcher_base::filter_buffers_t>` will be called after every op of type `detail::OpType`
+    completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type, file handle, op input, 
+    file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write()
+    will be ignored, for those use post_op_filter().
 
-	Note that buffer filters are currently implemented as a linear scan, so a full iteration of all buffer filters is done
-	for every read/write op completed. The filter is called straight after a read or write operation has completed, and
-	BEFORE any checks that it transferred the data it was supposed to. Any exceptions thrown by the filter are reported
-	as if the read/write operation threw them, and filter processing stops at the filter which threw.
+    Note that buffer filters are currently implemented as a linear scan, so a full iteration of all buffer filters is done
+    for every read/write op completed. The filter is called straight after a read or write operation has completed, and
+    BEFORE any checks that it transferred the data it was supposed to. Any exceptions thrown by the filter are reported
+    as if the read/write operation threw them, and filter processing stops at the filter which threw.
 
-	\param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`
-	\ingroup async_file_io_dispatcher_base__filter
-	\complexity{O(N) where N is the total number of filters currently configured.}
-	\qexample{filter_example}
-	*/
-	BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters);
+    \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`
+    \ingroup async_file_io_dispatcher_base__filter
+    \complexity{O(N) where N is the total number of filters currently configured.}
+    \qexample{filter_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters);
 
-	//! The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
+    //! The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
     typedef std::pair<bool, std::shared_ptr<async_io_handle>> completion_returntype;
     //! The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
     typedef completion_returntype completion_t(size_t, async_io_op);
