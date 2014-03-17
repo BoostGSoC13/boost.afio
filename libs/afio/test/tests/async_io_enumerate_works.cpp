@@ -48,8 +48,12 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     
     // Make sure unwildcarded single glob works (it has a fastpath on POSIX)
     auto enumeration1(dispatcher->enumerate(async_enumerate_op_req(rootdir)));
-    auto direntry1(enumeration1.first.get().first.front());
+	auto &direntries1=enumeration1.first.get().first;
+	BOOST_CHECK(direntries1.size()>0);
+	auto direntry1(direntries1.front());
     auto enumeration2(dispatcher->enumerate(async_enumerate_op_req(rootdir, direntry1.name())));
-    auto direntry2(enumeration2.first.get().first.front());
+	auto &direntries2=enumeration2.first.get().first;
+	BOOST_CHECK(direntries2.size()>0);
+	auto direntry2(direntries2.front());
     BOOST_CHECK(direntry1==direntry2);
 }

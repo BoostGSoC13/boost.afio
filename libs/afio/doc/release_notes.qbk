@@ -66,6 +66,19 @@ them to boost::wait_for_all().
 * Added when_any(ops).
 
 
+Fixed a bug in the custom unit testing framework which was throwing away any exceptions
+being thrown by the tests (thanks to Paul Kirth for finding this and reporting it).
+Fixing this bug revealed that enumerate() with a glob on Windows has never worked
+properly and the exception thrown by MSVC's checked iterators was hiding the problem,
+so fixed that bug too.
+
+Added async_io_dispatcher_base::post_op_filter() and async_io_dispatcher_base::post_readwrite_filter(),
+including documentation examples and integrating filters into the unit testing.
+post_readwrite_filter() ought to be particularly useful to those seeking deep ASIO
+integration. Thanks to Bjorn Reese for the long discussions leading up to this
+choice of improved ASIO support.
+
+
 [/=================]
 [heading Boost 1.56 AFIO v1.11]
 [/=================]

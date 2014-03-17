@@ -82,13 +82,13 @@
 ]]
 [[`` async_data_op_req_impl(async_io_op _precondition, const void * v, size_t _length, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
 
-[* const void *]: ['v]:  A pointer to memory or reference to object into which to read or write 
+[* const void *]: ['v]:  A pointer to memory or reference to object into which to read or write
 
 [* size_t]: ['_length]:  The number of bytes to transfer 
 
-[* off_t]: ['_where]:  The offset at which to transfer 
+[* off_t]: ['_where]:  The offset at which to transfer
 
 
 
@@ -96,9 +96,9 @@
 ]]
 [[`` async_data_op_req_impl(async_io_op _precondition, std::vector< boost::asio::const_buffer > _buffers, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
 
-[* std::vector< boost::asio::const_buffer >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
+[* std::vector< boost::asio::const_buffer >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 
@@ -108,9 +108,9 @@
 ]]
 [[`` async_data_op_req_impl(async_io_op _precondition, std::vector< boost::asio::mutable_buffer > _buffers, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
 
-[* std::vector< boost::asio::mutable_buffer >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
+[* std::vector< boost::asio::mutable_buffer >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 
@@ -121,11 +121,11 @@
 [[``template<size_t N>
  async_data_op_req_impl(async_io_op _precondition, std::array< boost::asio::const_buffer, N > _buffers, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
 
-[* std::array< boost::asio::const_buffer, N >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
+[* std::array< boost::asio::const_buffer, N >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from
 
-[* off_t]: ['_where]:  The offset at which to transfer 
+[* off_t]: ['_where]:  The offset at which to transfer
 
 
 
@@ -134,11 +134,11 @@
 [[``template<size_t N>
  async_data_op_req_impl(async_io_op _precondition, std::array< boost::asio::mutable_buffer, N > _buffers, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
 
-[* std::array< boost::asio::mutable_buffer, N >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
+[* std::array< boost::asio::mutable_buffer, N >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from
 
-[* off_t]: ['_where]:  The offset at which to transfer 
+[* off_t]: ['_where]:  The offset at which to transfer
 
 
 
@@ -146,9 +146,9 @@
 ]]
 [[`` async_data_op_req_impl(async_io_op _precondition, boost::asio::const_buffer _buffer, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
 
-[* boost::asio::const_buffer]: ['_buffer]:  A mutable/const Boost.ASIO buffer to read into/write from 
+[* boost::asio::const_buffer]: ['_buffer]:  A mutable/const Boost.ASIO buffer to read into/write from
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 

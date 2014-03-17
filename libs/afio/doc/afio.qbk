@@ -60,6 +60,7 @@
 [import ../test/examples/enumerate_example.cpp]
 [import ../test/examples/filecopy_example.cpp]
 [import ../test/examples/filedir_example.cpp]
+[import ../test/examples/filter_example.cpp]
 [import ../test/examples/find_in_files_afio.cpp]
 [import ../test/examples/find_in_files_iostreams.cpp]
 [import ../test/examples/readallof_example.cpp]

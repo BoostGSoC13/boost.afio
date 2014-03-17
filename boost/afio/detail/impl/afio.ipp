@@ -233,7 +233,7 @@ namespace boost { namespace afio {
     namespace detail { BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC boost::exception_ptr &vs2010_lack_of_decent_current_exception_support_hack() { static boost::exception_ptr v; return v; } }
 #endif
 
-size_t async_file_io_dispatcher_base::page_size() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::page_size() BOOST_NOEXCEPT_OR_NOTHROW
 {
     static size_t pagesize;
     if(!pagesize)
@@ -376,57 +376,6 @@ namespace detail {
         }
     };
 
-#ifdef DOXYGEN_NO_CLASS_ENUMS
-    enum OpType
-#elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-    BOOST_SCOPED_ENUM_DECLARE_BEGIN(OpType)
-#else
-    enum class OpType 
-#endif
-    {
-        Unknown,
-        UserCompletion,
-        dir,
-        rmdir,
-        file,
-        rmfile,
-        symlink,
-        rmsymlink,
-        sync,
-        close,
-        read,
-        write,
-        truncate,
-        barrier,
-        enumerate,
-        adopt,
-
-        Last
-    }
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-    BOOST_SCOPED_ENUM_DECLARE_END(OpType)
-#else
-    ;
-#endif
-    static const char *optypes[]={
-        "unknown",
-        "UserCompletion",
-        "dir",
-        "rmdir",
-        "file",
-        "rmfile",
-        "symlink",
-        "rmsymlink",
-        "sync",
-        "close",
-        "read",
-        "write",
-        "truncate",
-        "barrier",
-        "enumerate",
-        "adopt"
-    };
-    static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
     struct async_file_io_dispatcher_op
     {
         OpType optype;
@@ -487,6 +436,8 @@ namespace detail {
     {
         std::shared_ptr<thread_source> pool;
         file_flags flagsforce, flagsmask;
+		std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
+		std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters_buffers;
 
         typedef spinlock<size_t> fdslock_t;
         typedef spinlock<size_t,
@@ -579,7 +530,7 @@ namespace detail {
     };
 }
 
-metadata_flags directory_entry::metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW
 {
     metadata_flags ret;
 #ifdef WIN32
@@ -656,7 +607,7 @@ metadata_flags directory_entry::metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW
     return ret;
 }
 
-metadata_flags directory_entry::metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW
 {
     metadata_flags ret;
 #ifdef WIN32
@@ -733,7 +684,7 @@ metadata_flags directory_entry::metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW
     return ret;
 }
 
-size_t directory_entry::compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t directory_entry::compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW
 {
 #ifdef WIN32
     // Let's choose 100k entries. Why not!
@@ -745,11 +696,11 @@ size_t directory_entry::compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW
 #endif
 }
 
-async_file_io_dispatcher_base::async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : p(new detail::async_file_io_dispatcher_base_p(threadpool, flagsforce, flagsmask))
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : p(new detail::async_file_io_dispatcher_base_p(threadpool, flagsforce, flagsmask))
 {
 }
 
-async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
 {
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
     std::unordered_map<shared_future<std::shared_ptr<async_io_handle>> *, std::pair<size_t, future_status>> reallyoutstanding;
@@ -859,7 +810,7 @@ async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
     delete p;
 }
 
-void async_file_io_dispatcher_base::int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h)
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h)
 {
     BOOST_BEGIN_MEMORY_TRANSACTION(p->fdslock)
     {
@@ -868,7 +819,7 @@ void async_file_io_dispatcher_base::int_add_io_handle(void *key, std::shared_ptr
     BOOST_END_MEMORY_TRANSACTION(p->fdslock)
 }
 
-void async_file_io_dispatcher_base::int_del_io_handle(void *key)
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_del_io_handle(void *key)
 {
     BOOST_BEGIN_MEMORY_TRANSACTION(p->fdslock)
     {
@@ -877,12 +828,12 @@ void async_file_io_dispatcher_base::int_del_io_handle(void *key)
     BOOST_END_MEMORY_TRANSACTION(p->fdslock)
 }
 
-std::shared_ptr<thread_source> async_file_io_dispatcher_base::threadsource() const
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<thread_source> async_file_io_dispatcher_base::threadsource() const
 {
     return p->pool;
 }
 
-file_flags async_file_io_dispatcher_base::fileflags(file_flags flags) const
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC file_flags async_file_io_dispatcher_base::fileflags(file_flags flags) const
 {
     file_flags ret=(flags&~p->flagsmask)|p->flagsforce;
     if(!!(ret&file_flags::EnforceDependencyWriteOrder))
@@ -900,7 +851,7 @@ file_flags async_file_io_dispatcher_base::fileflags(file_flags flags) const
     return ret;
 }
 
-size_t async_file_io_dispatcher_base::wait_queue_depth() const
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::wait_queue_depth() const
 {
     size_t ret=0;
     BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
@@ -911,7 +862,7 @@ size_t async_file_io_dispatcher_base::wait_queue_depth() const
     return ret;
 }
 
-size_t async_file_io_dispatcher_base::fd_count() const
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::fd_count() const
 {
     size_t ret=0;
     BOOST_BEGIN_MEMORY_TRANSACTION(p->fdslock)
@@ -923,7 +874,7 @@ size_t async_file_io_dispatcher_base::fd_count() const
 }
 
 // Non op lock holding variant
-async_io_op async_file_io_dispatcher_base::int_op_from_scheduled_id(size_t id) const
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::int_op_from_scheduled_id(size_t id) const
 {
     std::unordered_map<size_t, std::shared_ptr<detail::async_file_io_dispatcher_op>>::iterator it=p->ops.find(id);
     if(p->ops.end()==it)
@@ -932,7 +883,7 @@ async_io_op async_file_io_dispatcher_base::int_op_from_scheduled_id(size_t id) c
     }
     return async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, it->second->h);
 }
-async_io_op async_file_io_dispatcher_base::op_from_scheduled_id(size_t id) const
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::op_from_scheduled_id(size_t id) const
 {
     async_io_op ret;
     BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
@@ -941,6 +892,22 @@ async_io_op async_file_io_dispatcher_base::op_from_scheduled_id(size_t id) const
     }
     BOOST_END_MEMORY_TRANSACTION(p->opslock)
     return ret;
+}
+
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::post_op_filter_clear()
+{
+	p->filters.clear();
+	p->filters_buffers.clear();
+}
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::post_op_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters)
+{
+	p->filters.reserve(p->filters.size()+filters.size());
+	p->filters.insert(p->filters.end(), std::make_move_iterator(filters.begin()), std::make_move_iterator(filters.end()));
+}
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters)
+{
+	p->filters_buffers.reserve(p->filters_buffers.size()+filters.size());
+	p->filters_buffers.insert(p->filters_buffers.end(), std::make_move_iterator(filters.begin()), std::make_move_iterator(filters.end()));
 }
 
 
@@ -1051,7 +1018,26 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
         assert(thisop->h->get()==h);*/
     }
     BOOST_AFIO_DEBUG_PRINT("X %u %p e=%d f=%p (uc=%u, c=%u)\n", (unsigned) id, h.get(), !!e, thisop->h.get(), (unsigned) h.use_count(), (unsigned) thisop->completions.size());
-    // Ok so this op is now removed from the ops list and its future has been set.
+	// Any post op filters installed? If so, invoke those now.
+	if(!p->filters.empty())
+	{
+		async_io_op me(this, id, thisop->h);
+		BOOST_FOREACH(auto &i, p->filters)
+		{
+			if(i.first==detail::OpType::Unknown || i.first==thisop->optype)
+			{
+				try
+				{
+					i.second(thisop->optype, me);
+				}
+				catch(...)
+				{
+					// throw it away
+				}
+			}
+		}
+	}
+	// Ok so this op is now removed from the ops list and its future has been set.
     // Because chain_async_op() holds the opslock during the finding of preconditions
     // and adding ops to its completions, we can now safely detach our completions
     // into stack storage and process them from there without holding any locks
@@ -1739,7 +1725,21 @@ namespace detail {
             for(size_t n=0; n<vecs.size(); n+=IOV_MAX)
             {
                 ssize_t _bytesread;
-                BOOST_AFIO_ERRHOSFN((int) (_bytesread=preadv(p->fd, (&vecs.front())+n, std::min((int) (vecs.size()-n), IOV_MAX), req.where+bytesread)), p->path());
+				size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
+				off_t offset=req.where+bytesread;
+                _bytesread=preadv(p->fd, (&vecs.front())+n, (int) amount, offset);
+				if(!this->p->filters_buffers.empty())
+				{
+					boost::system::error_code ec(errno, boost::system::generic_category());
+					BOOST_FOREACH(auto &i, this->p->filters_buffers)
+					{
+						if(i.first==OpType::Unknown || i.first==OpType::read)
+						{
+							i.second(OpType::read, p, req, offset, n, amount, ec, (size_t)_bytesread);
+						}
+					}
+				}
+				BOOST_AFIO_ERRHOSFN((int) _bytesread, p->path());
                 p->bytesread+=_bytesread;
                 bytesread+=_bytesread;
             }
@@ -1773,7 +1773,21 @@ namespace detail {
             for(size_t n=0; n<vecs.size(); n+=IOV_MAX)
             {
                 ssize_t _byteswritten;
-                BOOST_AFIO_ERRHOSFN((int) (_byteswritten=pwritev(p->fd, (&vecs.front())+n, std::min((int) (vecs.size()-n), IOV_MAX), req.where+byteswritten)), p->path());
+				size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
+				off_t offset=req.where+byteswritten;
+				_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset);
+				if(!this->p->filters_buffers.empty())
+				{
+					boost::system::error_code ec(errno, boost::system::generic_category());
+					BOOST_FOREACH(auto &i, this->p->filters_buffers)
+					{
+						if(i.first==OpType::Unknown || i.first==OpType::write)
+						{
+							i.second(OpType::write, p, req, offset, n, amount, ec, (size_t) _byteswritten);
+						}
+					}
+				}
+				BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
                 p->byteswritten+=_byteswritten;
                 byteswritten+=_byteswritten;
             }

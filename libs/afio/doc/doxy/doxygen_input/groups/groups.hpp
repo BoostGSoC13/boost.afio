@@ -13,6 +13,7 @@
 \defgroup file_flags x
 \defgroup metadata_flags x
 \defgroup async_op_flags x
+\defgroup async_file_io_dispatcher_base__filter x
 \defgroup async_file_io_dispatcher_base__completion x
 \defgroup async_file_io_dispatcher_base__call x
 \defgroup async_file_io_dispatcher_base__filedirops x

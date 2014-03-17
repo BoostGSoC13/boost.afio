@@ -70,7 +70,7 @@ shared_future< typename std::result_of< F()>::type > enqueue(F f)``
 
 
 ][
-An enqueued task for the enqueued callable 
+An enqueued task for the enqueued callable
 
 
 ]]
