@@ -85,7 +85,7 @@ before_install:
  - tar zxf release.tar.gz
  - mv boost-trunk-release $HOME/boost-trunk
  - BOOST="$HOME/boost-trunk"
- - PROJECTPATH="$HOME/build/BoostGSoC/boost.afio"
+ - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
 
 #create symbolic links for afio
  - ln -s $PROJECTPATH/boost/afio/ $BOOST/boost/afio
