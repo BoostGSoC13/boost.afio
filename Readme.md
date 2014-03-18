@@ -37,5 +37,5 @@ Jenkins CI status:<br/>build<br/>unit tests
 </tr>
 </table>
 </center>
-<p align="center">Unit test code coverage is: <a href='https://coveralls.io/r/BoostGSoC/boost.afio'><img src='https://coveralls.io/repos/BoostGSoC/boost.afio/badge.png' alt='Coverage Status' /></a></p>
-<p align="center">Current master branch build and unit tests status on Travis CI: <a href="https://travis-ci.org/BoostGSoC/boost.afio"><img valign="middle" src="https://travis-ci.org/BoostGSoC/boost.afio.png?branch=master"/></a></p>
+<p align="center">Unit test code coverage is: <a href='https://coveralls.io/r/BoostGSoC13/boost.afio'><img src='https://coveralls.io/repos/BoostGSoC13/boost.afio/badge.png' alt='Coverage Status' /></a></p>
+<p align="center">Current master branch build and unit tests status on Travis CI: <a href="https://travis-ci.org/BoostGSoC13/boost.afio"><img valign="middle" src="https://travis-ci.org/BoostGSoC13/boost.afio.png?branch=master"/></a></p>
