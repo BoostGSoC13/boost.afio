@@ -261,8 +261,8 @@ Here are some build time benchmarks for my developer workstation:
 
 [table:build_time Single thread build times for AFIO v1.2 for various compilers and options on a 3.5Ghz Intel Core i7 3770K
 [[Build flags][Microsoft Windows 8 x64 with Visual Studio 2013][Ubuntu 12.04 LTS Linux x64 with GCC 4.8][Ubuntu 12.04 LTS Linux x64 with clang 3.4]]
-[  [`--link-test --fast-build debug`][01m43s][?][?]]
-[               [`--link-test debug`][02m40s][?][?]]
+[  [`--link-test --fast-build debug`][01m43s][asio link error][?]]
+[               [`--link-test debug`][02m40s][06m15s][04m24s]]
 [       [`--link-test pch=off debug`][06m12s][?][?]]
 [         [`--link-test --lto debug`][09m36s][?][?]]
 [[`--link-test --fast-build release`][02m01s][?][?]]

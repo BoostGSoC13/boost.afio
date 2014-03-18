@@ -157,6 +157,28 @@ template<class T> inline void wrap_test_method(T &t)
 }
 
 // Define a unit test description and timeout
+#if BOOST_VERSION<105500
+#define BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR(test_name)                  \
+BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
+    boost::unit_test::make_test_case(                                   \
+        &BOOST_AUTO_TC_INVOKER( test_name ), #test_name ),              \
+    boost::unit_test::ut_detail::auto_tc_exp_fail<                      \
+        BOOST_AUTO_TC_UNIQUE_ID( test_name )>::instance()->value() );   \
+                                                                        \
+void test_name::test_method()                                           \
+
+#else
+#define BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR(test_name)                  \
+BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
+    boost::unit_test::make_test_case(                                   \
+        &BOOST_AUTO_TC_INVOKER( test_name ),                            \
+        #test_name, __FILE__, __LINE__ ),                               \
+    boost::unit_test::decorator::collector::instance() );               \
+                                                                        \
+void test_name::test_method()                                           \
+
+#endif
+
 #define BOOST_AFIO_AUTO_TEST_CASE(test_name, desc, _timeout)            \
 struct test_name : public BOOST_AUTO_TEST_CASE_FIXTURE { void test_method(); }; \
                                                                         \
@@ -179,13 +201,7 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
                                                                         \
 struct BOOST_AUTO_TC_UNIQUE_ID( test_name ) {};                         \
                                                                         \
-BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
-    boost::unit_test::make_test_case(                                   \
-        &BOOST_AUTO_TC_INVOKER( test_name ), #test_name ),              \
-    boost::unit_test::ut_detail::auto_tc_exp_fail<                      \
-        BOOST_AUTO_TC_UNIQUE_ID( test_name )>::instance()->value() );   \
-                                                                        \
-void test_name::test_method()                                           \
+BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR ( test_name )
 
 // From http://burtleburtle.net/bob/rand/smallprng.html
 typedef unsigned int  u4;
