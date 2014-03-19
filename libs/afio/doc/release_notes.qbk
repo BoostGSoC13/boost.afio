@@ -78,6 +78,13 @@ post_readwrite_filter() ought to be particularly useful to those seeking deep AS
 integration. Thanks to Bjorn Reese for the long discussions leading up to this
 choice of improved ASIO support.
 
+During updating the benchmarks below now I have regained access to my developer
+workstation, discovered a severe performance regression in the v1.2 engine of
+around 27% over the v1.1 engine. Steps taken:
+
+1. The shared state in every async_io_op was a shared_ptr, now it is the
+underlying shared_future. Eliminated copies of shared_ptr, now we always
+used the shared_future in enqueued_task directly. This reduced regression to 18%.
 
 [/=================]
 [heading Boost 1.56 AFIO v1.11]

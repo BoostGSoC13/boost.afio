@@ -10,7 +10,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     when_all(rootdir).wait();
     when_all(rootdir2).wait();
     // Make sure directory cache is working
-    BOOST_CHECK(rootdir.h->get()->native_handle()==rootdir2.h->get()->native_handle());
+    BOOST_CHECK(rootdir.get()->native_handle()==rootdir2.get()->native_handle());
 
     std::cout << "The root directory contains the following items:" << std::endl << std::endl;
     std::vector<directory_entry> rootdircontents1, rootdircontents2;
@@ -25,7 +25,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
         list=enumeration.first.get();
         BOOST_FOREACH(auto &i, list.first)
         {
-            print_stat(rootdir.h->get(), i);
+            print_stat(rootdir.get(), i);
         }
         rootdircontents1a.insert(list.first.begin(), list.first.end());
         rootdircontents1.insert(rootdircontents1.end(), std::make_move_iterator(list.first.begin()), std::make_move_iterator(list.first.end()));

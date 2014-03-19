@@ -74,7 +74,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                         // this will fail, so no choice but to try { wait(); } catch { success }
                         try
                         {
-                            i.h->get();
+                            i.get();
                         }
                         catch (...)
                         {
@@ -91,7 +91,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     {
                         try
                         {
-                             i.h->get();
+                             i.get();
                         }
                         catch (...)
                         {

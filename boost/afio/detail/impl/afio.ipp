@@ -381,9 +381,9 @@ namespace detail {
         OpType optype;
         async_op_flags flags;
         enqueued_task<std::shared_ptr<async_io_handle>()> enqueuement;
-        std::shared_ptr<shared_future<std::shared_ptr<async_io_handle>>> h;
         typedef std::pair<size_t, std::shared_ptr<detail::async_file_io_dispatcher_op>> completion_t;
         std::vector<completion_t> completions;
+        const shared_future<std::shared_ptr<async_io_handle>> &h() const { return enqueuement.get_future(); }
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
         std::vector<void *> stack;
         void fillStack()
@@ -412,14 +412,14 @@ namespace detail {
         void fillStack() { }
 #endif
         async_file_io_dispatcher_op(OpType _optype, async_op_flags _flags)
-            : optype(_optype), flags(_flags), h(std::make_shared<shared_future<std::shared_ptr<async_io_handle>>>(enqueuement.get_future()))
+            : optype(_optype), flags(_flags)
         {
             // Stop the future from being auto-set on task return
             enqueuement.disable_auto_set_future();
             fillStack();
         }
         async_file_io_dispatcher_op(async_file_io_dispatcher_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : optype(o.optype), flags(std::move(o.flags)),
-            enqueuement(std::move(o.enqueuement)), h(std::move(o.h)), completions(std::move(o.completions))
+            enqueuement(std::move(o.enqueuement)), completions(std::move(o.completions))
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
             , stack(std::move(o.stack))
 #endif
@@ -703,10 +703,10 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::async_file_i
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
 {
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
-    std::unordered_map<shared_future<std::shared_ptr<async_io_handle>> *, std::pair<size_t, future_status>> reallyoutstanding;
+    std::unordered_map<const shared_future<std::shared_ptr<async_io_handle>> *, std::pair<size_t, future_status>> reallyoutstanding;
     for(;;)
     {
-        std::vector<std::pair<size_t, std::shared_ptr<shared_future<std::shared_ptr<async_io_handle>>>>> outstanding;
+        std::vector<std::pair<size_t, const shared_future<std::shared_ptr<async_io_handle>> *>> outstanding;
         BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
         {
             if(!p->ops.empty())
@@ -714,16 +714,16 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                 outstanding.reserve(p->ops.size());
                 BOOST_FOREACH(auto &op, p->ops)
                 {
-                    if(op.second->h->valid())
+                    if(op.second->h().valid())
                     {
-                        auto it=reallyoutstanding.find(op.second->h.get());
+                        auto it=reallyoutstanding.find(&op.second->h());
                         if(reallyoutstanding.end()!=it)
                         {
                             if(it->second.first>=5)
                             {
                                 static const char *statuses[]={ "ready", "timeout", "deferred", "unknown" };
                                 std::cerr << "WARNING: ~async_file_dispatcher_base() detects stuck async_io_op in total of " << p->ops.size() << " extant ops\n"
-                                    "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(((int) it->second.second)>=0 && ((int) it->second.second)<=2) ? (int) it->second.second : 3] << " handle_usecount=" << op.second->h.use_count() << " failcount=" << it->second.first << " Completions:";
+                                    "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(((int) it->second.second)>=0 && ((int) it->second.second)<=2) ? (int) it->second.second : 3] << " failcount=" << it->second.first << " Completions:";
                                 BOOST_FOREACH(auto &c, op.second->completions)
                                 {
                                     std::cerr << " id=" << c.first;
@@ -764,7 +764,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
 #endif
                             }
                         }
-                        outstanding.push_back(std::make_pair(op.first, op.second->h));
+                        outstanding.push_back(std::make_pair(op.first, &op.second->h()));
                     }
                 }
             }
@@ -778,14 +778,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
             switch(status)
             {
             case future_status::ready:
-                reallyoutstanding.erase(op.second.get());
+                reallyoutstanding.erase(op.second);
                 break;
             case future_status::deferred:
                 // Probably pending on others, but log
             case future_status::timeout:
-                auto it=reallyoutstanding.find(op.second.get());
+                auto it=reallyoutstanding.find(op.second);
                 if(reallyoutstanding.end()==it)
-                    it=reallyoutstanding.insert(std::make_pair(op.second.get(), std::make_pair(0, status))).first;
+                    it=reallyoutstanding.insert(std::make_pair(op.second, std::make_pair(0, status))).first;
                 it->second.first++;
                 if(it->second.first<mincount) mincount=it->second.first;
                 break;
@@ -881,7 +881,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::
     {
         BOOST_AFIO_THROW(std::runtime_error("Failed to find this operation in list of currently executing operations"));
     }
-    return async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, it->second->h);
+    return async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, it->second->h());
 }
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::op_from_scheduled_id(size_t id) const
 {
@@ -1001,9 +1001,9 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
             int a=1;
         }
         assert(thisop->enqueuement.get_future().is_ready());
-        assert(thisop->h->is_ready());
+        assert(thisop->h().is_ready());
         assert(thisop->enqueuement.get_future().get_exception_ptr()==e);
-        assert(thisop->h->get_exception_ptr()==e);*/
+        assert(thisop->h().get_exception_ptr()==e);*/
     }
     else
     {
@@ -1013,15 +1013,15 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
             int a=1;
         }
         assert(thisop->enqueuement.get_future().is_ready());
-        assert(thisop->h->is_ready());
+        assert(thisop->h().is_ready());
         assert(thisop->enqueuement.get_future().get()==h);
-        assert(thisop->h->get()==h);*/
+        assert(thisop->h().get()==h);*/
     }
-    BOOST_AFIO_DEBUG_PRINT("X %u %p e=%d f=%p (uc=%u, c=%u)\n", (unsigned) id, h.get(), !!e, thisop->h.get(), (unsigned) h.use_count(), (unsigned) thisop->completions.size());
+    BOOST_AFIO_DEBUG_PRINT("X %u %p e=%d f=%p (uc=%u, c=%u)\n", (unsigned) id, h.get(), !!e, &thisop->h(), (unsigned) h.use_count(), (unsigned) thisop->completions.size());
     // Any post op filters installed? If so, invoke those now.
     if(!p->filters.empty())
     {
-        async_io_op me(this, id, thisop->h);
+        async_io_op me(this, id, thisop->h());
         BOOST_FOREACH(auto &i, p->filters)
         {
             if(i.first==detail::OpType::Unknown || i.first==thisop->optype)
@@ -1178,7 +1178,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     // Bind supplied implementation routine to this, unique id, precondition and any args they passed
     thisop->enqueuement.set_task(std::bind(wrapperf, this, thisid, precondition, f, args...));
     // Set the output shared future
-    async_io_op ret(this, thisid, thisop->h);
+    async_io_op ret(this, thisid, thisop->h());
     typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop));
     {
         BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
@@ -1244,7 +1244,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     if(!done)
     {
         // Bind input handle now and queue immediately to next available thread worker
-        if(precondition.id && !precondition.h->valid())
+        if(precondition.id && !precondition.h.valid())
         {
             // It should never happen that precondition.id is valid but removed from extant ops
             // which indicates it completed and yet h remains invalid
@@ -1287,7 +1287,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         /* Bind supplied implementation routine to this, unique id, precondition and any args they passed*/ \
         thisop->enqueuement.set_task(std::bind(wrapperf, this, thisid, precondition, f BOOST_PP_COMMA_IF(N) BOOST_PP_ENUM_PARAMS(N, a)));\
         /* Set the output shared future */ \
-        async_io_op ret(this, thisid, thisop->h);\
+        async_io_op ret(this, thisid, thisop->h());\
         typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop)); \
         { \
             BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock) \
@@ -1353,7 +1353,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         if(!done)\
         {\
             /* Bind input handle now and queue immediately to next available thread worker*/ \
-            if(precondition.id && !precondition.h->valid()) \
+            if(precondition.id && !precondition.h.valid()) \
             { \
                 /* It should never happen that precondition.id is valid but removed from extant ops*/\
                 /* which indicates it completed and yet h remains invalid*/\
@@ -1470,7 +1470,7 @@ namespace detail
     {
         atomic<size_t> togo;
         std::vector<std::pair<size_t, std::shared_ptr<async_io_handle>>> out;
-        std::vector<std::shared_ptr<shared_future<std::shared_ptr<async_io_handle>>>> insharedstates;
+        std::vector<shared_future<std::shared_ptr<async_io_handle>>> insharedstates;
         barrier_count_completed_state(const std::vector<async_io_op> &ops) : togo(ops.size()), out(ops.size())
         {
             insharedstates.reserve(ops.size());
@@ -1504,7 +1504,7 @@ template<> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::c
     notready.reserve(s.insharedstates.size()-1);
     for(idx=0; idx<s.insharedstates.size(); idx++)
     {
-        shared_future<std::shared_ptr<async_io_handle>> &f=*s.insharedstates[idx];
+        shared_future<std::shared_ptr<async_io_handle>> &f=s.insharedstates[idx];
         if(idx==state.second || f.is_ready()) continue;
         notready.push_back(f);
     }
@@ -1513,7 +1513,7 @@ template<> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::c
     // Last one just completed, so issue completions for everything in out including myself
     for(idx=0; idx<s.out.size(); idx++)
     {
-        shared_future<std::shared_ptr<async_io_handle>> &thisresult=*s.insharedstates[idx];
+        shared_future<std::shared_ptr<async_io_handle>> &thisresult=s.insharedstates[idx];
         exception_ptr e(get_exception_ptr(thisresult));
         complete_async_op(s.out[idx].first, s.out[idx].second, e);
     }
