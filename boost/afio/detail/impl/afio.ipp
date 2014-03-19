@@ -416,6 +416,7 @@ namespace detail {
         {
             // Stop the future from being auto-set on task return
             enqueuement.disable_auto_set_future();
+            //completions.reserve(4); // stop needless storage doubling for small numbers
             fillStack();
         }
         async_file_io_dispatcher_op(async_file_io_dispatcher_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : optype(o.optype), flags(std::move(o.flags)),
@@ -1181,14 +1182,14 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     async_io_op ret(this, thisid, thisop->h());
     typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop));
     {
+        /* This is a weird bug which took me several days to track down ...
+        It turns out that very new compilers will *move* insert item into
+        p->ops because item's type is not *exactly* the value_type wanted
+        by unordered_map. That destroys item for use later, which is
+        obviously _insane_. The workaround is to feed insert() a copy. */
+        auto item2(item);
         BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
         {
-            /* This is a weird bug which took me several days to track down ...
-            It turns out that very new compilers will *move* insert item into
-            p->ops because item's type is not *exactly* the value_type wanted
-            by unordered_map. That destroys item for use later, which is
-            obviously _insane_. The workaround is to feed insert() a copy. */
-            auto item2(item);
             auto opsit=p->ops.insert(std::move(item2));
             assert(opsit.second);
         }
@@ -1290,14 +1291,14 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         async_io_op ret(this, thisid, thisop->h());\
         typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop)); \
         { \
+            /* This is a weird bug which took me several days to track down ...
+            It turns out that very new compilers will *move* insert item into
+            p->ops because item's type is not *exactly* the value_type wanted
+            by unordered_map. That destroys item for use later, which is
+            obviously _insane_. The workaround is to feed insert() a copy. */ \
+            auto item2(item); \
             BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock) \
             { \
-                /* This is a weird bug which took me several days to track down ...
-                It turns out that very new compilers will *move* insert item into
-                p->ops because item's type is not *exactly* the value_type wanted
-                by unordered_map. That destroys item for use later, which is
-                obviously _insane_. The workaround is to feed insert() a copy. */ \
-                auto item2(item); \
                 auto opsit=p->ops.insert(std::move(item2)); \
                 assert(opsit.second); \
             } \
