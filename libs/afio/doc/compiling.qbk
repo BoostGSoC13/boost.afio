@@ -230,6 +230,9 @@ moment.
 
 * [*--running-on-ci]: will compile, link and execute only those tests which don't use `fsync()`.
 
+* [*--lto]: perform link-time code assembly. On POSIX with clang, you NEED the gold linker installed for LTO
+                to work - otherwise it appears to work, but in fact is doing a normal link.
+
 * [*--test-all]:  will run a comprehensive unit tests that combines all the other unit tests into a single 
                 continuous test. This is useful to detect errors that will only show up at longer running 
                 times. Note that [*--test-each] is not compatible with this option. 

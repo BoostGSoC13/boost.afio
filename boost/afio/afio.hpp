@@ -930,7 +930,11 @@ struct async_io_op
     //! \constr
     async_io_op() : parent(nullptr), id(0), h(std::make_shared<shared_future<std::shared_ptr<async_io_handle>>>()) { }
     //! \cconstr
+#if 0 // used to find where std::move() isn't being used, and should be
+    //async_io_op(const async_io_op &o);
+#else
     async_io_op(const async_io_op &o) : parent(o.parent), id(o.id), h(o.h) { }
+#endif
     //! \mconstr
     async_io_op(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
     /*! Constructs an instance.

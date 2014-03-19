@@ -46,7 +46,7 @@ rule lto ( properties * )
    {
       if <toolset>gcc in $(properties)
 	  {
-		return <cxxflags>"-flto" ;
+		return <cxxflags>"-flto" <linkflags>"-flto" ;
 	  }
       if <toolset>msvc in $(properties)
 	  {
@@ -72,7 +72,7 @@ project boost/afio/test
 	  <toolset>msvc:<define>_WINDOWS
 	  <toolset>msvc:<define>UNICODE
 	  <toolset>msvc:<define>_UNICODE
-      <target-os>linux:<linkflags>"-lpthread -ldl"
+      <target-os>linux:<linkflags>"-lpthread -ldl -lrt"
       <target-os>freebsd:<linkflags>"-lpthread"
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1
       <library>../../system/build//boost_system

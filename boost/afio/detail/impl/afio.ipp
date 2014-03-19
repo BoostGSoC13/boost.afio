@@ -942,7 +942,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
 // Called in unknown thread
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype async_file_io_dispatcher_base::invoke_user_completion_slow(size_t id, async_io_op op, std::function<async_file_io_dispatcher_base::completion_t> callback)
 {
-    return callback(id, op);
+    return callback(id, std::move(op));
 }
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_dispatcher_base::completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks)
 {
@@ -1088,7 +1088,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::share
         }
         BOOST_END_MEMORY_TRANSACTION(p->opslock)
 #endif
-        completion_returntype ret((static_cast<F *>(this)->*f)(id, op, args...));
+        completion_returntype ret((static_cast<F *>(this)->*f)(id, std::move(op), args...));
         // If boolean is false, reschedule completion notification setting it to ret.second, otherwise complete now
         if(ret.first)
         {
@@ -1127,7 +1127,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::share
     {                                                                                               \
         try\
         {\
-            completion_returntype ret((static_cast<F *>(this)->*f)(id, op BOOST_PP_COMMA_IF(N) BOOST_PP_ENUM_PARAMS(N, a)));\
+            completion_returntype ret((static_cast<F *>(this)->*f)(id, std::move(op) BOOST_PP_COMMA_IF(N) BOOST_PP_ENUM_PARAMS(N, a)));\
             /* If boolean is false, reschedule completion notification setting it to ret.second, otherwise complete now */ \
             if(ret.first)   \
             {\
@@ -1220,7 +1220,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         }
         BOOST_END_MEMORY_TRANSACTION(p->opslock)
     }
-    auto undep=boost::afio::detail::Undoer([done, this, precondition, item](){
+    auto undep=boost::afio::detail::Undoer([done, this, &precondition, &item](){
         if(done)
         {
             BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
@@ -1329,7 +1329,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
             } \
             BOOST_END_MEMORY_TRANSACTION(p->opslock) \
         }\
-        auto undep=boost::afio::detail::Undoer([done, this, precondition, item](){\
+        auto undep=boost::afio::detail::Undoer([done, this, &precondition, item](){\
             if(done)\
             {\
                 BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock) \
