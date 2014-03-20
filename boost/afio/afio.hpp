@@ -23,6 +23,7 @@ File Created: Mar 2013
 #include "config.hpp"
 #include "boost/asio.hpp"
 #include "boost/foreach.hpp"
+#include "boost/make_shared.hpp"
 #include "detail/Preprocessor_variadic.hpp"
 #include "boost/detail/scoped_enum_emulation.hpp"
 #include "detail/Utility.hpp"
@@ -87,7 +88,7 @@ namespace detail
             shared_future<R> f;
             bool autoset;
             atomic<int> done;
-            Private(std::function<R()> _task) : task(std::move(_task)), f(r.get_future()), autoset(true), done(0) { }
+            Private(std::function<R()> _task) : task(std::move(_task)), f(r.get_future().share()), autoset(true), done(0) { }
         };
         std::shared_ptr<Private> p;
         void validate() const { assert(p); /*if(!p) abort();*/ }
@@ -104,6 +105,23 @@ namespace detail
         void set_task(std::function<R()> _task) { p->task=std::move(_task); }
         //! Returns the shared future corresponding to the future return value of the task
         const shared_future<R> &get_future() const { validate(); return p->f; }
+        //! Sets the shared future corresponding to the future return value of the task.
+        template<class T> void set_future_value(T v)
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_value(std::move(v));
+        }
+        void set_future_value()
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_value();
+        }
         //! Sets the shared future corresponding to the future return value of the task.
         void set_future_exception(exception_ptr e)
         {
@@ -136,15 +154,6 @@ template<class R> class enqueued_task<R()> : public detail::enqueued_task_impl<R
 public:
     //! Default constructor
     enqueued_task(std::function<R()> _task=std::function<R()>()) : Base(std::move(_task)) { }
-    //! Sets the shared future corresponding to the future return value of the task.
-    template<class T> void set_future_value(T v)
-    {
-        int _=0;
-        Base::validate();
-        if(!Base::p->done.compare_exchange_strong(_, 1))
-            return;
-        Base::p->r.set_value(v);
-    }
     //! Invokes the callable, setting the shared future to the value it returns
     void operator()()
     {
@@ -154,7 +163,7 @@ public:
         try
         {
             auto v(_p->task());
-            if(_p->autoset && !_p->done) set_future_value(v);
+            if(_p->autoset && !_p->done) Base::set_future_value(v);
         }
         catch(...)
         {
@@ -179,15 +188,6 @@ template<> class enqueued_task<void()> : public detail::enqueued_task_impl<void>
 public:
     //! Default constructor
     enqueued_task(std::function<void()> _task=std::function<void()>()) : Base(std::move(_task)) { }
-    //! Sets the shared future corresponding to the future return value of the task.
-    void set_future_value()
-    {
-        int _=0;
-        Base::validate();
-        if(!Base::p->done.compare_exchange_strong(_, 1))
-            return;
-        Base::p->r.set_value();
-    }
     //! Invokes the callable, setting the future to the value it returns
     void operator()()
     {
@@ -197,7 +197,7 @@ public:
         try
         {
             _p->task();
-            if(_p->autoset && !_p->done) set_future_value();
+            if(_p->autoset && !_p->done) Base::set_future_value();
         }
         catch(...)
         {

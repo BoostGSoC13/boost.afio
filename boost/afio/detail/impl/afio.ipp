@@ -972,6 +972,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
 {
     detail::immediate_async_ops immediates;
     std::shared_ptr<detail::async_file_io_dispatcher_op> thisop;
+    std::vector<detail::async_file_io_dispatcher_op::completion_t> completions;
     BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
     {
         // Find me in ops, remove my completions and delete me from extant ops
@@ -988,9 +989,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
 #endif
             BOOST_AFIO_THROW_FATAL(std::runtime_error("Failed to find this operation in list of currently executing operations"));
         }
-        thisop=it->second;
+        thisop.swap(it->second); // thisop=it->second;
         // Erase me from ops
         p->ops.erase(it);
+        // Ok so this op is now removed from the ops list.
+        // Because chain_async_op() holds the opslock during the finding of preconditions
+        // and adding ops to its completions, we can now safely detach our completions
+        // into stack storage and process them from there without holding any locks
+        completions=std::move(thisop->completions);
     }
     BOOST_END_MEMORY_TRANSACTION(p->opslock)
     // Early set future
@@ -1038,16 +1044,6 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
             }
         }
     }
-    // Ok so this op is now removed from the ops list and its future has been set.
-    // Because chain_async_op() holds the opslock during the finding of preconditions
-    // and adding ops to its completions, we can now safely detach our completions
-    // into stack storage and process them from there without holding any locks
-    std::vector<detail::async_file_io_dispatcher_op::completion_t> completions;
-    BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
-    {
-        completions=std::move(thisop->completions);
-    }
-    BOOST_END_MEMORY_TRANSACTION(p->opslock)
     if(!completions.empty())
     {
         BOOST_FOREACH(auto &c, completions)
