@@ -1177,6 +1177,16 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     // Set the output shared future
     async_io_op ret(this, thisid, thisop->h());
     typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop));
+    bool done=false;
+    auto unopsit=boost::afio::detail::Undoer([this, thisid](){
+        std::string what;
+        try { throw; } catch(std::exception &e) { what=e.what(); } catch(boost::exception &) { what="boost exception"; } catch(...) { what="not a std exception"; }
+        BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
+        {
+            auto opsit=p->ops.find(thisid);
+            if(p->ops.end()!=opsit) p->ops.erase(opsit);
+        }
+    });
     {
         /* This is a weird bug which took me several days to track down ...
         It turns out that very new compilers will *move* insert item into
@@ -1188,31 +1198,15 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         {
             auto opsit=p->ops.insert(std::move(item2));
             assert(opsit.second);
-        }
-        BOOST_END_MEMORY_TRANSACTION(p->opslock)
-    }
-    auto unopsit=boost::afio::detail::Undoer([this, thisid](){
-        std::string what;
-        try { throw; } catch(std::exception &e) { what=e.what(); } catch(boost::exception &) { what="boost exception"; } catch(...) { what="not a std exception"; }
-        BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
-        BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
-        {
-            auto opsit=p->ops.find(thisid);
-            p->ops.erase(opsit);
-        }
-        BOOST_END_MEMORY_TRANSACTION(p->opslock)
-    });
-    bool done=false;
-    if(precondition.id)
-    {
-        // If still in flight, chain item to be executed when precondition completes
-        BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
-        {
-            auto dep(p->ops.find(precondition.id));
-            if(p->ops.end()!=dep)
+            if(precondition.id)
             {
-                dep->second->completions.push_back(item);
-                done=true;
+                // If still in flight, chain item to be executed when precondition completes
+                auto dep(p->ops.find(precondition.id));
+                if(p->ops.end()!=dep)
+                {
+                    dep->second->completions.push_back(item);
+                    done=true;
+                }
             }
         }
         BOOST_END_MEMORY_TRANSACTION(p->opslock)

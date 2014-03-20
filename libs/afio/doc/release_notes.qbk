@@ -91,6 +91,10 @@ use the shared_future in enqueued_task directly. This reduced regression to 18%.
 3. Removed the second TSX lock from complete_async_op(). This eliminated the
 regression and actually added 2% to the v1.1 engine.
 
+4. Removed the second TSX lock from chain_async_op(). This added a further 10%
+over the v1.1 engine, so we are now 12% faster which is about right given
+the v1.2 engine removed 15% of code.
+
 [/=================]
 [heading Boost 1.56 AFIO v1.11]
 [/=================]
