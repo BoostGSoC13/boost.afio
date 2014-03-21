@@ -442,8 +442,8 @@ namespace detail {
 
         typedef spinlock<size_t> fdslock_t;
         typedef spinlock<size_t,
-            spins_to_transact<50>::policy,
-            spins_to_loop<150>::policy,
+            spins_to_transact<5>::policy,
+            spins_to_loop<100>::policy,
             spins_to_yield<500>::policy,
             spins_to_sleep::policy
         > opslock_t;
@@ -1182,10 +1182,12 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         std::string what;
         try { throw; } catch(std::exception &e) { what=e.what(); } catch(boost::exception &) { what="boost exception"; } catch(...) { what="not a std exception"; }
         BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
+        BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock)
         {
             auto opsit=p->ops.find(thisid);
             if(p->ops.end()!=opsit) p->ops.erase(opsit);
         }
+        BOOST_END_MEMORY_TRANSACTION(p->opslock)
     });
     {
         /* This is a weird bug which took me several days to track down ...
@@ -1200,13 +1202,18 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
             assert(opsit.second);
             if(precondition.id)
             {
-                // If still in flight, chain item to be executed when precondition completes
-                auto dep(p->ops.find(precondition.id));
-                if(p->ops.end()!=dep)
+                // Don't cancel this transaction unless really necessary
+                BOOST_BEGIN_NESTED_MEMORY_TRANSACTION(0)
                 {
-                    dep->second->completions.push_back(item);
-                    done=true;
+                    // If still in flight, chain item to be executed when precondition completes
+                    auto dep(p->ops.find(precondition.id));
+                    if(p->ops.end()!=dep)
+                    {
+                        dep->second->completions.push_back(item);
+                        done=true;
+                    }
                 }
+                BOOST_END_NESTED_MEMORY_TRANSACTION(0)
             }
         }
         BOOST_END_MEMORY_TRANSACTION(p->opslock)
@@ -1279,7 +1286,20 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         thisop->enqueuement.set_task(std::bind(wrapperf, this, thisid, precondition, f BOOST_PP_COMMA_IF(N) BOOST_PP_ENUM_PARAMS(N, a)));\
         /* Set the output shared future */ \
         async_io_op ret(this, thisid, thisop->h());\
+        bool done=false;\
         typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop)); \
+        bool done=false;\
+        auto unopsit=boost::afio::detail::Undoer([this, thisid](){ \
+            std::string what; \
+            try { throw; } catch(std::exception &e) { what=e.what(); } catch(boost::exception &) { what="boost exception"; } catch(...) { what="not a std exception"; } \
+            BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str()); \
+            BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock) \
+            { \
+                auto opsit=p->ops.find(thisid); \
+                if(p->ops.end()!=opsit) p->ops.erase(opsit); \
+            } \
+            BOOST_END_MEMORY_TRANSACTION(p->opslock) \
+        }); \
         { \
             /* This is a weird bug which took me several days to track down ...
             It turns out that very new compilers will *move* insert item into
@@ -1291,35 +1311,24 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
             { \
                 auto opsit=p->ops.insert(std::move(item2)); \
                 assert(opsit.second); \
-            } \
-            BOOST_END_MEMORY_TRANSACTION(p->opslock) \
-        } \
-        auto unopsit=boost::afio::detail::Undoer([this, thisid](){ \
-            std::string what; \
-            try { throw; } catch(std::exception &e) { what=e.what(); } catch(boost::exception &) { what="boost exception"; } catch(...) { what="not a std exception"; } \
-            BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str()); \
-            BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock) \
-            { \
-                auto opsit=p->ops.find(thisid); \
-                p->ops.erase(opsit); \
-            } \
-            BOOST_END_MEMORY_TRANSACTION(p->opslock) \
-        }); \
-        bool done=false;\
-        if(precondition.id)\
-        {\
-            /* If still in flight, chain item to be executed when precondition completes*/ \
-            BOOST_BEGIN_MEMORY_TRANSACTION(p->opslock) \
-            { \
-                auto dep(p->ops.find(precondition.id)); \
-                if(p->ops.end()!=dep) \
-                { \
-                    dep->second->completions.push_back(item); \
-                    done=true; \
+                if(precondition.id)\
+                {\
+                    /* Don't cancel this transaction unless really necessary */ \
+                    BOOST_BEGIN_NESTED_MEMORY_TRANSACTION(0) \
+                    { \
+                        /* If still in flight, chain item to be executed when precondition completes*/ \
+                        auto dep(p->ops.find(precondition.id)); \
+                        if(p->ops.end()!=dep) \
+                        { \
+                            dep->second->completions.push_back(item); \
+                            done=true; \
+                        } \
+                    }\
+                    BOOST_END_NESTED_MEMORY_TRANSACTION(0)
                 } \
             } \
             BOOST_END_MEMORY_TRANSACTION(p->opslock) \
-        }\
+        } \
         auto undep=boost::afio::detail::Undoer([done, this, &precondition, item](){\
             if(done)\
             {\
