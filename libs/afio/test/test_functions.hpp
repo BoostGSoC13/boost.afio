@@ -157,7 +157,7 @@ template<class T> inline void wrap_test_method(T &t)
 }
 
 // Define a unit test description and timeout
-#if BOOST_VERSION<105500
+#ifdef BOOST_TEST_UNIT_TEST_SUITE_IMPL_HPP_071894GER
 #define BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR(test_name)                  \
 BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
     boost::unit_test::make_test_case(                                   \

@@ -149,6 +149,8 @@ namespace boost
 #ifdef BOOST_HAVE_TRANSACTIONAL_MEMORY_COMPILER
 #define BOOST_BEGIN_MEMORY_TRANSACTION(lockable) __transaction_relaxed
 #define BOOST_END_MEMORY_TRANSACTION(lockable)
+#define BOOST_BEGIN_NESTED_MEMORY_TRANSACTION(N) __transaction_relaxed
+#define BOOST_END_NESTED_MEMORY_TRANSACTION(N)
 #elif defined(BOOST_USING_INTEL_TSX)
 
 #define BOOST_AFIO_XBEGIN_STARTED   (~0u)
@@ -253,13 +255,29 @@ namespace boost
             {
                 return 1==lockable.v.load();
             }
-            template<class T> struct intel_tsx_transaction
+            template<class T> struct intel_tsx_transaction_impl
             {
+            protected:
                 T &lockable;
                 int dismissed; // 0=disabled, 1=abort on exception throw, 2=commit, 3=traditional locks
-                intel_tsx_transaction(T &_lockable) : lockable(_lockable), dismissed(0)
+                intel_tsx_transaction_impl(T &_lockable) : lockable(_lockable), dismissed(0) { }
+            public:
+                intel_tsx_transaction_impl(intel_tsx_transaction_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : lockable(o.lockable), dismissed(o.dismissed)
                 {
-                    // Try four times
+                    o.dismissed=0; // disable original
+                }
+                void commit() BOOST_NOEXCEPT_OR_NOTHROW
+                {
+                    if(1==dismissed)
+                        dismissed=2; // commit transaction
+                }
+            };
+            template<class T> struct intel_tsx_transaction : public intel_tsx_transaction_impl<T>
+            {
+                typedef intel_tsx_transaction_impl<T> Base;
+                explicit intel_tsx_transaction(T &_lockable) : Base(_lockable)
+                {
+                    // Try only a certain number of times
                     size_t spins_to_transact=get_spins_to_transact<T>::value;
                     for(size_t n=0; n<spins_to_transact; n++)
                     {
@@ -268,10 +286,10 @@ namespace boost
                             state=BOOST_AFIO_XBEGIN(); // start transaction, or cope with abort
                         if(BOOST_AFIO_XBEGIN_STARTED==state)
                         {
-                            if(!is_lockable_locked(lockable))
+                            if(!is_lockable_locked(Base::lockable))
                             {
                                 // Lock is free, so we can proceed with the transaction
-                                dismissed=1; // set to abort on exception throw
+                                Base::dismissed=1; // set to abort on exception throw
                                 return;
                             }
                             // If lock is not free, we need to abort transaction as something else is running
@@ -300,49 +318,109 @@ namespace boost
                             case 0x79: // my lock was held by someone else, so repeat
                                 break;
                             default: // something else aborted. Best fall back to locks
-                                n=(size_t) 1<<(4*sizeof(n));
+                                n=((size_t) 1<<(4*sizeof(n)))-1;
                                 break;
                             }
                         }
                     }
                     // If the loop exited, we're falling back onto traditional locks
-                    lockable.lock();
-                    dismissed=3;
-                }
-            private:
-                intel_tsx_transaction(const intel_tsx_transaction &);
-            public:
-                intel_tsx_transaction(intel_tsx_transaction &&o) BOOST_NOEXCEPT_OR_NOTHROW : lockable(o.lockable), dismissed(o.dismissed)
-                {
-                    o.dismissed=0; // disable original
+                    Base::lockable.lock();
+                    Base::dismissed=3;
                 }
                 ~intel_tsx_transaction() BOOST_NOEXCEPT_OR_NOTHROW
                 {
-                    if(dismissed)
+                    if(Base::dismissed)
                     {
-                        if(1==dismissed)
+                        if(1==Base::dismissed)
                             BOOST_AFIO_XABORT(0x78);
-                        else if(2==dismissed)
+                        else if(2==Base::dismissed)
                         {
                             BOOST_AFIO_XEND();
                             //std::cerr << "TC" << std::endl;
                         }
-                        else if(3==dismissed)
-                            lockable.unlock();
+                        else if(3==Base::dismissed)
+                            Base::lockable.unlock();
                     }
                 }
-                void commit() BOOST_NOEXCEPT_OR_NOTHROW
+                intel_tsx_transaction(intel_tsx_transaction &&o) BOOST_NOEXCEPT_OR_NOTHROW : Base(std::move(o)) { }
+            private:
+                intel_tsx_transaction(const intel_tsx_transaction &)
+#ifndef BOOST_NO_CXX11_DELETED_FUNCTIONS
+                = delete
+#endif
+                ;
+            };
+            // For nested transactions
+            template<class T> struct intel_tsx_transaction<intel_tsx_transaction<T>> : public intel_tsx_transaction_impl<intel_tsx_transaction<T>>
+            {
+                typedef intel_tsx_transaction_impl<intel_tsx_transaction<T>> Base;
+                explicit intel_tsx_transaction(intel_tsx_transaction<T> &_lockable) : Base(_lockable)
                 {
-                    if(1==dismissed)
-                        dismissed=2; // commit transaction
+                    // Try only a certain number of times
+                    size_t spins_to_transact=get_spins_to_transact<T>::value;
+                    for(size_t n=0; n<spins_to_transact; n++)
+                    {
+                        unsigned state=BOOST_AFIO_XABORT_CAPACITY;
+                        if(intel_stuff::have_intel_tsx_support())
+                            state=BOOST_AFIO_XBEGIN(); // start transaction, or cope with abort
+                        if(BOOST_AFIO_XBEGIN_STARTED==state)
+                        {
+                            Base::dismissed=1; // set to abort on exception throw
+                            return;
+                        }
+                        //std::cerr << "A=" << std::hex << state << std::endl;
+                        // Transaction aborted due to too many locks or hard abort?
+                        if((state & BOOST_AFIO_XABORT_CAPACITY) || !(state & BOOST_AFIO_XABORT_RETRY))
+                        {
+                            // Fall back onto pure locks
+                            break;
+                        }
+                        // Was it me who aborted?
+                        if((state & BOOST_AFIO_XABORT_EXPLICIT) && !(state & BOOST_AFIO_XABORT_NESTED))
+                        {
+                            switch(BOOST_AFIO_XABORT_CODE(state))
+                            {
+                            case 0x78: // exception thrown
+                                throw std::runtime_error("Unknown exception thrown inside Intel TSX memory transaction");
+                            case 0x79: // my lock was held by someone else, so repeat
+                                break;
+                            default: // something else aborted. Best fall back to locks
+                                n=((size_t) 1<<(4*sizeof(n)))-1;
+                                break;
+                            }
+                        }
+                    }
+                    Base::dismissed=3;
                 }
+                ~intel_tsx_transaction() BOOST_NOEXCEPT_OR_NOTHROW
+                {
+                    if(Base::dismissed)
+                    {
+                        if(1==Base::dismissed)
+                            BOOST_AFIO_XABORT(0x78);
+                        else if(2==Base::dismissed)
+                        {
+                            BOOST_AFIO_XEND();
+                            //std::cerr << "TC" << std::endl;
+                        }
+                    }
+                }
+                intel_tsx_transaction(intel_tsx_transaction &&o) BOOST_NOEXCEPT_OR_NOTHROW : Base(std::move(o)) { }
+            private:
+                intel_tsx_transaction(const intel_tsx_transaction &)
+#ifndef BOOST_NO_CXX11_DELETED_FUNCTIONS
+                = delete
+#endif
+                ;
             };
             template<class T> inline intel_tsx_transaction<T> make_intel_tsx_transaction(T &lockable) BOOST_NOEXCEPT_OR_NOTHROW
             {
                 return intel_tsx_transaction<T>(lockable);
             }
-#define BOOST_BEGIN_MEMORY_TRANSACTION(lockable) { auto __tsx_transaction=boost::afio::detail::make_intel_tsx_transaction(lockable); {
+#define BOOST_BEGIN_MEMORY_TRANSACTION(lockable) { auto __tsx_transaction(boost::afio::detail::make_intel_tsx_transaction(lockable)); {
 #define BOOST_END_MEMORY_TRANSACTION(lockable) } __tsx_transaction.commit(); }
+#define BOOST_BEGIN_NESTED_MEMORY_TRANSACTION(N) { auto __tsx_transaction##N(boost::afio::detail::make_intel_tsx_transaction(__tsx_transaction)); {
+#define BOOST_END_NESTED_MEMORY_TRANSACTION(N) } __tsx_transaction##N.commit(); }
 
 #endif // BOOST_USING_INTEL_TSX
 #endif // BOOST_BEGIN_MEMORY_TRANSACTION
@@ -350,6 +428,8 @@ namespace boost
 #ifndef BOOST_BEGIN_MEMORY_TRANSACTION
 #define BOOST_BEGIN_MEMORY_TRANSACTION(lockable) { boost::lock_guard<decltype(lockable)> __tsx_transaction(lockable);
 #define BOOST_END_MEMORY_TRANSACTION(lockable) }
+#define BOOST_BEGIN_NESTED_MEMORY_TRANSACTION(N)
+#define BOOST_END_NESTED_MEMORY_TRANSACTION(N)
 #endif // BOOST_BEGIN_MEMORY_TRANSACTION
 
         }

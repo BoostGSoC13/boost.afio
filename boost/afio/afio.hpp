@@ -23,6 +23,7 @@ File Created: Mar 2013
 #include "config.hpp"
 #include "boost/asio.hpp"
 #include "boost/foreach.hpp"
+#include "boost/make_shared.hpp"
 #include "detail/Preprocessor_variadic.hpp"
 #include "boost/detail/scoped_enum_emulation.hpp"
 #include "detail/Utility.hpp"
@@ -87,7 +88,7 @@ namespace detail
             shared_future<R> f;
             bool autoset;
             atomic<int> done;
-            Private(std::function<R()> _task) : task(std::move(_task)), f(r.get_future()), autoset(true), done(0) { }
+            Private(std::function<R()> _task) : task(std::move(_task)), f(r.get_future().share()), autoset(true), done(0) { }
         };
         std::shared_ptr<Private> p;
         void validate() const { assert(p); /*if(!p) abort();*/ }
@@ -103,7 +104,24 @@ namespace detail
         //! Sets the task
         void set_task(std::function<R()> _task) { p->task=std::move(_task); }
         //! Returns the shared future corresponding to the future return value of the task
-        shared_future<R> get_future() { validate(); return p->f; }
+        const shared_future<R> &get_future() const { validate(); return p->f; }
+        //! Sets the shared future corresponding to the future return value of the task.
+        template<class T> void set_future_value(T v)
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_value(std::move(v));
+        }
+        void set_future_value()
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_value();
+        }
         //! Sets the shared future corresponding to the future return value of the task.
         void set_future_exception(exception_ptr e)
         {
@@ -136,15 +154,6 @@ template<class R> class enqueued_task<R()> : public detail::enqueued_task_impl<R
 public:
     //! Default constructor
     enqueued_task(std::function<R()> _task=std::function<R()>()) : Base(std::move(_task)) { }
-    //! Sets the shared future corresponding to the future return value of the task.
-    template<class T> void set_future_value(T v)
-    {
-        int _=0;
-        Base::validate();
-        if(!Base::p->done.compare_exchange_strong(_, 1))
-            return;
-        Base::p->r.set_value(v);
-    }
     //! Invokes the callable, setting the shared future to the value it returns
     void operator()()
     {
@@ -154,7 +163,7 @@ public:
         try
         {
             auto v(_p->task());
-            if(_p->autoset && !_p->done) set_future_value(v);
+            if(_p->autoset && !_p->done) Base::set_future_value(v);
         }
         catch(...)
         {
@@ -179,15 +188,6 @@ template<> class enqueued_task<void()> : public detail::enqueued_task_impl<void>
 public:
     //! Default constructor
     enqueued_task(std::function<void()> _task=std::function<void()>()) : Base(std::move(_task)) { }
-    //! Sets the shared future corresponding to the future return value of the task.
-    void set_future_value()
-    {
-        int _=0;
-        Base::validate();
-        if(!Base::p->done.compare_exchange_strong(_, 1))
-            return;
-        Base::p->r.set_value();
-    }
     //! Invokes the callable, setting the future to the value it returns
     void operator()()
     {
@@ -197,7 +197,7 @@ public:
         try
         {
             _p->task();
-            if(_p->autoset && !_p->done) set_future_value();
+            if(_p->autoset && !_p->done) Base::set_future_value();
         }
         catch(...)
         {
@@ -925,10 +925,10 @@ struct async_io_op
 {
     async_file_io_dispatcher_base *parent;              //!< The parent dispatcher
     size_t id;                                          //!< A unique id for this operation
-    std::shared_ptr<shared_future<std::shared_ptr<async_io_handle>>> h; //!< A future handle to the item being operated upon
+    shared_future<std::shared_ptr<async_io_handle>> h;  //!< A future handle to the item being operated upon
 
     //! \constr
-    async_io_op() : parent(nullptr), id(0), h(std::make_shared<shared_future<std::shared_ptr<async_io_handle>>>()) { }
+    async_io_op() : parent(nullptr), id(0), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
     //! \cconstr
 #if 0 // used to find where std::move() isn't being used, and should be
     //async_io_op(const async_io_op &o);
@@ -944,12 +944,12 @@ struct async_io_op
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id, std::shared_ptr<shared_future<std::shared_ptr<async_io_handle>>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
+    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
     */
-    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(std::make_shared<shared_future<std::shared_ptr<async_io_handle>>>()) { }
+    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
     //! \cassign
     async_io_op &operator=(const async_io_op &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
     //! \massign
@@ -960,21 +960,19 @@ struct async_io_op
         if(!parent && !id)
             return std::shared_ptr<async_io_handle>();
         if(!return_null_if_errored)
-            return h->get();
-        auto e=get_exception_ptr(*h);
-        return e ? std::shared_ptr<async_io_handle>() : h->get();
+            return h.get();
+        auto e=get_exception_ptr(h);
+        return e ? std::shared_ptr<async_io_handle>() : h.get();
     }
     //! Validates contents
     bool validate(bool check_handle=true) const
     {
         if(!parent || !id) return false;
         // If h is valid and ready and contains an exception, throw it now
-        if(h->valid() && h->is_ready() /*h->wait_for(seconds(0))==future_status::ready*/)
+        if(h.valid() && h.is_ready() /*h->wait_for(seconds(0))==future_status::ready*/)
         {
-            if(!check_handle)
-                h->get();
-            else
-                if(!h->get().get())
+            if(check_handle)
+                if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(h).get().get())
                     return false;
         }
         return true;
@@ -1789,7 +1787,7 @@ namespace detail
         auto state=std::make_shared<when_all_state>();
         state->in.reserve(std::distance(first, last));
         for(; first!=last; ++first)
-            state->in.push_back(*first->h);
+            state->in.push_back(first->h);
         auto ret=state->out.get_future();
         process_threadpool()->enqueue(std::bind(&when_all_ops_do<rethrow>, state));
         return std::move(ret);
@@ -1820,7 +1818,7 @@ namespace detail
         auto state=std::make_shared<when_any_state>();
         state->in.reserve(std::distance(first, last));
         for(; first!=last; ++first)
-            state->in.push_back(*first->h);
+            state->in.push_back(first->h);
         auto ret=state->out.get_future();
         process_threadpool()->enqueue(std::bind(&when_any_ops_do<rethrow>, state));
         return std::move(ret);

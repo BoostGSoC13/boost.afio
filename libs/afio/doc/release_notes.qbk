@@ -78,6 +78,24 @@ post_readwrite_filter() ought to be particularly useful to those seeking deep AS
 integration. Thanks to Bjorn Reese for the long discussions leading up to this
 choice of improved ASIO support.
 
+During updating the benchmarks below now I have regained access to my developer
+workstation, discovered a severe performance regression in the v1.2 engine of
+around 27% over the v1.1 engine. Steps taken:
+
+1. The shared state in every async_io_op was a shared_ptr, now it is the
+underlying shared_future. Eliminated copies of shared_ptr, now we always
+use the shared_future in enqueued_task directly. This reduced regression to 18%.
+
+2. Removed more code from inside the TSX locks. This reduced regression to 16%.
+
+3. Removed the second TSX lock from complete_async_op(). This eliminated the
+regression and actually added 2% to the v1.1 engine.
+
+4. Removed the second TSX lock from chain_async_op(). This added a further 10%
+over the v1.1 engine, so we are now 12% faster which is about right given
+the v1.2 engine removed 15% of code.
+
+Added nested TSX transaction support.
 
 [/=================]
 [heading Boost 1.56 AFIO v1.11]
@@ -148,27 +166,29 @@ First release for end of Google Summer of Code 2013.
 [section:closure_performance What is the maximum throughput of AFIO's closure execution engine aka
 how many IOPS can I push with AFIO?]
 
-For v1.2 of the engine, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
+For v1.21 of the engine, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
 use as a closure engine whereas the values for `completion()` might be for max filing system IOPS[footnote The phrase
 ["might be] is important: a null closure benchmark will always have dispatch rate problems i.e. the closures being executed
 take less time to execute than the time to dispatch them, so these figures are best read as maximum dispatch rate, not
 maximum IOPS.]:
 
-[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.2[footnote Not using Intel TSX.
+[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.21[footnote Not using Intel TSX.
 Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
 [[Operating system][`call()` unchained][`call()` chained][`completion()` unchained][`completion()` chained][Raw ASIO]]
-[[Microsoft Windows 8 x64 with Visual Studio 2013 SP1[footnote I suspect there is something wrong with 2013 SP1 - benchmarks are
-very considerably slower (approx 40%) than 2013 RTM, in fact 2013 SP1 is now slower than VS2010!]][[role alignright 557632]][[role alignright 486827]][[role alignright 651855]][[role alignright 549417]][[role alignright 2376440]]]
+[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 557632]][[role alignright 486827]][[role alignright 651855]][[role alignright 549417]][[role alignright 2376440]]]
 [[Relative to ASIO][[role alignright 23%]][[role alignright 20%]][[role alignright 27%]][[role alignright 23%]][[role alignright 100%]]]
+[[Relative to AFIO v1.1][[role alignright x%]][[role alignright x%]][[role alignright x%]][[role alignright x%]][[role alignright 100%]]]
 
-[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1094780]][[role alignright 794384]][[role alignright 1432810]][[role alignright 968005]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
+[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1291250]][[role alignright 1022970]][[role alignright 1479540]][[role alignright 1200450]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
 [[Relative to ASIO][[role alignright 68%]][[role alignright 49%]][[role alignright 89%]][[role alignright 60%]][[role alignright 100%]]]
+[[Relative to AFIO v1.1][[role alignright x%]][[role alignright x%]][[role alignright x%]][[role alignright x%]][[role alignright 100%]]]
 
-[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright 565395]][[role alignright 509622]][[role alignright 764045]][[role alignright 620807]][[role alignright 2387470]]]
+[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright ?]][[role alignright ?]][[role alignright ?]][[role alignright ?]][[role alignright 2376440]]]
 [[Relative to ASIO][[role alignright 24%]][[role alignright 21%]][[role alignright 32%]][[role alignright 26%]][[role alignright 100%]]]
+[[Relative to AFIO v1.1][[role alignright x%]][[role alignright x%]][[role alignright x%]][[role alignright x%]][[role alignright 100%]]]
 ]
 
-We hope that ~720k max IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
+We hope that ~1m max IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
 PCIe based SSD too, and if paired with a CPU with more cores, AFIO's almost wait free design ought to scale out fairly
 well too such that it may be able to max out even top end PCIe SSDs, some of which can push 10m IOPS now. If that isn't
 fast enough for you, try AFIO on an Intel CPU with memory transaction support (a runtime check will automatically
