@@ -34,37 +34,8 @@ using a shocking amount of RAM.
 
 
 [/=================]
-[heading Boost 1.56 AFIO v1.20]
+[heading Boost 1.56 AFIO v1.21]
 [/=================]
-
-This is a major refactor of AFIO's core op dispatch engine to trim it down by
-about 15%. Key breaking differences from the v1.1 series of AFIO are as follows:
-
-* Replaced all use of packaged_task with enqueued_task, a custom implementation
-which makes possible many performance improvements throughout the engine.
-* thread_source::enqueue() now can take a preprepared enqueued_task.
-* thread_source::enqueue() now always returns a shared_future instead of a future.
-This has had knock on effects throughout AFIO, so many futures are now shared_future.
-* Completion handler spec has changed from:
- 
-   pair<bool, shared_ptr<async_io_handle>> (*)(size_t id, shared_ptr<async_io_handle> h, exception_ptr *e)
- 
-  to:
-
-   pair<bool, shared_ptr<async_io_handle>> (*)(size_t id, async_io_op preceding)
- 
-  This substantially improves performance, simplifies the implementation, and lets
-  completion handlers more readily retrieve the error state of preceding operations
-  and react appropriately.
-* All restrictions on immediate completions have been removed. You can now do anything
-in an immediate completion that you can do in a normal completion.
-* async_io_op::h now always refers to a correct future i.e. the future is no longer
-lazily allocated.
-* Now that op futures are always correct, when_all(ops) has been drastically simplified
-to an implementation which literally assembles the futures into a list and passes
-them to boost::wait_for_all().
-* Added when_any(ops).
-
 
 Fixed a bug in the custom unit testing framework which was throwing away any exceptions
 being thrown by the tests (thanks to Paul Kirth for finding this and reporting it).
@@ -96,6 +67,38 @@ over the v1.1 engine, so we are now 12% faster which is about right given
 the v1.2 engine removed 15% of code.
 
 Added nested TSX transaction support.
+
+[/=================]
+[heading Boost 1.56 AFIO v1.20]
+[/=================]
+
+This is a major refactor of AFIO's core op dispatch engine to trim it down by
+about 15%. Key breaking differences from the v1.1 series of AFIO are as follows:
+
+* Replaced all use of packaged_task with enqueued_task, a custom implementation
+which makes possible many performance improvements throughout the engine.
+* thread_source::enqueue() now can take a preprepared enqueued_task.
+* thread_source::enqueue() now always returns a shared_future instead of a future.
+This has had knock on effects throughout AFIO, so many futures are now shared_future.
+* Completion handler spec has changed from:
+ 
+   pair<bool, shared_ptr<async_io_handle>> (*)(size_t id, shared_ptr<async_io_handle> h, exception_ptr *e)
+ 
+  to:
+
+   pair<bool, shared_ptr<async_io_handle>> (*)(size_t id, async_io_op preceding)
+ 
+  This substantially improves performance, simplifies the implementation, and lets
+  completion handlers more readily retrieve the error state of preceding operations
+  and react appropriately.
+* All restrictions on immediate completions have been removed. You can now do anything
+in an immediate completion that you can do in a normal completion.
+* async_io_op::h now always refers to a correct future i.e. the future is no longer
+lazily allocated.
+* Now that op futures are always correct, when_all(ops) has been drastically simplified
+to an implementation which literally assembles the futures into a list and passes
+them to boost::wait_for_all().
+* Added when_any(ops).
 
 [/=================]
 [heading Boost 1.56 AFIO v1.11]
