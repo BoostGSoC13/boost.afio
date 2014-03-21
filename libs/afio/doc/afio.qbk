@@ -74,7 +74,7 @@ transactions, apart from when the memory allocator asks the kernel for more memo
 and __boost_thread__ specialised as a portable asynchronous file i/o implementation
 library. Implementation of this first version has been kept as simple as possible (~ 1000 active
 LOC) at the cost of some performance, though with a good modern compiler [link
-afio.FAQ.closure_performance you can expect 25-50% of the
+afio.FAQ.closure_performance you can expect 50-70% of the
 performance of using raw Boost.ASIO]. This library was brought to __boost__ as part of Google
 Summer of Code 2013.
 

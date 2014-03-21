@@ -1286,7 +1286,6 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         thisop->enqueuement.set_task(std::bind(wrapperf, this, thisid, precondition, f BOOST_PP_COMMA_IF(N) BOOST_PP_ENUM_PARAMS(N, a)));\
         /* Set the output shared future */ \
         async_io_op ret(this, thisid, thisop->h());\
-        bool done=false;\
         typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop)); \
         bool done=false;\
         auto unopsit=boost::afio::detail::Undoer([this, thisid](){ \
@@ -1324,7 +1323,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
                             done=true; \
                         } \
                     }\
-                    BOOST_END_NESTED_MEMORY_TRANSACTION(0)
+                    BOOST_END_NESTED_MEMORY_TRANSACTION(0) \
                 } \
             } \
             BOOST_END_MEMORY_TRANSACTION(p->opslock) \
