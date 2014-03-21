@@ -53,9 +53,23 @@
 
 
 ]]
-[[``shared_future< void > get_future()``
+[[``const shared_future< void > & get_future()``
 
 ] [Returns the shared future corresponding to the future return value of the task. ] [
+
+
+]]
+[[``void set_future_value(T v)``
+
+] [Sets the shared future corresponding to the future return value of the task. ] [[* T]: ['v]:  
+
+
+
+
+]]
+[[``void set_future_value()``
+
+] [] [
 
 
 ]]
@@ -80,12 +94,6 @@
 ] [Default constructor. ] [[* std::function< void()>]: ['_task]:  
 
 
-
-
-]]
-[[``void set_future_value()``
-
-] [Sets the shared future corresponding to the future return value of the task. ] [
 
 
 ]]
