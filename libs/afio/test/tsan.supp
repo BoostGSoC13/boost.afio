@@ -19,3 +19,4 @@ race:boost/exception/detail/exception_ptr.hpp
 race:boost/exception/exception.hpp
 race:void std::swap<boost::exception_detail::clone_base const*>
 race:boost/smart_ptr/detail/shared_count.hpp
+race:std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_add_ref_lock()
