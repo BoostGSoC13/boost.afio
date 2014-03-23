@@ -50,7 +50,7 @@ using gcc : : g++-4.6 ;
 # CLANG configuration.
 # -------------------
 
-using clang : : clang++-3.2 ;
+using clang : : clang++-3.4 ;
 
 # -------------------
 # MSVC configuration.
