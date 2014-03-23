@@ -53,7 +53,6 @@ env:
     - _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
     #- _="Memory error and leak tests" VALGRIND=memcheck UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
     - _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" LINKFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=2 DEBUG=2 GCCVER="" GCOV=0
-    # TSAN_OPTIONS="suppressions=~/boost-trunk/libs/afio/test/tsan.supp"
 
 matrix:
   exclude:
@@ -87,6 +86,8 @@ before_install:
  - mv boost_1_55_0 $HOME/boost-trunk
  - BOOST="$HOME/boost-trunk"
  - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
+# - TSAN_OPTIONS="suppressions=$BOOST/libs/afio/test/tsan.supp report_signal_unsafe=0 report_thread_leaks=0 print_suppressions=1"
+ - TSAN_OPTIONS="report_signal_unsafe=0 report_thread_leaks=0 print_suppressions=1"
 
 #create symbolic links for afio
  - ln -s $PROJECTPATH/boost/afio/ $BOOST/boost/afio
