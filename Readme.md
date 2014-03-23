@@ -21,12 +21,11 @@ Jenkins CI status:<br/>build<br/>unit tests
 </tr>
 </table>
 <table border="1" cellpadding="2">
-<tr><th colspan="2">Linux</th><th>FreeBSD on ZFS</th><th colspan="3">WinXP</th><th colspan="2">Win7</th></tr>
-<tr><th>clang 3.1 + libc++ 2013-12</th><th>clang 3.3 + libc++ 2013-12</th><th>clang 3.3 + libc++</th>
+<tr><th colspan="1">Linux</th><th>FreeBSD on ZFS</th><th colspan="3">WinXP</th><th colspan="2">Win7</th></tr>
+<tr><th>clang 3.3 + libc++ 2013-12</th><th>clang 3.3 + libc++</th>
 <th>VS2010</th><th>Mingw</th><th>Mingw-w64</th><th>VS2012</th><th>VS2013</th>
 </tr>
 <tr align="center">
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20clang%203.1/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20clang%203.1' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20clang%203.1/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20clang%203.1' style="margin-left:-58px;"></a></div></td>
 <td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20clang%203.3%20%2B%20libc%2B%2B/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20clang%203.3%20%2B%20libc%2B%2B' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20clang%203.3%20%2B%20libc%2B%2B/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20clang%203.3%20%2B%20libc%2B%2B' style="margin-left:-58px;"></a></div></td>
 <td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20FreeBSD%2010%20clang%203.3/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20FreeBSD%2010%20clang%203.3' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20FreeBSD%2010%20clang%203.3/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20FreeBSD%2010%20clang%203.3' style="margin-left:-58px;"></a></div></td>
 <td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20WinXP%20VS2010/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20WinXP%20VS2010' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20WinXP%20VS2010/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20WinXP%20VS2010' style="margin-left:-58px;"></a></div></td>

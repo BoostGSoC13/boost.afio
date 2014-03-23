@@ -68,6 +68,10 @@ the v1.2 engine removed 15% of code.
 
 Added nested TSX transaction support.
 
+The CI shows that clang 3.1 now produces segfaulting binaries with this release,
+so rather than debug clang, I simply dropped clang 3.1 support. AFIO now requires
+clang 3.2 or better.
+
 [/=================]
 [heading Boost 1.56 AFIO v1.20]
 [/=================]

@@ -84,7 +84,7 @@ compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ o
 
 * Microsoft Visual Studio 2010, released in 2010.
 * GNU Compiler Collection v4.6, released in 2011, but may work with as early as GCC v4.3.
-* clang v3.1, released in 2012, but may work with as early as clang v2.9.
+* clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
 
 The Jenkins CI bot runs a full set of unit tests for all supported compilers on all supported
 platforms for every single commit to master branch and every single pull request. As of AFIO
