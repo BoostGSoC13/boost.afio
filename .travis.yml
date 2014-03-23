@@ -64,7 +64,7 @@ matrix:
 
 
   allow_failures:
-    - compiler: gcc
+    - compiler: clang
       env: _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=1 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
 
 
@@ -82,7 +82,7 @@ before_install:
 # - mv boost-trunk-release-Boost_1_54_0 $HOME/boost-trunk
 # - wget https://github.com/ned14/boost-trunk/archive/release.tar.gz
  - wget http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.bz2/download
- - tar jxf boost_1_55_0.tar.bz2
+ - tar jxf download
  - mv boost_1_55_0 $HOME/boost-trunk
  - BOOST="$HOME/boost-trunk"
  - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
