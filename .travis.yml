@@ -87,6 +87,7 @@ before_install:
  - BOOST="$HOME/boost-trunk"
  - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
  - export TSAN_OPTIONS="suppressions=$BOOST/libs/afio/test/tsan.supp report_signal_unsafe=0 report_thread_leaks=0 print_suppressions=1"
+ - echo $TSAN_OPTIONS
 
 #create symbolic links for afio
  - ln -s $PROJECTPATH/boost/afio/ $BOOST/boost/afio
