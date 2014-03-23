@@ -52,7 +52,7 @@ env:
     #- _="Unit/functional tests" VALGRIND=0 UNIT_TESTS="" DEBUG=0 GCCVER="" GCOV=0
     - _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
     #- _="Memory error and leak tests" VALGRIND=memcheck UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
-    - _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=1 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
+    - _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" LINKFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=2 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
 
 matrix:
   exclude:
@@ -60,12 +60,12 @@ matrix:
       env: _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
 
     - compiler: gcc
-      env: _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=1 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
+      env: _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" LINKFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=2 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
 
 
   allow_failures:
     - compiler: clang
-      env: _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=1 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
+      env: _="Race detection tests" VALGRIND=0 CCFLAGS="-fsanitize=thread -fsanitize=undefined" LINKFLAGS="-fsanitize=thread -fsanitize=undefined" UNIT_TESTS=2 DEBUG=2 GCCVER="" TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp" GCOV=0
 
 
 
@@ -102,12 +102,12 @@ script:
  - if [ $DEBUG -eq 1 ]; then PREFIXPATH="$TESTPREFIX*/debug/threading-multi"; DEBUGBUILD=debug; fi
  - if [ $DEBUG -eq 2 ]; then PREFIXPATH="$TESTPREFIX*/debug/optimization-speed/threading-multi"; DEBUGBUILD="debug optimization=speed"; fi
 
+#try to link gcov appropriately
+ - if [ $GCOV -eq 1 ]; then LINKFLAGS="$LINKFLAGS -lgcov"; fi
 
 #try to pass compiler flags appropriately
- - if [ "$CCFLAGS" != "" ]; then FLAGS="cxxflags=\"$CCFLAGS\""; else FLAGS=""; fi
-
-#try to link gcov appropriately
- - if [ $GCOV -eq 1 ]; then FLAGS="$FLAGS --test-all linkflags=\"-lgcov\""; fi
+ - if [ "$CCFLAGS" != "" ]; then FLAGS="cxxflags=\"$CCFLAGS\" linkflags=\"$LINKFLAGS\""; else FLAGS=""; fi
+ - if [ $GCOV -eq 1 ]; then FLAGS="$FLAGS --test-all"; fi
 
 ### I dont think suppressing these warnings is actually doing anything, and they are not actually suppressed
 #try to suppress some clang warnings
@@ -125,7 +125,8 @@ script:
  - if [ $GCOV -eq 1 ]; then TEST_TYPE="--test-all"; else TEST_TYPE="--test-each"; fi
 
 #Build and run tests
- - if [ $UNIT_TEST -eq 0 ]; then TEST_TYPE="--link-test"; fi
+ - if [ $UNIT_TESTS -eq 0 ]; then TEST_TYPE="--link-test"; fi
+ - if [ $UNIT_TESTS -eq 2 ]; then TEST_TYPE="--test=test_all.cpp"; fi
  - if [ $VALGRIND != "0" ]; then TEST_TYPE="--valgrind="$PREFIXTEST"" ; fi
  #- if [ "$UNIT_TESTS" != "0" ]; then $PREFIXTEST $PREFIXPATH/boost_afio_test -s $UNIT_TESTS; fi
 # Not sure if we can pass the valgrind flags into the unit tests, but so far it hasnt crashed :)
