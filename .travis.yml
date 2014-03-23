@@ -80,9 +80,10 @@ before_install:
 # - wget https://github.com/ned14/boost-trunk/archive/release/Boost_1_54_0.tar.gz
 # - tar zxf Boost_1_54_0.tar.gz
 # - mv boost-trunk-release-Boost_1_54_0 $HOME/boost-trunk
- - wget https://github.com/ned14/boost-trunk/archive/release.tar.gz
- - tar zxf release.tar.gz
- - mv boost-trunk-release $HOME/boost-trunk
+# - wget https://github.com/ned14/boost-trunk/archive/release.tar.gz
+ - wget http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.bz2/download
+ - tar jxf boost_1_55_0.tar.bz2
+ - mv boost_1_55_0 $HOME/boost-trunk
  - BOOST="$HOME/boost-trunk"
  - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
 
