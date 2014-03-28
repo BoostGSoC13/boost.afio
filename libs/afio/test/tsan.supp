@@ -15,8 +15,16 @@
 ##src:boost/smart_ptr/detail/shared_count.hpp
 ##fun:*shared_count*
 
+# Stuff from Boost not understood by tsan
 race:boost/exception/detail/exception_ptr.hpp
 race:boost/exception/exception.hpp
 race:void std::swap<boost::exception_detail::clone_base const*>
 race:boost/smart_ptr/detail/shared_count.hpp
+race:include/c++/*/bits/shared_ptr_base.h
 race:std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_add_ref_lock()
+race:boost::detail::shared_count::swap(boost::detail::shared_count&)
+race:boost::detail::shared_count::~shared_count()
+
+# Explicitly known thread unsafe code in test_functions.hpp (false positive)
+race:boost::afio::async_file_io_dispatcher_base::post_op_filter_clear()
+race:boost::afio::async_file_io_dispatcher_base::post_op_filter(std::vector<std::pair<boost::afio::detail::OpType, std::function<void (boost::afio::detail::OpType, boost::afio::async_io_op&)> >, std::allocator<std::pair<boost::afio::detail::OpType, std::function<void (boost::afio::detail::OpType, boost::afio::async_io_op&)> > > >)

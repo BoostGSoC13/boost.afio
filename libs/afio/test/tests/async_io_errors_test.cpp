@@ -2,6 +2,7 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handling works", 120)
 {
+#ifndef BOOST_AFIO_THREAD_SANITIZING
     using namespace boost::afio;
     using namespace std;
     using boost::afio::future;
@@ -121,6 +122,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
         filesystem::remove("testdir/a");
     if(filesystem::exists("testdir"))
         filesystem::remove("testdir");
+#endif
     // Add a single output to validate the test
     BOOST_CHECK(true);
 }
