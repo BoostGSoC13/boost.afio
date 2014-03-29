@@ -108,7 +108,7 @@ script:
 #try to pass compiler flags appropriately
  - if [ "$CCFLAGS" != "" ]; then FLAGS="cxxflags=\"$CCFLAGS\" linkflags=\"$LINKFLAGS\""; else FLAGS=""; fi
  - if [ $GCOV -eq 1 ]; then FLAGS="$FLAGS --test-all"; fi
- - if [ $SANITIZE -eq 1 ]; then FLAGS="$FLAGS --sanitize"; fi
+ - if [ $SANITIZE -eq 1 ]; then FLAGS="$FLAGS --sanitize --running-in-ci"; fi
 
 ### I dont think suppressing these warnings is actually doing anything, and they are not actually suppressed
 #try to suppress some clang warnings
