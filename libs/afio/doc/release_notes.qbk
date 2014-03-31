@@ -34,6 +34,18 @@ using a shocking amount of RAM.
 
 
 [/=================]
+[heading Boost 1.56 AFIO v1.22]
+[/=================]
+
+Finished getting a ThreadSanitizer (tsan) + UndefinedBehaviorSanitizer (ubsan) pass
+running per-commit on Travis CI (>= v1.2 was tsan clean, I just hadn't bothered getting
+a CI to verify it to be so per commit).
+
+Fixed bug where --lto wasn't turning on the optimiser for LTO output. Sorry.
+
+Added a benchmark testing for latency under concurrency loads.
+
+[/=================]
 [heading Boost 1.56 AFIO v1.21]
 [/=================]
 
@@ -271,7 +283,7 @@ You'll find a huge amount depends on your compiler. Here are some build time ben
 [       [`--link-test pch=off debug`][06m12s][08m01s][04m26s]]
 [[`--link-test --fast-build release`][02m01s][03m15s[footnote ASIO has a link error without `link=static`]][fails]]
 [             [`--link-test release`][03m09s][06m28s][06m06s]]
-[       [`--link-test --lto release`][10m24s][06m29s][06m03s]]
+[       [`--link-test --lto release`][10m24s][07m08s][06m14s]]
 ]
 
 The benefit of `--fast-build` grows exponentially the less powerful the CPU: on my Intel Atom 220

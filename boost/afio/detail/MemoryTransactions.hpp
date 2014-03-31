@@ -282,8 +282,10 @@ namespace boost
                     for(size_t n=0; n<spins_to_transact; n++)
                     {
                         unsigned state=BOOST_AFIO_XABORT_CAPACITY;
+#if !defined(__has_feature) || !__has_feature(thread_sanitizer) // If this is being thread sanitised, never use memory transactions
                         if(intel_stuff::have_intel_tsx_support())
                             state=BOOST_AFIO_XBEGIN(); // start transaction, or cope with abort
+#endif
                         if(BOOST_AFIO_XBEGIN_STARTED==state)
                         {
                             if(!is_lockable_locked(Base::lockable))

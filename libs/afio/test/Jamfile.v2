@@ -32,10 +32,10 @@ rule fast-build ( properties * )
    if "--fast-build" in $(.argv) 
    {
       return <define>BOOST_AFIO_HEADERS_ONLY=0
-	         <define>BOOST_ASIO_SEPARATE_COMPILATION
-			 <define>BOOST_ASIO_DYN_LINK
-			 <library>../build//boost_afio_dyn_asio
-			 ;
+             <define>BOOST_ASIO_SEPARATE_COMPILATION
+             <define>BOOST_ASIO_DYN_LINK
+             <library>../build//boost_afio_dyn_asio
+             ;
    }
 }
 
@@ -45,13 +45,13 @@ rule lto ( properties * )
    if "--lto" in $(.argv) 
    {
       if <toolset>gcc in $(properties)
-	  {
-		return <cxxflags>"-flto" <linkflags>"-flto" ;
-	  }
+      {
+         return <cxxflags>"-flto" <linkflags>"-flto -O3" ;
+      }
       if <toolset>msvc in $(properties)
-	  {
-        return <cxxflags>"/GL" <linkflags>"/LTCG" ;
-	  }
+      {
+         return <cxxflags>"/GL" <linkflags>"/LTCG" ;
+      }
    }
 }
 
