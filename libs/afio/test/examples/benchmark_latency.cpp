@@ -10,7 +10,7 @@
 typedef decltype(boost::afio::chrono::high_resolution_clock::now()) time_point;
 size_t id_offset;
 static time_point points[100000];
-static time_point::duration overhead, timesliceoverhead;
+static time_point::duration overhead, timesliceoverhead, sleepoverhead;
 static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(size_t id, boost::afio::async_io_op op)
 {
   using namespace boost::afio;
@@ -24,15 +24,23 @@ int main(void)
   auto dispatcher=make_async_file_io_dispatcher();
   typedef chrono::duration<double, ratio<1>> secs_type;
   {
-    size_t total1=0, total2=0;
+    size_t total1=0, total2=0, total3=0;
     auto begin=chrono::high_resolution_clock::now();
-    while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<1.5)
+    while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<1)
     {
       auto now2=chrono::high_resolution_clock::now();
       this_thread::yield();
       auto now3=chrono::high_resolution_clock::now();
       timesliceoverhead+=now3-now2;
       total1++;
+    }
+    while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<2)
+    {
+      auto now2=chrono::high_resolution_clock::now();
+      this_thread::sleep_for(chrono::nanoseconds(1));
+      auto now3=chrono::high_resolution_clock::now();
+      sleepoverhead+=now3-now2;
+      total3++;
     }
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3)
     {
@@ -42,9 +50,11 @@ int main(void)
       total2++;
     }
     overhead=time_point::duration(overhead.count()/total2);
+    sleepoverhead=time_point::duration(sleepoverhead.count()/total3);
     timesliceoverhead=time_point::duration(timesliceoverhead.count()/total1);
     std::cout << "Timing overhead is calculated to be " << chrono::duration_cast<secs_type>(overhead).count() << " seconds." << std::endl;
     std::cout << "OS context switch overhead is calculated to be " << chrono::duration_cast<secs_type>(timesliceoverhead).count() << " seconds." << std::endl;
+    std::cout << "OS sleep overhead is calculated to be " << chrono::duration_cast<secs_type>(sleepoverhead).count() << " seconds." << std::endl;
   }  
   
   std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> callback(async_op_flags::none, _callback);
@@ -59,11 +69,17 @@ int main(void)
     * MULTIPLIER
 #endif
     << std::endl << std::endl;
+  csv << "OS sleep overhead is calculated to be," << chrono::duration_cast<secs_type>(sleepoverhead).count()
+#ifdef MULTIPLIER
+    * MULTIPLIER
+#endif
+    << std::endl << std::endl;
   csv << "Concurrency,Handler Min,Handler Max,Handler Average,Handler Stddev,Complete Min,Complete Max,Complete Average,Complete Stddev" << std::endl;
   for(size_t concurrency=0; concurrency<CONCURRENCY; concurrency++)
   {
     async_io_op last[CONCURRENCY];
     time_point begin[CONCURRENCY], handled[CONCURRENCY], end[CONCURRENCY];
+    std::atomic<bool> waiter;
     double handler[ITERATIONS], complete[ITERATIONS];
     std::vector<std::thread> threads;
     threads.reserve(CONCURRENCY);
@@ -72,9 +88,15 @@ int main(void)
     for(size_t n=0; n<iterations; n++)
     {
       threads.clear();
+      waiter=true;
       for(size_t c=0; c<=concurrency; c++)
       {
         threads.push_back(std::thread([&, c]{
+          while(waiter)
+#ifdef BOOST_SMT_PAUSE
+            BOOST_SMT_PAUSE
+#endif
+          ;
           begin[c]=chrono::high_resolution_clock::now();
           last[c]=dispatcher->completion(async_io_op(), callback);
           last[c].get();
@@ -82,6 +104,7 @@ int main(void)
           handled[c]=points[last[c].id-id_offset];
         }));
       }
+      waiter=false;
       BOOST_FOREACH(auto &i, threads)
         i.join();
       for(size_t c=0; c<=concurrency; c++)

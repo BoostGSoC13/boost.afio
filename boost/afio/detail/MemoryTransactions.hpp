@@ -161,6 +161,12 @@ namespace boost
 #define BOOST_AFIO_XABORT_DEBUG     (1 << 4)
 #define BOOST_AFIO_XABORT_NESTED    (1 << 5)
 #define BOOST_AFIO_XABORT_CODE(x)   ((unsigned char)(((x) >> 24) & 0xFF))
+            
+#if defined(__has_feature)
+# if __has_feature(thread_sanitizer) // If this is being thread sanitised, never use memory transactions
+#  define BOOST_AFIO_DISABLE_INTEL_TSX
+# endif
+#endif
 
 #if defined(_MSC_VER)
             // Declare MSVC intrinsics
@@ -282,7 +288,7 @@ namespace boost
                     for(size_t n=0; n<spins_to_transact; n++)
                     {
                         unsigned state=BOOST_AFIO_XABORT_CAPACITY;
-#if !defined(__has_feature) || !__has_feature(thread_sanitizer) // If this is being thread sanitised, never use memory transactions
+#ifndef BOOST_AFIO_DISABLE_INTEL_TSX
                         if(intel_stuff::have_intel_tsx_support())
                             state=BOOST_AFIO_XBEGIN(); // start transaction, or cope with abort
 #endif
