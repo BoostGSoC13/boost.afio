@@ -229,7 +229,7 @@ how quickly can I push a single op with AFIO?]
 For v1.21 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
 the following latency graph which is in CPU cycles:
 
-[$afio_latencies.svg]
+[role aligncenter [$src/images/afio_latencies.svg]]
 
 The solid lines represent average dispatch to execution and execution finish to completion
 notification latencies and are cumulative on the left scale, whilst the dotted lines represent
