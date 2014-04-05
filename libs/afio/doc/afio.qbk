@@ -75,7 +75,9 @@ and __boost_thread__ specialised as a portable asynchronous file i/o implementat
 library. Implementation of this first version has been kept as simple as possible (~ 1000 active
 LOC) at the cost of some performance, though with a good modern compiler [link
 afio.FAQ.closure_performance you can expect 50-70% of the
-performance of using raw Boost.ASIO]. This library was brought to __boost__ as part of Google
+throughput of using raw Boost.ASIO] at a latency of [link
+afio.FAQ.closure_latency about 10,000 CPU cycles to get notified
+of the completion of an operation]. This library was brought to __boost__ as part of Google
 Summer of Code 2013.
 
 Note that __boost_afio__ was originally written purely in C++11 and backported later to older compilers.
@@ -87,10 +89,12 @@ compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ o
 * clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
 
 The Jenkins CI bot runs a full set of unit tests for all supported compilers on all supported
-platforms for every single commit to master branch and every single pull request. As of AFIO
-v1.2, it is rare to see anything except all green on the CI dashboard (apart from VS2010,
-on which changes to AFIO easily trigger internal compiler errors). [link unit_test_dashboard
-You can view the build and unit test CI dashboard for all compilers and platforms here].
+platforms for every single commit to master branch and every single pull request. Additionally,
+the Travis CI bot runs a full set of code coverage for the unit tests, plus a pass of the
+clang 3.4 Thread Sanitizer over all the unit tests, also for every single commit and pull
+request. As of AFIO v1.2, it is rare to see anything except all green on the CI dashboard
+(apart from VS2010, on which changes to AFIO easily trigger internal compiler errors).
+[link unit_test_dashboard You can view the build and unit test CI dashboard for all compilers and platforms here].
 
 Note that just because a compiler will compile the code does not mean performance will be good:
 in particular, your compiler needs to be able to choose move construction where a copy
@@ -102,9 +106,8 @@ will compile the code does not mean that programming using that compiler and __b
 isn't a waste of your time. In particular, you should [*avoid VS2010 and Mingw32 (not Mingw-w64
 which is fine) if at all possible], but if you can't, [link afio.advanced_topics.vs2010_notes we have written a guide especially for VS2010 and Mingw32]. Try to use as new a compiler as possible with AFIO as
 the quality of code generated significantly improves with each major release. As an example, AFIO
-compiled with Visual Studio 2013 is about 15% faster than with Visual Studio 2012, which in turn
-was about a third faster than with Visual Studio 2010. [link afio.FAQ.closure_performance You
-can see some raw empirical benchmarks here].
+compiled with a rvalue reference v3 capable compiler is up to 60-100% faster. [link 
+afio.FAQ.closure_performance You can see some raw empirical benchmarks here].
 
 [important Note that Boost.AFIO has not passed Boost peer review, and therefore is not a part of the Boost C++ libraries]
 

@@ -45,6 +45,8 @@ Fixed bug where --lto wasn't turning on the optimiser for LTO output. Sorry.
 
 Added a benchmark testing for latency under concurrency loads.
 
+Added a new FAQ entry on AFIO execution latencies.
+
 [/=================]
 [heading Boost 1.56 AFIO v1.21]
 [/=================]
@@ -220,6 +222,35 @@ fast enough for you, try AFIO on an Intel CPU with memory transaction support (a
 replace locks with TSX memory transactions), or try support for `__transaction_relaxed` compilers if `BOOST_HAVE_TRANSACTIONAL_MEMORY_COMPILER` is defined.
 
 [endsect] [/closure_performance]
+
+[section:closure_latency What is the latency of AFIO's closure execution engine aka
+how quickly can I push a single op with AFIO?]
+
+For v1.21 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
+the following latency graph which is in CPU cycles:
+
+[$afio_latencies.svg]
+
+The solid lines represent average dispatch to execution and execution finish to completion
+notification latencies and are cumulative on the left scale, whilst the dotted lines represent
+minimum latencies and are cumulative on the right scale. As one can see, one can expect a
+minimum of around 6,000 CPU cycles between dispatch and the operation beginning, and a minimum
+of around 4,000 cycles between the operation completing and its op reference becoming signalled,
+thus making total minimum latency per op around 10,000 CPU cycles, or around 2.5 microseconds.
+
+Average latency is rather worse of course, but if you exceed CPU cores by just enough to stop
+them clocking down you can expect a 300,000 CPU cycle total latency with a 95% confidence
+interval of plus/minus 25,000 CPU cycles, which is 75 microseconds plus/minus 6.25 microseconds.
+Obviously this makes AFIO unsuited for low latency work such as high frequency trading, but once
+you get below 0.1 milliseconds it becomes very hard to disentangle SSD access times from the
+latency of the filing and storage systems between you and the SSD anyway, so even if AFIO might
+appear to on average double the 0.08 millisecond access time a SSD might have, you really must
+bear in mind that a thread sleep and wake costs about 215,000 CPU cycles, and the obvious thing
+which is happening in the benchmark is that AFIO is on average sleeping and waking 1.33 times
+per operation dispatched and completed. Your use case will of course vary, and if you hit
+the spin locks right I've personally seen 9,000 CPU cycle sustained average latencies.
+
+[endsect] [/closure_latency]
 
 [section:stuck_ops I'm seeing ["WARNING: `~async_file_dispatcher_base()` detects stuck `async_io_op` in total of X ops] during
 process close. What does this mean?]

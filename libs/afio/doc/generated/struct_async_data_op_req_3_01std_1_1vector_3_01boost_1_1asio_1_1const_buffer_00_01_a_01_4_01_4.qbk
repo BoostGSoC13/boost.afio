@@ -100,9 +100,9 @@ True if contents are correct
 [[``template<class T, class A2>
  async_data_op_req(async_io_op _precondition, std::vector< T, A2 > v, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
 
-[* std::vector< T, A2 >]: ['v]:  A pointer to memory or reference to object into which to read or write
+[* std::vector< T, A2 >]: ['v]:  A pointer to memory or reference to object into which to read or write 
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 
