@@ -54,12 +54,12 @@ directories, so `include` directives of this scheme will work:
 <tbody>
 <row>
 <entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20Pre-Check/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20Pre-Check"/></imageobject></ulink></entry>
-<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20GCC%204.6/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20GCC%204.6"/></imageobject></ulink></entry>
-<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20GCC%204.7/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20GCC%204.7"/></imageobject></ulink></entry>
-<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20GCC%204.8/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20GCC%204.8"/></imageobject></ulink></entry>
-<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20clang%203.2/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20clang%203.2"/></imageobject></ulink></entry>
-<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20clang%203.3/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20clang%203.3"/></imageobject></ulink></entry>
-<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20clang%203.4/"><imageobject><imagedata fileref="https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20clang%203.4"/></imageobject></ulink></entry>
+<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++,label=linux-gcc-clang/"><imageobject><imagedata fileref="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++,label=linux-gcc-clang/badge/icon"/></imageobject></ulink></entry>
+<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.7,label=linux-gcc-clang/"><imageobject><imagedata fileref="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.7,label=linux-gcc-clang/badge/icon"/></imageobject></ulink></entry>
+<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.8,label=linux-gcc-clang/"><imageobject><imagedata fileref="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.8,label=linux-gcc-clang/badge/icon"/></imageobject></ulink></entry>
+<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.2,label=linux-gcc-clang/"><imageobject><imagedata fileref="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.2,label=linux-gcc-clang/badge/icon"/></imageobject></ulink></entry>
+<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.3,label=linux-gcc-clang/"><imageobject><imagedata fileref="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.3,label=linux-gcc-clang/badge/icon"/></imageobject></ulink></entry>
+<entry><ulink url="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.4,label=linux-gcc-clang/"><imageobject><imagedata fileref="https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.4,label=linux-gcc-clang/badge/icon"/></imageobject></ulink></entry>
 </row>
 <row>
 <entry>N/A</entry>
