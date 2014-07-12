@@ -5,7 +5,8 @@
 #define CONCURRENCY 32
 
 // Optional
-#define MULTIPLIER 1000000 // output number of microseconds instead of seconds
+//#define MULTIPLIER 1000000 // output number of microseconds instead of seconds
+#define MULTIPLIER 3900000000ULL // output number of CPU clocks instead of seconds
 
 typedef decltype(boost::afio::chrono::high_resolution_clock::now()) time_point;
 size_t id_offset;
@@ -83,15 +84,17 @@ int main(void)
     double handler[ITERATIONS], complete[ITERATIONS];
     std::vector<std::thread> threads;
     threads.reserve(CONCURRENCY);
-    size_t iterations=(concurrency>=9) ? ITERATIONS/10 : ITERATIONS;
+    size_t iterations=(concurrency>=8) ? ITERATIONS/10 : ITERATIONS;
     std::cout << "Running " << iterations << " iterations of concurrency " << concurrency+1 << " ..." << std::endl;
     for(size_t n=0; n<iterations; n++)
     {
       threads.clear();
       waiter=true;
+      std::atomic<size_t> threads_ready(0);
       for(size_t c=0; c<=concurrency; c++)
       {
         threads.push_back(std::thread([&, c]{
+          ++threads_ready;
           while(waiter)
 #ifdef BOOST_SMT_PAUSE
             BOOST_SMT_PAUSE
@@ -104,6 +107,11 @@ int main(void)
           handled[c]=points[last[c].id-id_offset];
         }));
       }
+      while(threads_ready<=concurrency)
+#ifdef BOOST_SMT_PAUSE
+        BOOST_SMT_PAUSE
+#endif
+      ;
       waiter=false;
       BOOST_FOREACH(auto &i, threads)
         i.join();
