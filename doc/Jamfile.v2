@@ -39,6 +39,16 @@ boostbook afio
        <quickbook-define>enable_index
        <include>$(here)
        <format>pdf:<xsl:param>boost.url.prefix=https://ci.nedprod.com/
+       <xsl:param>fop1.extensions=0
+       #<format>pdf:<xsl:param>xep.extensions=1
+       # TOC generation: this is needed for FOP 0.2, but must not be set to zero for FOP-0.9!
+       <format>pdf:<xsl:param>fop.extensions=0
+       # No indent on body text:
+       <format>pdf:<xsl:param>body.start.indent=0pt
+       # Margin size:
+       <format>pdf:<xsl:param>page.margin.inner=0.5in
+       # Margin size:
+       <format>pdf:<xsl:param>page.margin.outer=0.5in
 ;
 
 install pdfinstall : afio/<format>pdf : <location>. <name>afio.pdf <install-type>PDF ;

@@ -177,6 +177,9 @@ directories, so `include` directives of this scheme will work:
     ../b2 ../libs/afio/doc
     ../b2 ../libs/afio/doc pdf
   ``
+  
+  I may be missing something, but the pdf appears inside bin.v2, not in pdf for some reason.
+  Note that the PDF has some significant formatting problems.
 
 # Thanks to modular Boost, AFIO is now exactly the same as any other Boost library and can
 be used in exactly the same way as if AFIO were already part of Boost.
