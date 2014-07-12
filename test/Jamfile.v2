@@ -132,7 +132,7 @@ else
 
 # Let user limit test_files
 local test_files = [ MATCH ^--test=(.*)$ : $(.argv) ] ;
-local example_files = [ glob examples/*.cpp ] ;
+local example_files = [ glob ../example/*.cpp ] ;
 if $(test_files)
 {
     test_files_all = $(test_files) ;

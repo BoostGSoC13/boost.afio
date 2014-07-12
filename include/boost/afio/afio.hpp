@@ -75,7 +75,7 @@ namespace afio {
 // This isn't consistent on MSVC so hard code it
 typedef unsigned long long off_t;
 
-
+//! \brief The namespace containing Boost.ASIO internal details
 namespace detail
 {
     template<class R> class enqueued_task_impl
@@ -554,6 +554,9 @@ namespace detail {
     struct immediate_async_ops;
     template<bool for_writing> class async_data_op_req_impl;
 
+    /*! \enum OpType
+    \brief The type of operation
+    */
 #ifdef DOXYGEN_NO_CLASS_ENUMS
     enum OpType
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
@@ -787,7 +790,7 @@ decltype(stat_t().st_##field) st_##field() const { if(!(have_metadata&metadata_f
 decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #else
 #define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
-decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh=std::shared_ptr<async_io_handle>()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
+fieldtype st_##field(std::shared_ptr<async_io_handle> dirh=std::shared_ptr<async_io_handle>()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #endif
 #ifndef WIN32
     //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().

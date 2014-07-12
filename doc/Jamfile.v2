@@ -15,7 +15,7 @@ project afio/doc ;
 using quickbook ;
 
 path-constant here : . ;
-path-constant images_location : html ;
+path-constant images_location : doc/src/images ;
 
 
 boostbook afio 
@@ -33,10 +33,12 @@ boostbook afio
        <xsl:param>toc.max.depth=4
        <xsl:param>generate.section.toc.level=4
        <xsl:param>boost.root=../..
-       <xsl:param>html.stylesheet=myboostbook.css
+       <xsl:param>img.src.path=$(images_location)/
+       <xsl:param>root.filename=afio
+       <xsl:param>html.stylesheet=../../libs/afio/doc/html/myboostbook.css
        <quickbook-define>enable_index
        <include>$(here)
-       <format>pdf:<xsl:param>img.src.path=$(images_location)/    
+       <format>pdf:<xsl:param>boost.url.prefix=https://ci.nedprod.com/
 ;
 
 install pdfinstall : afio/<format>pdf : <location>. <name>afio.pdf <install-type>PDF ;

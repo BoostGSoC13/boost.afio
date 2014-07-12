@@ -1,4 +1,4 @@
-#include "../../../boost/afio/afio.hpp"
+#include "boost/afio/afio.hpp"
 
 void test_inline_linkage1()
 {

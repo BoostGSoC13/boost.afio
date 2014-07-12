@@ -47,8 +47,12 @@ Added a benchmark testing for latency under concurrency loads.
 
 Added a new FAQ entry on AFIO execution latencies.
 
+Reorganised source code structure to fit modular Boost. AFIO is now a Boost v1.56
+module just like any other. Obviously this will break source code compatibility
+with all preceding Boosts.
+
 [/=================]
-[heading Boost 1.56 AFIO v1.21]
+[heading Boost 1.56 AFIO v1.21 23rd Mar 2014]
 [/=================]
 
 Fixed a bug in the custom unit testing framework which was throwing away any exceptions
@@ -87,7 +91,7 @@ so rather than debug clang, I simply dropped clang 3.1 support. AFIO now require
 clang 3.2 or better.
 
 [/=================]
-[heading Boost 1.56 AFIO v1.20]
+[heading Boost 1.56 AFIO v1.20 5th Feb 2014]
 [/=================]
 
 This is a major refactor of AFIO's core op dispatch engine to trim it down by
@@ -151,7 +155,7 @@ boost::afio::stat_t::st_mode() is now st_perms(). Also disabled unused fields in
 stat_t on Windows. Thanks to Bjorn Reese for suggesting this.
 
 [/=================]
-[heading Boost 1.55 AFIO v1.1]
+[heading Boost 1.55 AFIO v1.1 1st Nov 2013]
 [/=================]
 
 Immediate completions no longer hold the opslock, which meant the opslock could be
@@ -172,7 +176,7 @@ it has to fetch memory from the kernel.
 Made AFIO usable as headers only.
 
 [/=================]
-[heading Boost 1.55 AFIO v1.0]
+[heading Boost 1.55 AFIO v1.0 27th Sep 2013]
 [/=================]
 
 First release for end of Google Summer of Code 2013.

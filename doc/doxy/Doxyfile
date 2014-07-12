@@ -114,7 +114,7 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 # configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = ../../../../boost/afio \
+INPUT                  = ../../include/boost/afio \
 			./doxygen_input/pages \
 			./doxygen_input/groups
 INPUT_ENCODING         = UTF-8
@@ -124,7 +124,7 @@ EXCLUDE                = ./doxygen_extension_examples.hpp
 EXCLUDE_SYMLINKS       = NO
 EXCLUDE_PATTERNS       = 
 EXCLUDE_SYMBOLS        = 
-EXAMPLE_PATH           = ../../test/examples
+EXAMPLE_PATH           = ../../example
 EXAMPLE_PATTERNS       = *.cpp
 EXAMPLE_RECURSIVE      = NO
 IMAGE_PATH             = doxygen_input/images

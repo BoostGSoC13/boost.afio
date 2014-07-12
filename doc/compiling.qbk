@@ -131,83 +131,56 @@ directories, so `include` directives of this scheme will work:
 [heading Boost AFIO Installation]
 
 # Download the latest version of the Boost Libraries from boost.org. 
-  At the time of writing the current version is Boost 1.55. 
-  Boost AFIO is not compatible with earlier versions of Boost, 
-  so be sure to use a current copy of the Boost Libraries. 
+  At the time of writing the current version is Boost 1.56. 
+  Boost AFIO is not compatible with versions of Boost earlier than 1.56 as this was
+  the first Boost version to become source code modularised.
 
 
-# Download Boost AFIO through GitHub at : [@https://github.com/BoostGSoC/boost.afio https://github.com/BoostGSoC/boost.afio]
+# Download Boost AFIO through GitHub at : [@https://github.com/BoostGSoC13/boost.afio https://github.com/BoostGSoC13/boost.afio]
   We recommend using a git repository, as it will allow for future updates. If you are unfamiliar 
   with git, check the github website for instructions on how to use git. This is a good place to 
   start: [@https://help.github.com/articles/set-up-git]
 
 
-# After you have a copy of AFIO you have a few options to add it to Boost.
+# POSIX: Assuming that your copy of Boost lives at /home/ned/boost and AFIO lives at
+  /home/ned/boost.afio, do:
 
-    # You can create a symbolic link of the AFIO library into your boost installation.
-	The primary advantage of this method is that you can easily pull updates to AFIO
-	with little work.
-    
-    On POSIX the command will be :
+  ``
+    cd /home/ned/boost/libs
+    ln -s /home/ned/boost.afio afio
+    cd ..
+    ./b2 headers
+    ./b2 libs/afio/build
+  ``
+  
+  
+# WINDOWS: Assuming that your copy of Boost lives at `C:\Users\ned\boost` and AFIO lives at
+  `C:\Users\ned\boost.afio`, do:
 
-        ``
-            $ ln -s /path/to/boost.afio/boost/afio/ /path/to/boost_directory/boost/afio
-
-            $ ln -s /path/to/boost.afio/libs/afio/ /path/to/boost_directory/libs/afio
-        ``    
-
-    Where `/path/to/boost.afio` is the path to the Boost AFIO repo you downloaded,    
-    and `/path/to/boost_directory` is the path to your Boost library installation.
-
-    On Windows things are a bit more complicated. Not all versions of Windows support 
-    symbolic links. As a result we cannot provide instructions for every version of Windows 
-    available. But here are some instructions for Windows 7:
-    
-
-        ``
-            MKLINK /D path/to/boost_directory/boost/afio path/to/boost.afio/boost/afio
-
-            MKLINK /D path/to/boost_directory/libs/afio path/to/boost.afio/libs/afio
-        ``
-    If your operating system isn’t covered here, or you have difficulty using these 
-    instructions, please consult instructions for your particular operating system on how 
-    to create symbolic links. A Google search of Symbolic links and your operating system 
-    should net you the desired results. 
-    
-    Alternatively junction points may be used in place of symbolic links. Earlier versions of Windows
-    may benefit from this approach. Junction points can be made with the help of this Microsoft utility: 
-    [@http://technet.microsoft.com/en-CA/sysinternals/bb896768.aspx]
+  ``
+    cd \Users\ned\boost\libs
+    mklink /j afio C:\Users\ned\boost.afio
+    cd ..
+    b2 headers
+    b2 libs/afio/build
+  ``
 
 
-    # You can copy it directly into Boost. This is the method least likely to have problems.
-    
-    It may be preferable to forgo symbolic links altogether and simply copy the 
-    [^boost.afio/boost/afio] and [^boost.afio/libs/afio] into [^boost_directory/boost] 
-    and [^boost_directory/libs] respectively. 
+#  If you'd also like to execute the unit test suite, do:
+  ``
+    b2 libs/afio/test
+  ``
 
-    The advantage of symbolic links over a direct copy of the AFIO directories is that you are able 
-    to update the AFIO repo, and try the latest builds without copying the folder a second time. 
-    Otherwise they should be functionally identical. 
+#  Similar if you'd like to build documentation, do:
+  ``
+    cd doc
+    ../b2 ../libs/afio/doc
+    ../b2 ../libs/afio/doc pdf
+  ``
 
+# Thanks to modular Boost, AFIO is now exactly the same as any other Boost library and can
+be used in exactly the same way as if AFIO were already part of Boost.
 
-# To build Boost.AFIO follow the normal instructions from boost.org on how to build Boost. 
-
-    # On [@http://www.boost.org/doc/libs/1_54_0/more/getting_started/index.html] follow the 
-      link at the bottom of the page for your operating system, and look for the section titled: 
-      [*Prepare to Use a Boost Library Binary]. This section will detail how to build the Boost 
-      Libraries for your system. 
-
-
-    # If you don’t wish to build all of the Boost Libraries, or you wish to only build certain 
-      libraries, use the *--with* option to only select a particular set of libraries.  For example:
-
-        ``
-          ./b2 install link=shared --with-afio
-        ``
-    This will build only the Boost AFIO Library and its dependencies as dynamically linked 
-    libraries, leaving all other libraries unbuilt.
-
-Congratulations! You have finished installing the current version of Boost.AFIO. 
 
 [heading Running the Unit Tests]
 

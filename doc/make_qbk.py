@@ -29,7 +29,7 @@ os.mkdir("generated")
 cmd = doxygen_xml2qbk_cmd
 cmd = cmd + " --xml %s"
 cmd = cmd + " --start_include boost/afio/"
-cmd = cmd + " --convenience_header_path ../../../boost/afio/"
+cmd = cmd + " --convenience_header_path ../../include/boost/afio/"
 cmd = cmd + " --convenience_headers afio.hpp"
 cmd = cmd + " --skip_namespace boost::afio::"
 cmd = cmd + " --copyright copyright_block.qbk"
@@ -126,4 +126,4 @@ for i in glob.glob("generated/class_enqueued_task*.qbk"):
         ih.write(t)
 
 # Use either bjam or b2 or ../../../b2 (the last should be done on Release branch)
-os.system("..\\..\\..\\b2.exe") 
+#os.system("..\\..\\b2.exe") 
