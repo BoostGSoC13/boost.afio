@@ -32,10 +32,42 @@ rule fast-build ( properties * )
    if "--fast-build" in $(.argv) 
    {
       return <define>BOOST_AFIO_HEADERS_ONLY=0
-	         <define>BOOST_ASIO_SEPARATE_COMPILATION
-			 <define>BOOST_ASIO_DYN_LINK
-			 <library>../build//boost_afio_dyn_asio
-			 ;
+             <define>BOOST_ASIO_SEPARATE_COMPILATION
+             <define>BOOST_ASIO_DYN_LINK
+             <library>../build//boost_afio_dyn_asio
+             ;
+   }
+}
+
+# Turn on LTO
+rule lto ( properties * )
+{
+   if "--lto" in $(.argv) 
+   {
+      if <toolset>gcc in $(properties)
+      {
+         return <cxxflags>"-flto" <linkflags>"-flto -O3" ;
+      }
+      if <toolset>msvc in $(properties)
+      {
+         return <cxxflags>"/GL" <linkflags>"/LTCG" ;
+      }
+   }
+}
+
+# Turn on the thread and undefined behaviour sanitisers
+rule sanitize ( properties * )
+{
+   if "--sanitize" in $(.argv) 
+   {
+      # clang only for now as we need the blacklist to remove Boost noise
+      if <toolset>clang in $(properties)
+      {
+         return <define>BOOST_AFIO_THREAD_SANITIZING
+            <cxxflags>"-fsanitize=thread -fsanitize=undefined -fsanitize-blacklist=libs/afio/test/blacklist.supp -g -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+            <linkflags>"-fsanitize=thread -fsanitize=undefined"
+            <testing.launcher>TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp history_size=7 external_symbolizer_path=/usr/bin/llvm-symbolizer-3.4" ;
+      }
    }
 }
 
@@ -46,26 +78,29 @@ project boost/afio/test
 #      <library>/boost/afio//boost_afio
       <toolset>gcc:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
       <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE -Wno-missing-braces"
-	  <toolset>gcc-mingw:<library>/boost/afio//boost_afio
+      <toolset>gcc-mingw:<library>/boost/afio//boost_afio
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>gcc:<linkflags>"-lgomp"
       <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
       <toolset>msvc:<cxxflags>"/openmp /GF /Gy /bigobj /D_VARIADIC_MAX=8"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32
-	  <toolset>msvc:<define>_WINDOWS
-	  <toolset>msvc:<define>UNICODE
-	  <toolset>msvc:<define>_UNICODE
-      <target-os>linux:<linkflags>"-lpthread -ldl"
+      <toolset>msvc:<define>_WINDOWS
+      <toolset>msvc:<define>UNICODE
+      <toolset>msvc:<define>_UNICODE
+      <target-os>linux:<linkflags>"-lpthread -ldl -lrt"
       <target-os>freebsd:<linkflags>"-lpthread"
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1
       <library>../../system/build//boost_system
       <library>../../filesystem/build//boost_filesystem
       <library>../../atomic/build//boost_atomic
       <library>../../thread/build//boost_thread
-      <library>../../test/build//boost_test_exec_monitor
-	  <conditional>@running-in-ci
-	  <conditional>@fast-build
+      <define>BOOST_TEST_DYN_LINK
+      <library>../../test/build//boost_unit_test_framework
+      <conditional>@running-in-ci
+      <conditional>@fast-build
+      <conditional>@lto
+      <conditional>@sanitize
     ;
 
 cpp-pch test_functions : test_functions.hpp : <include>. ;
@@ -101,43 +136,43 @@ local example_files = [ glob examples/*.cpp ] ;
 if $(test_files)
 {
     test_files_all = $(test_files) ;
-	single_test = true ;
+    single_test = true ;
 }
 else
 {
     # Don't do any of the fsyncing tests on the CI, as it murders the poor hard drive
     if "--running-in-ci" in $(.argv)
-	{
+    {
         test_files = [ glob tests/*.cpp : tests/*sync_test.cpp tests/*autoflush_test.cpp ] ;
-	}
-	else
-	{
+    }
+    else
+    {
         test_files = [ glob tests/*.cpp ] ;
-	}
+    }
     test_files_all = $(test_files) test_all.cpp ;
-	single_test = false ;
+    single_test = false ;
 }
 
 # link tests (just compile and links targets)
 if "--link-test" in $(.argv)  
 {
-	if $(single_test) != true
-	{
-		# Test that inline linkage works with variadic templates turned off
-		exe test_inline_linkage_master : test_inline_linkage_master.cpp test_inline_linkage1.cpp test_inline_linkage2.cpp : <define>BOOST_NO_CXX11_VARIADIC_TEMPLATES ;
-	}
+    if $(single_test) != true
+    {
+        # Test that inline linkage works with variadic templates turned off
+        exe test_inline_linkage_master : test_inline_linkage_master.cpp test_inline_linkage1.cpp test_inline_linkage2.cpp : <define>BOOST_NO_CXX11_VARIADIC_TEMPLATES ;
+    }
 
     for local x in $(test_files_all)
     {
         link $(x) test_functions spooky ;
     }
-	if $(single_test) != true
-	{
-		for local x in $(example_files)
-		{
-			link $(x) afio_pch spooky ;
-		}
-	}
+    if $(single_test) != true
+    {
+        for local x in $(example_files)
+        {
+            link $(x) afio_pch spooky ;
+        }
+    }
 }
 else # run actual tests
 {

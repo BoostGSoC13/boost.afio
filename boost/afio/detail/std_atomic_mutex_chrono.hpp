@@ -242,6 +242,7 @@ template<typename T> inline exception_ptr get_exception_ptr(shared_future<T> &f)
         using boost::chrono::high_resolution_clock;
         using boost::chrono::seconds;
         using boost::chrono::milliseconds;
+        using boost::chrono::nanoseconds;
         template <class ToDuration, class Rep, class Period> BOOST_CONSTEXPR ToDuration duration_cast(const boost::chrono::duration<Rep, Period> &d)
         {
             return boost::chrono::duration_cast<typename detail::durationToBase<ToDuration>::type, Rep, typename detail::ratioToBase<Period>::type>(d);
@@ -252,6 +253,7 @@ template<typename T> inline exception_ptr get_exception_ptr(shared_future<T> &f)
         using std::chrono::high_resolution_clock;
         using std::chrono::seconds;
         using std::chrono::milliseconds;
+        using std::chrono::nanoseconds;
         template <class ToDuration, class Rep, class Period> BOOST_CONSTEXPR ToDuration duration_cast(const std::chrono::duration<Rep, Period> &d)
         {
             return std::chrono::duration_cast<typename detail::durationToBase<ToDuration>::type, Rep, Period>(d);

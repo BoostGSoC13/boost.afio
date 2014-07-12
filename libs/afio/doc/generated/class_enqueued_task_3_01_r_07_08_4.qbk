@@ -63,9 +63,24 @@ class enqueued_task< R()>
 
 
 ]]
-[[``shared_future< R > get_future()``
+[[``const shared_future< R > & get_future()``
 
 ] [Returns the shared future corresponding to the future return value of the task. ] [
+
+
+]]
+[[``template<class T>
+void set_future_value(T v)``
+
+] [Sets the shared future corresponding to the future return value of the task. ] [[* T]: ['v]:  
+
+
+
+
+]]
+[[``void set_future_value()``
+
+] [] [
 
 
 ]]
@@ -88,15 +103,6 @@ class enqueued_task< R()>
 [[`` enqueued_task(std::function< R()> _task = std::function< R()>())``
 
 ] [Default constructor. ] [[* std::function< R()>]: ['_task]:  
-
-
-
-
-]]
-[[``template<class T>
-void set_future_value(T v)``
-
-] [Sets the shared future corresponding to the future return value of the task. ] [[* T]: ['v]:  
 
 
 

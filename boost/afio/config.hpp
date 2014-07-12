@@ -70,20 +70,29 @@
 //#define BOOST_THREAD_DONT_PROVIDE_FUTURE
 //#define BOOST_THREAD_PROVIDES_SIGNATURE_PACKAGED_TASK
 #if BOOST_AFIO_HEADERS_ONLY == 1
-#define BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC inline
-#define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC inline
-#define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC inline virtual
+# define BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC inline
+# define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC inline
+# define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC inline virtual
 // GCC gets upset if inline virtual functions aren't defined
-#ifdef BOOST_GCC
-#define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC { BOOST_AFIO_THROW_FATAL(std::runtime_error("Attempt to call pure virtual member function")); abort(); }
+# ifdef BOOST_GCC
+#  define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC { BOOST_AFIO_THROW_FATAL(std::runtime_error("Attempt to call pure virtual member function")); abort(); }
+# else
+#  define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC =0;
+# endif
 #else
-#define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC =0;
+# define BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC extern BOOST_AFIO_DECL
+# define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
+# define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC virtual
+# define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC =0;
 #endif
-#else
-#define BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC extern BOOST_AFIO_DECL
-#define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
-#define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC virtual
-#define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC =0;
+
+#if defined(__has_feature)
+# if __has_feature(thread_sanitizer)
+# define BOOST_AFIO_DISABLE_THREAD_SANITIZE __attribute__((no_sanitize_thread))
+# endif
+#endif
+#ifndef BOOST_AFIO_DISABLE_THREAD_SANITIZE
+# define BOOST_AFIO_DISABLE_THREAD_SANITIZE
 #endif
 
 #endif  /* BOOST_AFIO_CONFIG_HPP */

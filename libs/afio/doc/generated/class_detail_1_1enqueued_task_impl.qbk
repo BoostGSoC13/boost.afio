@@ -72,9 +72,24 @@ class detail::enqueued_task_impl
 
 
 ]]
-[[``shared_future< R > get_future()``
+[[``const shared_future< R > & get_future()``
 
 ] [Returns the shared future corresponding to the future return value of the task. ] [
+
+
+]]
+[[``template<class T>
+void set_future_value(T v)``
+
+] [Sets the shared future corresponding to the future return value of the task. ] [[* T]: ['v]:  
+
+
+
+
+]]
+[[``void set_future_value()``
+
+] [] [
 
 
 ]]

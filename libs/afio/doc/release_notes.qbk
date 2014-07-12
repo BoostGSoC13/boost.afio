@@ -34,6 +34,59 @@ using a shocking amount of RAM.
 
 
 [/=================]
+[heading Boost 1.56 AFIO v1.22]
+[/=================]
+
+Finished getting a ThreadSanitizer (tsan) + UndefinedBehaviorSanitizer (ubsan) pass
+running per-commit on Travis CI (>= v1.2 was tsan clean, I just hadn't bothered getting
+a CI to verify it to be so per commit).
+
+Fixed bug where --lto wasn't turning on the optimiser for LTO output. Sorry.
+
+Added a benchmark testing for latency under concurrency loads.
+
+Added a new FAQ entry on AFIO execution latencies.
+
+[/=================]
+[heading Boost 1.56 AFIO v1.21]
+[/=================]
+
+Fixed a bug in the custom unit testing framework which was throwing away any exceptions
+being thrown by the tests (thanks to Paul Kirth for finding this and reporting it).
+Fixing this bug revealed that enumerate() with a glob on Windows has never worked
+properly and the exception thrown by MSVC's checked iterators was hiding the problem,
+so fixed that bug too.
+
+Added async_io_dispatcher_base::post_op_filter() and async_io_dispatcher_base::post_readwrite_filter(),
+including documentation examples and integrating filters into the unit testing.
+post_readwrite_filter() ought to be particularly useful to those seeking deep ASIO
+integration. Thanks to Bjorn Reese for the long discussions leading up to this
+choice of improved ASIO support.
+
+During updating the benchmarks below now I have regained access to my developer
+workstation, discovered a severe performance regression in the v1.2 engine of
+around 27% over the v1.1 engine. Steps taken:
+
+1. The shared state in every async_io_op was a shared_ptr, now it is the
+underlying shared_future. Eliminated copies of shared_ptr, now we always
+use the shared_future in enqueued_task directly. This reduced regression to 18%.
+
+2. Removed more code from inside the TSX locks. This reduced regression to 16%.
+
+3. Removed the second TSX lock from complete_async_op(). This eliminated the
+regression and actually added 2% to the v1.1 engine.
+
+4. Removed the second TSX lock from chain_async_op(). This added a further 10%
+over the v1.1 engine, so we are now 12% faster which is about right given
+the v1.2 engine removed 15% of code.
+
+Added nested TSX transaction support.
+
+The CI shows that clang 3.1 now produces segfaulting binaries with this release,
+so rather than debug clang, I simply dropped clang 3.1 support. AFIO now requires
+clang 3.2 or better.
+
+[/=================]
 [heading Boost 1.56 AFIO v1.20]
 [/=================]
 
@@ -64,7 +117,6 @@ lazily allocated.
 to an implementation which literally assembles the futures into a list and passes
 them to boost::wait_for_all().
 * Added when_any(ops).
-
 
 [/=================]
 [heading Boost 1.56 AFIO v1.11]
@@ -135,58 +187,70 @@ First release for end of Google Summer of Code 2013.
 [section:closure_performance What is the maximum throughput of AFIO's closure execution engine aka
 how many IOPS can I push with AFIO?]
 
-For v1.1, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
+For v1.21 of the engine, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
 use as a closure engine whereas the values for `completion()` might be for max filing system IOPS[footnote The phrase
 ["might be] is important: a null closure benchmark will always have dispatch rate problems i.e. the closures being executed
 take less time to execute than the time to dispatch them, so these figures are best read as maximum dispatch rate, not
 maximum IOPS.]:
 
-[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.1 i.e. NOT using transactional memory:
+[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.21[footnote Not using Intel TSX.
+Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
 [[Operating system][`call()` unchained][`call()` chained][`completion()` unchained][`completion()` chained][Raw ASIO]]
-[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 911963]][[role alignright 596318]][[role alignright 1555990]][[role alignright 726124]][[role alignright 2806070]]]
-[[Relative to ASIO][[role alignright 32%]][[role alignright 21%]][[role alignright 55%]][[role alignright 26%]][[role alignright 100%]]]
-[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1094780]][[role alignright 794384]][[role alignright 1432810]][[role alignright 968005]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
-[[Relative to ASIO][[role alignright 68%]][[role alignright 49%]][[role alignright 89%]][[role alignright 60%]][[role alignright 100%]]]
-[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright 649015]][[role alignright 469689]][[role alignright 1021630]][[role alignright 613816]][[role alignright 2725690]]]
-[[Relative to ASIO][[role alignright 24%]][[role alignright 17%]][[role alignright 37%]][[role alignright 23%]][[role alignright 100%]]]
+[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 1133730]][[role alignright 605569]][[role alignright 1629110]][[role alignright 647738]][[role alignright 2376440]]]
+[[['Relative to ASIO]][[role alignright 48%]][[role alignright 25%]][[role alignright 69%]][[role alignright 27%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.1]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[role alignright 100%]]]
+[[][][][][][]]
+
+[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1291250]][[role alignright 1022970]][[role alignright 1479540]][[role alignright 1200450]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
+[[['Relative to ASIO]][[role alignright 80%]][[role alignright 64%]][[role alignright 92%]][[role alignright 75%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.1]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
+[[][][][][][]]
+
+[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright 930424]][[role alignright 709952]][[role alignright 1495740]][[role alignright 697333]][[role alignright 2393570]]]
+[[['Relative to ASIO]][[role alignright 39%]][[role alignright 30%]][[role alignright 62%]][[role alignright 29%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.1]][[role alignright +43%]][[role alignright +51%]][[role alignright +46%]][[role alignright +14%]][[role alignright 100%]]]
 ]
 
-We hope that ~720k max IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
+Note how Visual Studio with its incomplete C++ 11 support does not fare well against a fully C++ 11 compliant compiler. In fact,
+with the v1.21 engine old VS2010 riddled with compatibility shims does surprisingly well, the new much simpler implementation really
+favours VS2010 to the extent it's actually faster than VS2013 for chained ops.
+
+We hope that ~600k min IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
 PCIe based SSD too, and if paired with a CPU with more cores, AFIO's almost wait free design ought to scale out fairly
 well too such that it may be able to max out even top end PCIe SSDs, some of which can push 10m IOPS now. If that isn't
 fast enough for you, try AFIO on an Intel CPU with memory transaction support (a runtime check will automatically
 replace locks with TSX memory transactions), or try support for `__transaction_relaxed` compilers if `BOOST_HAVE_TRANSACTIONAL_MEMORY_COMPILER` is defined.
 
-Nevertheless, AFIO will almost certainly be still criticised for poor performance relative to __boost_asio__. Unfortunately, dependency chaining is not
-free, and moreover, AFIO has a very simple design based on a global hash table and pure C++11 STL throughout (i.e. it's heavy
-on the memory allocator). The biggest limiter, by far, is the spin lock protecting the ops dispatch and completion implementation.
-Because AFIO is pure batch, dispatch is very rarely a problem: rather it is completion, because completion handling must always be
-performed per op completion in order to check for and dispatch, if necessary, dependencies. Currently the top consumers of CPU
-time during null closure dispatch benchmarks are as follows:
-
-[table:top_consumers Top consumers of CPU time during null closure dispatch in AFIO v1.1 on Microsoft Windows
-[[Unchained][][Chained][]]
-[[ops lock sleep][[role alignright 40%]][ops lock sleep][[role alignright 34%]]]
-[[threadpool waiting for new ops][[role alignright 23%]][ops lock spin][[role alignright 22%]]]
-[[ops lock spin][[role alignright 8.1%]][threadpool waiting for new ops][[role alignright 14%]]]
-[[memory allocator][[role alignright 6.1%]][memory allocator][[role alignright 4.7%]]]
-[[sending ops to threadpool][[role alignright 1.0%]][sending ops to threadpool][[role alignright 4.3%]]]
-[[RtlUserThreadStart][[role alignright 10%]][RtlUserThreadStart][[role alignright 10%]]]
-[[remainder and misc][[role alignright 11.8%]][remainder and misc][[role alignright 11%]]]
-]
-
-As you can see, when the closures do no real work, one spends a huge amount of time contending the ops lock.
-Luckily, the ops lock is not held while file i/o operations or closures are being executed, so contention on the ops lock
-isn't as much of a problem during real world use i.e. you will get a significant amount of ["free] file i/o without losing
-much in maximum op dispatch throughput.
-
-And certainly a custom allocator for the hash table might make quite a difference, especially in avoiding spinning and sleeping
-the ops lock altogether by eliminating the memory allocator. Another option we might investigate in the future is using a
-different hash table implementation e.g. `concurrent_unordered_map<>` instead (though I hear it has poor single lookup
-performance, and the lack of safe erase is a huge problem for us), or any of the hash tables from
-[@http://incise.org/hash-table-benchmarks.html].
-
 [endsect] [/closure_performance]
+
+[section:closure_latency What is the latency of AFIO's closure execution engine aka
+how quickly can I push a single op with AFIO?]
+
+For v1.21 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
+the following latency graph which is in CPU cycles:
+
+[role aligncenter [$../src/images/afio_latencies.svg]]
+
+The solid lines represent average dispatch to execution and execution finish to completion
+notification latencies and are cumulative on the left scale, whilst the dotted lines represent
+minimum latencies and are cumulative on the right scale. As one can see, one can expect a
+minimum of around 6,000 CPU cycles between dispatch and the operation beginning, and a minimum
+of around 4,000 cycles between the operation completing and its op reference becoming signalled,
+thus making total minimum latency per op around 10,000 CPU cycles, or around 2.5 microseconds.
+
+Average latency is rather worse of course, but if you exceed CPU cores by just enough to stop
+them clocking down you can expect a 300,000 CPU cycle total latency with a 95% confidence
+interval of plus/minus 25,000 CPU cycles, which is 75 microseconds plus/minus 6.25 microseconds.
+Obviously this makes AFIO unsuited for low latency work such as high frequency trading, but once
+you get below 0.1 milliseconds it becomes very hard to disentangle SSD access times from the
+latency of the filing and storage systems between you and the SSD anyway, so even if AFIO might
+appear to on average double the 0.08 millisecond access time a SSD might have, you really must
+bear in mind that a thread sleep and wake costs about 215,000 CPU cycles, and the obvious thing
+which is happening in the benchmark is that AFIO is on average sleeping and waking 1.33 times
+per operation dispatched and completed. Your use case will of course vary, and if you hit
+the spin locks right I've personally seen 9,000 CPU cycle sustained average latencies.
+
+[endsect] [/closure_latency]
 
 [section:stuck_ops I'm seeing ["WARNING: `~async_file_dispatcher_base()` detects stuck `async_io_op` in total of X ops] during
 process close. What does this mean?]
@@ -240,19 +304,27 @@ etc.
 
 [section:slow_compile Using AFIO really slows down my compile times. Can't you do something about that?]
 
-We know about that slowdown! The solution is easy: define `BOOST_AFIO_HEADERS_ONLY` to 0 for each compiland, and
-link to the AFIO shared library instead. Do the same for ASIO by defining `BOOST_ASIO_SEPARATE_COMPILATION`
-or `BOOST_ASIO_DYN_LINK` as is appropriate to your circumstances for each compiland, and link to the ASIO
+You'll find a huge amount depends on your compiler. Here are some build time benchmarks for my developer workstation:
+
+[table:build_time Single thread build times for AFIO v1.2 for various compilers and options on a 3.5Ghz Intel Core i7 3770K
+[[Build flags][Microsoft Windows 8 x64 with Visual Studio 2013][Ubuntu 12.04 LTS Linux x64 with GCC 4.8 and gold linker][Ubuntu 12.04 LTS Linux x64 with clang 3.4 and gold linker]]
+[  [`--link-test --fast-build debug`][01m43s][03m31s[footnote ASIO has a link error without `link=static`]][fails]]
+[               [`--link-test debug`][02m40s][06m15s][04m24s]]
+[         [`--link-test --lto debug`][[role red 09m36s]][06m23s][04m32s]]
+[       [`--link-test pch=off debug`][06m12s][08m01s][04m26s]]
+[[`--link-test --fast-build release`][02m01s][03m15s[footnote ASIO has a link error without `link=static`]][fails]]
+[             [`--link-test release`][03m09s][06m28s][06m06s]]
+[       [`--link-test --lto release`][10m24s][07m08s][06m14s]]
+]
+
+The benefit of `--fast-build` grows exponentially the less powerful the CPU: on my Intel Atom 220
+netbook `--fast-build` gets total build times under five minutes which is impressive compared to
+the twenty or so minutes without that flag.
+
+`--fast-build` works by defining `BOOST_AFIO_HEADERS_ONLY` to 0 for each compiland, and
+linking to the AFIO shared library instead. It also does the same for ASIO by defining `BOOST_ASIO_SEPARATE_COMPILATION`
+and `BOOST_ASIO_DYN_LINK` for each compiland, and links to the ASIO
 shared library instead (which is built via `boost/asio/impl/src.hpp`, see ASIO's docs).
-
-While those alone are a significant improvement, still further improvements can be gained by
-configuring precompiled headers support for your compiler. Getting this to work correctly is, as
-always, quite brittle but is very much worth it on low end CPUs. The Jamfile.v2 in the test
-directory implements an option `--fast-build` which is an example of how to achieve maximum
-build performance with AFIO.
-
-You should notice a 6x-10x improvement to compilation time, which is a huge win during debugging, or
-building on low end CPUs like first gen Intel Atom's.
 
 [endsect] [/slow_compile]
 

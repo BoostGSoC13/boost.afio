@@ -43,13 +43,20 @@ never exceeded about 150k ops/sec maximum on a four core Intel Ivy Bridge CPU.
 
 That performance was embarrassing, so for v1.1 the entire engine was rewritten using vast
 numbers of atomics to be completely lock free, and very nearly wait free if it weren't for the thin spin locks around the central
-ops hash table (which will be replaced with memory transactions if Intel TSX extensions are
+ops hash table (which are replaced with memory transactions if Intel TSX extensions are
 available, with support for `__transaction_relaxed` compilers if `BOOST_HAVE_TRANSACTIONAL_MEMORY_COMPILER`
 is defined). Now performance
 can reach 1.5m ops/sec on a four core Intel Ivy Bridge CPU, or more than half of Boost.ASIO's
 maximum dispatch rate, which probably means AFIO is close to optimal now, at least without
 having to replace the use of STL multithreading facilities and the system memory allocator
 with more exotic varieties.
+
+For the v1.2 engine, another large refactor was done, this time to substantially simplify the
+engine by removing the use of `std::packaged_task<>` completely, replacing it with a
+new intrusive-capable `enqueued_task<>` which permits the engine to early out in many cases,
+plus allowing the consolidation of all synchronisation points to just two: one in dispatch,
+and one other in completion, which is now optimal. Performance of the non-TSX engine rose
+by about 20% over the v1.1 engine, plus AFIO is now fully clean on all race detecting tools.
 
 
 [section:overview A quick overview of the design]

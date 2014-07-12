@@ -76,6 +76,28 @@ An async_io_op with the same shared future as all op refs with this id.
 
 
 ]]
+[[``void post_op_filter_clear()``
+
+] [Clears the post op and readwrite filters. Not threadsafe. ] [
+
+
+]]
+[[``void post_op_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>> filters)``
+
+] [Install op filters for non-buffer taking ops. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_t`]
+
+
+
+
+]]
+[[``void post_readwrite_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>> filters)``
+
+] [Install read/write op filters, useful for tight ASIO integration. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_buffers_t`]
+
+
+
+
+]]
 [[``std::vector< async_io_op > completion(const std::vector< async_io_op > & ops, const std::vector< std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >>> & callbacks)``
 
 ] [Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete. ] [[* const std::vector< async_io_op > &]: ['ops]:  A batch of precondition op handles. 
@@ -518,6 +540,7 @@ std::vector< async_io_op > write(const std::vector< async_data_op_req< T >> & op
 `#include <boost/afio/afio.hpp>`
 
 [/ link afio.reference.functions.async_file_io_dispatcher `async_file_io_dispatcher()`]
+[include generated/group_async_file_io_dispatcher_base__filter.qbk]
 [include generated/group_async_file_io_dispatcher_base__completion.qbk]
 [include generated/group_async_file_io_dispatcher_base__call.qbk]
 [include generated/group_async_file_io_dispatcher_base__filedirops.qbk]

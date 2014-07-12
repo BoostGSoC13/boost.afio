@@ -149,6 +149,7 @@ template<class T> inline void wrap_test_method(T &t)
         catch(...)
         {
             std::cerr << "ERROR: unit test exits via exception. Exception was " << boost::current_exception_diagnostic_information(true) << std::endl;
+            BOOST_FAIL("Unit test exits via exception which shouldn't happen");
         }
 #ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
     }
@@ -156,6 +157,28 @@ template<class T> inline void wrap_test_method(T &t)
 }
 
 // Define a unit test description and timeout
+#ifdef BOOST_TEST_UNIT_TEST_SUITE_IMPL_HPP_071894GER
+#define BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR(test_name)                  \
+BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
+    boost::unit_test::make_test_case(                                   \
+        &BOOST_AUTO_TC_INVOKER( test_name ), #test_name ),              \
+    boost::unit_test::ut_detail::auto_tc_exp_fail<                      \
+        BOOST_AUTO_TC_UNIQUE_ID( test_name )>::instance()->value() );   \
+                                                                        \
+void test_name::test_method()                                           \
+
+#else
+#define BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR(test_name)                  \
+BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
+    boost::unit_test::make_test_case(                                   \
+        &BOOST_AUTO_TC_INVOKER( test_name ),                            \
+        #test_name, __FILE__, __LINE__ ),                               \
+    boost::unit_test::decorator::collector::instance() );               \
+                                                                        \
+void test_name::test_method()                                           \
+
+#endif
+
 #define BOOST_AFIO_AUTO_TEST_CASE(test_name, desc, _timeout)            \
 struct test_name : public BOOST_AUTO_TEST_CASE_FIXTURE { void test_method(); }; \
                                                                         \
@@ -178,13 +201,7 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
                                                                         \
 struct BOOST_AUTO_TC_UNIQUE_ID( test_name ) {};                         \
                                                                         \
-BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
-    boost::unit_test::make_test_case(                                   \
-        &BOOST_AUTO_TC_INVOKER( test_name ), #test_name ),              \
-    boost::unit_test::ut_detail::auto_tc_exp_fail<                      \
-        BOOST_AUTO_TC_UNIQUE_ID( test_name )>::instance()->value() );   \
-                                                                        \
-void test_name::test_method()                                           \
+BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR ( test_name )
 
 // From http://burtleburtle.net/bob/rand/smallprng.html
 typedef unsigned int  u4;
@@ -208,6 +225,17 @@ static void raninit(ranctx *x, u4 seed) {
     }
 }
 
+static void dofilter(boost::afio::atomic<size_t> *callcount, boost::afio::detail::OpType, boost::afio::async_io_op &) { ++*callcount; }
+static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle *h, const boost::afio::detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t idx, size_t no, const boost::system::error_code &, size_t transferred)
+{
+    size_t amount=0;
+    BOOST_FOREACH(auto &i, req.buffers)
+        amount+=boost::asio::buffer_size(i);
+    if(offset!=0)
+        BOOST_CHECK(offset==0);
+    if(transferred!=amount)
+        BOOST_CHECK(transferred==amount);
+}
 static int donothing(boost::afio::atomic<size_t> *callcount, int i) { ++*callcount; return i; }
 static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher, size_t bytes)
 {
@@ -226,6 +254,18 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         auto begin=chrono::high_resolution_clock::now();
         while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<6);
 
+        // Install a file open filter
+        dispatcher->post_op_filter_clear();
+        boost::afio::atomic<size_t> filtercount(0);
+        std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
+        filters.push_back(std::make_pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>(detail::OpType::file, std::bind(dofilter, &filtercount, std::placeholders::_1, std::placeholders::_2)));
+        dispatcher->post_op_filter(filters);
+
+        // Install a write filter
+        std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> rwfilters;
+        rwfilters.push_back(std::make_pair(detail::OpType::Unknown, std::function<async_file_io_dispatcher_base::filter_readwrite_t>(checkwrite)));
+        dispatcher->post_readwrite_filter(rwfilters);
+        
         // Start opening 1000 files
         begin=chrono::high_resolution_clock::now();
         std::vector<async_path_op_req> manyfilereqs;
@@ -300,7 +340,9 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         // Fetch any outstanding error
         when_all(rmdir).wait();
         BOOST_CHECK((callcount==1000U));
-    } catch(...) {
+        BOOST_CHECK((filtercount==1000U));
+    }
+    catch(...) {
         std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
         throw;
     }

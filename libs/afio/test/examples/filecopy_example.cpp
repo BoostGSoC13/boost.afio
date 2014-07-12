@@ -35,7 +35,7 @@ namespace {
         for(auto &ih : ihs)
         {
             // Get the file's size in bytes
-            off_t bytes=ih.h->get()->direntry(metadata_flags::size).st_size();
+            off_t bytes=ih.get()->direntry(metadata_flags::size).st_size();
             // Push the offset to write at, amount to write, and a scratch buffer
             offsets.push_back(std::make_tuple(offset, bytes,
                 std::unique_ptr<char[]>(new char[chunk_size])));
