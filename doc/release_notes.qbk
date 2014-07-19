@@ -26,7 +26,7 @@ transparent hashing of all async reads and writes.
 op easily.
     * Automatic ASIO callback prototype spec support.
 
-[subheading In some later version:]
+[h5 In some later version:]
 
 * Multiple dispatcher support
   * Integration of direct proposed Boost.Fiber library support as a secondary
