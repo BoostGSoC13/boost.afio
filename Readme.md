@@ -6,33 +6,65 @@ Jenkins CI status:<br/>build<br/>unit tests
 </p>
 <center>
 <table border="1" cellpadding="2">
-<tr><th>Static analysis</th><th colspan="6">Linux</th></tr>
-<tr><th>clang</th>
-<th>GCC 4.6 + libstdc++ 4.6</th><th>GCC 4.7 + libstdc++ 4.7</th><th>GCC 4.8 + libstdc++ 4.8</th><th>clang 3.2 + libstdc++ 4.8</th><th>clang 3.3 + libstdc++ 4.8</th><th>clang 3.4 + libstdc++ 4.8</th>
+<tr><th>Static analysis</th><th colspan="7">Linux</th></tr>
+<tr><th>clang 3.4</th>
+<th>GCC 4.6 x86</th><th>GCC 4.7 x86</th><th>GCC 4.8 x64</th><th>GCC 4.9 x64</th><th>clang 3.2 x86</th><th>clang 3.3 x86</th><th>clang 3.4 x64</th>
 </tr>
 <tr align="center">
 <td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20Pre-Check/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20Pre-Check' style="margin-left:-58px;"></a></div><div><font size="-2">N/A</font></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++,label=linux-gcc-clang/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++,label=linux-gcc-clang/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20GCC%204.6/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20GCC%204.6' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.7,label=linux-gcc-clang/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.7,label=linux-gcc-clang/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20GCC%204.7/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20GCC%204.7' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.8,label=linux-gcc-clang/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=g++-4.8,label=linux-gcc-clang/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20GCC%204.8/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20GCC%204.8' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.2,label=linux-gcc-clang/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.2,label=linux-gcc-clang/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20clang%203.2/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20clang%203.2' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.3,label=linux-gcc-clang/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.3,label=linux-gcc-clang/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20clang%203.3/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20clang%203.3' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.4,label=linux-gcc-clang/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux/CXX=clang++-3.4,label=linux-gcc-clang/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20clang%203.4/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20clang%203.4' style="margin-left:-58px;"></a></div></td>
+
+<!-- GCC 4.6 x86 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_GCC%204.6'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_GCC%204.6/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_GCC%204.6'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_GCC%204.6/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- GCC 4.7 x86 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_GCC%204.7'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_GCC%204.7/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_GCC%204.7'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_GCC%204.7/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- GCC 4.8 x64 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux64_GCC%204.8'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux64_GCC%204.8/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux64_GCC%204.8'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux64_GCC%204.8/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- GCC 4.9 x64 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux64_GCC%204.9'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux64_GCC%204.9/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux64_GCC%204.9'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux64_GCC%204.9/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- clang 3.2 x86 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.2'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.2/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.2'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.2/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- clang 3.3 x86 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.3'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.3/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.3'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.3/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- clang 3.4 x64 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux64_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux64_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux64_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux64_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+
 </tr>
 </table>
 <table border="1" cellpadding="2">
-<tr><th colspan="1">Linux</th><th>FreeBSD on ZFS</th><th colspan="3">WinXP</th><th colspan="2">Win7</th></tr>
-<tr><th>clang 3.3 + libc++ 2013-12</th><th>clang 3.3 + libc++</th>
-<th>VS2010</th><th>Mingw</th><th>Mingw-w64</th><th>VS2012</th><th>VS2013</th>
+<tr><th colspan="2">Linux</th><th>FreeBSD on ZFS</th><th colspan="5">Win8.1</th></tr>
+<tr><th>clang 3.4 ARMv7a</th><th>GCC 4.8 ARMv7a</th><th>clang 3.3 + libc++</th>
+<th>VS2010</th><th>VS2012</th><th>VS2013</th><th>Mingw</th><th>Mingw-w64</th>
 </tr>
 <tr align="center">
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20Linux%20clang%203.3%20%2B%20libc%2B%2B/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20Linux%20clang%203.3%20%2B%20libc%2B%2B' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20Linux%20clang%203.3%20%2B%20libc%2B%2B/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20Linux%20clang%203.3%20%2B%20libc%2B%2B' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20FreeBSD%2010%20clang%203.3/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20FreeBSD%2010%20clang%203.3' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20FreeBSD%2010%20clang%203.3/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20FreeBSD%2010%20clang%203.3' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20WinXP%20VS2010/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20WinXP%20VS2010' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20WinXP%20VS2010/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20WinXP%20VS2010' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20WinXP%20Mingw32/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20WinXP%20Mingw32' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20WinXP%20Mingw32/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20WinXP%20Mingw32' style="margin-left:-58px;"></a></div></td>
-<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20WinXP%20Mingw-w64/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Build%20WinXP%20Mingw-w64' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20WinXP%20Mingw-w64/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Test%20WinXP%20Mingw-w64' style="margin-left:-58px;"></a></div></td>
-<td>known working</td>
-<td>known working</td>
+<!-- clang 3.4 ARMv7a -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- GCC 3.4 ARMv7a -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_GCC%204.8'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_GCC%204.8/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_GCC%204.8'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_GCC%204.8/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- clang 3.3 FreeBSD -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_FreeBSD_clang%203.3'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_FreeBSD_clang%203.3/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_FreeBSD_clang%203.3'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_FreeBSD_clang%203.3/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- VS2010 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2010'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2010/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2010'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2010/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- VS2012 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2012'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2012/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2012'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2012/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<!-- VS2013 -->
+<td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2013'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2013/badge/icon' style="margin-left:-58px;"></a></div><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2013'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2013/badge/icon' style="margin-left:-58px;"></a></div></td>
+
+<td>todo</td>
+
+<td>todo</td>
+
 </tr>
 </table>
 </center>
