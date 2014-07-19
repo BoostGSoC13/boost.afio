@@ -32,6 +32,7 @@ boostbook afio
        <xsl:param>toc.max.depth=4
        <xsl:param>generate.section.toc.level=4
        <xsl:param>boost.root=../..
+       <format>onehtml:<xsl:param>img.src.path=../../../../libs/afio/doc/src/images/a/b/
        <format>html:<xsl:param>img.src.path=../../../../libs/afio/doc/src/images/a/b/
        <format>xhtml:<xsl:param>img.src.path=../../../../libs/afio/doc/src/images/a/b/
        <format>pdf:<xsl:param>img.src.path=../../../../../../libs/afio/doc/src/images/
