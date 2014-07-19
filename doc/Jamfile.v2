@@ -15,7 +15,6 @@ project afio/doc ;
 using quickbook ;
 
 path-constant here : . ;
-path-constant images_location : doc/src/images ;
 
 
 boostbook afio 
@@ -33,7 +32,9 @@ boostbook afio
        <xsl:param>toc.max.depth=4
        <xsl:param>generate.section.toc.level=4
        <xsl:param>boost.root=../..
-       <xsl:param>img.src.path=$(images_location)/
+       <format>html:<xsl:param>img.src.path=../../../../libs/afio/doc/src/images/a/b/
+       <format>xhtml:<xsl:param>img.src.path=../../../../libs/afio/doc/src/images/a/b/
+       <format>pdf:<xsl:param>img.src.path=../../../../../../libs/afio/doc/src/images/
        <xsl:param>root.filename=afio
        <xsl:param>html.stylesheet=../../libs/afio/doc/html/myboostbook.css
        <quickbook-define>enable_index

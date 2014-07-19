@@ -12,11 +12,21 @@
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
-* Async fast batch hash engine which provides transparent hashing of all async
-reads and writes (in progress).
+* It is hereby noted that the v1.2 engine will be the last to support Microsoft
+Visual Studio 2010. v1.3 engines will [*require] Microsoft Visual Studio 2012
+or better.
+
+* The v1.3 engine will gain a new concurrent unordered_map implementation giving
+still further significant performance gains. This will remove all locking completely
+from AFIO code.
+
+* The v1.4 engine will have an async fast batch hash engine which provides
+transparent hashing of all async reads and writes.
   * New completion handler metaprogramming letting you bind add hash to each
 op easily.
     * Automatic ASIO callback prototype spec support.
+
+[subheading In some later version:]
 
 * Multiple dispatcher support
   * Integration of direct proposed Boost.Fiber library support as a secondary
@@ -34,7 +44,7 @@ using a shocking amount of RAM.
 
 
 [/=================]
-[heading Boost 1.56 AFIO v1.22]
+[heading Boost 1.56 AFIO v1.22 trunk]
 [/=================]
 
 Finished getting a ThreadSanitizer (tsan) + UndefinedBehaviorSanitizer (ubsan) pass
@@ -52,7 +62,7 @@ module just like any other. Obviously this will break source code compatibility
 with all preceding Boosts.
 
 [/=================]
-[heading Boost 1.56 AFIO v1.21 23rd Mar 2014]
+[heading Boost 1.55 AFIO v1.21 23rd Mar 2014]
 [/=================]
 
 Fixed a bug in the custom unit testing framework which was throwing away any exceptions
@@ -91,7 +101,7 @@ so rather than debug clang, I simply dropped clang 3.1 support. AFIO now require
 clang 3.2 or better.
 
 [/=================]
-[heading Boost 1.56 AFIO v1.20 5th Feb 2014]
+[heading Boost 1.55 AFIO v1.20 5th Feb 2014]
 [/=================]
 
 This is a major refactor of AFIO's core op dispatch engine to trim it down by
@@ -123,7 +133,7 @@ them to boost::wait_for_all().
 * Added when_any(ops).
 
 [/=================]
-[heading Boost 1.56 AFIO v1.11]
+[heading Boost 1.55 AFIO v1.11]
 [/=================]
 
 Added --fast-build to test Jamfile to preserve my sanity attempting to work with
@@ -233,7 +243,7 @@ how quickly can I push a single op with AFIO?]
 For v1.21 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
 the following latency graph which is in CPU cycles:
 
-[role aligncenter [$../src/images/afio_latencies.svg]]
+[role aligncenter [$afio_latencies.svg]]
 
 The solid lines represent average dispatch to execution and execution finish to completion
 notification latencies and are cumulative on the left scale, whilst the dotted lines represent
