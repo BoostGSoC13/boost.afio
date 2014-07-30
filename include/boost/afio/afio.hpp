@@ -457,6 +457,25 @@ struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 
+#if defined(BOOST_NO_CXX11_SCOPED_ENUMS)
+#define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
+inline BOOST_CONSTEXPR type operator&(type a, type b) \
+{ \
+    return type(underlying_cast<size_t>(a) & underlying_cast<size_t>(b)); \
+} \
+inline BOOST_CONSTEXPR type operator|(type a, type b) \
+{ \
+    return type(underlying_cast<size_t>(a) | underlying_cast<size_t>(b)); \
+} \
+inline BOOST_CONSTEXPR type operator~(type a) \
+{ \
+    return type(~underlying_cast<size_t>(a)); \
+} \
+inline BOOST_CONSTEXPR bool operator!(type a) \
+{ \
+    return 0==underlying_cast<size_t>(a); \
+}
+#else
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
 inline BOOST_CONSTEXPR type operator&(type a, type b) \
 { \
@@ -474,6 +493,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 { \
     return 0==static_cast<size_t>(a); \
 }
+#endif
 
 /*! \enum file_flags
 \brief Bitwise file and directory open flags
@@ -514,11 +534,10 @@ enum class file_flags : size_t
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_SCOPED_ENUM_DECLARE_END(file_flags)
-BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags::enum_type)
 #else
 ;
-BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 #endif
+BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 
 /*! \enum async_op_flags
 \brief Bitwise async_op_flags flags
@@ -537,11 +556,10 @@ enum class async_op_flags : size_t
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_SCOPED_ENUM_DECLARE_END(async_op_flags)
-BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags::enum_type)
 #else
 ;
-BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 #endif
+BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 
 namespace detail {
     struct async_io_handle_posix;
@@ -647,11 +665,10 @@ enum class metadata_flags : size_t
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_SCOPED_ENUM_DECLARE_END(metadata_flags)
-BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags::enum_type)
 #else
 ;
-BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 #endif
+BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 /*! \struct stat_t
 \brief Metadata about a directory entry
 
