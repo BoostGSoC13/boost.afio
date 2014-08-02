@@ -576,7 +576,7 @@ namespace detail {
 #ifdef DOXYGEN_NO_CLASS_ENUMS
     enum OpType
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-    BOOST_AFIO_SCOPED_ENUM_DECLARE_BEGIN(OpType)
+    BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(OpType, int)
 #else
     enum class OpType
 #endif
