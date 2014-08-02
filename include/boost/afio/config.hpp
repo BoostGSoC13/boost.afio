@@ -27,6 +27,22 @@
 #define __MSVCRT_VERSION__ 0x601
 #endif
 
+// Fix up mingw weirdness
+#if !defined(WIN32) && defined(_WIN32)
+#define WIN32 1
+#endif
+// Boost ASIO needs this
+#if !defined(_WIN32_WINNT) && defined(WIN32)
+#define _WIN32_WINNT 0x0501
+#endif
+#if defined(WIN32) && _WIN32_WINNT<0x0501
+#error _WIN32_WINNT must at least be set to Windows XP for Boost ASIO to compile
+#endif
+// VS2010 needs D_VARIADIC_MAX set to at least seven
+#if defined(BOOST_MSVC) && BOOST_MSVC < 1700 && (!defined(_VARIADIC_MAX) || _VARIADIC_MAX < 7)
+#error _VARIADIC_MAX needs to be set to at least seven to compile Boost.AFIO
+#endif
+
 
 #include <boost/config.hpp>
 #include <boost/system/api_config.hpp>  // for BOOST_POSIX_API or BOOST_WINDOWS_API

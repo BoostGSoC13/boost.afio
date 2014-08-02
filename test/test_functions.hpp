@@ -24,6 +24,7 @@ extern "C" void tzset(void);
 
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "boost/afio/config.hpp"
 #include <utility>
 #include <sstream>
 #include <iostream>
