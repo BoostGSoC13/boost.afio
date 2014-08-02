@@ -11,7 +11,7 @@
    This file is part of Helgrind, a Valgrind tool for detecting errors
    in threaded programs.
 
-   Copyright (C) 2007-2012 OpenWorks LLP
+   Copyright (C) 2007-2013 OpenWorks LLP
       info@open-works.co.uk
 
    Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@ typedef
       _VG_USERREQ__HG_PTH_API_ERROR,              /* char*, int */
       _VG_USERREQ__HG_PTHREAD_JOIN_POST,          /* pthread_t of quitter */
       _VG_USERREQ__HG_PTHREAD_MUTEX_INIT_POST,    /* pth_mx_t*, long mbRec */
-      _VG_USERREQ__HG_PTHREAD_MUTEX_DESTROY_PRE,  /* pth_mx_t* */
+      _VG_USERREQ__HG_PTHREAD_MUTEX_DESTROY_PRE,  /* pth_mx_t*, long isInit */
       _VG_USERREQ__HG_PTHREAD_MUTEX_UNLOCK_PRE,   /* pth_mx_t* */
       _VG_USERREQ__HG_PTHREAD_MUTEX_UNLOCK_POST,  /* pth_mx_t* */
       _VG_USERREQ__HG_PTHREAD_MUTEX_LOCK_PRE, /* pth_mx_t*, long isTryLock */
@@ -86,7 +86,7 @@ typedef
       _VG_USERREQ__HG_PTHREAD_COND_BROADCAST_PRE, /* pth_cond_t* */
       _VG_USERREQ__HG_PTHREAD_COND_WAIT_PRE,     /* pth_cond_t*, pth_mx_t* */
       _VG_USERREQ__HG_PTHREAD_COND_WAIT_POST,    /* pth_cond_t*, pth_mx_t* */
-      _VG_USERREQ__HG_PTHREAD_COND_DESTROY_PRE,   /* pth_cond_t* */
+      _VG_USERREQ__HG_PTHREAD_COND_DESTROY_PRE,   /* pth_cond_t*, long isInit */
       _VG_USERREQ__HG_PTHREAD_RWLOCK_INIT_POST,   /* pth_rwlk_t* */
       _VG_USERREQ__HG_PTHREAD_RWLOCK_DESTROY_PRE, /* pth_rwlk_t* */
       _VG_USERREQ__HG_PTHREAD_RWLOCK_LOCK_PRE,    /* pth_rwlk_t*, long isW */
@@ -115,7 +115,8 @@ typedef
       _VG_USERREQ__HG_ARANGE_MAKE_UNTRACKED, /* Addr a, ulong len */
       _VG_USERREQ__HG_ARANGE_MAKE_TRACKED,   /* Addr a, ulong len */
       _VG_USERREQ__HG_PTHREAD_BARRIER_RESIZE_PRE, /* pth_bar_t*, ulong */
-      _VG_USERREQ__HG_CLEAN_MEMORY_HEAPBLOCK  /* Addr start_of_block */
+      _VG_USERREQ__HG_CLEAN_MEMORY_HEAPBLOCK, /* Addr start_of_block */
+      _VG_USERREQ__HG_PTHREAD_COND_INIT_POST  /* pth_cond_t*, pth_cond_attr_t*/
 
    } Vg_TCheckClientRequest;
 
