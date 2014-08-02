@@ -723,8 +723,9 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                             if(it->second.first>=5)
                             {
                                 static const char *statuses[]={ "ready", "timeout", "deferred", "unknown" };
+                                int status=boost::underlying_cast<int>(it->second.second);
                                 std::cerr << "WARNING: ~async_file_dispatcher_base() detects stuck async_io_op in total of " << p->ops.size() << " extant ops\n"
-                                    "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(((int) it->second.second)>=0 && ((int) it->second.second)<=2) ? (int) it->second.second : 3] << " failcount=" << it->second.first << " Completions:";
+                                    "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(status>=0 && status<=2) ? status : 3] << " failcount=" << it->second.first << " Completions:";
                                 BOOST_FOREACH(auto &c, op.second->completions)
                                 {
                                     std::cerr << " id=" << c.first;
@@ -776,7 +777,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
         BOOST_FOREACH(auto &op, outstanding)
         {
             future_status status=op.second->wait_for(chrono::duration<int, ratio<1, 10>>(1).toBoost());
-            switch(status)
+            switch(boost::native_value(status))
             {
             case future_status::ready:
                 reallyoutstanding.erase(op.second);
