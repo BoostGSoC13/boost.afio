@@ -15,13 +15,16 @@
 ##src:boost/smart_ptr/detail/shared_count.hpp
 ##fun:*shared_count*
 
+# Stuff from libstdc++ not understood by tsan
+race:include/c++/*/bits/shared_ptr_base.h
+race:std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_add_ref_lock()
+race:std::string::_Rep::_M_refdata()
+
 # Stuff from Boost not understood by tsan
 race:boost/exception/detail/exception_ptr.hpp
 race:boost/exception/exception.hpp
 race:void std::swap<boost::exception_detail::clone_base const*>
 race:boost/smart_ptr/detail/shared_count.hpp
-race:include/c++/*/bits/shared_ptr_base.h
-race:std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_add_ref_lock()
 race:boost::detail::shared_count::swap(boost::detail::shared_count&)
 race:boost::detail::shared_count::~shared_count()
 
