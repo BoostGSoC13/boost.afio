@@ -27,7 +27,7 @@ namespace boost{
             //! Compile-time safe detector of if \em v is nullptr (can cope with non-pointer convertibles)
 #if defined(_MSC_VER) && BOOST_MSVC<1700
             template<typename T> bool is_nullptr(T v) BOOST_NOEXCEPT_OR_NOTHROW { return Impl::is_nullptr<T, std::is_convertible<bool, T>::value>()(std::forward<T>(v)); }
-#elif defined(__GNUC__) && BOOST_GCC<40900
+#elif defined(__GNUC__) && (BOOST_GCC<40900 || defined(__MINGW32__))
             template<typename T> bool is_nullptr(T v) BOOST_NOEXCEPT_OR_NOTHROW { return Impl::is_nullptr<T, std::is_constructible<bool, T>::value>()(std::forward<T>(v)); }
 #else
             template<typename T> bool is_nullptr(T v) BOOST_NOEXCEPT_OR_NOTHROW { return Impl::is_nullptr<T, std::is_trivially_constructible<bool, T>::value>()(std::forward<T>(v)); }
