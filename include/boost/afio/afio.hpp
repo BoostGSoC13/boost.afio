@@ -457,6 +457,9 @@ struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 
+#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
+#define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type)
+#else
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
 inline BOOST_CONSTEXPR type operator&(type a, type b) \
 { \
@@ -474,6 +477,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 { \
     return 0==static_cast<size_t>(a); \
 }
+#endif
 
 // Boost's scoped enum emulation is a bit broken for us, so reimplement
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
