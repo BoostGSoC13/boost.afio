@@ -131,6 +131,8 @@
 #  define PLAT_x86_win32 1
 #elif defined(__MINGW64__) || (defined(_WIN64) && defined(_M_X64))
 #  define PLAT_amd64_win64 1
+// ned: Looks like PLAT_amd64_win64 isn't really implemented
+#    define NVALGRIND 1
 #elif defined(__linux__) && defined(__i386__)
 #  define PLAT_x86_linux 1
 #elif defined(__linux__) && defined(__x86_64__)
