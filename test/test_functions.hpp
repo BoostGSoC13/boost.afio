@@ -12,6 +12,8 @@ Created: Feb 2013
 // Reduces CPU cores used to execute, which can be useful for certain kinds of race condition.
 //#define MAXIMUM_TEST_CPUS 1
 
+#include "boost/afio/config.hpp"
+
 #ifdef __MINGW32__
 #include <stdlib.h> // To pull in __MINGW64_VERSION_MAJOR
 #ifndef __MINGW64_VERSION_MAJOR
@@ -24,7 +26,6 @@ extern "C" void tzset(void);
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "boost/afio/config.hpp"
 #include <utility>
 #include <sstream>
 #include <iostream>
