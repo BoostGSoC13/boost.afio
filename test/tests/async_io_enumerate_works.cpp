@@ -23,7 +23,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
         auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, directory_entry::compatibility_maximum(), first, std::filesystem::path(), directory_entry::metadata_fastpath())));
         first=false;
         list=enumeration.first.get();
-		if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
+        if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
         BOOST_FOREACH(auto &i, list.first)
         {
             print_stat(rootdir.get(), i);
@@ -39,7 +39,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
         first=false;
         std::cout << ".";
         list=enumeration.first.get();
-		if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
+        if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
         rootdircontents2a.insert(list.first.begin(), list.first.end());
         rootdircontents2.insert(rootdircontents2.end(), std::make_move_iterator(list.first.begin()), std::make_move_iterator(list.first.end()));
     } while(list.second);
