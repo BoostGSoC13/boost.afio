@@ -457,25 +457,6 @@ struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 
-#if defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-#define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
-inline BOOST_CONSTEXPR size_t operator&(type a, type b) \
-{ \
-    return underlying_cast<size_t>(a) & underlying_cast<size_t>(b); \
-} \
-inline BOOST_CONSTEXPR size_t operator|(type a, type b) \
-{ \
-    return underlying_cast<size_t>(a) | underlying_cast<size_t>(b); \
-} \
-inline BOOST_CONSTEXPR size_t operator~(type a) \
-{ \
-    return ~underlying_cast<size_t>(a); \
-} \
-inline BOOST_CONSTEXPR bool operator!(type a) \
-{ \
-    return 0==underlying_cast<size_t>(a); \
-}
-#else
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
 inline BOOST_CONSTEXPR type operator&(type a, type b) \
 { \
@@ -493,7 +474,31 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 { \
     return 0==static_cast<size_t>(a); \
 }
+
+// Boost's scoped enum emulation is a bit broken, so reimplement
+#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
+#define BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(EnumType, UnderlyingType)    \
+    struct EnumType {                                                   \
+        typedef UnderlyingType underlying_type;                         \
+        EnumType() BOOST_NOEXCEPT {}                                    \
+        EnumType(underlying_type v) : v_(v) {}                 \
+        underlying_type get_underlying_value_() const { return v_; }               \
+        BOOST_SCOPED_ENUM_UT_DECLARE_CONVERSION_OPERATOR                \
+    private:                                                            \
+        underlying_type v_;                                             \
+        typedef EnumType self_type;                                     \
+    public:                                                             \
+        enum enum_type
+
+#define BOOST_AFIO_SCOPED_ENUM_DECLARE_END(EnumType) \
+    ; \
+    EnumType(enum_type v) BOOST_NOEXCEPT : v_(v) {}                 \
+    enum_type get_native_value_() const BOOST_NOEXCEPT { return enum_type(v_); } \
+    operator enum_type() const BOOST_NOEXCEPT { return get_native_value_(); } \
+    operator underlying_type() const BOOST_NOEXCEPT { return get_underlying_value_(); } \
+    }
 #endif
+
 
 /*! \enum file_flags
 \brief Bitwise file and directory open flags
@@ -502,7 +507,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 #ifdef DOXYGEN_NO_CLASS_ENUMS
 enum file_flags
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-BOOST_SCOPED_ENUM_UT_DECLARE_BEGIN(file_flags, size_t)
+BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(file_flags, size_t)
 #else
 enum class file_flags : size_t
 #endif
@@ -533,7 +538,7 @@ enum class file_flags : size_t
     int_opening_dir=(1<<30) //!< Internal use only. Don't use.
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-BOOST_SCOPED_ENUM_DECLARE_END(file_flags)
+BOOST_AFIO_SCOPED_ENUM_DECLARE_END(file_flags)
 #else
 ;
 #endif
@@ -546,7 +551,7 @@ BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 #ifdef DOXYGEN_NO_CLASS_ENUMS
 enum async_op_flags
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-BOOST_SCOPED_ENUM_UT_DECLARE_BEGIN(async_op_flags, size_t)
+BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(async_op_flags, size_t)
 #else
 enum class async_op_flags : size_t
 #endif
@@ -555,7 +560,7 @@ enum class async_op_flags : size_t
     immediate=1             //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-BOOST_SCOPED_ENUM_DECLARE_END(async_op_flags)
+BOOST_AFIO_SCOPED_ENUM_DECLARE_END(async_op_flags)
 #else
 ;
 #endif
@@ -578,7 +583,7 @@ namespace detail {
 #ifdef DOXYGEN_NO_CLASS_ENUMS
     enum OpType
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-    BOOST_SCOPED_ENUM_DECLARE_BEGIN(OpType)
+    BOOST_AFIO_SCOPED_ENUM_DECLARE_BEGIN(OpType)
 #else
     enum class OpType
 #endif
@@ -603,7 +608,7 @@ namespace detail {
         Last
     }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-    BOOST_SCOPED_ENUM_DECLARE_END(OpType)
+    BOOST_AFIO_SCOPED_ENUM_DECLARE_END(OpType)
 #else
     ;
 #endif
@@ -637,7 +642,7 @@ class async_io_handle;
 #ifdef DOXYGEN_NO_CLASS_ENUMS
 enum metadata_flags
 #elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-BOOST_SCOPED_ENUM_UT_DECLARE_BEGIN(metadata_flags, size_t)
+BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(metadata_flags, size_t)
 #else
 enum class metadata_flags : size_t
 #endif
@@ -664,7 +669,7 @@ enum class metadata_flags : size_t
     All=(size_t)-1       //!< Return the maximum possible metadata.
 }
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-BOOST_SCOPED_ENUM_DECLARE_END(metadata_flags)
+BOOST_AFIO_SCOPED_ENUM_DECLARE_END(metadata_flags)
 #else
 ;
 #endif
