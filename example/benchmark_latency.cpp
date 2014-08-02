@@ -80,7 +80,7 @@ int main(void)
   {
     async_io_op last[CONCURRENCY];
     time_point begin[CONCURRENCY], handled[CONCURRENCY], end[CONCURRENCY];
-    std::atomic<bool> waiter;
+    atomic<bool> waiter;
     double handler[ITERATIONS], complete[ITERATIONS];
     std::vector<std::thread> threads;
     threads.reserve(CONCURRENCY);
@@ -89,8 +89,8 @@ int main(void)
     for(size_t n=0; n<iterations; n++)
     {
       threads.clear();
-      waiter=true;
-      std::atomic<size_t> threads_ready(0);
+      waiter.store(true);
+      atomic<size_t> threads_ready(0);
       for(size_t c=0; c<=concurrency; c++)
       {
         threads.push_back(std::thread([&, c]{
@@ -112,7 +112,7 @@ int main(void)
         BOOST_SMT_PAUSE
 #endif
       ;
-      waiter=false;
+      waiter.store(false);
       BOOST_FOREACH(auto &i, threads)
         i.join();
       for(size_t c=0; c<=concurrency; c++)
