@@ -459,17 +459,17 @@ struct async_enumerate_op_req;
 
 #if defined(BOOST_NO_CXX11_SCOPED_ENUMS)
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
-inline BOOST_CONSTEXPR type operator&(type a, type b) \
+inline BOOST_CONSTEXPR size_t operator&(type a, type b) \
 { \
-    return type(underlying_cast<size_t>(a) & underlying_cast<size_t>(b)); \
+    return underlying_cast<size_t>(a) & underlying_cast<size_t>(b); \
 } \
-inline BOOST_CONSTEXPR type operator|(type a, type b) \
+inline BOOST_CONSTEXPR size_t operator|(type a, type b) \
 { \
-    return type(underlying_cast<size_t>(a) | underlying_cast<size_t>(b)); \
+    return underlying_cast<size_t>(a) | underlying_cast<size_t>(b); \
 } \
-inline BOOST_CONSTEXPR type operator~(type a) \
+inline BOOST_CONSTEXPR size_t operator~(type a) \
 { \
-    return type(~underlying_cast<size_t>(a)); \
+    return ~underlying_cast<size_t>(a); \
 } \
 inline BOOST_CONSTEXPR bool operator!(type a) \
 { \
