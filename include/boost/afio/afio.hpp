@@ -475,7 +475,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
     return 0==static_cast<size_t>(a); \
 }
 
-// Boost's scoped enum emulation is a bit broken, so reimplement
+// Boost's scoped enum emulation is a bit broken for us, so reimplement
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 #define BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(EnumType, UnderlyingType)    \
     struct EnumType {                                                   \
@@ -491,12 +491,10 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
         enum enum_type
 
 #define BOOST_AFIO_SCOPED_ENUM_DECLARE_END(EnumType) \
-    ; \
     EnumType(enum_type v) BOOST_NOEXCEPT : v_(v) {}                 \
-    enum_type get_native_value_() const BOOST_NOEXCEPT { return enum_type(v_); } \
-    operator enum_type() const BOOST_NOEXCEPT { return get_native_value_(); } \
+    BOOST_SCOPED_ENUM_DECLARE_END2() \
     operator underlying_type() const BOOST_NOEXCEPT { return get_underlying_value_(); } \
-    }
+    };
 #endif
 
 
@@ -536,11 +534,9 @@ enum class file_flags : size_t
 
     int_opening_link=(1<<29), //!< Internal use only. Don't use.
     int_opening_dir=(1<<30) //!< Internal use only. Don't use.
-}
+};
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_AFIO_SCOPED_ENUM_DECLARE_END(file_flags)
-#else
-;
 #endif
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 
@@ -558,11 +554,9 @@ enum class async_op_flags : size_t
 {
     none=0,                 //!< No flags set
     immediate=1             //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
-}
+};
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_AFIO_SCOPED_ENUM_DECLARE_END(async_op_flags)
-#else
-;
 #endif
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 
@@ -606,11 +600,9 @@ namespace detail {
         adopt,
 
         Last
-    }
+    };
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
     BOOST_AFIO_SCOPED_ENUM_DECLARE_END(OpType)
-#else
-    ;
 #endif
     static const char *optypes[]={
         "unknown",
@@ -667,11 +659,9 @@ enum class metadata_flags : size_t
     gen=1<<16,
     birthtim=1<<17,
     All=(size_t)-1       //!< Return the maximum possible metadata.
-}
+};
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_AFIO_SCOPED_ENUM_DECLARE_END(metadata_flags)
-#else
-;
 #endif
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 /*! \struct stat_t
