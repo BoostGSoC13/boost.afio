@@ -15,6 +15,9 @@ File Created: Mar 2013
 #if !defined(_WIN32_WINNT) && defined(WIN32)
 #define _WIN32_WINNT 0x0501
 #endif
+#if defined(WIN32) && _WIN32_WINNT<0x0501
+#error _WIN32_WINNT must at least be set to Windows XP for Boost ASIO to compile
+#endif
 // VS2010 needs D_VARIADIC_MAX set to at least seven
 #if defined(BOOST_MSVC) && BOOST_MSVC < 1700 && (!defined(_VARIADIC_MAX) || _VARIADIC_MAX < 7)
 #error _VARIADIC_MAX needs to be set to at least seven to compile Boost.AFIO
