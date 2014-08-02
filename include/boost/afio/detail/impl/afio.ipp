@@ -76,8 +76,8 @@ File Created: Mar 2013
 #include "../valgrind/helgrind.h"
 #include "ErrorHandling.ipp"
 
-#include <fcntl.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #ifdef WIN32
 #ifndef S_IFSOCK
