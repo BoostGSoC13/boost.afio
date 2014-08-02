@@ -52,15 +52,15 @@ env:
     #- _="Unit/functional tests" VALGRIND=0 UNIT_TESTS="" DEBUG=0 GCCVER="" GCOV=0
     - _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
     #- _="Memory error and leak tests" VALGRIND=memcheck UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
-    - _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
+    #- _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
 
 matrix:
   exclude:
     - compiler: clang
       env: _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
 
-    - compiler: gcc
-      env: _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
+    #- compiler: gcc
+    #  env: _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
 
 
 #  allow_failures:
@@ -80,21 +80,20 @@ before_install:
 # - wget https://github.com/ned14/boost-trunk/archive/release/Boost_1_54_0.tar.gz
 # - tar zxf Boost_1_54_0.tar.gz
 # - mv boost-trunk-release-Boost_1_54_0 $HOME/boost-trunk
-# - wget https://github.com/ned14/boost-trunk/archive/release.tar.gz
- - wget http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.bz2/download
- - tar jxf download
- - mv boost_1_55_0 $HOME/boost-trunk
- - BOOST="$HOME/boost-trunk"
+# - wget http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.bz2/download
+ - wget https://github.com/ned14/boost-release/archive/master.tar.gz
+ - tar xf boost-release-master.tar.gz
+ - mv boost-release-master $HOME/boost-local
+ - BOOST="$HOME/boost-local"
  - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
 
 #create symbolic links for afio
- - ln -s $PROJECTPATH/boost/afio/ $BOOST/boost/afio
- - ln -s $PROJECTPATH/libs/afio/ $BOOST/libs/afio
+ - ln -s $PROJECTPATH $BOOST/libs/afio
 
 #HOME should be defined per the travis-ci docs as /home/travis
- - mv user-config.jam $HOME
  - cd $BOOST
  - ./bootstrap.sh
+ - ./b2 headers
 
 script:
 # set debug/release & proper path for debug/release builds
