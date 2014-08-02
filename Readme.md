@@ -74,7 +74,7 @@ Boost.AFIO Jenkins CI status:
 
 
 <!-- VS2010 -->
-<tr align="center"><td rowspan="5">Microsoft Windows 8.1</td><td colspan="2">VS2010</td><td>x64</td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2010'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2010/badge/icon' style="margin-left:-58px;"></a></div></td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2010'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2010/badge/icon' style="margin-left:-58px;"></a></div></td>
+<tr align="center"><td rowspan="5">Microsoft Windows 8.1</td><td colspan="2">VS2010</td><td>x86</td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2010'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20NT_Win64_VS2010/badge/icon' style="margin-left:-58px;"></a></div></td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2010'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20NT_Win64_VS2010/badge/icon' style="margin-left:-58px;"></a></div></td>
 </tr>
 
 <!-- VS2012 -->
