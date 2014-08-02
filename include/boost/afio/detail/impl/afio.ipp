@@ -77,6 +77,10 @@ File Created: Mar 2013
 #include "ErrorHandling.ipp"
 
 #include <sys/types.h>
+#ifdef __MINGW32__
+// Workaround bad headers as usual in mingw
+typedef __int64 off64_t;
+#endif
 #include <fcntl.h>
 #include <sys/stat.h>
 #ifdef WIN32
