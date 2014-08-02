@@ -492,9 +492,8 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 
 #define BOOST_AFIO_SCOPED_ENUM_DECLARE_END(EnumType) \
     EnumType(enum_type v) BOOST_NOEXCEPT : v_(v) {}                 \
-    BOOST_SCOPED_ENUM_DECLARE_END2() \
     operator underlying_type() const BOOST_NOEXCEPT { return get_underlying_value_(); } \
-    };
+    BOOST_SCOPED_ENUM_DECLARE_END2()
 #endif
 
 
