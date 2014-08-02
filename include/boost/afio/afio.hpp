@@ -497,6 +497,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 #define BOOST_AFIO_SCOPED_ENUM_DECLARE_END(EnumType) \
     EnumType(enum_type v) BOOST_NOEXCEPT : v_(v) {}                 \
     operator underlying_type() const BOOST_NOEXCEPT { return get_underlying_value_(); } \
+    friend bool operator ==(underlying_type lhs, self_type rhs) BOOST_NOEXCEPT { return lhs==rhs.v_; } \
     BOOST_SCOPED_ENUM_DECLARE_END2()
 #endif
 
