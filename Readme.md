@@ -51,8 +51,8 @@ Boost.AFIO Jenkins CI status:
 
 
 
-<!-- clang 3.4 ARMv7a -->
-<tr align="center"><td rowspan="5">Ubuntu Linux 14.04 LTS</td><td>clang 3.4</td><td>libstdc++ 4.8</td><td>ARMv7a</td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div></td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div></td>
+<!-- clang 3.5 ARMv7a -->
+<tr align="center"><td rowspan="5">Ubuntu Linux 14.04 LTS</td><td>clang 3.5</td><td>libstdc++ 4.8</td><td>ARMv7a</td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_ARM_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div></td><td><div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_clang%203.4'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_ARM_clang%203.4/badge/icon' style="margin-left:-58px;"></a></div></td>
 </tr>
 
 <!-- clang 3.4 x64 -->
