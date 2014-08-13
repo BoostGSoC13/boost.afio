@@ -2666,6 +2666,15 @@ template<class T> inline async_data_op_req<typename std::remove_pointer<typename
 
 /*! \struct async_enumerate_op_req
 \brief A convenience bundle of precondition, number of items to enumerate, item pattern match and metadata to prefetch.
+
+You should note that shell globs must use a restricted form for portability:
+
+* Microsoft Windows NT oddly does not specify what wildcards are permitted, but I think the documentation for the kernel
+function FsRtlIsNameInExpression() is probably sound: * means zero or more characters, ? means any one character. Do not
+use <, > or " as these have special MS-DOS compatibility inducing consequences.
+
+* POSIX further extends NT's wildcards with [seq] which is a subset of characters and [!seq] which is not any subset of
+characters.
 */
 struct async_enumerate_op_req
 {
