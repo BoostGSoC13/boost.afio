@@ -2671,10 +2671,11 @@ You should note that shell globs must use a restricted form for portability:
 
 * Microsoft Windows NT oddly does not specify what wildcards are permitted, but I think the documentation for the kernel
 function FsRtlIsNameInExpression() is probably sound: * means zero or more characters, ? means any one character. Do not
-use <, > or " as these have special MS-DOS compatibility inducing consequences.
+use <, > or " as these have special MS-DOS compatibility inducing consequences. Do not use ^ as this is the Windows
+wildcard escape character.
 
 * POSIX further extends NT's wildcards with [seq] which is a subset of characters and [!seq] which is not any subset of
-characters.
+characters. Here a \\ is the wildcard escape character.
 */
 struct async_enumerate_op_req
 {
