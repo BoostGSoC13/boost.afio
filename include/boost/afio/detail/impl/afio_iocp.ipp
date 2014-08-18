@@ -396,8 +396,8 @@ namespace boost { namespace afio { namespace detail {
         {
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
-            off_t bytestobesynced=p->write_count_since_fsync();
             assert(p);
+            off_t bytestobesynced=p->write_count_since_fsync();
             if(bytestobesynced)
                 BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->h->native_handle()), p->path());
             p->byteswrittenatlastfsync+=bytestobesynced;
