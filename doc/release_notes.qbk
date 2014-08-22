@@ -47,6 +47,18 @@ using a shocking amount of RAM.
 [heading Boost 1.56 AFIO v1.22 trunk]
 [/=================]
 
+Fixed buffer underflow when decoding Win32 error codes to strings. Thanks to ariccio
+for reporting this.
+
+Relocated docs from ci.nedprod.com to http://boostgsoc13.github.io/boost.afio/
+
+Updated the stale CI test dashboard copy in the DocBook edition.
+
+
+[/=================]
+[heading Boost 1.56 AFIO v1.21 10th Aug 2014]
+[/=================]
+
 Finished getting a ThreadSanitizer (tsan) + UndefinedBehaviorSanitizer (ubsan) pass
 running per-commit on Travis CI (>= v1.2 was tsan clean, I just hadn't bothered getting
 a CI to verify it to be so per commit).

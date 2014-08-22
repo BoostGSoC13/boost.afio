@@ -17,8 +17,13 @@ int main(void)
         // Something a bit surprising for many people is that writing off
         // the end of a file in AFIO does NOT extend the file and writes
         // which go past the end will simply fail instead. Why not?
-        // Simple: that's the convention with async file i/o. You must 
-        // explicitly extend files before writing, like this:
+        // Simple: that's the convention with async file i/o, because
+        // synchronising multiple processes concurrently adjusting a
+        // file's length has significant overhead which is wasted if you
+        // don't need that functionality. Luckily, there is an easy
+        // workaround: either open a file for append-only access, in which
+        // case all writes extend the file for you, or else you explicitly
+        // extend files before writing, like this:
         boost::afio::async_io_op resizedfile(dispatcher->truncate(openfile, 12)); /*< schedules resize file ready for writing after open file completes >*/
     
         // Config a write gather. You could do this of course as a batch
