@@ -12,6 +12,8 @@ Created: Feb 2013
 // Reduces CPU cores used to execute, which can be useful for certain kinds of race condition.
 //#define MAXIMUM_TEST_CPUS 1
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "boost/afio/config.hpp"
 
 #ifdef __MINGW32__
@@ -23,8 +25,6 @@ extern "C" int putenv(char*);
 // Mingw doesn't define tzset() either
 extern "C" void tzset(void);
 #endif
-
-#define _CRT_SECURE_NO_WARNINGS
 
 #include <utility>
 #include <sstream>
