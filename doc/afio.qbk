@@ -8,12 +8,12 @@
 
 [library Boost.AFIO
     [quickbook 1.7]
-    [version 1.2]
+    [version 1.22]
     [id afio]
     [category afio]
     [authors [Douglas, Niall], [Kirth, Paul]]
     [copyright 2013-2014 Niall Douglas and Paul Kirth]
-    [purpose A batch, chainable, asynchronous closure execution engine integrated into Boost.ASIO, specialised as a portable asynchronous file i/o implementation library]
+    [purpose A portable asynchronous file i/o library extending Boost.ASIO]
     [license
         Distributed under the Boost Software License, Version 1.0.
         (See accompanying file LICENSE_1_0.txt or copy at
@@ -68,11 +68,19 @@
 [import ../example/readwrite_example_traditional.cpp]
 
 [section:introduction Introduction]
-__boost_afio__ is a linear scalable, batch, chainable, asynchronous closure execution engine
-with an almost wait free implementation[footnote It is wait free if your CPU supports memory
-transactions, apart from when the memory allocator asks the kernel for more memory.] extending __boost_asio__
-and __boost_thread__ specialised as a portable asynchronous file i/o implementation
-library. Implementation of this first version has been kept as simple as possible (~ 1000 active
+__boost_afio__ is a C++ library which lets you schedule a dependency graph of synchronous
+input/output operations to be executed asynchronously to the maximum capacity of your hardware. Its
+execution engine is lock free and wait free[footnote Its dependency Boost.ASIO may lock and wait.]
+and scales linearly with CPU cores[footnote Tested up to a four core eight thread CPU.]. In addition
+to a pure portable POSIX file i/o backend, specialised file i/o backends making use of host OS asynchronous
+file i/o facilities are provided for:
+
+* Windows NT IOCP (since v1.0)
+* Linux KAIO (planned for v1.3)
+* POSIX AIO, suitable for BSD only (planned for v1.4)
+
+__boost_afio__ extends __boost_asio__ and provides an alternative way of programming with ASIO.
+Implementation of this first version has been kept as simple as possible (~ 1000 active
 LOC) at the cost of some performance, though with a good modern compiler [link
 afio.FAQ.closure_performance you can expect 50-70% of the
 throughput of using raw Boost.ASIO] at a latency of [link
