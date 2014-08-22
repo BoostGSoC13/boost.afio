@@ -31,16 +31,14 @@ directories, so `include` directives of this scheme will work:
 [#unit_test_dashboard]
 
 '''
-    <informaltable frame="all" border="1" color="black">
-      <tgroup cols="8">
+<informaltable frame="all" border="1" color="black">
+<tgroup cols="6" align="center" rowsep="1" colsep="1">
         <colspec colnum="1" colname="col1"/>
         <colspec colnum="2" colname="col2"/>
         <colspec colnum="3" colname="col3"/>
         <colspec colnum="4" colname="col4"/>
         <colspec colnum="5" colname="col5"/>
         <colspec colnum="6" colname="col6"/>
-        <colspec colnum="7" colname="col7"/>
-        <colspec colnum="8" colname="col8"/>
         <thead>
           <row>
             <entry>OS</entry>
