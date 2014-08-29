@@ -82,7 +82,7 @@ rule analyse ( properties * )
       }
       if <toolset>msvc in $(properties)
       {
-         return <cxxflags>"/analyze" ;
+         return <cxxflags>"/analyze /wd6246 /wd6993 /analyze:stacksize 131072" ;
       }
    }
 }
