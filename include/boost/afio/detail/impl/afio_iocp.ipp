@@ -73,6 +73,7 @@ namespace boost { namespace afio { namespace detail {
 
             HANDLE h=myid;
             BOOST_AFIO_TYPEALIGNMENT(8) std::filesystem::path::value_type buffer[sizeof(FILE_ALL_INFORMATION)/sizeof(std::filesystem::path::value_type)+32769];
+            buffer[0]=0;
             FILE_ALL_INFORMATION &fai=*(FILE_ALL_INFORMATION *)buffer;
             FILE_FS_SECTOR_SIZE_INFORMATION ffssi={0};
             bool needInternal=!!(wanted&metadata_flags::ino);
@@ -81,7 +82,7 @@ namespace boost { namespace afio { namespace detail {
             // It's not widely known that the NT kernel supplies a stat() equivalent i.e. get me everything in a single syscall
             // However fetching FileAlignmentInformation which comes with FILE_ALL_INFORMATION is slow as it touches the device driver,
             // so only use if we need more than one item
-            if((needInternal+needBasic+needStandard)>=2)
+            if(((int) needInternal+(int) needBasic+(int) needStandard)>=2)
             {
                 ntstat=NtQueryInformationFile(h, &isb, &fai, sizeof(buffer), FileAllInformation);
                 if(STATUS_PENDING==ntstat)

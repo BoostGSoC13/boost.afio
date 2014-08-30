@@ -41,12 +41,15 @@ namespace boost {
                 info.dwThreadID = -1;
                 info.dwFlags = 0;
 
+                typedef int (*win32_exception_filter_t)();
+                static win32_exception_filter_t win32_exception_filter=[]{ return EXCEPTION_EXECUTE_HANDLER; };
                 __try
                 {
                     RaiseException(MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*) &info);
                 }
-                __except(EXCEPTION_EXECUTE_HANDLER)
+                __except(win32_exception_filter())
                 {
+                    int a=1;
                 }
             }
 #elif defined(__linux__)

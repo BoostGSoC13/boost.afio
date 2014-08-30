@@ -61,6 +61,10 @@ namespace boost {
             {
                 using boost::to_string;
                 // system_category needs a win32 code, not NT kernel code
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6387) // MSVC sanitiser warns on misuse of GetOverlappedResult
+#endif
                 {
                     DWORD br;
                     OVERLAPPED o;
@@ -72,6 +76,9 @@ namespace boost {
                     o.hEvent = 0;
                     GetOverlappedResult(NULL, &o, &br, FALSE);
                 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
                 error_code ec(GetLastError(), system_category());
                 DWORD len;
                 char buffer[1024];
