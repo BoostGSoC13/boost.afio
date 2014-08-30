@@ -333,6 +333,10 @@ namespace windows_nt_kernel
     static NtSetInformationFile_t NtSetInformationFile;
     static NtWaitForSingleObject_t NtWaitForSingleObject;
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
+#endif
     static inline void doinit()
     {
         if(!NtQueryInformationFile)
@@ -363,6 +367,9 @@ namespace windows_nt_kernel
             if(!(NtWaitForSingleObject=(NtWaitForSingleObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtWaitForSingleObject")))
                 abort();
     }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
     static inline void init()
     {
         static bool initialised=false;
@@ -414,6 +421,10 @@ namespace windows_nt_kernel
 
     // Adapted from http://www.cprogramming.com/snippets/source-code/convert-ntstatus-win32-error
     // Could use RtlNtStatusToDosError() instead
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6387) // MSVC sanitiser warns on misuse of GetOverlappedResult
+#endif
     static inline void SetWin32LastErrorFromNtStatus(NTSTATUS ntstatus)
     {
         DWORD br;
@@ -426,6 +437,9 @@ namespace windows_nt_kernel
         o.hEvent = 0;
         GetOverlappedResult(NULL, &o, &br, FALSE);
     }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 } // namespace
 
 // WinVista and later have the SetFileInformationByHandle() function, but for WinXP

@@ -30,7 +30,7 @@ namespace boost {
                 if(!(len=FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 0, code, 0, buffer, sizeof(buffer), 0)))
                 {
                     strcpy(buffer, "unknown error code");
-                    len=strlen(buffer);
+                    len=(DWORD) strlen(buffer);
                 }
                 // Remove annoying CRLF at end of message sometimes
                 while(10==buffer[len-1])
@@ -39,8 +39,8 @@ namespace boost {
                     len--;
                     if(13==buffer[len-1])
                     {
-                            buffer[len-1]=0;
-                            len--;
+                        buffer[len-1]=0;
+                        len--;
                     }
                 }
                 std::string errstr(buffer, buffer+len);
@@ -61,6 +61,10 @@ namespace boost {
             {
                 using boost::to_string;
                 // system_category needs a win32 code, not NT kernel code
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6387) // MSVC sanitiser warns on misuse of GetOverlappedResult
+#endif
                 {
                     DWORD br;
                     OVERLAPPED o;
@@ -72,6 +76,9 @@ namespace boost {
                     o.hEvent = 0;
                     GetOverlappedResult(NULL, &o, &br, FALSE);
                 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
                 error_code ec(GetLastError(), system_category());
                 DWORD len;
                 char buffer[1024];
@@ -79,7 +86,7 @@ namespace boost {
                     GetModuleHandleA("NTDLL.DLL"), code, 0, buffer, sizeof(buffer), 0)))
                 {
                     strcpy(buffer, "unknown error code");
-                    len=strlen(buffer);
+                    len=(DWORD) strlen(buffer);
                 }
                 // Remove annoying CRLF at end of message sometimes
                 while(10==buffer[len-1])

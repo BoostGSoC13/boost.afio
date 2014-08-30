@@ -22,6 +22,10 @@ namespace boost {
     namespace afio {
         namespace detail {
 #ifdef _MSC_VER
+            static inline int win32_exception_filter()
+            {
+                return EXCEPTION_EXECUTE_HANDLER;
+            }
             static inline void set_threadname(const char *threadName)
             {
                 const DWORD MS_VC_EXCEPTION=0x406D1388;
@@ -45,8 +49,9 @@ namespace boost {
                 {
                     RaiseException(MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*) &info);
                 }
-                __except(EXCEPTION_EXECUTE_HANDLER)
+                __except(win32_exception_filter())
                 {
+                    int a=1;
                 }
             }
 #elif defined(__linux__)

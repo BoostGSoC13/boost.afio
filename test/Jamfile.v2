@@ -71,6 +71,22 @@ rule sanitize ( properties * )
    }
 }
 
+# Some compilers can do enhanced static analysis
+rule analyse ( properties * )
+{
+   if "--analyse" in $(.argv) 
+   {
+      if <toolset>clang in $(properties)
+      {
+         return <cxxflags>"--analyze" ;
+      }
+      if <toolset>msvc in $(properties)
+      {
+         return <cxxflags>"/analyze /wd6246 /wd6993 /wd4603 /analyze:stacksize 131072" ;
+      }
+   }
+}
+
 project boost/afio/test
     : requirements
       <threading>multi
@@ -101,6 +117,7 @@ project boost/afio/test
       <conditional>@fast-build
       <conditional>@lto
       <conditional>@sanitize
+      <conditional>@analyse
     ;
 
 cpp-pch test_functions : test_functions.hpp : <include>. ;
