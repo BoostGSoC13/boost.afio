@@ -30,7 +30,7 @@ namespace boost {
                 if(!(len=FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 0, code, 0, buffer, sizeof(buffer), 0)))
                 {
                     strcpy(buffer, "unknown error code");
-                    len=strlen(buffer);
+                    len=(DWORD) strlen(buffer);
                 }
                 // Remove annoying CRLF at end of message sometimes
                 while(10==buffer[len-1])
@@ -39,8 +39,8 @@ namespace boost {
                     len--;
                     if(13==buffer[len-1])
                     {
-                            buffer[len-1]=0;
-                            len--;
+                        buffer[len-1]=0;
+                        len--;
                     }
                 }
                 std::string errstr(buffer, buffer+len);
@@ -86,7 +86,7 @@ namespace boost {
                     GetModuleHandleA("NTDLL.DLL"), code, 0, buffer, sizeof(buffer), 0)))
                 {
                     strcpy(buffer, "unknown error code");
-                    len=strlen(buffer);
+                    len=(DWORD) strlen(buffer);
                 }
                 // Remove annoying CRLF at end of message sometimes
                 while(10==buffer[len-1])
