@@ -11,9 +11,14 @@ Boost.AFIO Jenkins CI status:
 <table border="1" cellpadding="2">
 <tr><th>OS</th><th>Compiler</th><th>STL</th><th>CPU</th><th>Build</th><th>Unit tests</th></tr>
 
-<!-- static analysis -->
-<tr align="center"><td>Static analysis</td><td>clang 3.4</td><td></td><td></td><td>
-<div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20Pre-Check/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20Pre-Check' style="margin-left:-58px;" /></a></div></td><td></td>
+<!-- static analysis clang -->
+<tr align="center"><td rowspan="2">Static analysis</td><td>clang 3.4</td><td></td><td></td><td>
+<div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20clang/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20clang' style="margin-left:-58px;" /></a></div></td><td></td>
+</tr>
+
+<!-- static analysis MSVC -->
+<tr align="center"><td>VS2013</td><td></td><td></td><td>
+<div style="position:relative; width:42px; overflow:hidden;"><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20MSVC/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20MSVC' style="margin-left:-58px;" /></a></div></td><td></td>
 </tr>
 
 <!-- sanitiser -->
