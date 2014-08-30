@@ -22,6 +22,10 @@ namespace boost {
     namespace afio {
         namespace detail {
 #ifdef _MSC_VER
+            static inline int win32_exception_filter()
+            {
+                return EXCEPTION_EXECUTE_HANDLER;
+            }
             static inline void set_threadname(const char *threadName)
             {
                 const DWORD MS_VC_EXCEPTION=0x406D1388;
@@ -41,8 +45,6 @@ namespace boost {
                 info.dwThreadID = -1;
                 info.dwFlags = 0;
 
-                typedef int (*win32_exception_filter_t)();
-                static win32_exception_filter_t win32_exception_filter=[]{ return EXCEPTION_EXECUTE_HANDLER; };
                 __try
                 {
                     RaiseException(MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*) &info);
