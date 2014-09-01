@@ -30,8 +30,10 @@ File Created: Mar 2013
 //#endif
 
 // Define this to have every part of AFIO print, in extremely terse text, what it is doing and why.
-#if defined(DEBUG) && 0 //|| 1
-#define BOOST_AFIO_DEBUG_PRINTING 1
+#if (defined(BOOST_AFIO_DEBUG_PRINTING) && BOOST_AFIO_DEBUG_PRINTING) //|| 1
+#ifndef BOOST_AFIO_DEBUG_PRINTING
+# define BOOST_AFIO_DEBUG_PRINTING 1
+#endif
 #ifdef WIN32
 #define BOOST_AFIO_DEBUG_PRINT(...) \
     { \

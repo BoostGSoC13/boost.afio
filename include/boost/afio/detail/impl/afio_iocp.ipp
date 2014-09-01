@@ -463,7 +463,7 @@ namespace boost { namespace afio { namespace detail {
                     complete_async_op(id, h);
                 if(togo>((size_t)1<<(8*sizeof(size_t)-1)))
                     BOOST_AFIO_THROW_FATAL(std::runtime_error("IOCP returned more bytes than we asked for. This is probably memory corruption."));
-                BOOST_AFIO_DEBUG_PRINT("H %u e=%u togo=%u bt=%u bc=%u\n", (unsigned) id, (unsigned) ec.value(), (unsigned) togo, (unsigned) bytes_transferred, (unsigned) bytes_this_chunk);
+                BOOST_AFIO_DEBUG_PRINT("H %u e=%u togo=%u bt=%u bc=%u\n", (unsigned) id, (unsigned) ec.value(), (unsigned) togo, (unsigned) bytes_transferred, (unsigned) std::get<3>(pars));
             }
             //std::cout << "id=" << id << " total=" << bytes_to_transfer->second << " this=" << bytes_transferred << std::endl;
         }
