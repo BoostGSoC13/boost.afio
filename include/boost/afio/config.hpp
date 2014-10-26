@@ -38,15 +38,36 @@
 #if defined(WIN32) && _WIN32_WINNT<0x0501
 #error _WIN32_WINNT must at least be set to Windows XP for Boost ASIO to compile
 #endif
-// VS2010 needs D_VARIADIC_MAX set to at least seven
-#if defined(BOOST_MSVC) && BOOST_MSVC < 1700 && (!defined(_VARIADIC_MAX) || _VARIADIC_MAX < 7)
-#error _VARIADIC_MAX needs to be set to at least seven to compile Boost.AFIO
+
+
+#include "boost/config.hpp"  // Works standalone or with Boost
+#include "../../boost.bindlib/include/import.hpp"
+#ifndef BOOST_AFIO_V1_STL11_IMPL
+#define BOOST_AFIO_V1_STL11_IMPL std
 #endif
+#define BOOST_AFIO_V1 (boost), (afio), (BOOST_LOCAL_BIND_NAMESPACE_VERSION(v1, BOOST_AFIO_V1_STL11_IMPL), inline)
+#define BOOST_AFIO_V1_NAMESPACE       BOOST_LOCAL_BIND_NAMESPACE      (BOOST_AFIO_V1)
+#define BOOST_AFIO_V1_NAMESPACE_BEGIN BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1)
+#define BOOST_AFIO_V1_NAMESPACE_END   BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1)
 
-
-#include <boost/config.hpp>
-#include <boost/system/api_config.hpp>  // for BOOST_POSIX_API or BOOST_WINDOWS_API
-#include <boost/detail/workaround.hpp> 
+#define BOOST_STL11_ATOMIC_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_ATOMIC_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_CHRONO_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (chrono))
+#define BOOST_STL11_CHRONO_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (chrono))
+#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (filesystem))
+#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (filesystem))
+#define BOOST_STL11_MUTEX_MAP_NAMESPACE_BEGIN         BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_MUTEX_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (asio))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (asio))
+#define BOOST_STL11_THREAD_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_THREAD_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, atomic)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, chrono)
+#include BOOST_LOCAL_BIND_INCLUDE_STL1z(BOOST_AFIO_V1_STL11_IMPL, filesystem)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, mutex)
+#include BOOST_LOCAL_BIND_INCLUDE_STL1z(BOOST_AFIO_V1_STL11_IMPL, networking)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, thread)
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Set up dll import/export options
