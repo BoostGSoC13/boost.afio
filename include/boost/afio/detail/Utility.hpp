@@ -15,12 +15,8 @@
 // We'll need some future checking before relying or including std_filesystem.hpp
 #include "std_filesystem.hpp"
 
-// Map in either STL or Boost
-#include "std_atomic_mutex_chrono.hpp"
-
-namespace boost {
-    namespace afio {
-        namespace detail {
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  namespace detail {
 #ifdef _MSC_VER
             static inline int win32_exception_filter()
             {
@@ -65,8 +61,7 @@ namespace boost {
             }
 #endif
         }
-    }
-}
+BOOST_AFIO_V1_NAMESPACE_END
 
 // Need some portable way of throwing a really absolutely definitely fatal exception
 // If we guaranteed had noexcept, this would be easy, but for compilers without noexcept
@@ -78,9 +73,8 @@ namespace boost {
 #ifdef BOOST_AFIO_COMPILING_FOR_GCOV
 #define BOOST_AFIO_THROW_FATAL(x) std::terminate()
 #else
-namespace boost {
-    namespace afio {
-        namespace detail {
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  namespace detail {
             BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void print_fatal_exception_message_to_stderr(const char *msg);
             template<class T> inline void do_throw_fatal_exception(const T &v) BOOST_NOEXCEPT_OR_NOTHROW
             {
@@ -102,8 +96,7 @@ namespace boost {
                 }
             }
         }
-    }
-}
+BOOST_AFIO_V1_NAMESPACE_END
 #ifndef BOOST_AFIO_THROW_FATAL
 #define BOOST_AFIO_THROW_FATAL(x) boost::afio::detail::throw_fatal_exception(x)
 #endif
@@ -114,50 +107,14 @@ namespace boost {
 
 
 // Support for make_unique. I keep wishing it was already here!
-// Borrowed from http://stackoverflow.com/questions/12547983/is-there-a-way-to-write-make-unique-in-vs2012
-namespace boost {
-    namespace afio {
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 
-        // emulate variadics for 5 args
-        template<class T>
-        std::unique_ptr<T> make_unique(){
-            return std::unique_ptr<T>(new T());
+        template<class T, class... Args>
+        std::unique_ptr<T> make_unique(Args &&... args){
+            return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
         }
 
-        template<class T, class A0>
-        std::unique_ptr<T> make_unique(A0&& a0){
-            return std::unique_ptr<T>(new T(std::forward<A0>(a0)));
-        }
-
-        template<class T, class A0, class A1>
-        std::unique_ptr<T> make_unique(A0&& a0, A1&& a1){
-            return std::unique_ptr<T>(new T(std::forward<A0>(a0),
-                std::forward<A1>(a1)));
-        }
-
-        template<class T, class A0, class A1, class A2>
-        std::unique_ptr<T> make_unique(A0&& a0, A1&& a1, A2&& a2){
-            return std::unique_ptr<T>(new T(std::forward<A0>(a0),
-                std::forward<A1>(a1), std::forward<A2>(a2)));
-        }
-
-        template<class T, class A0, class A1, class A2, class A3>
-        std::unique_ptr<T> make_unique(A0&& a0, A1&& a1, A2&& a2, A3&& a3){
-            return std::unique_ptr<T>(new T(std::forward<A0>(a0),
-                std::forward<A1>(a1), std::forward<A2>(a2),
-                std::forward<A3>(a3)));
-        }
-
-        template<class T, class A0, class A1, class A2, class A3, class A4>
-        std::unique_ptr<T> make_unique(A0&& a0, A1&& a1, A2&& a2, A3&& a3, A4&& a4){
-            return std::unique_ptr<T>(new T(std::forward<A0>(a0),
-                std::forward<A1>(a1), std::forward<A2>(a2),
-                std::forward<A3>(a3), std::forward<A4>(a4)));
-        }
-
-    }
-}
-
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif  /* BOOST_AFIO_UTILITY_HPP */
 

@@ -9,7 +9,6 @@ File Created: Nov 2012
 #include "../../afio.hpp"
 #include <locale>
 #include <cstring>
-#include "boost/exception/to_string.hpp"
 
 #ifdef WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -17,9 +16,8 @@ File Created: Nov 2012
 #endif
 #include <Windows.h>
 
-namespace boost {
-    namespace afio{
-        namespace detail{
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  namespace detail{
             
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const std::filesystem::path *filename)
             {
@@ -113,15 +111,13 @@ namespace boost {
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
-        } // namespace detail
-    }//namespace afio
-}//namespace boost
+  } // namespace detail
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif
 
-namespace boost {
-    namespace afio{
-        namespace detail{
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  namespace detail{
 
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, const std::filesystem::path *filename)
             {
@@ -140,6 +136,5 @@ namespace boost {
                 }
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }// end int_throwOSError
-        }// namespace detail
-    }// namespace afio
-} // namespace boost
+  }// namespace detail
+BOOST_AFIO_V1_NAMESPACE_END

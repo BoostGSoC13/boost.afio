@@ -8,23 +8,10 @@ File Created: Mar 2013
 #define BOOST_AFIO_HPP
 
 #include "config.hpp"
-#include "boost/asio.hpp"
-#include "boost/foreach.hpp"
-#include "boost/make_shared.hpp"
-#include "detail/Preprocessor_variadic.hpp"
-#include "boost/detail/scoped_enum_emulation.hpp"
 #include "detail/Utility.hpp"
 #include <type_traits>
-#include <boost/functional/hash.hpp>
-#ifndef BOOST_NO_CXX11_HDR_INITIALIZER_LIST
-#include <initializer_list>
-#endif
 #include <exception>
 #include <algorithm> // Boost.ASIO needs std::min and std::max
-
-#if BOOST_VERSION<105500
-#error Boosts before v1.55 are missing boost::future<>::get_exception_ptr() critical for good AFIO performance. Get a newer Boost!
-#endif
 
 /*! \brief Validate inputs at the point of instantiation.
 
@@ -51,13 +38,8 @@ for dispatch. This, being very useful for debugging, defaults to 1 except when
 \brief Provides a batch asynchronous file i/o implementation based on Boost.ASIO
 
 */
-// namespaces dont show up in documentation unless I also document the parent namespace
-// this is ok for now, but will need to be fixed when we improve the docs.
 
-//! \brief The namespace used by the Boost Libraries
-namespace boost {
-//! \brief The namespace containing the Boost.ASIO asynchronous file i/o implementation.
-namespace afio {
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 
 // This isn't consistent on MSVC so hard code it
 typedef unsigned long long off_t;
@@ -2936,19 +2918,19 @@ inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io
 }
 
 
-} } // namespace boost
+BOOST_AFIO_V1_NAMESPACE_END
 
 // Specialise std::hash<> for directory_entry
 #ifndef BOOST_AFIO_DISABLE_STD_HASH_SPECIALIZATION
 #include <functional>
 namespace std
 {
-    template<> struct hash<boost::afio::directory_entry>
+    template<> struct hash<BOOST_AFIO_V1_NAMESPACE::directory_entry>
     {
     public:
-        size_t operator()(const boost::afio::directory_entry &p) const
+        size_t operator()(const BOOST_AFIO_V1_NAMESPACE::directory_entry &p) const
         {
-            return boost::afio::directory_entry_hash()(p);
+            return BOOST_AFIO_V1_NAMESPACE::directory_entry_hash()(p);
         }
     };
 

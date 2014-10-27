@@ -72,8 +72,6 @@ File Created: Mar 2013
 #endif
 
 #include "../../afio.hpp"
-#include "../Aligned_Allocator.hpp"
-#include "../MemoryTransactions.hpp"
 #include "../valgrind/memcheck.h"
 #include "../valgrind/helgrind.h"
 #include "ErrorHandling.ipp"

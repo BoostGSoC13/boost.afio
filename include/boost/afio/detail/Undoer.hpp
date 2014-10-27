@@ -16,9 +16,8 @@
 #include <utility>
 #include <type_traits>
 
-namespace boost{
-    namespace afio{
-        namespace detail{
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  namespace detail{
             
             namespace Impl {
                     template<typename T, bool iscomparable> struct is_nullptr { bool operator()(T c) const BOOST_NOEXCEPT_OR_NOTHROW { return !c; } };
@@ -80,9 +79,8 @@ namespace boost{
             }//Undoer
 
         }//namespace detail
-    } // namesapce afio
-}// namespace boost
 
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif  /* UNDOER_HPP */
 

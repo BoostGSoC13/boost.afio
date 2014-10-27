@@ -40,10 +40,32 @@
 #endif
 
 
-#include "boost/config.hpp"  // Works standalone or with Boost
-#include "../../boost.bindlib/include/import.hpp"
+#if AFIO_STANDALONE 
+#include "bindlib/include/boost/config.hpp"
+#else
+#include "boost/config.hpp"
+#endif
+
+#include "bindlib/include/import.hpp"
+// Default to the C++ 11 STL for atomic, chrono, mutex and thread
 #ifndef BOOST_AFIO_V1_STL11_IMPL
 #define BOOST_AFIO_V1_STL11_IMPL std
+#endif
+// Default to the C++ 11 STL if on MSVC (Dinkumware ships a copy), else Boost
+#ifndef BOOST_AFIO_V1_FILESYSTEM_IMPL
+# ifdef _MSC_VER
+#  define BOOST_AFIO_V1_FILESYSTEM_IMPL std
+# else
+#  define BOOST_AFIO_V1_FILESYSTEM_IMPL boost
+# endif
+#endif
+// If building standalone, use a local asio, else Boost
+#ifndef BOOST_AFIO_V1_ASIO_IMPL
+# if AFIO_STANDALONE
+#  define BOOST_AFIO_V1_ASIO_IMPL asio
+# else
+#  define BOOST_AFIO_V1_ASIO_IMPL boost
+# endif
 #endif
 #define BOOST_AFIO_V1 (boost), (afio), (BOOST_LOCAL_BIND_NAMESPACE_VERSION(v1, BOOST_AFIO_V1_STL11_IMPL), inline)
 #define BOOST_AFIO_V1_NAMESPACE       BOOST_LOCAL_BIND_NAMESPACE      (BOOST_AFIO_V1)
@@ -54,20 +76,20 @@
 #define BOOST_STL11_ATOMIC_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_CHRONO_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (chrono))
 #define BOOST_STL11_CHRONO_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (chrono))
-#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (filesystem))
-#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (filesystem))
+#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline))
+#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline))
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_BEGIN         BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
-#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (asio))
-#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (asio))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
-#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, atomic)
-#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, chrono)
-#include BOOST_LOCAL_BIND_INCLUDE_STL1z(BOOST_AFIO_V1_STL11_IMPL, filesystem)
-#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, mutex)
-#include BOOST_LOCAL_BIND_INCLUDE_STL1z(BOOST_AFIO_V1_STL11_IMPL, networking)
-#include BOOST_LOCAL_BIND_INCLUDE_STL11(BOOST_AFIO_V1_STL11_IMPL, thread)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, atomic)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, chrono)
+#include BOOST_LOCAL_BIND_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_FILESYSTEM_IMPL, filesystem)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, mutex)
+#include BOOST_LOCAL_BIND_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_ASIO_IMPL, networking)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Set up dll import/export options
