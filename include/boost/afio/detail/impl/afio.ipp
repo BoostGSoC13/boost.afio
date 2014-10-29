@@ -97,28 +97,30 @@ typedef __int64 off64_t;
 #define S_IFLNK 0xA000
 #endif
 #endif
-static inline std::filesystem::file_type to_st_type(uint16_t mode)
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+static inline filesystem::file_type to_st_type(uint16_t mode)
 {
     switch(mode & S_IFMT)
     {
     case S_IFBLK:
-        return std::filesystem::file_type::block_file;
+        return filesystem::file_type::block_file;
     case S_IFCHR:
-        return std::filesystem::file_type::character_file;
+        return filesystem::file_type::character_file;
     case S_IFDIR:
-        return std::filesystem::file_type::directory_file;
+        return filesystem::file_type::directory_file;
     case S_IFIFO:
-        return std::filesystem::file_type::fifo_file;
+        return filesystem::file_type::fifo_file;
     case S_IFLNK:
-        return std::filesystem::file_type::symlink_file;
+        return filesystem::file_type::symlink_file;
     case S_IFREG:
-        return std::filesystem::file_type::regular_file;
+        return filesystem::file_type::regular_file;
     case S_IFSOCK:
-        return std::filesystem::file_type::socket_file;
+        return filesystem::file_type::socket_file;
     default:
-        return std::filesystem::file_type::type_unknown;
+        return filesystem::file_type::type_unknown;
     }
 }
+BOOST_AFIO_V1_NAMESPACE_END
 #ifdef WIN32
 // We also compile the posix compat layer for catching silly compile errors for POSIX
 #include <io.h>
@@ -157,6 +159,7 @@ static inline std::filesystem::file_type to_st_type(uint16_t mode)
 #define BOOST_AFIO_POSIX_MMAP mmap
 #define BOOST_AFIO_POSIX_MUNMAP munmap
 
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 static inline boost::afio::chrono::system_clock::time_point to_timepoint(struct timespec ts)
 {
     // Need to have this self-adapt to the STL being used
@@ -193,15 +196,14 @@ static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(s.st_birthtim); }
 #endif
 }
+BOOST_AFIO_V1_NAMESPACE_END
 #endif
-
-// libstdc++ doesn't come with std::lock_guard
-#define BOOST_AFIO_LOCK_GUARD boost::lock_guard
 
 #ifdef WIN32
 #ifndef IOV_MAX
 #define IOV_MAX 1024
 #endif
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 struct iovec {
     void  *iov_base;    /* Starting address */
     size_t iov_len;     /* Number of bytes to transfer */
@@ -212,7 +214,7 @@ inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, boost::afio::
 {
     boost::afio::off_t at=offset;
     ssize_t transferred;
-    BOOST_AFIO_LOCK_GUARD<boost::detail::spinlock> lockh(preadwritelock);
+    std::lock_guard<boost::detail::spinlock> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
     for(; iovcnt; iov++, iovcnt--, at+=(boost::afio::off_t) transferred)
         if(-1==(transferred=_read(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
@@ -222,20 +224,17 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, boost::afio:
 {
     boost::afio::off_t at=offset;
     ssize_t transferred;
-    BOOST_AFIO_LOCK_GUARD<boost::detail::spinlock> lockh(preadwritelock);
+    std::lock_guard<boost::detail::spinlock> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
     for(; iovcnt; iov++, iovcnt--, at+=(boost::afio::off_t) transferred)
         if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
     return (ssize_t)(at-offset);
 }
+BOOST_AFIO_V1_NAMESPACE_END
 #endif
 
 
-namespace boost { namespace afio {
-
-#ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
-    namespace detail { BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC boost::exception_ptr &vs2010_lack_of_decent_current_exception_support_hack() { static boost::exception_ptr v; return v; } }
-#endif
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::page_size() BOOST_NOEXCEPT_OR_NOTHROW
 {
@@ -262,7 +261,7 @@ std::shared_ptr<std_thread_pool> process_threadpool()
     std::shared_ptr<std_thread_pool> ret(shared.lock());
     if(!ret)
     {
-        BOOST_AFIO_LOCK_GUARD<boost::detail::spinlock> lockh(lock);
+        std::lock_guard<boost::detail::spinlock> lockh(lock);
         ret=shared.lock();
         if(!ret)
         {
@@ -293,7 +292,7 @@ namespace detail {
         bool has_been_added, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
 
-        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const std::filesystem::path &path, file_flags flags, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
+        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
         {
             if(fd!=-999)
                 BOOST_AFIO_ERRHOSFN(fd, path);
@@ -346,18 +345,18 @@ namespace detail {
             fill_stat_t(stat, s, wanted);
             return directory_entry(path().leaf(), stat, wanted);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::filesystem::path target() const
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const
         {
 #ifdef WIN32
-            return std::filesystem::path();
+            return filesystem::path();
 #else
             if(!opened_as_symlink())
-                return std::filesystem::path();
+                return filesystem::path();
             char buffer[PATH_MAX+1];
             ssize_t len;
             if((len = readlink(path().c_str(), buffer, sizeof(buffer)-1)) == -1)
                 BOOST_AFIO_ERRGOS(-1);
-            return std::filesystem::path::string_type(buffer, len);
+            return filesystem::path::string_type(buffer, len);
 #endif
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile()
@@ -454,7 +453,7 @@ namespace detail {
         typedef recursive_mutex dircachelock_t;
         fdslock_t fdslock; std::unordered_map<void *, std::weak_ptr<async_io_handle>> fds;
         opslock_t opslock; atomic<size_t> monotoniccount; std::unordered_map<size_t, std::shared_ptr<async_file_io_dispatcher_op>> ops;
-        dircachelock_t dircachelock; std::unordered_map<std::filesystem::path, std::weak_ptr<async_io_handle>, std::filesystem_hash> dirhcache;
+        dircachelock_t dircachelock; std::unordered_map<filesystem::path, std::weak_ptr<async_io_handle>, filesystem_hash> dirhcache;
 
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
             flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
@@ -473,10 +472,10 @@ namespace detail {
         template<class F> std::shared_ptr<async_io_handle> get_handle_to_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
         {
             std::shared_ptr<async_io_handle> dirh;
-            BOOST_AFIO_LOCK_GUARD<dircachelock_t> dircachelockh(dircachelock);
+            std::lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
             {
-                std::unordered_map<std::filesystem::path, std::weak_ptr<async_io_handle>, std::filesystem_hash>::iterator it=dirhcache.find(req.path);
+                std::unordered_map<filesystem::path, std::weak_ptr<async_io_handle>, filesystem_hash>::iterator it=dirhcache.find(req.path);
                 if(dirhcache.end()==it || it->second.expired())
                 {
                     if(dirhcache.end()!=it) dirhcache.erase(it);
@@ -1825,7 +1824,7 @@ namespace detail {
                     std::vector<directory_entry> _ret;
                     _ret.reserve(1);
                     BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-                    std::filesystem::path path(p->path());
+                    filesystem::path path(p->path());
                     path/=req.glob;
                     if(-1!=BOOST_AFIO_POSIX_LSTAT(path.c_str(), &s))
                     {
@@ -1891,7 +1890,7 @@ namespace detail {
                     if(length<=2 && '.'==dent->d_name[0])
                         if(1==length || '.'==dent->d_name[1]) continue;
                     if(!req.glob.empty() && fnmatch(globstr.c_str(), dent->d_name, 0)) continue;
-                    std::filesystem::path::string_type leafname(dent->d_name, length);
+                    filesystem::path::string_type leafname(dent->d_name, length);
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=dent->d_ino;
                     char d_type=dent->d_type;
@@ -1903,29 +1902,29 @@ namespace detail {
                         switch(d_type)
                         {
                         case DT_BLK:
-                            item.stat.st_type=std::filesystem::file_type::block_file;
+                            item.stat.st_type=filesystem::file_type::block_file;
                             break;
                         case DT_CHR:
-                            item.stat.st_type=std::filesystem::file_type::character_file;
+                            item.stat.st_type=filesystem::file_type::character_file;
                             break;
                         case DT_DIR:
-                            item.stat.st_type=std::filesystem::file_type::directory_file;
+                            item.stat.st_type=filesystem::file_type::directory_file;
                             break;
                         case DT_FIFO:
-                            item.stat.st_type=std::filesystem::file_type::fifo_file;
+                            item.stat.st_type=filesystem::file_type::fifo_file;
                             break;
                         case DT_LNK:
-                            item.stat.st_type=std::filesystem::file_type::symlink_file;
+                            item.stat.st_type=filesystem::file_type::symlink_file;
                             break;
                         case DT_REG:
-                            item.stat.st_type=std::filesystem::file_type::regular_file;
+                            item.stat.st_type=filesystem::file_type::regular_file;
                             break;
                         case DT_SOCK:
-                            item.stat.st_type=std::filesystem::file_type::socket_file;
+                            item.stat.st_type=filesystem::file_type::socket_file;
                             break;
                         default:
                             item.have_metadata=item.have_metadata&~metadata_flags::type;
-                            item.stat.st_type=std::filesystem::file_type::type_unknown;
+                            item.stat.st_type=filesystem::file_type::type_unknown;
                             break;
                         }
                     }
@@ -2113,12 +2112,12 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         {
             // Fast path skips opening a handle per file by enumerating the containing directory using a glob
             // exactly matching the leafname. This is about 10x quicker, so it's very much worth it.
-            BOOST_AFIO_TYPEALIGNMENT(8) std::filesystem::path::value_type buffer[sizeof(FILE_ALL_INFORMATION)/sizeof(std::filesystem::path::value_type)+32769];
+            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[sizeof(FILE_ALL_INFORMATION)/sizeof(filesystem::path::value_type)+32769];
             IO_STATUS_BLOCK isb={ 0 };
             UNICODE_STRING _glob;
             NTSTATUS ntstat;
-            _glob.Buffer=const_cast<std::filesystem::path::value_type *>(leafname.c_str());
-            _glob.MaximumLength=(_glob.Length=(USHORT) (leafname.native().size()*sizeof(std::filesystem::path::value_type)))+sizeof(std::filesystem::path::value_type);
+            _glob.Buffer=const_cast<filesystem::path::value_type *>(leafname.c_str());
+            _glob.MaximumLength=(_glob.Length=(USHORT) (leafname.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
             FILE_ID_FULL_DIR_INFORMATION *ffdi=(FILE_ID_FULL_DIR_INFORMATION *) buffer;
             ntstat=NtQueryDirectoryFile(dirh->native_handle(), NULL, NULL, NULL, &isb, ffdi, sizeof(buffer),
                 FileIdFullDirectoryInformation, TRUE, &_glob, FALSE);
@@ -2171,7 +2170,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
 #endif
     {
         BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-        std::filesystem::path path(dirh->path());
+        filesystem::path path(dirh->path());
         path/=leafname;
         BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path.c_str(), &s), path);
         fill_stat_t(stat, s, wanted);
@@ -2188,7 +2187,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_ba
 #endif
 }
 
-} } // namespace
+BOOST_AFIO_V1_NAMESPACE_END
 
 #ifdef _MSC_VER
 #pragma warning(pop)

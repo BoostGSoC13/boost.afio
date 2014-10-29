@@ -48,8 +48,13 @@
 
 #include "bindlib/include/import.hpp"
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread
-#ifndef BOOST_AFIO_V1_STL11_IMPL
-#define BOOST_AFIO_V1_STL11_IMPL std
+#if defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD
+# define BOOST_AFIO_V1_STL11_IMPL boost
+#else
+# define BOOST_AFIO_V1_STL11_IMPL std
+# ifndef BOOST_AFIO_USE_BOOST_THREAD
+#  define BOOST_AFIO_USE_BOOST_THREAD 0
+# endif
 #endif
 // Default to the C++ 11 STL if on MSVC (Dinkumware ships a copy), else Boost
 #ifndef BOOST_AFIO_V1_FILESYSTEM_IMPL
@@ -76,20 +81,37 @@
 #define BOOST_STL11_ATOMIC_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_CHRONO_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline), (chrono))
 #define BOOST_STL11_CHRONO_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline), (chrono))
-#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline))
-#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline))
+#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (filesystem))
+#define BOOST_STL1z_FILESYSTEM_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (filesystem))
+#define BOOST_STL11_FUTURE_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_FUTURE_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_BEGIN         BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
-#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline))
-#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, atomic)
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, chrono)
 #include BOOST_LOCAL_BIND_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_FILESYSTEM_IMPL, filesystem)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, future)
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, mutex)
 #include BOOST_LOCAL_BIND_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_ASIO_IMPL, networking)
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
+
+// TODO FIXME: Replace this with bindings
+#include "spinlock/include/boost/spinlock/concurrent_unordered_map.hpp"
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  template<class Key, class T, class Hash, class Pred, class Alloc> using concurrent_unordered_map = boost::spinlock::v1_std::concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;
+  using boost::spinlock::v1_std::is_lockable_locked;
+  using spins_to_sleep = boost::spinlock::v1_std::spins_to_sleep;
+  template<size_t _0> using spins_to_yield = boost::spinlock::v1_std::spins_to_yield<_0>;
+  template<size_t _0, bool _1=true> using spins_to_loop = boost::spinlock::v1_std::spins_to_loop<_0, _1>;
+  using null_spin_policy = boost::spinlock::v1_std::null_spin_policy;
+  template<class T> using spinlockbase = boost::spinlock::v1_std::spinlockbase<T>;
+  template<class T> using lockable_ptr = boost::spinlock::v1_std::lockable_ptr<T>;
+  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = boost::spinlock::v1_std::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
+BOOST_AFIO_V1_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Set up dll import/export options

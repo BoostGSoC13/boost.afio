@@ -5,7 +5,8 @@ File Created: Mar 2013
 */
 
 #ifdef WIN32
-namespace boost { namespace afio { namespace detail {
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+namespace detail {
 
     struct async_io_handle_windows : public async_io_handle
     {
@@ -894,6 +895,7 @@ namespace boost { namespace afio { namespace detail {
             return chain_async_ops((int) detail::OpType::enumerate, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::doenumerate);
         }
     };
-} } } // namespace
+} // namespace
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif

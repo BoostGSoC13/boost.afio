@@ -19,10 +19,10 @@ File Created: Nov 2012
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
             
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const std::filesystem::path *filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename)
             {
-                using boost::to_string;
-                error_code ec(code, system_category());
+                using std::to_string;
+                std::error_code ec(code, std::system_category());
                 DWORD len;
                 char buffer[1024];
                 if(!(len=FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 0, code, 0, buffer, sizeof(buffer), 0)))
@@ -52,12 +52,12 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 {
                         errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
                 }
-                BOOST_AFIO_THROW(system_error(ec, errstr));
+                BOOST_AFIO_THROW(std::system_error(ec, errstr));
             }
 
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, const std::filesystem::path *filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename)
             {
-                using boost::to_string;
+                using std::to_string;
                 // system_category needs a win32 code, not NT kernel code
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -77,7 +77,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-                error_code ec(GetLastError(), system_category());
+                std::error_code ec(GetLastError(), std::system_category());
                 DWORD len;
                 char buffer[1024];
                 if(!(len=FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_HMODULE,
@@ -108,7 +108,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 {
                     errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
                 }
-                BOOST_AFIO_THROW(system_error(ec, errstr));
+                BOOST_AFIO_THROW(std::system_error(ec, errstr));
             }
 
   } // namespace detail
@@ -119,10 +119,10 @@ BOOST_AFIO_V1_NAMESPACE_END
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
 
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, const std::filesystem::path *filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, const filesystem::path *filename)
             {
-                using boost::to_string;
-                error_code ec(code, generic_category());
+                using std::to_string;
+                std::error_code ec(code, std::generic_category());
                 std::string errstr(strerror(code));
                 errstr.append(" ("+to_string(code)+") in '"+std::string(file)+"':"+std::string(function)+":"+to_string(lineno));
                 // Add the filename where appropriate. This helps debugging a lot.
@@ -134,7 +134,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 {
                         errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
                 }
-                BOOST_AFIO_THROW(system_error(ec, errstr));
+                BOOST_AFIO_THROW(std::system_error(ec, errstr));
             }// end int_throwOSError
   }// namespace detail
 BOOST_AFIO_V1_NAMESPACE_END

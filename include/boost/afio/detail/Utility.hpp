@@ -12,9 +12,6 @@
 #include "Undoer.hpp"
 #include "ErrorHandling.hpp"
 
-// We'll need some future checking before relying or including std_filesystem.hpp
-#include "std_filesystem.hpp"
-
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail {
 #ifdef _MSC_VER
@@ -104,15 +101,89 @@ BOOST_AFIO_V1_NAMESPACE_END
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
+#define BOOST_AFIO_THROW(x) throw x
+#define BOOST_AFIO_RETHROW throw
 
 
-// Support for make_unique. I keep wishing it was already here!
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
-        template<class T, class... Args>
-        std::unique_ptr<T> make_unique(Args &&... args){
-            return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+    // Support for make_unique. I keep wishing it was already here!
+    template<class T, class... Args>
+    std::unique_ptr<T> make_unique(Args &&... args){
+        return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+    }
+
+    // Get an exception ptr from a future
+    template<typename T> inline std::exception_ptr get_exception_ptr(future<T> &f)
+    {
+#if BOOST_AFIO_USE_BOOST_THREAD
+        // Thanks to Vicente for adding this to Boost.Thread
+        return f.get_exception_ptr();
+#else
+        // This seems excessive but I don't see any other legal way to extract the exception ...
+        bool success=false;
+        try
+        {
+            f.get();
+            success=true;
         }
+        catch(...)
+        {
+            std::exception_ptr e(std::current_exception());
+            assert(e);
+            return e;
+        }
+        return std::exception_ptr();
+#endif
+    }
+    template<typename T> inline std::exception_ptr get_exception_ptr(shared_future<T> &f)
+    {
+#if BOOST_AFIO_USE_BOOST_THREAD
+        // Thanks to Vicente for adding this to Boost.Thread
+        return f.get_exception_ptr();
+#else
+        // This seems excessive but I don't see any other legal way to extract the exception ...
+        bool success=false;
+        try
+        {
+            f.get();
+            success=true;
+        }
+        catch(...)
+        {
+            std::exception_ptr e(std::current_exception());
+            assert(e);
+            return e;
+        }
+        return std::exception_ptr();
+#endif
+    }
+    // Is a future ready?
+    template<typename T> inline bool is_ready(const future<T> &f)
+    {
+#if BOOST_AFIO_USE_BOOST_THREAD
+        return f.is_ready();
+#else
+        return f.wait_for(chrono::seconds(0))==future_status::ready;
+#endif
+    }
+    template<typename T> inline bool is_ready(const shared_future<T> &f)
+    {
+#if BOOST_AFIO_USE_BOOST_THREAD
+        return f.is_ready();
+#else
+        return f.wait_for(chrono::seconds(0))==future_status::ready;
+#endif
+    }
+
+    struct filesystem_hash
+    {
+    public:
+        size_t operator()(const filesystem::path& p) const
+        {
+            return filesystem::hash_value(p);
+        }
+    };
 
 BOOST_AFIO_V1_NAMESPACE_END
 

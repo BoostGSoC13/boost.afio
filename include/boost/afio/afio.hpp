@@ -92,7 +92,7 @@ namespace detail
             p->r.set_value();
         }
         //! Sets the shared future corresponding to the future return value of the task.
-        void set_future_exception(exception_ptr e)
+        void set_future_exception(std::exception_ptr e)
         {
             int _=0;
             validate();
@@ -138,12 +138,11 @@ public:
         {
             if(_p->done)
             {
-                std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
                 BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after future set."));
             }
             if(_p->autoset && !_p->done) 
             {
-                auto e(afio::make_exception_ptr(afio::current_exception()));
+                auto e(std::current_exception());
                 Base::set_future_exception(e);
             }
         }
@@ -172,12 +171,11 @@ public:
         {
             if(_p->done)
             {
-                std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
                 BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after future set."));
             }
             if(_p->autoset && !_p->done)
             {
-                auto e(afio::make_exception_ptr(afio::current_exception()));
+                auto e(std::current_exception());
                 Base::set_future_exception(e);
             }
         }
@@ -188,19 +186,19 @@ public:
 /*! \class thread_source
 \brief Abstract base class for a source of thread workers
 
-Note that in Boost 1.54, and possibly later versions, `boost::asio::io_service` on Windows appears to dislike being
+Note that in Boost 1.54, and possibly later versions, `asio::io_service` on Windows appears to dislike being
 destructed during static data deinit, hence why this inherits from `std::enable_shared_from_this<>` in order that it
 may be reference count deleted before static data deinit occurs.
 */
 class thread_source : public std::enable_shared_from_this<thread_source>
 {
 protected:
-    boost::asio::io_service &service;
-    thread_source(boost::asio::io_service &_service) : service(_service) { }
+    asio::io_service &service;
+    thread_source(asio::io_service &_service) : service(_service) { }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~thread_source() { }
 public:
     //! Returns the underlying io_service
-    boost::asio::io_service &io_service() { return service; }
+    asio::io_service &io_service() { return service; }
     //! Sends a task to the thread pool for execution \tparam "class R" The return type of the enqueued task
     template<class R> void enqueue(enqueued_task<R> task)
     {
@@ -220,7 +218,7 @@ public:
 /*! \class std_thread_pool
 \brief A very simple thread pool based on std::thread or boost::thread
 
-This instantiates a `boost::asio::io_service` and a latchable `boost::asio::io_service::work` to keep any threads working until the instance is destructed.
+This instantiates a `asio::io_service` and a latchable `asio::io_service::work` to keep any threads working until the instance is destructed.
 */
 class std_thread_pool : public thread_source {
     class worker
@@ -231,39 +229,26 @@ class std_thread_pool : public thread_source {
         void operator()()
         {
             detail::set_threadname("boost::afio::std_thread_pool worker");
-#ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
-            // VS2010 segfaults if you ever do a try { throw; } catch(...) without an exception ever having been thrown :(
             try
             {
-                throw detail::vs2010_lack_of_decent_current_exception_support_hack_t();
+                pool->service.run();
             }
             catch(...)
             {
-                detail::vs2010_lack_of_decent_current_exception_support_hack()=boost::current_exception();
-#endif
-                try
-                {
-                    pool->service.run();
-                }
-                catch(...)
-                {
-                    std::cerr << "WARNING: ASIO exits via exception which shouldn't happen. Exception was " << boost::current_exception_diagnostic_information(true) << std::endl;
-                }
-#ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
+                std::cerr << "WARNING: ASIO exits via exception which shouldn't happen." << std::endl;
             }
-#endif
         }
     };
     friend class worker;
 
-    boost::asio::io_service service;
-    std::unique_ptr<boost::asio::io_service::work> working;
+    asio::io_service service;
+    std::unique_ptr<asio::io_service::work> working;
     std::vector< std::unique_ptr<thread> > workers;
 public:
     /*! \brief Constructs a thread pool of \em no workers
     \param no The number of worker threads to create
     */
-    explicit std_thread_pool(size_t no) : thread_source(service), working(make_unique<boost::asio::io_service::work>(service))
+    explicit std_thread_pool(size_t no) : thread_source(service), working(make_unique<asio::io_service::work>(service))
     {
         add_workers(no);
     }
@@ -301,124 +286,6 @@ On first use, this instantiates a default std_thread_pool running `BOOST_AFIO_MA
 \ingroup process_threadpool
 */
 BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threadpool();
-
-namespace detail {
-    template<class FutureType> struct get_future_type
-    {
-        //typedef decltype(std::declval<FutureType>().get()) type;
-        typedef typename std::decay<decltype(((FutureType *) 0)->get())>::type type;
-    };
-    template<class returns_t, class future_type> inline returns_t when_all_futures_do(std::shared_ptr<std::vector<future_type>> futures)
-    {
-        boost::wait_for_all(futures->begin(), futures->end());
-        returns_t ret;
-        ret.reserve(futures->size());
-        std::for_each(futures->begin(), futures->end(), [&ret](future_type &f) { ret.push_back(std::move(f.get())); });
-        return ret;
-    }
-    template <class InputIterator> inline shared_future<std::vector<typename get_future_type<typename InputIterator::value_type>::type>> when_all_futures(InputIterator first, InputIterator last)
-    {
-        typedef typename InputIterator::value_type future_type;
-        typedef typename get_future_type<future_type>::type value_type;
-        typedef std::vector<value_type> returns_t;
-        // Take a copy of the futures supplied to us (which may invalidate them)
-        // VS2010 uses a non-namespace qualified move() in its headers, which generates an ambiguous resolution error
-#if defined(BOOST_MSVC) && BOOST_MSVC < 1700 // <= VS2010
-        auto futures=std::make_shared<std::vector<future_type>>(boost::make_move_iterator(first), boost::make_move_iterator(last));
-#else
-        auto futures=std::make_shared<std::vector<future_type>>(std::make_move_iterator(first), std::make_move_iterator(last));
-#endif
-        // Bind to my delegate and invoke
-        std::function<returns_t ()> waitforall(std::move(std::bind(&when_all_futures_do<returns_t, future_type>, futures)));
-        return process_threadpool()->enqueue(std::move(waitforall));
-    }
-    template<class returns_t, class future_type> inline returns_t when_any_futures_do(std::shared_ptr<std::vector<future_type>> futures)
-    {
-        typename std::vector<future_type>::iterator it=boost::wait_for_any(futures->begin(), futures->end());
-        return std::make_pair(std::distance(futures->begin(), it), std::move(it->get()));
-    }
-    template <class InputIterator> inline shared_future<std::pair<size_t, typename get_future_type<typename InputIterator::value_type>::type>> when_any_futures(InputIterator first, InputIterator last)
-    {
-        typedef typename InputIterator::value_type future_type;
-        typedef typename get_future_type<future_type>::type value_type;
-        typedef std::pair<size_t, value_type> returns_t;
-        // Take a copy of the futures supplied to us (which may invalidate them)
-        // VS2010 uses a non-namespace qualified move() in its headers, which generates an ambiguous resolution error
-#if defined(BOOST_MSVC) && BOOST_MSVC < 1700 // <= VS2010
-        auto futures=std::make_shared<std::vector<future_type>>(boost::make_move_iterator(first), boost::make_move_iterator(last));
-#else
-        auto futures=std::make_shared<std::vector<future_type>>(std::make_move_iterator(first), std::make_move_iterator(last));
-#endif
-        // Bind to my delegate and invoke
-        std::function<returns_t ()> waitforall(std::move(std::bind(&when_any_futures_do<returns_t, future_type>, futures)));
-        return process_threadpool()->enqueue(std::move(waitforall));
-    }
-    template<bool is_all, class T> struct select_when_futures_return_type
-    {
-        typedef shared_future<std::vector<T>> type; // when_all()
-    };
-    template<class T> struct select_when_futures_return_type<false, T>
-    {
-        typedef shared_future<std::pair<size_t, T>> type; // when_any()
-    };
-    template<bool is_all, class ValueType> struct enable_if_future
-    {
-    };
-    template<bool is_all, class T> struct enable_if_future<is_all, future<T>>
-    {
-        typedef typename select_when_futures_return_type<is_all, T>::type type;
-    };
-    template<bool is_all, class T> struct enable_if_future<is_all, shared_future<T>>
-    {
-        typedef typename select_when_futures_return_type<is_all, T>::type type;
-    };
-}
-/*! \brief Makes a future vector of results from all the supplied futures
-
-This is an implementation of WG21 N3634's when_all() which uses process_threadpool()
-to allow you to create a future which only becomes available when all the supplied
-futures become available.
-
-\return A future vector of the results of the input futures
-\tparam "class Iterator" A type modelling an iterator
-\param first An iterator pointing to the first item to wait upon
-\param last An iterator pointing to after the last future to wait upon
-\ingroup when_all_futures
-\qbk{distinguish, from ___WG21_N3634__ for range of futures}
-\complexity{O(N)}
-\exceptionmodel{The same as a future}
-*/
-template<class Iterator> inline typename detail::enable_if_future<true, typename Iterator::value_type>::type when_all(Iterator first, Iterator last)
-{
-    return detail::when_all_futures(first, last);
-}
-//! Returns a future tuple of results from all the supplied futures
-//template <typename... T> inline future<std::tuple<typename std::decay<T...>::type>> when_all(T&&... futures);
-/*! \brief Makes a future result from the first of the supplied futures to become available
-
-This is an implementation of WG21 N3634's when_any() which uses process_threadpool()
-to allow you to create a future which only becomes available when the first of the supplied
-futures become available.
-
-\return A future pair of the first future to become available and its result
-\tparam "class Iterator" A type modelling an iterator
-\param first An iterator pointing to the first future to wait upon
-\param last An iterator pointing to after the last future to wait upon
-\ingroup when_all_futures
-\qbk{distinguish, from ___WG21_N3634__ for range of futures}
-\complexity{The same as boost::wait_for_any()}
-\exceptionmodel{The same as a future}
-*/
-template<class Iterator> inline typename detail::enable_if_future<false, typename Iterator::value_type>::type when_any(Iterator first, Iterator last)
-{
-    return detail::when_any_futures(first, last);
-}
-//! Returns a future result from the first of the supplied futures
-/*template <typename... T> inline future<std::pair<size_t, typename std::decay<T>::type>> when_any(T&&... futures)
-{
-    std::array<T..., sizeof...(T)> f={ futures...};
-    return when_any(f.begin(), f.end());
-}*/
 
 class async_file_io_dispatcher_base;
 struct async_io_op;
@@ -646,10 +513,10 @@ However there are a number of changes to better interoperate with modern practic
 (ii) Timestamps use C++11's `std::chrono::system_clock::time_point` or Boost equivalent. The resolution
 of these may or may not equal what a `struct timespec` can do depending on your STL.
 (iii) The type of a file, which is available on Windows and on POSIX without needing an additional
-syscall, is provided by `st_type` which is one of the values from `std::filesystem::file_type`.
+syscall, is provided by `st_type` which is one of the values from `filesystem::file_type`.
 (iv) As type is now separate from permissions, there is no longer a `st_mode`, instead being a
 `st_perms` which is solely the permissions bits. If you want to test permission bits in `st_perms`
-but don't want to include platform specific headers, note that `std::filesystem::perms` contains
+but don't want to include platform specific headers, note that `filesystem::perms` contains
 definitions of the POSIX permissions flags.
 */
 struct stat_t
@@ -658,12 +525,12 @@ struct stat_t
     uint64_t        st_dev;                       /*!< inode of device containing file (POSIX only) */
 #endif
     uint64_t        st_ino;                       /*!< inode of file                   (Windows, POSIX) */
-    std::filesystem::file_type st_type;           /*!< type of file                    (Windows, POSIX) */
+    filesystem::file_type st_type;           /*!< type of file                    (Windows, POSIX) */
 #ifndef WIN32
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
     uint16_t        st_perms;
 #else
-    std::filesystem::perms st_perms;              /*!< uint16_t bitfield perms of file (POSIX only) */
+    filesystem::perms st_perms;              /*!< uint16_t bitfield perms of file (POSIX only) */
 #endif
 #endif
     int16_t         st_nlink;                     /*!< number of hard links            (Windows, POSIX) */
@@ -691,7 +558,7 @@ struct stat_t
         st_dev(0),
 #endif
         st_ino(0),
-        st_type(std::filesystem::file_type::type_unknown),
+        st_type(filesystem::file_type::type_unknown),
 #ifndef WIN32
         st_perms(0),
 #endif
@@ -714,7 +581,7 @@ class BOOST_AFIO_DECL directory_entry
     friend class detail::async_file_io_dispatcher_linux;
     friend class detail::async_file_io_dispatcher_qnx;
 
-    std::filesystem::path leafname;
+    filesystem::path leafname;
     stat_t stat;
     metadata_flags have_metadata;
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void _int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
@@ -722,7 +589,7 @@ public:
     //! \constr
     directory_entry() : stat(nullptr), have_metadata(metadata_flags::None) { }
     //! \constr
-    directory_entry(std::filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
+    directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
 #ifndef BOOST_NO_CXX11_DEFAULTED_FUNCTIONS
     directory_entry(const directory_entry &) = default;
     directory_entry &operator=(const directory_entry &) = default;
@@ -743,7 +610,7 @@ public:
     bool operator> (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname > rhs.leafname; }
     bool operator>=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname >= rhs.leafname; }
     //! \return The name of the directory entry
-    std::filesystem::path name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
+    filesystem::path name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
     //! \return A bitfield of what metadata is ready right now
     metadata_flags metadata_ready() const BOOST_NOEXCEPT_OR_NOTHROW { return have_metadata; }
     /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
@@ -858,11 +725,11 @@ class async_io_handle : public std::enable_shared_from_this<async_io_handle>
     async_file_io_dispatcher_base *_parent;
     std::shared_ptr<async_io_handle> dirh;
     chrono::system_clock::time_point _opened;
-    std::filesystem::path _path; // guaranteed canonical
+    filesystem::path _path; // guaranteed canonical
     file_flags _flags;
 protected:
     boost::afio::atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
-    async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, const std::filesystem::path &path, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _path(path), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _path(path), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
@@ -875,7 +742,7 @@ public:
     //! Returns when this handle was opened
     const chrono::system_clock::time_point &opened() const { return _opened; }
     //! Returns the path of this io handle
-    const std::filesystem::path &path() const { return _path; }
+    const filesystem::path &path() const { return _path; }
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
     //! True if this handle was opened as a file
@@ -899,7 +766,7 @@ public:
         return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
     }
     //! Returns the target path of this handle if it is a symbolic link
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::filesystem::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 };
@@ -957,7 +824,7 @@ struct async_io_op
     {
         if(!parent || !id) return false;
         // If h is valid and ready and contains an exception, throw it now
-        if(h.valid() && h.is_ready() /*h->wait_for(seconds(0))==future_status::ready*/)
+        if(h.valid() && is_ready(h))
         {
             if(check_handle)
                 if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(h).get().get())
@@ -1656,7 +1523,7 @@ public:
     \complexity{O(N) where N is the number of completions dependent on this op.}
     \exceptionmodel{Should not throw any exception except for out of memory.}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, std::shared_ptr<async_io_handle> h, exception_ptr e=exception_ptr());
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, std::shared_ptr<async_io_handle> h, std::exception_ptr e=std::exception_ptr());
     /*! \brief Completes an operation with an error, usually used when an operation was previously deferred.
 
     \ingroup async_file_io_dispatcher_base__misc
@@ -1664,7 +1531,7 @@ public:
     \complexity{O(N) where N is the number of completions dependent on this op.}
     \exceptionmodel{Should not throw any exception except for out of memory.}
     */
-    void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, std::shared_ptr<async_io_handle>(), e); }
+    void complete_async_op(size_t id, std::exception_ptr e) { complete_async_op(id, std::shared_ptr<async_io_handle>(), e); }
 protected:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, async_io_op h, completion_t *callback);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, async_io_op h, std::function<completion_t> callback);
@@ -1750,7 +1617,10 @@ namespace detail
     };
     template<bool rethrow> inline void when_all_ops_do(std::shared_ptr<when_all_state> state)
     {
+        // If we're on Boost.Thread, coalesce all wait ops into a single
+#if BOOST_AFIO_USE_BOOST_THREAD
         boost::wait_for_all(state->in.begin(), state->in.end());
+#endif
         std::vector<std::shared_ptr<async_io_handle>> ret;
         ret.reserve(state->in.size());
         BOOST_FOREACH(auto &i, state->in)
@@ -1787,7 +1657,11 @@ namespace detail
     };
     template<bool rethrow> inline void when_any_ops_do(std::shared_ptr<when_any_state> state)
     {
+#if BOOST_AFIO_USE_BOOST_THREAD
         auto &i=*boost::wait_for_any(state->in.begin(), state->in.end());
+#else
+#error TODO FIXME
+#endif
         auto e(get_exception_ptr(i));
         if(e)
         {
@@ -1996,7 +1870,7 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_o
 */
 struct async_path_op_req
 {
-    std::filesystem::path path; //!< The filing system path to be used for this operation
+    filesystem::path path; //!< The filing system path to be used for this operation
     file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
     async_io_op precondition;   //!< An optional precondition for this operation
     //! \constr
@@ -2008,7 +1882,7 @@ struct async_path_op_req
     \param _path The filing system path to be used. Must be absolute.
     \param _flags The flags to be used.
     */
-    async_path_op_req(std::filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags) { if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
+    async_path_op_req(filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags) { if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
     /*! \brief Constructs an instance.
     
     Note that this will fail if path is not absolute.
@@ -2017,29 +1891,29 @@ struct async_path_op_req
     \param _path The filing system path to be used. Must be absolute.
     \param _flags The flags to be used.
     */
-    async_path_op_req(async_io_op _precondition, std::filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags), precondition(std::move(_precondition)) { _validate(); if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
+    async_path_op_req(async_io_op _precondition, filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags), precondition(std::move(_precondition)) { _validate(); if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
     /*! \brief Constructs an instance.
     \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
     \param _flags The flags to be used.
     */
-    async_path_op_req(std::string _path, file_flags _flags=file_flags::None) : path(std::filesystem::absolute(std::filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
-    /*! \brief Constructs an instance.
-    \param _precondition The precondition for this operation.
-    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(async_io_op _precondition, std::string _path, file_flags _flags=file_flags::None) : path(std::filesystem::absolute(std::filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
-    /*! \brief Constructs an instance.
-    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(const char *_path, file_flags _flags=file_flags::None) : path(std::filesystem::absolute(std::filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
+    async_path_op_req(std::string _path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
     /*! \brief Constructs an instance.
     \param _precondition The precondition for this operation.
     \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
     \param _flags The flags to be used.
     */
-    async_path_op_req(async_io_op _precondition, const char *_path, file_flags _flags=file_flags::None) : path(std::filesystem::absolute(std::filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(async_io_op _precondition, std::string _path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    /*! \brief Constructs an instance.
+    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(const char *_path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
+    /*! \brief Constructs an instance.
+    \param _precondition The precondition for this operation.
+    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(async_io_op _precondition, const char *_path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -2066,7 +1940,7 @@ namespace detail
         //! An optional precondition for this operation
         async_io_op precondition;
         //! A sequence of mutable Boost.ASIO buffers to read into
-        std::vector<boost::asio::mutable_buffer> buffers;
+        std::vector<asio::mutable_buffer> buffers;
         //! The offset from which to read
         off_t where;
         //! \constr
@@ -2080,13 +1954,13 @@ namespace detail
         //! \massign
         async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
         //! \async_data_op_req1 \param _length The number of bytes to transfer
-        async_data_op_req_impl(async_io_op _precondition, void *v, size_t _length, off_t _where) : precondition(std::move(_precondition)), where(_where) { buffers.reserve(1); buffers.push_back(boost::asio::mutable_buffer(v, _length)); _validate(); }
+        async_data_op_req_impl(async_io_op _precondition, void *v, size_t _length, off_t _where) : precondition(std::move(_precondition)), where(_where) { buffers.reserve(1); buffers.push_back(asio::mutable_buffer(v, _length)); _validate(); }
         //! \async_data_op_req2
-        async_data_op_req_impl(async_io_op _precondition, std::vector<boost::asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
-        //! \async_data_op_req2 \tparam N Number of boost::asio::mutable_buffer
-        template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<boost::asio::mutable_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::make_move_iterator(_buffers.begin()), std::make_move_iterator(_buffers.end())), where(_where) { _validate(); }
+        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
+        //! \async_data_op_req2 \tparam N Number of asio::mutable_buffer
+        template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<asio::mutable_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::make_move_iterator(_buffers.begin()), std::make_move_iterator(_buffers.end())), where(_where) { _validate(); }
         //! \async_data_op_req3
-        async_data_op_req_impl(async_io_op _precondition, boost::asio::mutable_buffer _buffer, off_t _where) : precondition(std::move(_precondition)), buffers(1, std::move(_buffer)), where(_where) { _validate(); }
+        async_data_op_req_impl(async_io_op _precondition, asio::mutable_buffer _buffer, off_t _where) : precondition(std::move(_precondition)), buffers(1, std::move(_buffer)), where(_where) { _validate(); }
         //! Validates contents for correctness \return True if contents are correct
         bool validate() const
         {
@@ -2094,10 +1968,10 @@ namespace detail
             if(buffers.empty()) return false;
             BOOST_FOREACH(auto &b, buffers)
             {
-                if(!boost::asio::buffer_cast<const void *>(b) || !boost::asio::buffer_size(b)) return false;
+                if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
                 if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
                 {
-                    if(((size_t) boost::asio::buffer_cast<const void *>(b) & 4095) || (boost::asio::buffer_size(b) & 4095)) return false;
+                    if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
             }
             return true;
@@ -2117,7 +1991,7 @@ namespace detail
         //! An optional precondition for this operation
         async_io_op precondition;
         //! A sequence of mutable Boost.ASIO buffers to read into
-        std::vector<boost::asio::const_buffer> buffers;
+        std::vector<asio::const_buffer> buffers;
         //! The offset from which to read
         off_t where;
         //! \constr
@@ -2135,21 +2009,21 @@ namespace detail
         //! \massign
         async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
         //! \async_data_op_req1 \param _length The number of bytes to transfer
-        async_data_op_req_impl(async_io_op _precondition, const void *v, size_t _length, off_t _where) : precondition(std::move(_precondition)), where(_where) { buffers.reserve(1); buffers.push_back(boost::asio::const_buffer(v, _length)); _validate(); }
+        async_data_op_req_impl(async_io_op _precondition, const void *v, size_t _length, off_t _where) : precondition(std::move(_precondition)), where(_where) { buffers.reserve(1); buffers.push_back(asio::const_buffer(v, _length)); _validate(); }
         //! \async_data_op_req2
-        async_data_op_req_impl(async_io_op _precondition, std::vector<boost::asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
+        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
         //! \async_data_op_req2
-        async_data_op_req_impl(async_io_op _precondition, std::vector<boost::asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
+        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
         {
             buffers.reserve(_buffers.capacity());
             BOOST_FOREACH(auto &&i, _buffers)
                 buffers.push_back(std::move(i));
             _validate();
         }
-        //! \async_data_op_req2 \tparam N Number of boost::asio::const_buffer
-        template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<boost::asio::const_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::make_move_iterator(_buffers.begin()), std::make_move_iterator(_buffers.end())), where(_where) { _validate(); }
-        //! \async_data_op_req2 \tparam N Number of boost::asio::mutable_buffer
-        template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<boost::asio::mutable_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
+        //! \async_data_op_req2 \tparam N Number of asio::const_buffer
+        template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<asio::const_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::make_move_iterator(_buffers.begin()), std::make_move_iterator(_buffers.end())), where(_where) { _validate(); }
+        //! \async_data_op_req2 \tparam N Number of asio::mutable_buffer
+        template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<asio::mutable_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
         {
             buffers.reserve(_buffers.size());
             BOOST_FOREACH(auto &&i, _buffers)
@@ -2157,7 +2031,7 @@ namespace detail
             _validate();
         }
         //! \async_data_op_req3
-        async_data_op_req_impl(async_io_op _precondition, boost::asio::const_buffer _buffer, off_t _where) : precondition(std::move(_precondition)), buffers(1, std::move(_buffer)), where(_where) { _validate(); }
+        async_data_op_req_impl(async_io_op _precondition, asio::const_buffer _buffer, off_t _where) : precondition(std::move(_precondition)), buffers(1, std::move(_buffer)), where(_where) { _validate(); }
         //! Validates contents for correctness \return True if contents are correct
         bool validate() const
         {
@@ -2165,10 +2039,10 @@ namespace detail
             if(buffers.empty()) return false;
             BOOST_FOREACH(auto &b, buffers)
             {
-                if(!boost::asio::buffer_cast<const void *>(b) || !boost::asio::buffer_size(b)) return false;
+                if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
                 if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
                 {
-                    if(((size_t) boost::asio::buffer_cast<const void *>(b) & 4095) || (boost::asio::buffer_size(b) & 4095)) return false;
+                    if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
             }
             return true;
@@ -2195,7 +2069,7 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2224,7 +2098,7 @@ template<class T> struct async_data_op_req<const T> : public detail::async_data_
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2257,7 +2131,7 @@ template<> struct async_data_op_req<void> : public detail::async_data_op_req_imp
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2270,7 +2144,7 @@ template<> struct async_data_op_req<void> : public detail::async_data_op_req_imp
     //! \async_data_op_req1 \param _length The number of bytes to transfer
     async_data_op_req(async_io_op _precondition, void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), v, _length, _where) { }
     //! \async_data_op_req2
-    async_data_op_req(async_io_op _precondition, std::vector<boost::asio::mutable_buffer> _buffers, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(_buffers), _where) { }
+    async_data_op_req(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(_buffers), _where) { }
 };
 //! \brief A convenience bundle of precondition, data and where for writing from a `const void *`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
 template<> struct async_data_op_req<const void> : public detail::async_data_op_req_impl<true>
@@ -2279,7 +2153,7 @@ template<> struct async_data_op_req<const void> : public detail::async_data_op_r
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2296,7 +2170,7 @@ template<> struct async_data_op_req<const void> : public detail::async_data_op_r
     //! \async_data_op_req1 \param _length The number of bytes to transfer
     async_data_op_req(async_io_op _precondition, const void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), v, _length, _where) {}
     //! \async_data_op_req2
-    async_data_op_req(async_io_op _precondition, std::vector<boost::asio::const_buffer> _buffers, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), _buffers, _where) {}
+    async_data_op_req(async_io_op _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), _buffers, _where) {}
 };
 //! \brief A convenience bundle of precondition, data and where for reading into a `std::vector<T, A>`. Data \b MUST stay around until the operation completes. \tparam "class T" Any type \tparam "class A" Any STL allocator \ingroup async_data_op_req
 template<class T, class A> struct async_data_op_req<std::vector<T, A>> : public detail::async_data_op_req_impl<false>
@@ -2305,7 +2179,7 @@ template<class T, class A> struct async_data_op_req<std::vector<T, A>> : public 
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2329,7 +2203,7 @@ template<class T, class A> struct async_data_op_req<const std::vector<T, A>> : p
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2357,7 +2231,7 @@ template<class T, size_t N> struct async_data_op_req<std::array<T, N>> : public 
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2381,7 +2255,7 @@ template<class T, size_t N> struct async_data_op_req<const std::array<T, N>> : p
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2402,14 +2276,14 @@ template<class T, size_t N> struct async_data_op_req<const std::array<T, N>> : p
     //! \async_data_op_req1
     async_data_op_req(async_io_op _precondition, const std::array<T, N> &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), static_cast<const void *>(&v.front()), v.size()*sizeof(T), _where) { }
 };
-//! \brief A convenience bundle of precondition, data and where for reading into a `std::vector<boost::asio::mutable_buffer, A>`. Data \b MUST stay around until the operation completes. \tparam "class A" Any STL allocator \ingroup async_data_op_req
-template<class A> struct async_data_op_req<std::vector<boost::asio::mutable_buffer, A>> : public detail::async_data_op_req_impl<false>
+//! \brief A convenience bundle of precondition, data and where for reading into a `std::vector<asio::mutable_buffer, A>`. Data \b MUST stay around until the operation completes. \tparam "class A" Any STL allocator \ingroup async_data_op_req
+template<class A> struct async_data_op_req<std::vector<asio::mutable_buffer, A>> : public detail::async_data_op_req_impl<false>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2424,16 +2298,16 @@ template<class A> struct async_data_op_req<std::vector<boost::asio::mutable_buff
     //! \massign
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1
-    async_data_op_req(async_io_op _precondition, std::vector<boost::asio::mutable_buffer, A> v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(v), _where) { }
+    async_data_op_req(async_io_op _precondition, std::vector<asio::mutable_buffer, A> v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(v), _where) { }
 };
-//! \brief A convenience bundle of precondition, data and where for writing from a `std::vector<boost::asio::const_buffer, A>`. Data \b MUST stay around until the operation completes. \tparam "class A" Any STL allocator \ingroup async_data_op_req
-template<class A> struct async_data_op_req<std::vector<boost::asio::const_buffer, A>> : public detail::async_data_op_req_impl<true>
+//! \brief A convenience bundle of precondition, data and where for writing from a `std::vector<asio::const_buffer, A>`. Data \b MUST stay around until the operation completes. \tparam "class A" Any STL allocator \ingroup async_data_op_req
+template<class A> struct async_data_op_req<std::vector<asio::const_buffer, A>> : public detail::async_data_op_req_impl<true>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2444,9 +2318,9 @@ template<class A> struct async_data_op_req<std::vector<boost::asio::const_buffer
     //! \mconstr
     async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cconstr
-    async_data_op_req(const async_data_op_req<std::vector<boost::asio::mutable_buffer, A>> &o) : detail::async_data_op_req_impl<true>(o) { }
+    async_data_op_req(const async_data_op_req<std::vector<asio::mutable_buffer, A>> &o) : detail::async_data_op_req_impl<true>(o) { }
     //! \mconstr
-    async_data_op_req(async_data_op_req<std::vector<boost::asio::mutable_buffer, A>> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    async_data_op_req(async_data_op_req<std::vector<asio::mutable_buffer, A>> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cassign
     async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
     //! \massign
@@ -2454,14 +2328,14 @@ template<class A> struct async_data_op_req<std::vector<boost::asio::const_buffer
     //! \async_data_op_req1
     template<class T, class A2> async_data_op_req(async_io_op _precondition, std::vector<T, A2> v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), std::move(v), _where) { }
 };
-//! \brief A convenience bundle of precondition, data and where for reading into a `std::array<boost::asio::mutable_buffer, N>`. Data \b MUST stay around until the operation completes. \tparam N The size of the array. \ingroup async_data_op_req
-template<size_t N> struct async_data_op_req<std::array<boost::asio::mutable_buffer, N>> : public detail::async_data_op_req_impl<false>
+//! \brief A convenience bundle of precondition, data and where for reading into a `std::array<asio::mutable_buffer, N>`. Data \b MUST stay around until the operation completes. \tparam N The size of the array. \ingroup async_data_op_req
+template<size_t N> struct async_data_op_req<std::array<asio::mutable_buffer, N>> : public detail::async_data_op_req_impl<false>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::array<boost::asio::mutable_buffer, N> buffers;
+    std::array<asio::mutable_buffer, N> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2476,16 +2350,16 @@ template<size_t N> struct async_data_op_req<std::array<boost::asio::mutable_buff
     //! \massign
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1
-    async_data_op_req(async_io_op _precondition, std::array<boost::asio::mutable_buffer, N> v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(v), _where) { }
+    async_data_op_req(async_io_op _precondition, std::array<asio::mutable_buffer, N> v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(v), _where) { }
 };
-//! \brief A convenience bundle of precondition, data and where for writing from a `std::array<boost::asio::const_buffer, A>`. Data \b MUST stay around until the operation completes. \tparam N The size of the array. \ingroup async_data_op_req
-template<size_t N> struct async_data_op_req<std::array<boost::asio::const_buffer, N>> : public detail::async_data_op_req_impl<true>
+//! \brief A convenience bundle of precondition, data and where for writing from a `std::array<asio::const_buffer, A>`. Data \b MUST stay around until the operation completes. \tparam N The size of the array. \ingroup async_data_op_req
+template<size_t N> struct async_data_op_req<std::array<asio::const_buffer, N>> : public detail::async_data_op_req_impl<true>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::array<boost::asio::const_buffer, N> buffers;
+    std::array<asio::const_buffer, N> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2496,9 +2370,9 @@ template<size_t N> struct async_data_op_req<std::array<boost::asio::const_buffer
     //! \mconstr
     async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cconstr
-    async_data_op_req(const async_data_op_req<std::array<boost::asio::mutable_buffer, N>> &o) : detail::async_data_op_req_impl<true>(o) { }
+    async_data_op_req(const async_data_op_req<std::array<asio::mutable_buffer, N>> &o) : detail::async_data_op_req_impl<true>(o) { }
     //! \mconstr
-    async_data_op_req(async_data_op_req<std::array<boost::asio::mutable_buffer, N>> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    async_data_op_req(async_data_op_req<std::array<asio::mutable_buffer, N>> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cassign
     async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
     //! \massign
@@ -2513,7 +2387,7 @@ template<class C, class T, class A> struct async_data_op_req<std::basic_string<C
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2537,7 +2411,7 @@ template<class C, class T, class A> struct async_data_op_req<const std::basic_st
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2558,14 +2432,14 @@ template<class C, class T, class A> struct async_data_op_req<const std::basic_st
     //! \async_data_op_req1
     async_data_op_req(async_io_op _precondition, const std::basic_string<C, T, A> &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), static_cast<const void *>(&v.front()), v.size()*sizeof(A), _where) { }
 };
-//! \brief A convenience bundle of precondition, data and where for reading into a `boost::asio::mutable_buffer`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
-template<> struct async_data_op_req<boost::asio::mutable_buffer> : public detail::async_data_op_req_impl<false>
+//! \brief A convenience bundle of precondition, data and where for reading into a `asio::mutable_buffer`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
+template<> struct async_data_op_req<asio::mutable_buffer> : public detail::async_data_op_req_impl<false>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<boost::asio::mutable_buffer> buffers;
+    std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
     off_t where;
 #endif
@@ -2580,16 +2454,16 @@ template<> struct async_data_op_req<boost::asio::mutable_buffer> : public detail
     //! \massign
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1
-    async_data_op_req(async_io_op _precondition, boost::asio::mutable_buffer v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(v), _where) { }
+    async_data_op_req(async_io_op _precondition, asio::mutable_buffer v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), std::move(v), _where) { }
 };
-//! \brief A convenience bundle of precondition, data and where for writing from a `boost::asio::const_buffer`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
-template<> struct async_data_op_req<boost::asio::const_buffer> : public detail::async_data_op_req_impl<true>
+//! \brief A convenience bundle of precondition, data and where for writing from a `asio::const_buffer`. Data \b MUST stay around until the operation completes. \ingroup async_data_op_req
+template<> struct async_data_op_req<asio::const_buffer> : public detail::async_data_op_req_impl<true>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
     async_io_op precondition;
     //! A sequence of const Boost.ASIO buffers to write from
-    std::vector<boost::asio::const_buffer> buffers;
+    std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
     off_t where;
 #endif
@@ -2600,9 +2474,9 @@ template<> struct async_data_op_req<boost::asio::const_buffer> : public detail::
     //! \mconstr
     async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cconstr
-    async_data_op_req(const async_data_op_req<boost::asio::mutable_buffer> &o) : detail::async_data_op_req_impl<true>(o) { }
+    async_data_op_req(const async_data_op_req<asio::mutable_buffer> &o) : detail::async_data_op_req_impl<true>(o) { }
     //! \mconstr
-    async_data_op_req(async_data_op_req<boost::asio::mutable_buffer> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    async_data_op_req(async_data_op_req<asio::mutable_buffer> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cassign
     async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
     //! \massign
@@ -2664,7 +2538,7 @@ struct async_enumerate_op_req
     async_io_op precondition;    //!< A precondition for this operation.
     size_t maxitems;             //!< The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
     bool restart;                //!< Restarts the enumeration for this open directory handle.
-    std::filesystem::path glob;  //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    filesystem::path glob;  //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     metadata_flags metadata;     //!< The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     //! \constr
     async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None) { }
@@ -2676,7 +2550,7 @@ struct async_enumerate_op_req
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     */
-    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, std::filesystem::path _glob=std::filesystem::path(), metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, filesystem::path _glob=filesystem::path(), metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -2685,7 +2559,7 @@ struct async_enumerate_op_req
     \param _restart Restarts the enumeration for this open directory handle.
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     */
-    async_enumerate_op_req(async_io_op _precondition, std::filesystem::path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, filesystem::path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -2694,7 +2568,7 @@ struct async_enumerate_op_req
     \param _restart Restarts the enumeration for this open directory handle.
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     */
-    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, std::filesystem::path _glob=std::filesystem::path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, filesystem::path _glob=filesystem::path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
     //! Validates contents
     bool validate() const
     {

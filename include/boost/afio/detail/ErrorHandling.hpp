@@ -41,21 +41,21 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
     
 #ifdef BOOST_WINDOWS
-                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const std::filesystem::path *filename=0);
+                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename=0);
                     extern "C" unsigned __stdcall GetLastError();
 #define BOOST_AFIO_ERRGWIN(code)                { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code); }
 #define BOOST_AFIO_ERRGWINFN(code, filename)    { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, &(filename)); }
 #define BOOST_AFIO_ERRHWIN(exp)             { unsigned __errcode=(unsigned)(exp); if(!__errcode) BOOST_AFIO_ERRGWIN(GetLastError()); }
 #define BOOST_AFIO_ERRHWINFN(exp, filename) { unsigned __errcode=(unsigned)(exp); if(!__errcode) BOOST_AFIO_ERRGWINFN(GetLastError(), filename); }
 
-                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, const std::filesystem::path *filename=0);
+                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename=0);
 #define BOOST_AFIO_ERRGNT(code)             { BOOST_AFIO_V1_NAMESPACE::detail::int_throwNTError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code); }
 #define BOOST_AFIO_ERRGNTFN(code, filename) { BOOST_AFIO_V1_NAMESPACE::detail::int_throwNTError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, &(filename)); }
 #define BOOST_AFIO_ERRHNT(exp)              { unsigned __errcode=(unsigned)(exp); if(0/*STATUS_SUCCESS*/!=__errcode) BOOST_AFIO_ERRGNT(__errcode); }
 #define BOOST_AFIO_ERRHNTFN(exp, filename)  { unsigned __errcode=(unsigned)(exp); if(0/*STATUS_SUCCESS*/!=__errcode) BOOST_AFIO_ERRGNTFN(__errcode, filename); }
 #endif
 
-                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, const std::filesystem::path *filename=0);
+                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, const filesystem::path *filename=0);
 #define BOOST_AFIO_ERRGWIN(code)                { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code); }
 #define BOOST_AFIO_ERRGWINFN(code, filename)    { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, &(filename)); }
             /*! Use this macro to wrap BOOST_WINDOWS functions. For anything setting errno, use ERRHOS().
