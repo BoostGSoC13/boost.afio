@@ -9,7 +9,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     using namespace boost::afio::detail;
     using boost::afio::off_t;
     namespace chrono = boost::afio::chrono;
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
     vector<pair<size_t, int>> groups;
     // Generate 500,000 sorted random numbers between 0-10000
     static const size_t numbers=
@@ -42,15 +42,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     }
     boost::afio::atomic<size_t> callcount[10000];
     memset(&callcount, 0, sizeof(callcount));
-    vector<shared_future<bool>> verifies;
+    vector<boost::afio::shared_future<bool>> verifies;
     verifies.reserve(groups.size());
-#if defined(BOOST_MSVC) && BOOST_MSVC < 1700 // <= VS2010
-    std::function<void (boost::afio::atomic<size_t> *count)> inccount = [](boost::afio::atomic<size_t> *count){ /*for (volatile size_t n = 0; n < 10000; n++);*/ (*count)++; };
-    std::function<bool(boost::afio::atomic<size_t> *, size_t)> verifybarrier = [](boost::afio::atomic<size_t> *count, size_t shouldbe) ->bool
-#else
     auto inccount = [](boost::afio::atomic<size_t> *count){ /*for (volatile size_t n = 0; n < 10000; n++);*/ (*count)++; };
     auto verifybarrier = [](boost::afio::atomic<size_t> *count, size_t shouldbe)
-#endif
     {
         if (*count != shouldbe)
         {
@@ -68,7 +63,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     BOOST_FOREACH(auto &run, groups)
     {
         assert(run.first>0);
-        vector<function<void()>> thisgroupcalls(run.first, std::bind(inccount, &callcount[run.second]));
+        vector<std::function<void()>> thisgroupcalls(run.first, std::bind(inccount, &callcount[run.second]));
         vector<async_io_op> thisgroupcallops;
         if (isfirst)
         {

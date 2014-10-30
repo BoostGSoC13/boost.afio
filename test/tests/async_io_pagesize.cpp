@@ -11,7 +11,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the page size works, an
     }
     catch(...)
     {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
+        std::cerr << "Exception thrown." << std::endl;
         BOOST_CHECK(false);
     }
 }

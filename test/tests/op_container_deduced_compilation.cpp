@@ -8,7 +8,7 @@ BOOST_AFIO_AUTO_TEST_CASE(op_container_deduced_compilation, "Tests that all the 
     {
         auto dispatcher=boost::afio::make_async_file_io_dispatcher();
         // Test that async_path_op_req constructs from path
-        auto file1(dispatcher->file(std::filesystem::path("foo")));
+        auto file1(dispatcher->file(boost::afio::filesystem::path("foo")));
         // Test that async_path_op_req constructs from literal
         auto file2(dispatcher->file("foo"));
         // Test that detail::async_data_op_req_impl<false> constructs from ?

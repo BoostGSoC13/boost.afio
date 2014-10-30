@@ -115,7 +115,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
     }
     catch(...)
     {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
+        std::cerr << "Exception thrown." << std::endl;
         BOOST_CHECK(false);
     }
     if(filesystem::exists("testdir/a"))

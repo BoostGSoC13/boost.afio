@@ -113,13 +113,13 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
             when_all(last).wait();
         }
-        // vector of boost::asio::mutable_buffer specialisation
+        // vector of boost::afio::asio::mutable_buffer specialisation
         {
-            typedef std::vector<boost::asio::mutable_buffer> type;
-            typedef std::vector<boost::asio::const_buffer> const_type;
+            typedef std::vector<boost::afio::asio::mutable_buffer> type;
+            typedef std::vector<boost::afio::asio::const_buffer> const_type;
 
             unsigned word=0xdeadbeef;
-            type out(1, boost::asio::mutable_buffer(&word, 1));
+            type out(1, boost::afio::asio::mutable_buffer(&word, 1));
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
             when_all(last).wait();
@@ -153,14 +153,14 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
             when_all(last).wait();
         }
-        // array of boost::asio::mutable_buffer specialisation
+        // array of boost::afio::asio::mutable_buffer specialisation
         {
-            typedef std::array<boost::asio::mutable_buffer, 1> type;
-            typedef std::array<boost::asio::const_buffer, 1> const_type;
+            typedef std::array<boost::afio::asio::mutable_buffer, 1> type;
+            typedef std::array<boost::afio::asio::const_buffer, 1> const_type;
 
             unsigned word=0xdeadbeef;
             type out;
-            out[0]=boost::asio::mutable_buffer(&word, 1);
+            out[0]=boost::afio::asio::mutable_buffer(&word, 1);
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
             when_all(last).wait();
@@ -193,10 +193,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
             when_all(last).wait();
         }
-        // boost::asio::mutable_buffer specialisation
+        // boost::afio::asio::mutable_buffer specialisation
         {
-            typedef boost::asio::mutable_buffer type;
-            typedef boost::asio::const_buffer const_type;
+            typedef boost::afio::asio::mutable_buffer type;
+            typedef boost::afio::asio::const_buffer const_type;
 
             unsigned word=0xdeadbeef;
             type out(&word, 1);
@@ -223,7 +223,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
     }
     catch(...)
     {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
+        std::cerr << "Exception thrown." << std::endl;
         BOOST_CHECK(false);
     }
 }

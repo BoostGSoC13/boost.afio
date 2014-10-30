@@ -113,8 +113,15 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
     }
 
+#if BOOST_AFIO_USE_BOOST_THREAD
+    typedef boost::exception_ptr exception_ptr;
+    using boost::current_exception;
+#else
+    typedef std::exception_ptr exception_ptr;
+    using std::current_exception;
+#endif
     // Get an exception ptr from a future
-    template<typename T> inline std::exception_ptr get_exception_ptr(future<T> &f)
+    template<typename T> inline exception_ptr get_exception_ptr(future<T> &f)
     {
 #if BOOST_AFIO_USE_BOOST_THREAD
         // Thanks to Vicente for adding this to Boost.Thread
@@ -129,14 +136,14 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         }
         catch(...)
         {
-            std::exception_ptr e(std::current_exception());
+            exception_ptr e(std::current_exception());
             assert(e);
             return e;
         }
-        return std::exception_ptr();
+        return exception_ptr();
 #endif
     }
-    template<typename T> inline std::exception_ptr get_exception_ptr(shared_future<T> &f)
+    template<typename T> inline exception_ptr get_exception_ptr(shared_future<T> &f)
     {
 #if BOOST_AFIO_USE_BOOST_THREAD
         // Thanks to Vicente for adding this to Boost.Thread
@@ -151,11 +158,11 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         }
         catch(...)
         {
-            std::exception_ptr e(std::current_exception());
+            exception_ptr e(std::current_exception());
             assert(e);
             return e;
         }
-        return std::exception_ptr();
+        return exception_ptr();
 #endif
     }
     // Is a future ready?

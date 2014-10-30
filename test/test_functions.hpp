@@ -34,7 +34,6 @@ extern "C" void tzset(void);
 #include "boost/afio/afio.hpp"
 #include "../detail/SpookyV2.h"
 #include "boost/afio/detail/Aligned_Allocator.hpp"
-#include "boost/afio/detail/valgrind/memcheck.h"
 #include <time.h>
 
 //if we're building the tests all together don't define the test main
@@ -102,24 +101,23 @@ static inline void set_maximum_cpus(size_t no=0)
 #endif
 
 // Boost.Test uses alarm() to timeout tests, which is nearly useless. Hence do our own.
-static inline void watchdog_thread(size_t timeout)
+static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<bool, std::condition_variable>> cv)
 {
     boost::afio::detail::set_threadname("watchdog_thread");
     bool docountdown=timeout>10;
     if(docountdown) timeout-=10;
-    boost::chrono::duration<size_t> d(timeout);
-    boost::mutex m;
-    boost::condition_variable cv;
-    boost::unique_lock<boost::mutex> lock(m);
-    if(boost::cv_status::timeout==cv.wait_for(lock, d))
+    std::chrono::duration<size_t> d(timeout);
+    std::mutex m;
+    std::unique_lock<std::mutex> lock(m);
+    if(!cv->first && std::cv_status::timeout==cv->second.wait_for(lock, d))
     {
         if(docountdown)
         {
             std::cerr << "Test about to time out ...";
-            d=boost::chrono::duration<size_t>(1);
+            d=std::chrono::duration<size_t>(1);
             for(size_t n=0; n<10; n++)
             {
-                if(boost::cv_status::timeout!=cv.wait_for(lock, d))
+                if(cv->first || std::cv_status::timeout!=cv->second.wait_for(lock, d))
                     return;
                 std::cerr << " " << 10-n;
             }
@@ -133,28 +131,15 @@ static inline void watchdog_thread(size_t timeout)
 
 template<class T> inline void wrap_test_method(T &t)
 {
-#ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
-    // VS2010 segfaults if you ever do a try { throw; } catch(...) without an exception ever having been thrown :(
     try
     {
-        throw boost::afio::detail::vs2010_lack_of_decent_current_exception_support_hack_t();
+        t.test_method();
     }
     catch(...)
     {
-        boost::afio::detail::vs2010_lack_of_decent_current_exception_support_hack()=boost::current_exception();
-#endif
-        try
-        {
-            t.test_method();
-        }
-        catch(...)
-        {
-            std::cerr << "ERROR: unit test exits via exception. Exception was " << boost::current_exception_diagnostic_information(true) << std::endl;
-            BOOST_FAIL("Unit test exits via exception which shouldn't happen");
-        }
-#ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
+        std::cerr << "ERROR: unit test exits via exception." << std::endl;
+        BOOST_FAIL("Unit test exits via exception which shouldn't happen");
     }
-#endif
 }
 
 // Define a unit test description and timeout
@@ -196,8 +181,9 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
     std::cout << std::endl << desc << std::endl;                        \
     try { boost::filesystem::remove_all("testdir"); } catch(...) { }    \
     set_maximum_cpus();                                                 \
-    boost::thread watchdog(watchdog_thread, timeout);                   \
-    boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { wrap_test_method(t); watchdog.interrupt(); watchdog.join(); return 0; }); \
+    auto cv=std::make_shared<std::pair<bool, std::condition_variable>>(); \
+    std::thread watchdog(watchdog_thread, timeout, cv);                 \
+    boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
 }                                                                       \
                                                                         \
 struct BOOST_AUTO_TC_UNIQUE_ID( test_name ) {};                         \
@@ -231,7 +217,7 @@ static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle
 {
     size_t amount=0;
     BOOST_FOREACH(auto &i, req.buffers)
-        amount+=boost::asio::buffer_size(i);
+        amount+=boost::afio::asio::buffer_size(i);
     if(offset!=0)
         BOOST_CHECK(offset==0);
     if(transferred!=amount)
@@ -246,7 +232,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         using boost::afio::future;
         using boost::afio::ratio;
         namespace chrono = boost::afio::chrono;
-        typedef chrono::duration<double, ratio<1>> secs_type;
+        typedef chrono::duration<double, ratio<1, 1>> secs_type;
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
         vector<char, boost::afio::detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
         assert(!(((size_t) &towrite.front()) & 4095));
@@ -272,7 +258,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         std::vector<async_path_op_req> manyfilereqs;
         manyfilereqs.reserve(1000);
         for(size_t n=0; n<1000; n++)
-                manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+boost::to_string(n), file_flags::Create|file_flags::Write));
+                manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+std::to_string(n), file_flags::Create|file_flags::Write));
         auto manyopenfiles(dispatcher->file(manyfilereqs));
 
         // Write to each of those 1000 files as they are opened
@@ -344,7 +330,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         BOOST_CHECK((filtercount==1000U));
     }
     catch(...) {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
+        std::cerr << "Exception thrown." << std::endl;
         throw;
     }
 }
@@ -378,7 +364,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     using boost::afio::ratio;
     using boost::afio::off_t;
     namespace chrono = boost::afio::chrono;
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
 
     boost::afio::detail::aligned_allocator<char, 4096> aligned_allocator;
     vector<vector<char, boost::afio::detail::aligned_allocator<char, 4096>>> towrite(no);
@@ -456,7 +442,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                                     memcpy(buffer, (char *)((size_t)towriteptrs[n]+(size_t) op.req.where+thisbytes), s);
 #endif
                             thisbytes+=s;
-                            op.req.buffers.push_back(boost::asio::mutable_buffer(buffertouse, s));
+                            op.req.buffers.push_back(boost::afio::asio::mutable_buffer(buffertouse, s));
                     }
 #ifndef DEBUG_TORTURE_TEST
                     if(!op.write)
@@ -473,7 +459,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                     // Quickly make sure none of these exceed 10Mb
                     off_t end=op.req.where;
                     BOOST_FOREACH(auto &b, op.req.buffers)
-                            end+=boost::asio::buffer_size(b);
+                            end+=boost::afio::asio::buffer_size(b);
                     assert(end<=bytes);
 #endif
                     todo[n].push_back(move(op));
@@ -522,7 +508,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     std::vector<boost::afio::async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(no);
     for(size_t n=0; n<no; n++)
-            manyfilereqs.push_back(boost::afio::async_path_op_req(mkdir, "testdir/"+boost::to_string(n), boost::afio::file_flags::Create|boost::afio::file_flags::ReadWrite));
+            manyfilereqs.push_back(boost::afio::async_path_op_req(mkdir, "testdir/"+std::to_string(n), boost::afio::file_flags::Create|boost::afio::file_flags::ReadWrite));
     auto manyopenfiles(dispatcher->file(manyfilereqs));
     std::vector<off_t> sizes(no, bytes);
     auto manywrittenfiles(dispatcher->truncate(manyopenfiles, sizes));
@@ -532,7 +518,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
 #endif
     // Schedule a replay of our in-RAM simulation
 
-    boost::afio::detail::spinlock<size_t> failureslock;
+    boost::afio::spinlock<size_t> failureslock;
     std::deque<std::pair<const Op *, size_t>> failures;
 #if defined(BOOST_MSVC) && BOOST_MSVC < 1700 // <= VS2010
     std::function<std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>>(Op &, char *, size_t, boost::afio::async_io_op)> checkHash=[&failureslock, &failures](Op &op, char *base, size_t, boost::afio::async_io_op _h) -> std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> {
@@ -546,15 +532,14 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
             {
                     const char *buffer=op.data[m];
                     size_t idx;
-                    for(idx=0; idx < boost::asio::buffer_size(op.req.buffers[m]); idx++)
+                    for(idx=0; idx < boost::afio::asio::buffer_size(op.req.buffers[m]); idx++)
                     {
                             if(data[idx]!=buffer[idx])
                             {
-                                    BOOST_BEGIN_MEMORY_TRANSACTION(failureslock)
                                     {
+                                        std::lock_guard<decltype(failureslock)> h(failureslock);
                                         failures.push_back(std::make_pair(&op, idxoffset+idx));
                                     }
-                                    BOOST_END_MEMORY_TRANSACTION(failureslock)
 #ifdef _DEBUG
                                     std::string contents(data, 8), shouldbe(buffer, 8);
                                     std::cout << "Contents of file at " << op.req.where << " +" << idx << " contains " << contents << " instead of " << shouldbe << std::endl;
@@ -562,9 +547,9 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                                     break;
                             }
                     }
-                    if(idx!=boost::asio::buffer_size(op.req.buffers[m])) break;
-                    data+=boost::asio::buffer_size(op.req.buffers[m]);
-                    idxoffset+=boost::asio::buffer_size(op.req.buffers[m]);
+                    if(idx!=boost::afio::asio::buffer_size(op.req.buffers[m])) break;
+                    data+=boost::afio::asio::buffer_size(op.req.buffers[m]);
+                    idxoffset+=boost::afio::asio::buffer_size(op.req.buffers[m]);
             }
             return std::make_pair(true, _h.get());
     };
@@ -636,8 +621,8 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                 pair<const Op *, size_t> &failedop=failures.front();
                 size_t bytes=0;
                 BOOST_FOREACH(auto &b, failedop.first->req.buffers)
-                    bytes+=boost::asio::buffer_size(b);
-                cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << boost::to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << endl;
+                    bytes+=boost::afio::asio::buffer_size(b);
+                cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << std::to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << endl;
                 failures.pop_front();
             }
     }
@@ -664,7 +649,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
         for(size_t n=0; n<no; n++)
             if(memhashes[n]!=filehashes[n]) // compare hash values from ram and actual IO
             {
-                    string failmsg("File "+boost::to_string(n)+" contents were not what they were supposed to be!");
+                    string failmsg("File "+std::to_string(n)+" contents were not what they were supposed to be!");
                     BOOST_TEST_MESSAGE(failmsg.c_str());
                     std::cerr << failmsg << std::endl;
             }
@@ -690,7 +675,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     // Fetch any outstanding error
     when_all(rmdir).wait();
     } catch(...) {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
+        std::cerr << "Exception thrown." << std::endl;
         throw;
     }
 }
@@ -737,13 +722,13 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     std::cout << "Entry " << h->path() << " is a ";
     switch(entry.st_type)
     {
-    case std::filesystem::file_type::symlink_file:
+    case boost::afio::filesystem::file_type::symlink_file:
         std::cout << "link";
         break;
-    case std::filesystem::file_type::directory_file:
+    case boost::afio::filesystem::file_type::directory_file:
         std::cout << "directory";
         break;
-    case std::filesystem::file_type::regular_file:
+    case boost::afio::filesystem::file_type::regular_file:
         std::cout << "file";
         break;
     default:
@@ -751,7 +736,7 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
         break;
     }
     std::cout << " and it has the following information:" << std::endl;
-    if(std::filesystem::file_type::symlink_file==entry.st_type)
+    if(boost::afio::filesystem::file_type::symlink_file==entry.st_type)
     {
         std::cout << "  Target=" << h->target() << std::endl;
     }
@@ -792,13 +777,13 @@ static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost
     auto entry=direntry.fetch_lstat(dirh);
     switch(entry.st_type)
     {
-    case std::filesystem::file_type::symlink_file:
+    case boost::afio::filesystem::file_type::symlink_file:
         std::cout << "link";
         break;
-    case std::filesystem::file_type::directory_file:
+    case boost::afio::filesystem::file_type::directory_file:
         std::cout << "directory";
         break;
-    case std::filesystem::file_type::regular_file:
+    case boost::afio::filesystem::file_type::regular_file:
         std::cout << "file";
         break;
     default:

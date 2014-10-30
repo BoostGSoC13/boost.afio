@@ -44,8 +44,7 @@
 
 
 
-namespace boost{
-    namespace afio{
+BOOST_AFIO_V1_NAMESPACE_BEGIN
         namespace detail {
 #ifdef BOOST_NO_CXX11_SCOPED_ENUMS
 BOOST_SCOPED_ENUM_DECLARE_BEGIN(allocator_alignment)
@@ -274,6 +273,5 @@ operator!= (const aligned_allocator<T,TAlign,Tinit>&, const aligned_allocator<U,
 
 
         }//namespace detail
-    }//namespace afio
-}//namespace boost
+BOOST_AFIO_V1_NAMESPACE_END
 #endif  /* ALIGNED_ALLOCATOR_HPP */

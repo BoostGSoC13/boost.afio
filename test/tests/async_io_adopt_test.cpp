@@ -18,9 +18,9 @@ struct test_handle : boost::afio::async_io_handle
     {
         return directory_entry();
     }
-    virtual std::filesystem::path target() const
+    virtual boost::afio::filesystem::path target() const
     {
-        return std::filesystem::path();
+        return boost::afio::filesystem::path();
     }
     virtual void *try_mapfile()
     {

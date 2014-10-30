@@ -7,7 +7,7 @@ Created: Feb 2013
 
 static int task()
 {
-   boost::afio::thread::id this_id = boost::afio::get_this_thread_id();
+   boost::afio::thread::id this_id = boost::afio::this_thread::get_id();
         std::cout << "I am worker thread " << this_id << std::endl;
         return 78;
 }
@@ -21,7 +21,7 @@ static int task()
 {
     using namespace boost::afio;
     
-    boost::afio::thread::id this_id = boost::afio::get_this_thread_id();
+    boost::afio::thread::id this_id = boost::afio::this_thread::get_id();
     
         std::cout << "I am main thread " << this_id << std::endl;
         std_thread_pool pool(4);
@@ -34,6 +34,7 @@ static int task()
             i=std::move(pool.enqueue(task));
         }
         
+#if BOOST_AFIO_USE_BOOST_THREAD
         std::vector<shared_future<int>> results2;
         results2.push_back(pool.enqueue(task));
         results2.push_back(pool.enqueue(task));
@@ -41,6 +42,11 @@ static int task()
         BOOST_CHECK(allresults2.first<2);
         BOOST_CHECK(allresults2.second==78);
         std::vector<int> allresults=when_all(results.begin(), results.end()).get();
+#else
+        std::vector<int> allresults;
+        for(auto &i : results)
+          allresults.push_back(i.get());
+#endif
         
         BOOST_FOREACH(int i, allresults)
         {
