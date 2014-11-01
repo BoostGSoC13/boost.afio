@@ -248,7 +248,7 @@ public:
     /*! \brief Constructs a thread pool of \em no workers
     \param no The number of worker threads to create
     */
-    explicit std_thread_pool(size_t no) : thread_source(service), working(make_unique<asio::io_service::work>(service))
+    explicit std_thread_pool(size_t no) : thread_source(service), working(detail::make_unique<asio::io_service::work>(service))
     {
         add_workers(no);
     }
@@ -257,7 +257,7 @@ public:
     {
         workers.reserve(workers.size()+no);
         for(size_t n=0; n<no; n++)
-            workers.push_back(make_unique<thread>(worker(this)));
+            workers.push_back(detail::make_unique<thread>(worker(this)));
     }
     //! Destroys the thread pool, waiting for worker threads to exit beforehand.
     void destroy()
@@ -703,9 +703,9 @@ public:
     size_t operator()(const directory_entry &p) const
     {
         size_t seed = (size_t) 0x9ddfea08eb382d69ULL;
-        boost::hash_combine(seed, p.st_ino());
+        detail::hash_combine(seed, p.st_ino());
         if(!!(directory_entry::metadata_supported() & metadata_flags::birthtim))
-            boost::hash_combine(seed, p.st_birthtim().time_since_epoch().count());
+            detail::hash_combine(seed, p.st_birthtim().time_since_epoch().count());
         return seed;
     }
 };
@@ -1588,11 +1588,13 @@ namespace detail
     }
     struct when_any_state : std::enable_shared_from_this<when_any_state>
     {
-        atomic<bool> count;
+        atomic<size_t> count;
         promise<std::shared_ptr<async_io_handle>> out;
         std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
+        when_any_state() : count(0) { }
     };
 #if BOOST_AFIO_USE_BOOST_THREAD
+    // Boost.Thread has wait_for_any() which lets us be more efficient here and wait directly on the futures
     template<bool rethrow> inline void when_any_ops_do(std::shared_ptr<when_any_state> state)
     {
         auto &i=*boost::wait_for_any(state->in.begin(), state->in.end());
@@ -1620,10 +1622,11 @@ namespace detail
         return std::move(ret);
     }
 #else
+    // Without wait_for_any, schedule a completion onto every op and the first to fire wins
     template<bool rethrow> inline std::pair<bool, std::shared_ptr<async_io_handle>> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, async_io_op h)
     {
         auto &i=state->in[idx];
-        if(!--state->count)
+        if(0==state->count.fetch_add(1, memory_order_relaxed))  // Will be zero exactly once
         {
             auto e(get_exception_ptr(i));
             if(e)
@@ -1631,28 +1634,29 @@ namespace detail
                 if(rethrow)
                 {
                     state->out.set_exception(e);
-                    return;
+                    return std::make_pair(true, std::shared_ptr<async_io_handle>());
                 }
                 state->out.set_value(std::shared_ptr<async_io_handle>());
             }
             else
                 state->out.set_value(i.get());
         }
+        return std::make_pair(true, std::shared_ptr<async_io_handle>());
     }
     template<bool rethrow, class Iterator> inline future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
     {
         auto state=std::make_shared<when_any_state>();
         auto dispatcher=first->parent;
-        size_t length=std::distance(first, last);
-        state->in.reserve(length);
-        for(; first!=last; ++first)
-            state->in.push_back(first->h);
+        std::vector<async_io_op> ops(first, last);
+        state->in.reserve(ops.size());
+        for(auto &op : ops)
+            state->in.push_back(op.h);
         auto ret=state->out.get_future();
-        std::vector<std::function<typename async_file_io_dispatcher::completion_t>> completions;
-        completions.reserve(length);
-        state->count=1;
-        for(size_t n=0; n<length; n++)
-          completions.push_back(std::bind(&when_any_ops_do<rethrow>, state, n));
+        typedef std::function<typename async_file_io_dispatcher_base::completion_t> ft;
+        std::vector<std::pair<async_op_flags, ft>> completions;
+        completions.reserve(ops.size());
+        for(size_t n=0; n<ops.size(); n++)
+          completions.push_back(std::make_pair(async_op_flags::immediate, std::bind(&when_any_ops_do<rethrow>, state, n, std::placeholders::_1, std::placeholders::_2)));
         dispatcher->completion(ops, completions);
         return std::move(ret);
     }

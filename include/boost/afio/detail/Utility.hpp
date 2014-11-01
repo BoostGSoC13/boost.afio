@@ -107,11 +107,22 @@ BOOST_AFIO_V1_NAMESPACE_END
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
+  namespace detail {
     // Support for make_unique. I keep wishing it was already here!
     template<class T, class... Args>
     std::unique_ptr<T> make_unique(Args &&... args){
         return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
     }
+
+    // Support for combining hashes.
+    template <class T>
+    inline void hash_combine(std::size_t& seed, const T& v)
+    {
+        std::hash<T> hasher;
+        seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+    }
+    
+  } // namespace
 
 #if BOOST_AFIO_USE_BOOST_THREAD
     typedef boost::exception_ptr exception_ptr;
@@ -185,10 +196,11 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
     struct filesystem_hash
     {
+        std::hash<filesystem::path::string_type> hasher;
     public:
         size_t operator()(const filesystem::path& p) const
         {
-            return filesystem::hash_value(p);
+            return hasher(p.string());
         }
     };
 
