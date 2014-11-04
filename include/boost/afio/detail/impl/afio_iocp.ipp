@@ -718,7 +718,7 @@ namespace detail {
                 _glob.Buffer=const_cast<filesystem::path::value_type *>(req.glob.c_str());
                 _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
             }
-            asio::windows::overlapped_ptr ol(p->h->get_io_service(), boost::bind(&async_file_io_dispatcher_windows::boost_asio_enumerate_completion_handler, this, id, op, state, asio::placeholders::error, asio::placeholders::bytes_transferred));
+            asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(&async_file_io_dispatcher_windows::boost_asio_enumerate_completion_handler, this, id, op, state, std::placeholders::_1, std::placeholders::_2));
             bool done;
             do
             {

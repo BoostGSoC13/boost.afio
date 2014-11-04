@@ -48,8 +48,12 @@ extern "C" void tzset(void);
 #pragma warning(disable: 4535) // calling _set_se_translator() requires /EHa
 #endif
 
-#include "boost/test/unit_test.hpp"
-#include "boost/test/unit_test_monitor.hpp"
+#ifndef BOOST_AFIO_USE_BOOST_UNIT_TEST
+#define BOOST_AFIO_USE_BOOST_UNIT_TEST 0
+#endif
+#if BOOST_AFIO_USE_BOOST_UNIT_TEST
+# include "boost/test/unit_test.hpp"
+# include "boost/test/unit_test_monitor.hpp"
 
 //define a simple macro to check any exception using Boost.Test
 #define BOOST_AFIO_CHECK_THROWS(expr)\
@@ -62,6 +66,13 @@ try{\
     expr;\
     /*BOOST_CHECK(true);*/ \
 }catch(...){BOOST_FAIL("Exception was thrown");}
+
+#else
+# include "../include/boost/afio/bindlib/include/boost/test/unit_test.hpp"
+# define BOOST_AFIO_CHECK_THROWS(expr) BOOST_CHECK_THROWS(expr)
+# define BOOST_AFIO_CHECK_NO_THROW(expr) BOOST_CHECK_NO_THROW(expr)
+#endif
+
 
 // Force maximum CPUs available to threads in this process, if available on this platform
 #ifdef MAXIMUM_TEST_CPUS
@@ -88,15 +99,6 @@ static inline void set_maximum_cpus(size_t no=MAXIMUM_TEST_CPUS)
 #else
 static inline void set_maximum_cpus(size_t no=0)
 {
-#ifdef BOOST_AFIO_USE_BOOST_ATOMIC
-    BOOST_TEST_MESSAGE("NOTE: Using Boost for atomic<>");
-#endif
-#ifdef BOOST_AFIO_USE_BOOST_CHRONO
-    BOOST_TEST_MESSAGE("NOTE: Using Boost for chrono");
-#endif
-#ifdef BOOST_AFIO_NEED_CURRENT_EXCEPTION_HACK
-    BOOST_TEST_MESSAGE("NOTE: Using current exception hack to work around ancient compiler");
-#endif
 }
 #endif
 
@@ -142,6 +144,7 @@ template<class T> inline void wrap_test_method(T &t)
     }
 }
 
+#if BOOST_AFIO_USE_BOOST_UNIT_TEST
 // Define a unit test description and timeout
 #ifdef BOOST_TEST_UNIT_TEST_SUITE_IMPL_HPP_071894GER
 #define BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR(test_name)                  \
@@ -179,7 +182,7 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
     /*boost::unit_test::unit_test_monitor_t::instance().p_timeout.set(timeout);*/ \
     BOOST_TEST_MESSAGE(desc);                                           \
     std::cout << std::endl << desc << std::endl;                        \
-    try { boost::filesystem::remove_all("testdir"); } catch(...) { }    \
+    try { boost::afio::filesystem::remove_all("testdir"); } catch(...) { } \
     set_maximum_cpus();                                                 \
     auto cv=std::make_shared<std::pair<bool, std::condition_variable>>(); \
     std::thread watchdog(watchdog_thread, timeout, cv);                 \
@@ -189,6 +192,35 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
 struct BOOST_AUTO_TC_UNIQUE_ID( test_name ) {};                         \
                                                                         \
 BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR ( test_name )
+
+#else
+
+#define BOOST_AFIO_AUTO_TEST_CASE(__test_name, __desc, __timeout)       \
+static void __test_name ## _impl();                                     \
+CATCH_TEST_CASE(__test_name, __desc)                                    \
+{                                                                       \
+    size_t timeout=__timeout;                                           \
+    if(RUNNING_ON_VALGRIND) {                                           \
+        VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in valgrind so tripling timeout\n"); \
+        timeout*=3;                                                     \
+    }                                                                   \
+    BOOST_TEST_MESSAGE(desc);                                           \
+    std::cout << std::endl << desc << std::endl;                        \
+    try { boost::afio::filesystem::remove_all("testdir"); } catch(...) { } \
+    set_maximum_cpus();                                                 \
+    auto cv=std::make_shared<std::pair<bool, std::condition_variable>>(); \
+    struct __deleter_t {                                                \
+      std::shared_ptr<std::pair<bool, std::condition_variable>> cv;     \
+      std::thread watchdog;                                             \
+      __deleter_t(std::shared_ptr<std::pair<bool, std::condition_variable>> &&_cv, \
+        std::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
+      ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
+    } __deleter(cv, std::thread(watchdog_thread, timeout, cv));         \
+    __test_name ## _impl();                                             \
+}                                                                       \
+static void __test_name ## _impl()                                      \
+
+#endif
 
 // From http://burtleburtle.net/bob/rand/smallprng.html
 typedef unsigned int  u4;
