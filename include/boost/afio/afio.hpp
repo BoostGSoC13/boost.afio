@@ -558,7 +558,11 @@ struct stat_t
         st_dev(0),
 #endif
         st_ino(0),
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
         st_type(filesystem::file_type::type_unknown),
+#else
+        st_type(filesystem::file_type::unknown),
+#endif
 #ifndef WIN32
         st_perms(0),
 #endif
@@ -940,7 +944,7 @@ public:
     //! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
     typedef void filter_t(detail::OpType, async_io_op &);
     //! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
-    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const boost::system::error_code &, size_t);
+    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const std::error_code &, size_t);
     /*! \brief Clears the post op and readwrite filters. Not threadsafe.
 
     \ingroup async_file_io_dispatcher_base__filter

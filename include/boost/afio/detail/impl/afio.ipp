@@ -101,6 +101,7 @@ static inline filesystem::file_type to_st_type(uint16_t mode)
 {
     switch(mode & S_IFMT)
     {
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
     case S_IFBLK:
         return filesystem::file_type::block_file;
     case S_IFCHR:
@@ -117,6 +118,24 @@ static inline filesystem::file_type to_st_type(uint16_t mode)
         return filesystem::file_type::socket_file;
     default:
         return filesystem::file_type::type_unknown;
+#else
+    case S_IFBLK:
+        return filesystem::file_type::block;
+    case S_IFCHR:
+        return filesystem::file_type::character;
+    case S_IFDIR:
+        return filesystem::file_type::directory;
+    case S_IFIFO:
+        return filesystem::file_type::fifo;
+    case S_IFLNK:
+        return filesystem::file_type::symlink;
+    case S_IFREG:
+        return filesystem::file_type::regular;
+    case S_IFSOCK:
+        return filesystem::file_type::socket;
+    default:
+        return filesystem::file_type::unknown;
+#endif
     }
 }
 BOOST_AFIO_V1_NAMESPACE_END
@@ -208,12 +227,12 @@ struct iovec {
     size_t iov_len;     /* Number of bytes to transfer */
 };
 typedef ptrdiff_t ssize_t;
-static boost::detail::spinlock preadwritelock;
+static boost::afio::spinlock<bool> preadwritelock;
 inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, boost::afio::off_t offset)
 {
     boost::afio::off_t at=offset;
     ssize_t transferred;
-    std::lock_guard<boost::detail::spinlock> lockh(preadwritelock);
+    std::lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
     for(; iovcnt; iov++, iovcnt--, at+=(boost::afio::off_t) transferred)
         if(-1==(transferred=_read(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
@@ -223,7 +242,7 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, boost::afio:
 {
     boost::afio::off_t at=offset;
     ssize_t transferred;
-    std::lock_guard<boost::detail::spinlock> lockh(preadwritelock);
+    std::lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
     for(; iovcnt; iov++, iovcnt--, at+=(boost::afio::off_t) transferred)
         if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
@@ -256,11 +275,11 @@ std::shared_ptr<std_thread_pool> process_threadpool()
     // This is basically how many file i/o operations can occur at once
     // Obviously the kernel also has a limit
     static std::weak_ptr<std_thread_pool> shared;
-    static boost::detail::spinlock lock;
+    static spinlock<bool> lock;
     std::shared_ptr<std_thread_pool> ret(shared.lock());
     if(!ret)
     {
-        std::lock_guard<boost::detail::spinlock> lockh(lock);
+        std::lock_guard<decltype(lock)> lockh(lock);
         ret=shared.lock();
         if(!ret)
         {
@@ -342,7 +361,13 @@ namespace detail {
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), path());
             fill_stat_t(stat, s, wanted);
-            return directory_entry(path().leaf(), stat, wanted);
+            return directory_entry(path()
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+              .leaf()
+#else
+              .filename()
+#endif
+            , stat, wanted);
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const
         {
@@ -724,7 +749,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                             if(it->second.first>=5)
                             {
                                 static const char *statuses[]={ "ready", "timeout", "deferred", "unknown" };
-                                int status=boost::underlying_cast<int>(it->second.second);
+                                int status=static_cast<int>(it->second.second);
                                 std::cerr << "WARNING: ~async_file_dispatcher_base() detects stuck async_io_op in total of " << p->ops.size() << " extant ops\n"
                                     "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(status>=0 && status<=2) ? status : 3] << " failcount=" << it->second.first << " Completions:";
                                 BOOST_FOREACH(auto &c, op.second->completions)
@@ -777,7 +802,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
         BOOST_FOREACH(auto &op, outstanding)
         {
             future_status status=op.second->wait_for(chrono::duration<int, ratio<1, 10>>(1));
-            switch(boost::native_value(status))
+            switch(status)
             {
             case future_status::ready:
                 reallyoutstanding.erase(op.second);
@@ -1563,7 +1588,7 @@ namespace detail {
                 _bytesread=preadv(p->fd, (&vecs.front())+n, (int) amount, offset);
                 if(!this->p->filters_buffers.empty())
                 {
-                    boost::system::error_code ec(errno, boost::system::generic_category());
+                    std::error_code ec(errno, std::generic_category());
                     BOOST_FOREACH(auto &i, this->p->filters_buffers)
                     {
                         if(i.first==OpType::Unknown || i.first==OpType::read)
@@ -1611,7 +1636,7 @@ namespace detail {
                 _byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset);
                 if(!this->p->filters_buffers.empty())
                 {
-                    boost::system::error_code ec(errno, boost::system::generic_category());
+                    std::error_code ec(errno, std::generic_category());
                     BOOST_FOREACH(auto &i, this->p->filters_buffers)
                     {
                         if(i.first==OpType::Unknown || i.first==OpType::write)
@@ -1660,7 +1685,13 @@ namespace detail {
                     {
                         stat_t stat(nullptr);
                         fill_stat_t(stat, s, req.metadata);
-                        _ret.push_back(directory_entry(path.leaf(), stat, req.metadata));
+                        _ret.push_back(directory_entry(path
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+                         .leaf()
+#else
+                         .filename()
+#endif
+                        , stat, req.metadata));
                     }
                     ret->set_value(std::make_pair(std::move(_ret), false));
                     return std::make_pair(true, h);

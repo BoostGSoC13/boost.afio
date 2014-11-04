@@ -40,7 +40,7 @@ File Created: Nov 2012
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
     
-#ifdef BOOST_WINDOWS
+#ifdef WIN32
                     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename=0);
                     extern "C" unsigned __stdcall GetLastError();
 #define BOOST_AFIO_ERRGWIN(code)                { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code); }

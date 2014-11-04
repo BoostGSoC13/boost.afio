@@ -10,6 +10,7 @@ File Created: Mar 2013
 
 namespace windows_nt_kernel
 {
+    namespace filesystem = boost::afio::filesystem;
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/FILE_INFORMATION_CLASS.html
     typedef enum _FILE_INFORMATION_CLASS {
         FileDirectoryInformation                 = 1,
@@ -380,31 +381,41 @@ namespace windows_nt_kernel
         }
     }
 
-    static inline std::filesystem::path ntpath_from_dospath(std::filesystem::path p)
+    static inline filesystem::path ntpath_from_dospath(filesystem::path p)
     {
         // This is pretty easy thanks to a convenient symlink in the NT kernel root directory ...
-        std::filesystem::path base("\\??");
+        filesystem::path base("\\??");
         base/=p;
         return base;
     }
 
-    static inline std::filesystem::path dospath_from_ntpath(std::filesystem::path p)
+    static inline filesystem::path dospath_from_ntpath(filesystem::path p)
     {
         auto first=++p.begin();
         if(*first=="??")
-            p=std::filesystem::path(p.native().begin()+4, p.native().end());
+            p=filesystem::path(p.native().begin()+4, p.native().end());
         return p;
     }
 
-    static inline std::filesystem::file_type to_st_type(ULONG FileAttributes)
+    static inline filesystem::file_type to_st_type(ULONG FileAttributes)
     {
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
         if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
-            return std::filesystem::file_type::symlink_file;
-            //return std::filesystem::file_type::reparse_file;
+            return filesystem::file_type::symlink_file;
+            //return filesystem::file_type::reparse_file;
         else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)
-            return std::filesystem::file_type::directory_file;
+            return filesystem::file_type::directory_file;
         else
-            return std::filesystem::file_type::regular_file;
+            return filesystem::file_type::regular_file;
+#else
+        if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
+            return filesystem::file_type::symlink;
+            //return filesystem::file_type::reparse_file;
+        else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)
+            return filesystem::file_type::directory;
+        else
+            return filesystem::file_type::regular;
+#endif
     }
 
     static inline boost::afio::chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)

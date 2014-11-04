@@ -12,6 +12,21 @@
 #include "Undoer.hpp"
 #include "ErrorHandling.hpp"
 
+//! \def BOOST_AFIO_TYPEALIGNMENT(bytes) The markup this compiler uses to mark a type as having some given alignment
+#ifndef BOOST_AFIO_TYPEALIGNMENT
+#if __cplusplus>=201103L && GCC_VERSION > 40900
+#define BOOST_AFIO_TYPEALIGNMENT(bytes) alignas(bytes)
+#else
+#ifdef BOOST_MSVC
+#define BOOST_AFIO_TYPEALIGNMENT(bytes) __declspec(align(bytes))
+#elif defined(__GNUC__)
+#define BOOST_AFIO_TYPEALIGNMENT(bytes) __attribute__((aligned(bytes)))
+#else
+#define BOOST_AFIO_TYPEALIGNMENT(bytes) unknown_type_alignment_markup_for_this_compiler
+#endif
+#endif
+#endif
+
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail {
 #ifdef _MSC_VER
@@ -200,7 +215,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
     public:
         size_t operator()(const filesystem::path& p) const
         {
-            return hasher(p.string());
+            return hasher(p.native());
         }
     };
 

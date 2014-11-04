@@ -57,16 +57,22 @@
 # endif
 #endif
 // Default to the C++ 11 STL if on MSVC (Dinkumware ships a copy), else Boost
-#ifndef BOOST_AFIO_V1_FILESYSTEM_IMPL
+#ifndef BOOST_AFIO_USE_BOOST_FILESYSTEM
 # if _MSC_VER >= 1900  // >= VS 14
-#  define BOOST_AFIO_V1_FILESYSTEM_IMPL std
-# else
-#  define BOOST_AFIO_V1_FILESYSTEM_IMPL boost
+#  define BOOST_AFIO_USE_BOOST_FILESYSTEM 0
 # endif
+#endif
+#ifndef BOOST_AFIO_USE_BOOST_FILESYSTEM
+# define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
+#endif
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+# define BOOST_AFIO_V1_FILESYSTEM_IMPL boost
+#else
+# define BOOST_AFIO_V1_FILESYSTEM_IMPL std
 #endif
 // If building standalone, use a local asio, else Boost
 #ifndef BOOST_AFIO_V1_ASIO_IMPL
-# if AFIO_STANDALONE
+# if ASIO_STANDALONE
 #  define BOOST_AFIO_V1_ASIO_IMPL asio
 # else
 #  define BOOST_AFIO_V1_ASIO_IMPL boost
@@ -114,6 +120,8 @@
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))
+#define BOOST_STL11_RATIO_MAP_NAMESPACE_BEGIN         BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_RATIO_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_END          BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, atomic)
@@ -122,7 +130,23 @@
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, future)
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, mutex)
 #include BOOST_LOCAL_BIND_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_ASIO_IMPL, networking)
+#include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, ratio)
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
+
+// Need to bind in asio::windows
+#ifdef WIN32
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
+#define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))
+BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
+#if ASIO_STANDALONE
+namespace windows = ::asio::windows;
+#else
+namespace windows = ::boost::asio::windows;
+#endif
+BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
+#undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
+#undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
+#endif
 
 // TODO FIXME: Replace this with bindings
 #include "spinlock/include/boost/spinlock/concurrent_unordered_map.hpp"
@@ -158,7 +182,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 ///////////////////////////////////////////////////////////////////////////////
 //  Auto library naming
 #if !defined(BOOST_AFIO_SOURCE) && !defined(BOOST_ALL_NO_LIB) && \
-    !defined(BOOST_AFIO_NO_LIB)
+    !defined(BOOST_AFIO_NO_LIB) && !AFIO_STANDALONE
 
 #define BOOST_LIB_NAME boost_afio
 
