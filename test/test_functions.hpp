@@ -30,6 +30,7 @@ extern "C" void tzset(void);
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <deque>
 #include <unordered_set>
 #include "boost/afio/afio.hpp"
 #include "../detail/SpookyV2.h"
@@ -38,7 +39,7 @@ extern "C" void tzset(void);
 
 //if we're building the tests all together don't define the test main
 #ifndef BOOST_AFIO_TEST_ALL
-#    define BOOST_TEST_MAIN  //must be defined before unit_test.hpp is included
+# define BOOST_TEST_MAIN  //must be defined before unit_test.hpp is included
 #endif
 #ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE Boost.AFIO
@@ -49,7 +50,7 @@ extern "C" void tzset(void);
 #endif
 
 #ifndef BOOST_AFIO_USE_BOOST_UNIT_TEST
-#define BOOST_AFIO_USE_BOOST_UNIT_TEST 0
+# define BOOST_AFIO_USE_BOOST_UNIT_TEST 0
 #endif
 #if BOOST_AFIO_USE_BOOST_UNIT_TEST
 # include "boost/test/unit_test.hpp"
@@ -197,22 +198,22 @@ BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR ( test_name )
 
 #define BOOST_AFIO_AUTO_TEST_CASE(__test_name, __desc, __timeout)       \
 static void __test_name ## _impl();                                     \
-CATCH_TEST_CASE(__test_name, __desc)                                    \
+CATCH_TEST_CASE(#__test_name, __desc)                                    \
 {                                                                       \
     size_t timeout=__timeout;                                           \
     if(RUNNING_ON_VALGRIND) {                                           \
         VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in valgrind so tripling timeout\n"); \
         timeout*=3;                                                     \
     }                                                                   \
-    BOOST_TEST_MESSAGE(desc);                                           \
-    std::cout << std::endl << desc << std::endl;                        \
+    BOOST_TEST_MESSAGE(__desc);                                           \
+    std::cout << std::endl << __desc << std::endl;                        \
     try { boost::afio::filesystem::remove_all("testdir"); } catch(...) { } \
     set_maximum_cpus();                                                 \
     auto cv=std::make_shared<std::pair<bool, std::condition_variable>>(); \
     struct __deleter_t {                                                \
       std::shared_ptr<std::pair<bool, std::condition_variable>> cv;     \
       std::thread watchdog;                                             \
-      __deleter_t(std::shared_ptr<std::pair<bool, std::condition_variable>> &&_cv, \
+      __deleter_t(std::shared_ptr<std::pair<bool, std::condition_variable>> _cv, \
         std::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
       ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
     } __deleter(cv, std::thread(watchdog_thread, timeout, cv));         \
@@ -245,7 +246,7 @@ static void raninit(ranctx *x, u4 seed) {
 }
 
 static void dofilter(boost::afio::atomic<size_t> *callcount, boost::afio::detail::OpType, boost::afio::async_io_op &) { ++*callcount; }
-static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle *h, const boost::afio::detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t idx, size_t no, const boost::system::error_code &, size_t transferred)
+static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle *h, const boost::afio::detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t idx, size_t no, const std::error_code &, size_t transferred)
 {
     size_t amount=0;
     BOOST_FOREACH(auto &i, req.buffers)
@@ -754,6 +755,7 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     std::cout << "Entry " << h->path() << " is a ";
     switch(entry.st_type)
     {
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
     case boost::afio::filesystem::file_type::symlink_file:
         std::cout << "link";
         break;
@@ -766,19 +768,39 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     default:
         std::cout << "unknown";
         break;
+#else
+    case boost::afio::filesystem::file_type::symlink:
+        std::cout << "link";
+        break;
+    case boost::afio::filesystem::file_type::directory:
+        std::cout << "directory";
+        break;
+    case boost::afio::filesystem::file_type::regular:
+        std::cout << "file";
+        break;
+    default:
+        std::cout << "unknown";
+        break;
+#endif
     }
     std::cout << " and it has the following information:" << std::endl;
-    if(boost::afio::filesystem::file_type::symlink_file==entry.st_type)
+    if(
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+      boost::afio::filesystem::file_type::symlink_file
+#else
+      boost::afio::filesystem::file_type::symlink
+#endif
+      ==entry.st_type)
     {
         std::cout << "  Target=" << h->target() << std::endl;
     }
-#define PRINT_FIELD(field) \
-    std::cout << "  st_" #field ": "; if(!!(directory_entry::metadata_supported()&metadata_flags::field)) std::cout << entry.st_##field; else std::cout << "unknown"; std::cout << std::endl
+#define PRINT_FIELD(field, ...) \
+    std::cout << "  st_" #field ": "; if(!!(directory_entry::metadata_supported()&metadata_flags::field)) std::cout << __VA_ARGS__ entry.st_##field; else std::cout << "unknown"; std::cout << std::endl
 #ifndef WIN32
     PRINT_FIELD(dev);
 #endif
     PRINT_FIELD(ino);
-    PRINT_FIELD(type);
+    PRINT_FIELD(type, (int));
 #ifndef WIN32
     PRINT_FIELD(perms);
 #endif
@@ -809,6 +831,7 @@ static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost
     auto entry=direntry.fetch_lstat(dirh);
     switch(entry.st_type)
     {
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
     case boost::afio::filesystem::file_type::symlink_file:
         std::cout << "link";
         break;
@@ -821,16 +844,30 @@ static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost
     default:
         std::cout << "unknown";
         break;
+#else
+    case boost::afio::filesystem::file_type::symlink:
+        std::cout << "link";
+        break;
+    case boost::afio::filesystem::file_type::directory:
+        std::cout << "directory";
+        break;
+    case boost::afio::filesystem::file_type::regular:
+        std::cout << "file";
+        break;
+    default:
+        std::cout << "unknown";
+        break;
+#endif
     }
     std::cout << " and it has the following information:" << std::endl;
 
-#define PRINT_FIELD(field) \
-    std::cout << "  st_" #field ": "; if(!!(direntry.metadata_ready()&metadata_flags::field)) std::cout << entry.st_##field; else std::cout << "unknown"; std::cout << std::endl
+#define PRINT_FIELD(field, ...) \
+    std::cout << "  st_" #field ": "; if(!!(direntry.metadata_ready()&metadata_flags::field)) std::cout << __VA_ARGS__ entry.st_##field; else std::cout << "unknown"; std::cout << std::endl
 #ifndef WIN32
     PRINT_FIELD(dev);
 #endif
     PRINT_FIELD(ino);
-    PRINT_FIELD(type);
+    PRINT_FIELD(type, (int));
 #ifndef WIN32
     PRINT_FIELD(perms);
 #endif

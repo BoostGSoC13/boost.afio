@@ -25,11 +25,6 @@ namespace detail {
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
-            if(has_been_added)
-            {
-                parent()->int_del_io_handle(myid);
-                has_been_added=false;
-            }
             if(mapaddr)
             {
                 BOOST_AFIO_ERRHWINFN(UnmapViewOfFile(mapaddr), path());
@@ -42,6 +37,12 @@ namespace detail {
                     BOOST_AFIO_ERRHWINFN(FlushFileBuffers(myid), path());
                 h->close();
                 h.reset();
+            }
+            // Deregister AFTER close of file handle
+            if(has_been_added)
+            {
+                parent()->int_del_io_handle(myid);
+                has_been_added=false;
             }
             myid=nullptr;
         }
@@ -128,7 +129,7 @@ namespace detail {
                 }
             }
             if(!!(wanted&metadata_flags::ino)) { stat.st_ino=fai.InternalInformation.IndexNumber.QuadPart; }
-            if(!!(wanted&metadata_flags::type)) { stat.st_type=to_st_type(fai.BasicInformation.FileAttributes); }
+            if(!!(wanted&metadata_flags::type)) { stat.st_type=windows_nt_kernel::to_st_type(fai.BasicInformation.FileAttributes); }
             if(!!(wanted&metadata_flags::nlink)) { stat.st_nlink=(int16_t) fai.StandardInformation.NumberOfLinks; }
             if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(fai.BasicInformation.LastAccessTime); }
             if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(fai.BasicInformation.LastWriteTime); }
@@ -139,7 +140,7 @@ namespace detail {
             if(!!(wanted&metadata_flags::blksize)) { stat.st_blksize=(uint16_t) ffssi.PhysicalBytesPerSectorForPerformance; }
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(fai.BasicInformation.CreationTime); }
             return directory_entry(path()
-#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
               .leaf()
 #else
               .filename()
@@ -272,7 +273,11 @@ namespace detail {
             oa.ObjectName=&_path;
             // Should I bother with oa.RootDirectory? For now, no.
             LARGE_INTEGER AllocationSize={0};
-            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+            // 2014-11-6 ned: Use of FILE_SHARE_DELETE causes generation of ERROR_DELETE_PENDING errors
+            //                because NT won't let you create a new file with the same name as one which
+            //                has been deleted if that deleted file is still open. This is more annoying
+            //                and harder to detect than accepting the fact NT won't delete open files.
+            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/,
                 creatdisp, flags, NULL, 0), req.path);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, dirh, req.path, req.flags,

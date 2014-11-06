@@ -101,7 +101,7 @@ static inline filesystem::file_type to_st_type(uint16_t mode)
 {
     switch(mode & S_IFMT)
     {
-#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
     case S_IFBLK:
         return filesystem::file_type::block_file;
     case S_IFCHR:
@@ -318,22 +318,24 @@ namespace detail {
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
-            if(has_been_added)
-            {
-                parent()->int_del_io_handle((void *) (size_t) fd);
-                has_been_added=false;
-            }
             if(mapaddr)
             {
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_MUNMAP(mapaddr, mapsize), path());
                 mapaddr=nullptr;
             }
+            int _fd=fd;
             if(fd>=0)
             {
                 if(SyncOnClose && write_count_since_fsync())
                     BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(fd), path());
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), path());
                 fd=-1;
+            }
+            // Deregister AFTER close of file handle
+            if(has_been_added)
+            {
+                parent()->int_del_io_handle((void *) (size_t) _fd);
+                has_been_added=false;
             }
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close()
@@ -362,7 +364,7 @@ namespace detail {
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), path());
             fill_stat_t(stat, s, wanted);
             return directory_entry(path()
-#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
               .leaf()
 #else
               .filename()
@@ -1154,7 +1156,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     bool done=false;
     auto unopsit=boost::afio::detail::Undoer([this, thisid](){
         std::string what;
-        try { throw; } catch(std::exception &e) { what=e.what(); } catch(boost::exception &) { what="boost exception"; } catch(...) { what="not a std exception"; }
+        try { throw; } catch(std::exception &e) { what=e.what(); } catch(...) { what="not a std exception"; }
         BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
         {
             std::lock_guard<decltype(p->opslock)> g(p->opslock);
@@ -1686,7 +1688,7 @@ namespace detail {
                         stat_t stat(nullptr);
                         fill_stat_t(stat, s, req.metadata);
                         _ret.push_back(directory_entry(path
-#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
                          .leaf()
 #else
                          .filename()
@@ -1986,7 +1988,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
                 ntstat=NtWaitForSingleObject(dirh->native_handle(), FALSE, NULL);
             BOOST_AFIO_ERRHNTFN(ntstat, dirh->path());
             if(!!(wanted&metadata_flags::ino)) { stat.st_ino=ffdi->FileId.QuadPart; }
-            if(!!(wanted&metadata_flags::type)) { stat.st_type=to_st_type(ffdi->FileAttributes); }
+            if(!!(wanted&metadata_flags::type)) { stat.st_type=windows_nt_kernel::to_st_type(ffdi->FileAttributes); }
             if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(ffdi->LastAccessTime); }
             if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(ffdi->LastWriteTime); }
             if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(ffdi->ChangeTime); }

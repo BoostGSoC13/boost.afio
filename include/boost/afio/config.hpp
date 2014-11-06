@@ -67,6 +67,7 @@
 #endif
 #if BOOST_AFIO_USE_BOOST_FILESYSTEM
 # define BOOST_AFIO_V1_FILESYSTEM_IMPL boost
+# define BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS 1
 #else
 # define BOOST_AFIO_V1_FILESYSTEM_IMPL std
 #endif
@@ -146,6 +147,24 @@ namespace windows = ::boost::asio::windows;
 BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
 #undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
 #undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
+// Stupid MSVC doesn't resolve namespace binds correctly ...
+#if ASIO_STANDALONE
+namespace asio {
+  namespace asio = ::asio;
+  namespace detail { namespace asio = ::asio; }
+  namespace windows { namespace asio = ::asio; }
+}
+namespace asio_handler_cont_helpers { namespace asio = ::asio; }
+namespace asio_handler_alloc_helpers { namespace asio = ::asio; }
+namespace asio_handler_invoke_helpers { namespace asio = ::asio; }
+
+#else
+namespace boost { namespace asio {
+  namespace asio = ::boost::asio;
+  namespace detail { namespace asio = ::boost::asio; }
+  namespace windows { namespace asio = ::boost::asio; }
+} }
+#endif
 #endif
 
 // TODO FIXME: Replace this with bindings

@@ -196,6 +196,7 @@ protected:
     asio::io_service &service;
     thread_source(asio::io_service &_service) : service(_service) { }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~thread_source() { }
+    thread_source &operator=(const thread_source &) = delete;
 public:
     //! Returns the underlying io_service
     asio::io_service &io_service() { return service; }
@@ -558,7 +559,7 @@ struct stat_t
         st_dev(0),
 #endif
         st_ino(0),
-#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
         st_type(filesystem::file_type::type_unknown),
 #else
         st_type(filesystem::file_type::unknown),
@@ -1729,7 +1730,7 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, std::vector<async_io_op> ops)
+inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t, std::vector<async_io_op> ops)
 {
     if(ops.empty())
         return future<std::vector<std::shared_ptr<async_io_handle>>>();
@@ -1745,7 +1746,7 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothr
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-inline future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::vector<async_io_op> ops)
+inline future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t, std::vector<async_io_op> ops)
 {
     if(ops.empty())
         return future<std::shared_ptr<async_io_handle>>();

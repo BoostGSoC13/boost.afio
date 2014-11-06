@@ -391,15 +391,15 @@ namespace windows_nt_kernel
 
     static inline filesystem::path dospath_from_ntpath(filesystem::path p)
     {
-        auto first=++p.begin();
-        if(*first=="??")
-            p=filesystem::path(p.native().begin()+4, p.native().end());
+        auto &_p = p.native();
+        if(_p[1]=='?' && _p[2]=='?')
+            p=filesystem::path(_p.begin()+4, _p.end());
         return p;
     }
 
     static inline filesystem::file_type to_st_type(ULONG FileAttributes)
     {
-#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
         if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
             return filesystem::file_type::symlink_file;
             //return filesystem::file_type::reparse_file;

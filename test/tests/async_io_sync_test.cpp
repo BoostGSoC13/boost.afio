@@ -20,16 +20,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_sync, "Tests async fsync", 5)
       auto closefile2=dispatcher->close(readfile);
       auto delfile(dispatcher->rmfile(async_path_op_req(closefile2, "testdir/foo")));
       auto deldir(dispatcher->rmdir(async_path_op_req(delfile, "testdir")));
-      BOOST_CHECK_NO_THROW(when_all(mkdir).wait());
-      BOOST_CHECK_NO_THROW(when_all(mkfile).wait());
-      BOOST_CHECK_NO_THROW(when_all(writefile1).wait());
-      BOOST_CHECK_NO_THROW(when_all(sync1).wait());
-      BOOST_CHECK_NO_THROW(when_all(writefile2).wait());
-      BOOST_CHECK_NO_THROW(when_all(closefile1).wait());
-      BOOST_CHECK_NO_THROW(when_all(openfile).wait());
-      BOOST_CHECK_NO_THROW(when_all(readfile).wait());
-      BOOST_CHECK_NO_THROW(when_all(closefile2).wait());
-      BOOST_CHECK_NO_THROW(when_all(delfile).wait());
-      BOOST_CHECK_NO_THROW(when_all(deldir).wait());
+      BOOST_CHECK_NO_THROW(when_all(mkdir).get());
+      BOOST_CHECK_NO_THROW(when_all(mkfile).get());
+      BOOST_CHECK_NO_THROW(when_all(writefile1).get());
+      BOOST_CHECK_NO_THROW(when_all(sync1).get());
+      BOOST_CHECK_NO_THROW(when_all(writefile2).get());
+      BOOST_CHECK_NO_THROW(when_all(closefile1).get());
+      BOOST_CHECK_NO_THROW(when_all(openfile).get());
+      BOOST_CHECK_NO_THROW(when_all(readfile).get());
+      BOOST_CHECK_NO_THROW(when_all(closefile2).get());
+      BOOST_CHECK_NO_THROW(when_all(delfile).get());
+      BOOST_CHECK_NO_THROW(when_all(deldir).get());
     }
 }

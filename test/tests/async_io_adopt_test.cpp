@@ -34,5 +34,5 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_adopt, "Tests foreign fd adoption", 5)
     std::cout << "\n\nTesting foreign fd adoption:\n";
     auto h=std::make_shared<test_handle>(dispatcher.get());
     auto adopted=dispatcher->adopt(h);
-    BOOST_CHECK_NO_THROW(when_all(adopted).wait());
+    BOOST_CHECK_NO_THROW(when_all(adopted).get());
 }

@@ -7,6 +7,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
     using namespace std;
     using boost::afio::future;
     namespace this_thread = boost::afio::this_thread;
+    namespace chrono = boost::afio::chrono;
 
     if(filesystem::exists("testdir/a"))
         filesystem::remove("testdir/a");
@@ -43,16 +44,20 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                 filereqs.clear();
                 filereqs.push_back(async_path_op_req(mkdir, "testdir/a", file_flags::CreateOnlyIfNotExist));
                 filereqs.push_back(async_path_op_req(mkdir, "testdir/a", file_flags::CreateOnlyIfNotExist));
+                // Windows won't let you delete a file still open
                 while(dispatcher->fd_count()>1)
-                    this_thread::yield();
-                if(filesystem::exists("testdir/a"))
+                    this_thread::sleep_for(chrono::milliseconds(1));
+                // Unfortunately Windows does not behave here, and deleting the file if a handle is still
+                // open to it appears to no op
+                for(size_t n=0; filesystem::exists("testdir/a") && n<100; n++)
                 {
                     filesystem::remove("testdir/a");
-                    if(filesystem::exists("testdir/a"))
-                    {
-                        std::cerr << "FATAL: Something weird is happening, I can't delete my test file!" << std::endl;
-                        abort();
-                    }
+                    if(n>10) this_thread::sleep_for(chrono::milliseconds(1));
+                }
+                if(filesystem::exists("testdir/a"))
+                {
+                    std::cerr << "FATAL: Something weird is happening, I can't delete my test file!" << std::endl;
+                    abort();
                 }
                 try
                 {
@@ -77,6 +82,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                         {
                             i.get();
                         }
+#ifdef WIN32
+                        // Sometimes Windows gets a bit stuck on slower CPUs when deleting files and occasionally
+                        // returns this error. It's rare, but it confounds the test results :(
+                        catch(const std::system_error &e)
+                        {
+                            if(!strncmp(e.what(), "A non close operation has been requested of a file object with a delete pending", 79))
+                              throw; // reset and retry
+                            hasErrorDirectly++;                              
+                        }
+#endif
                         catch (...)
                         {
                             hasErrorDirectly++;
@@ -86,6 +101,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     {
                         std::cout << "hasErrorDirectly = " << hasErrorDirectly << std::endl;
                         BOOST_CHECK(hasErrorDirectly == 1);
+                        BOOST_FOREACH (auto &i, manyfilecreates)
+                        {
+                            try { i.get(); } catch(const std::runtime_error &e) { std::cerr << "Error was " << e.what() << std::endl; } catch(...) { std::cerr << "Error was unknown type" << std::endl; }
+                        }
                     }
                     hasErrorFromBarrier = 0;
                     BOOST_FOREACH (auto &i, sync1)

@@ -84,7 +84,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     }
     auto dispatched = chrono::high_resolution_clock::now();
     cout << "There are now " << dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << endl;
-    BOOST_AFIO_CHECK_NO_THROW(when_all(next).wait());
+    BOOST_AFIO_CHECK_NO_THROW(when_all(next).get());
     cout << "There are now " << dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << endl;
     // Retrieve any errors
     BOOST_FOREACH(auto &i, verifies)
