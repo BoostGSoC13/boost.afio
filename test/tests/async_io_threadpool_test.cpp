@@ -29,7 +29,7 @@ static int task()
         BOOST_CHECK(r==78);
         std::vector<shared_future<int>> results(8);
         
-        BOOST_FOREACH(auto &i, results)
+        for(auto &i: results)
         {
             i=std::move(pool.enqueue(task));
         }
@@ -48,7 +48,7 @@ static int task()
           allresults.push_back(i.get());
 #endif
         
-        BOOST_FOREACH(int i, allresults)
+        for(int i: allresults)
         {
             BOOST_CHECK(i==78);
         }

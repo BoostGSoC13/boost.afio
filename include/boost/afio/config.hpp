@@ -158,19 +158,34 @@
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, ratio)
 #include BOOST_LOCAL_BIND_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
 
-// Need to bind in asio::windows
-#ifdef WIN32
+// Map an error category
+#if ASIO_STANDALONE
+using std::generic_category;
+using std::system_category;
+#else
+using boost::system::generic_category;
+using boost::system::system_category;
+#endif
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))
 BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
+// Boost ASIO doesn't map error_code for me
+#if !defined(ASIO_STANDALONE) || !ASIO_STANDALONE
+typedef boost::system::error_code error_code;
+#endif
+// Need to bind in asio::windows
+#ifdef WIN32
 #if ASIO_STANDALONE
 namespace windows = ::asio::windows;
 #else
 namespace windows = ::boost::asio::windows;
 #endif
+#endif
 BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
 #undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
 #undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
+
+#ifdef _MSC_VER
 // Stupid MSVC doesn't resolve namespace binds correctly ...
 #if ASIO_STANDALONE
 namespace asio {

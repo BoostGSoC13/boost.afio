@@ -113,7 +113,7 @@ int main(void)
 #endif
       ;
       waiter.store(false);
-      BOOST_FOREACH(auto &i, threads)
+      for(auto &i: threads)
         i.join();
       for(size_t c=0; c<=concurrency; c++)
       {

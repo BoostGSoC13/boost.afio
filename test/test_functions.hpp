@@ -140,7 +140,7 @@ template<class T> inline void wrap_test_method(T &t)
     }
     catch(...)
     {
-        std::cerr << "ERROR: unit test exits via exception." << std::endl;
+        std::cerr << "ERROR: unit test exits via " << boost::afio::detail::output_exception_info << std::endl;
         BOOST_FAIL("Unit test exits via exception which shouldn't happen");
     }
 }
@@ -246,10 +246,10 @@ static void raninit(ranctx *x, u4 seed) {
 }
 
 static void dofilter(boost::afio::atomic<size_t> *callcount, boost::afio::detail::OpType, boost::afio::async_io_op &) { ++*callcount; }
-static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle *h, const boost::afio::detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t idx, size_t no, const std::error_code &, size_t transferred)
+static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle *h, const boost::afio::detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t idx, size_t no, const boost::afio::asio::error_code &, size_t transferred)
 {
     size_t amount=0;
-    BOOST_FOREACH(auto &i, req.buffers)
+    for(auto &i: req.buffers)
         amount+=boost::afio::asio::buffer_size(i);
     if(offset!=0)
         BOOST_CHECK(offset==0);
@@ -307,7 +307,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
 
         // Delete each of those 1000 files once they are closed
         auto it(manyclosedfiles.begin());
-        BOOST_FOREACH(auto &i, manyfilereqs)
+        for(auto &i: manyfilereqs)
                 i.precondition=*it++;
         auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
 
@@ -363,7 +363,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         BOOST_CHECK((filtercount==1000U));
     }
     catch(...) {
-        std::cerr << "Exception thrown." << std::endl;
+        std::cerr << boost::afio::detail::output_exception_info << " thrown." << std::endl;
         throw;
     }
 }
@@ -491,7 +491,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
 #ifdef _DEBUG
                     // Quickly make sure none of these exceed 10Mb
                     off_t end=op.req.where;
-                    BOOST_FOREACH(auto &b, op.req.buffers)
+                    for(auto &b: op.req.buffers)
                             end+=boost::afio::asio::buffer_size(b);
                     assert(end<=bytes);
 #endif
@@ -589,7 +589,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
 #pragma omp parallel for
     for(ptrdiff_t n=0; n<(ptrdiff_t) no; n++)
     {
-            BOOST_FOREACH(Op &op, todo[n])
+            for(Op &op: todo[n])
             {
                     op.req.precondition=manywrittenfiles[n];
                     if(op.write)
@@ -628,7 +628,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     off_t readed=0, written=0;
     size_t ops=0;
     diff=chrono::duration_cast<secs_type>(end-begin);
-    BOOST_FOREACH(auto &i, manyclosedfiles)
+    for(auto &i: manyclosedfiles)
     {
             readed+=when_all(i).get().front()->read_count();
             written+=when_all(i).get().front()->write_count();
@@ -653,7 +653,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
             {
                 pair<const Op *, size_t> &failedop=failures.front();
                 size_t bytes=0;
-                BOOST_FOREACH(auto &b, failedop.first->req.buffers)
+                for(auto &b: failedop.first->req.buffers)
                     bytes+=boost::afio::asio::buffer_size(b);
                 cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << std::to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << endl;
                 failures.pop_front();
@@ -690,16 +690,16 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
 #ifdef DEBUG_TORTURE_TEST
     for(ptrdiff_t n=0; n<(ptrdiff_t) no; n++)
     {
-            BOOST_FOREACH(Op &op, todo[n])
+            for(Op &op: todo[n])
             {
-                    BOOST_FOREACH(auto &i, op.data)
+                    for(auto &i: op.data)
                             aligned_allocator.deallocate(i, 0);
             }
     }
 #endif
     // Delete each of those files once they are closed
     auto it(manyclosedfiles.begin());
-    BOOST_FOREACH(auto &i, manyfilereqs)
+    for(auto &i: manyfilereqs)
             i.precondition=*it++;
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
     // Wait for all files to delete
@@ -708,7 +708,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     // Fetch any outstanding error
     when_all(rmdir).wait();
     } catch(...) {
-        std::cerr << "Exception thrown." << std::endl;
+        std::cerr << boost::afio::detail::output_exception_info << " thrown." << std::endl;
         throw;
     }
 }

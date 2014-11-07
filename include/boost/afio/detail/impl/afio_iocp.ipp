@@ -297,7 +297,7 @@ namespace detail {
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
-        void boost_asio_symlink_completion_handler(size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::unique_ptr<filesystem::path::value_type[]>> buffer, const std::error_code &ec, size_t bytes_transferred)
+        void boost_asio_symlink_completion_handler(size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::unique_ptr<filesystem::path::value_type[]>> buffer, const asio::error_code &ec, size_t bytes_transferred)
         {
             if(ec)
             {
@@ -382,7 +382,7 @@ namespace detail {
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
-                    std::error_code ec(errcode, std::system_category());
+                    asio::error_code ec(errcode, system_category());
                     ol.complete(ec, 0);
                 }
                 else
@@ -433,11 +433,11 @@ namespace detail {
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const std::error_code &ec, size_t bytes_transferred)
+        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const asio::error_code &ec, size_t bytes_transferred)
         {
             if(!this->p->filters_buffers.empty())
             {
-                BOOST_FOREACH(auto &i, this->p->filters_buffers)
+                for(auto &i: this->p->filters_buffers)
                 {
                     if(i.first==OpType::Unknown || (!is_write && i.first==OpType::read) || (is_write && i.first==OpType::write))
                     {
@@ -487,7 +487,7 @@ namespace detail {
             //
             // So we implement by hand and skip ASIO altogether.
             size_t amount=0;
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {
                 amount+=asio::buffer_size(b);
             }
@@ -526,7 +526,7 @@ namespace detail {
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
-                    std::error_code ec(errcode, std::system_category());
+                    asio::error_code ec(errcode, system_category());
                     ol.complete(ec, 0);
                 }
                 else
@@ -535,7 +535,7 @@ namespace detail {
             else
             {
                 size_t offset=0, n=0;
-                BOOST_FOREACH(auto &b, req.buffers)
+                for(auto &b: req.buffers)
                 {
                     asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(&async_file_io_dispatcher_windows::boost_asio_readwrite_completion_handler, this, iswrite, id, h, bytes_to_transfer, std::make_tuple(req.where+offset, n, 1, asio::buffer_size(b)), std::placeholders::_1, std::placeholders::_2));
                     ol.get()->Offset=(DWORD) ((req.where+offset) & 0xffffffff);
@@ -548,7 +548,7 @@ namespace detail {
                     if(!ok && ERROR_IO_PENDING!=errcode)
                     {
                         //std::cerr << "ERROR " << errcode << std::endl;
-                        std::error_code ec(errcode, std::system_category());
+                        asio::error_code ec(errcode, system_category());
                         ol.complete(ec, 0);
                     }
                     else
@@ -566,13 +566,13 @@ namespace detail {
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("R %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
 #ifdef DEBUG_PRINTING
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {   BOOST_AFIO_DEBUG_PRINT("  R %u: %p %u\n", (unsigned) id, asio::buffer_cast<const void *>(b), (unsigned) asio::buffer_size(b)); }
 #endif
             if(p->mapaddr)
             {
                 void *addr=(void *)((char *) p->mapaddr + req.where);
-                BOOST_FOREACH(auto &b, req.buffers)
+                for(auto &b: req.buffers)
                 {
                     memcpy(asio::buffer_cast<void *>(b), addr, asio::buffer_size(b));
                     addr=(void *)((char *) addr + asio::buffer_size(b));
@@ -594,7 +594,7 @@ namespace detail {
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("W %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
 #ifdef DEBUG_PRINTING
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {   BOOST_AFIO_DEBUG_PRINT("  W %u: %p %u\n", (unsigned) id, asio::buffer_cast<const void *>(b), (unsigned) asio::buffer_size(b)); }
 #endif
             doreadwrite(id, h, req, p);
@@ -626,7 +626,7 @@ namespace detail {
         }
         // Called in unknown thread
         typedef std::shared_ptr<std::tuple<std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>, std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]>, async_enumerate_op_req>> enumerate_state_t;
-        void boost_asio_enumerate_completion_handler(size_t id, async_io_op op, enumerate_state_t state, const std::error_code &ec, size_t bytes_transferred)
+        void boost_asio_enumerate_completion_handler(size_t id, async_io_op op, enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
         {
             using windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION;
             std::shared_ptr<async_io_handle> h(op.get());
@@ -699,7 +699,7 @@ namespace detail {
                 }
                 if(needmoremetadata)
                 {
-                    BOOST_FOREACH(auto &i, _ret)
+                    for(auto &i: _ret)
                     {
                         i.fetch_metadata(h, req.metadata);
                     }
@@ -743,7 +743,7 @@ namespace detail {
             {
                 //std::cerr << "ERROR " << errcode << std::endl;
                 SetWin32LastErrorFromNtStatus(ntstat);
-                std::error_code ec(GetLastError(), std::system_category());
+                asio::error_code ec(GetLastError(), system_category());
                 ol.complete(ec, 0);
             }
             else
@@ -776,7 +776,7 @@ namespace detail {
         virtual std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -787,7 +787,7 @@ namespace detail {
         virtual std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -798,7 +798,7 @@ namespace detail {
         virtual std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -809,7 +809,7 @@ namespace detail {
         virtual std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -820,7 +820,7 @@ namespace detail {
         virtual std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -831,7 +831,7 @@ namespace detail {
         virtual std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -842,7 +842,7 @@ namespace detail {
         virtual std::vector<async_io_op> sync(const std::vector<async_io_op> &ops)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -853,7 +853,7 @@ namespace detail {
         virtual std::vector<async_io_op> close(const std::vector<async_io_op> &ops)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -864,7 +864,7 @@ namespace detail {
         virtual std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -875,7 +875,7 @@ namespace detail {
         virtual std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -886,7 +886,7 @@ namespace detail {
         virtual std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
@@ -897,7 +897,7 @@ namespace detail {
         virtual std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));

@@ -74,7 +74,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     BOOST_AFIO_CHECK_NO_THROW(future2.get()); // nothrow variant must never throw
                     BOOST_AFIO_CHECK_THROWS(future2e.get()); // throw variant must always throw
                     hasErrorDirectly = 0;
-                    BOOST_FOREACH (auto &i, manyfilecreates)
+                    for (auto &i : manyfilecreates)
                     {
                         // If we ask for has_exception() before the async thread has exited its packaged_task
                         // this will fail, so no choice but to try { wait(); } catch { success }
@@ -101,13 +101,13 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     {
                         std::cout << "hasErrorDirectly = " << hasErrorDirectly << std::endl;
                         BOOST_CHECK(hasErrorDirectly == 1);
-                        BOOST_FOREACH (auto &i, manyfilecreates)
+                        for (auto &i : manyfilecreates)
                         {
                             try { i.get(); } catch(const std::runtime_error &e) { std::cerr << "Error was " << e.what() << std::endl; } catch(...) { std::cerr << "Error was unknown type" << std::endl; }
                         }
                     }
                     hasErrorFromBarrier = 0;
-                    BOOST_FOREACH (auto &i, sync1)
+                    for (auto &i : sync1)
                     {
                         try
                         {

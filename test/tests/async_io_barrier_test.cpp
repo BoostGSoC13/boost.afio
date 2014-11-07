@@ -32,7 +32,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
 
         // Collapse into a collection of runs of the same number
         int lastnumber = -1;
-        BOOST_FOREACH(auto &i, manynumbers)
+        for(auto &i: manynumbers)
         {
             if (i != lastnumber)
                 groups.push_back(make_pair(0, i));
@@ -60,7 +60,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     size_t opscount = 0;
     async_io_op next;
     bool isfirst = true;
-    BOOST_FOREACH(auto &run, groups)
+    for(auto &run: groups)
     {
         assert(run.first>0);
         vector<std::function<void()>> thisgroupcalls(run.first, std::bind(inccount, &callcount[run.second]));
@@ -87,7 +87,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     BOOST_AFIO_CHECK_NO_THROW(when_all(next).get());
     cout << "There are now " << dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << endl;
     // Retrieve any errors
-    BOOST_FOREACH(auto &i, verifies)
+    for(auto &i: verifies)
     {
         BOOST_AFIO_CHECK_NO_THROW(i.get());
     }

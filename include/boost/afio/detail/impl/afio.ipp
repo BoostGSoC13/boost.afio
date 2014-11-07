@@ -13,6 +13,8 @@ File Created: Mar 2013
 
 #ifdef _MSC_VER
 #pragma warning(push)
+#pragma warning(disable: 4456) // declaration hides previous local declaration
+#pragma warning(disable: 4458) // declaration hides class member
 #pragma warning(disable: 4996) // This function or variable may be unsafe
 #endif
 
@@ -547,7 +549,7 @@ namespace detail {
         }
         ~immediate_async_ops()
         {
-            BOOST_FOREACH(auto &i, toexecute)
+            for(auto &i: toexecute)
             {
                 i();
             }
@@ -742,7 +744,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
             if(!p->ops.empty())
             {
                 outstanding.reserve(p->ops.size());
-                BOOST_FOREACH(auto &op, p->ops)
+                for(auto &op: p->ops)
                 {
                     if(op.second->h().valid())
                     {
@@ -755,7 +757,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                                 int status=static_cast<int>(it->second.second);
                                 std::cerr << "WARNING: ~async_file_dispatcher_base() detects stuck async_io_op in total of " << p->ops.size() << " extant ops\n"
                                     "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(status>=0 && status<=2) ? status : 3] << " failcount=" << it->second.first << " Completions:";
-                                BOOST_FOREACH(auto &c, op.second->completions)
+                                for(auto &c: op.second->completions)
                                 {
                                     std::cerr << " id=" << c.first;
                                 }
@@ -763,7 +765,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
                                 std::cerr << "  Allocation backtrace:" << std::endl;
                                 size_t n=0;
-                                BOOST_FOREACH(void *addr, op.second.stack)
+                                for(void *addr: op.second.stack)
                                 {
                                     Dl_info info;
                                     std::cerr << "    " << ++n << ". 0x" << std::hex << addr << std::dec << ": ";
@@ -802,7 +804,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
         }
         if(outstanding.empty()) break;
         size_t mincount=(size_t)-1;
-        BOOST_FOREACH(auto &op, outstanding)
+        for(auto &op: outstanding)
         {
             future_status status=op.second->wait_for(chrono::duration<int, ratio<1, 10>>(1));
             switch(status)
@@ -954,7 +956,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
     if(ops.empty())
     {
         async_io_op empty;
-        BOOST_FOREACH(auto & c, callbacks)
+        for(auto & c: callbacks)
         {
             ret.push_back(chain_async_op(immediates, (int) detail::OpType::UserCompletion, empty, c.first, &async_file_io_dispatcher_base::invoke_user_completion_fast, c.second));
         }
@@ -981,7 +983,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
     if(ops.empty())
     {
         async_io_op empty;
-        BOOST_FOREACH(auto & c, callbacks)
+        for(auto & c: callbacks)
         {
             ret.push_back(chain_async_op(immediates, (int) detail::OpType::UserCompletion, empty, c.first, &async_file_io_dispatcher_base::invoke_user_completion_slow, c.second));
         }
@@ -1005,7 +1007,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
         {
 #ifndef NDEBUG
             std::vector<size_t> opsids;
-            BOOST_FOREACH(auto &i, p->ops)
+            for(auto &i: p->ops)
             {
                 opsids.push_back(i.first);
             }
@@ -1052,7 +1054,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     if(!p->filters.empty())
     {
         async_io_op me(this, id, thisop->h());
-        BOOST_FOREACH(auto &i, p->filters)
+        for(auto &i: p->filters)
         {
             if(i.first==detail::OpType::Unknown || i.first==thisop->optype)
             {
@@ -1069,7 +1071,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     }
     if(!completions.empty())
     {
-        BOOST_FOREACH(auto &c, completions)
+        for(auto &c: completions)
         {
             detail::async_file_io_dispatcher_op *c_op=c.second.get();
             BOOST_AFIO_DEBUG_PRINT("X %u (f=%u) > %u\n", (unsigned) id, (unsigned) c_op->flags, (unsigned) c.first);
@@ -1096,7 +1098,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::share
             {
 #ifndef NDEBUG
                 std::vector<size_t> opsids;
-                BOOST_FOREACH(auto &i, p->ops)
+                for(auto &i: p->ops)
                 {
                     opsids.push_back(i.first);
                 }
@@ -1137,7 +1139,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     if(!p->ops.empty())
     {
         std::vector<size_t> opsids;
-        BOOST_FOREACH(auto &i, p->ops)
+        for(auto &i: p->ops)
         {
             opsids.push_back(i.first);
         }
@@ -1250,7 +1252,7 @@ template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<asyn
     ret.reserve(container.size());
     async_io_op precondition;
     detail::immediate_async_ops immediates;
-    BOOST_FOREACH(auto &i, container)
+    for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, precondition, flags, f, i));
     }
@@ -1262,7 +1264,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> 
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
     detail::immediate_async_ops immediates;
-    BOOST_FOREACH(auto &i, container)
+    for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, i, flags, f, i));
     }
@@ -1274,7 +1276,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> 
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
     detail::immediate_async_ops immediates;
-    BOOST_FOREACH(auto &i, container)
+    for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i));
     }
@@ -1286,7 +1288,7 @@ template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
     detail::immediate_async_ops immediates;
-    BOOST_FOREACH(auto &i, container)
+    for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i));
     }
@@ -1301,7 +1303,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     ret.reserve(container.size());
     retfutures.reserve(container.size());
     detail::immediate_async_ops immediates;
-    BOOST_FOREACH(auto &i, container)
+    for(auto &i: container)
     {
         // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
@@ -1326,7 +1328,7 @@ namespace detail
         barrier_count_completed_state(const std::vector<async_io_op> &ops) : togo(ops.size()), out(ops.size())
         {
             insharedstates.reserve(ops.size());
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 insharedstates.push_back(i.h);
             }
@@ -1385,7 +1387,7 @@ template<> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::c
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_dispatcher_base::barrier(const std::vector<async_io_op> &ops)
 {
 #if BOOST_AFIO_VALIDATE_INPUTS
-        BOOST_FOREACH(auto &i, ops)
+        for(auto &i: ops)
         {
             if(!i.validate(false))
                 BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1397,7 +1399,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
     std::vector<std::pair<std::shared_ptr<detail::barrier_count_completed_state>, size_t>> statev;
     statev.reserve(ops.size());
     size_t idx=0;
-    BOOST_FOREACH(auto &op, ops)
+    for(auto &op: ops)
     {
         statev.push_back(std::make_pair(state, idx++));
     }
@@ -1559,7 +1561,7 @@ namespace detail {
             iovec v;
             BOOST_AFIO_DEBUG_PRINT("R %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
 #ifdef DEBUG_PRINTING
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {   
                 BOOST_AFIO_DEBUG_PRINT("  R %u: %p %u\n", (unsigned) id, asio::buffer_cast<const void *>(b), (unsigned) asio::buffer_size(b));
             }
@@ -1567,7 +1569,7 @@ namespace detail {
             if(p->mapaddr)
             {
                 void *addr=(void *)((char *)p->mapaddr + req.where);
-                BOOST_FOREACH(auto &b, req.buffers)
+                for(auto &b: req.buffers)
                 {
                     memcpy(asio::buffer_cast<void *>(b), addr, asio::buffer_size(b));
                     addr=(void *)((char *)addr + asio::buffer_size(b));
@@ -1576,7 +1578,7 @@ namespace detail {
             }
             std::vector<iovec> vecs;
             vecs.reserve(req.buffers.size());
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {
                 v.iov_base=asio::buffer_cast<void *>(b);
                 v.iov_len=asio::buffer_size(b);
@@ -1591,8 +1593,8 @@ namespace detail {
                 _bytesread=preadv(p->fd, (&vecs.front())+n, (int) amount, offset);
                 if(!this->p->filters_buffers.empty())
                 {
-                    std::error_code ec(errno, std::generic_category());
-                    BOOST_FOREACH(auto &i, this->p->filters_buffers)
+                    asio::error_code ec(errno, generic_category());
+                    for(auto &i: this->p->filters_buffers)
                     {
                         if(i.first==OpType::Unknown || i.first==OpType::read)
                         {
@@ -1619,12 +1621,12 @@ namespace detail {
             vecs.reserve(req.buffers.size());
             BOOST_AFIO_DEBUG_PRINT("W %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
 #ifdef DEBUG_PRINTING
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {   
                 BOOST_AFIO_DEBUG_PRINT("  W %u: %p %u\n", (unsigned) id, asio::buffer_cast<const void *>(b), (unsigned) asio::buffer_size(b));
             }
 #endif
-            BOOST_FOREACH(auto &b, req.buffers)
+            for(auto &b: req.buffers)
             {
                 v.iov_base=(void *) asio::buffer_cast<const void *>(b);
                 v.iov_len=asio::buffer_size(b);
@@ -1639,8 +1641,8 @@ namespace detail {
                 _byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset);
                 if(!this->p->filters_buffers.empty())
                 {
-                    std::error_code ec(errno, std::generic_category());
-                    BOOST_FOREACH(auto &i, this->p->filters_buffers)
+                    asio::error_code ec(errno, generic_category());
+                    for(auto &i: this->p->filters_buffers)
                     {
                         if(i.first==OpType::Unknown || i.first==OpType::write)
                         {
@@ -1798,7 +1800,7 @@ namespace detail {
                 // for that here.
                 if(needmoremetadata)
                 {
-                    BOOST_FOREACH(auto &i, _ret)
+                    for(auto &i: _ret)
                     {
                         i.fetch_metadata(h, req.metadata);
                     }
@@ -1823,7 +1825,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1834,7 +1836,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1845,7 +1847,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1856,7 +1858,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1867,7 +1869,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1878,7 +1880,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1889,7 +1891,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> sync(const std::vector<async_io_op> &ops)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1900,7 +1902,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1911,7 +1913,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1922,7 +1924,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1933,7 +1935,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, ops)
+            for(auto &i: ops)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
@@ -1944,7 +1946,7 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs)
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
-            BOOST_FOREACH(auto &i, reqs)
+            for(auto &i: reqs)
             {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));

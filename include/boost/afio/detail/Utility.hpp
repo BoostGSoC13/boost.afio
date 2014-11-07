@@ -12,6 +12,10 @@
 #include "Undoer.hpp"
 #include "ErrorHandling.hpp"
 
+#if !ASIO_STANDALONE
+#include "boost/exception/diagnostic_information.hpp"
+#endif
+
 //! \def BOOST_AFIO_TYPEALIGNMENT(bytes) The markup this compiler uses to mark a type as having some given alignment
 #ifndef BOOST_AFIO_TYPEALIGNMENT
 #if __cplusplus>=201103L && GCC_VERSION > 40900
@@ -142,10 +146,19 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
     {
         return os << "Exception: '" << e.what() << "'";
     }
+#if !ASIO_STANDALONE
+    inline std::ostream &output_exception_info(std::ostream &os, const boost::exception &e)
+    {
+        return os << "Exception: '" << boost::current_exception_diagnostic_information() << "'";
+    }
+#endif
     inline std::ostream &output_exception_info(std::ostream &os)
     {
         try { throw; }
         catch(const std::exception &e) { return output_exception_info(os, e); }
+#if !ASIO_STANDALONE
+        catch(const boost::exception &e) { return output_exception_info(os, e); }
+#endif
         catch(...) { return os << "Exception : 'unknown type'"; }
     }
     

@@ -24,7 +24,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
         first=false;
         list=enumeration.first.get();
         if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
-        BOOST_FOREACH(auto &i, list.first)
+        for(auto &i: list.first)
         {
             print_stat(rootdir.get(), i);
         }

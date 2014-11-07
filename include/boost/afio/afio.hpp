@@ -11,6 +11,7 @@ File Created: Mar 2013
 #include "detail/Utility.hpp"
 #include <type_traits>
 #include <exception>
+#include <iostream>
 #include <algorithm> // Boost.ASIO needs std::min and std::max
 
 /*! \brief Validate inputs at the point of instantiation.
@@ -269,7 +270,7 @@ public:
         {
             // Tell the threads there is no more work to do
             working.reset();
-            BOOST_FOREACH(auto &i, workers) { i->join(); }
+            for(auto &i: workers) { i->join(); }
             workers.clear();
             // For some reason ASIO occasionally thinks there is still more work to do
             if(!service.stopped())
@@ -947,7 +948,7 @@ public:
     //! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
     typedef void filter_t(detail::OpType, async_io_op &);
     //! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
-    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const std::error_code &, size_t);
+    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
     /*! \brief Clears the post op and readwrite filters. Not threadsafe.
 
     \ingroup async_file_io_dispatcher_base__filter
@@ -1566,7 +1567,7 @@ namespace detail
 #endif
         std::vector<std::shared_ptr<async_io_handle>> ret;
         ret.reserve(state->in.size());
-        BOOST_FOREACH(auto &i, state->in)
+        for(auto &i: state->in)
         {
             auto e(get_exception_ptr(i));
             if(e)
@@ -1949,7 +1950,7 @@ namespace detail
         {
             if(!precondition.validate()) return false;
             if(buffers.empty()) return false;
-            BOOST_FOREACH(auto &b, buffers)
+            for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
                 if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
@@ -1984,9 +1985,9 @@ namespace detail
         //! \mconstr
         async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
         //! \cconstr
-        async_data_op_req_impl(const async_data_op_req_impl<false> &o) : precondition(o.precondition), where(o.where) { buffers.reserve(o.buffers.capacity()); BOOST_FOREACH(auto &i, o.buffers){ buffers.push_back(i); } }
+        async_data_op_req_impl(const async_data_op_req_impl<false> &o) : precondition(o.precondition), where(o.where) { buffers.reserve(o.buffers.capacity()); for(auto &i: o.buffers){ buffers.push_back(i); } }
         //! \mconstr
-        async_data_op_req_impl(async_data_op_req_impl<false> &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), where(std::move(o.where)) { buffers.reserve(o.buffers.capacity()); BOOST_FOREACH(auto &&i, o.buffers){ buffers.push_back(std::move(i)); } }
+        async_data_op_req_impl(async_data_op_req_impl<false> &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), where(std::move(o.where)) { buffers.reserve(o.buffers.capacity()); for(auto &&i: o.buffers){ buffers.push_back(std::move(i)); } }
         //! \cassign
         async_data_op_req_impl &operator=(const async_data_op_req_impl &o) { precondition=o.precondition; buffers=o.buffers; where=o.where; return *this; }
         //! \massign
@@ -1999,7 +2000,7 @@ namespace detail
         async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
         {
             buffers.reserve(_buffers.capacity());
-            BOOST_FOREACH(auto &&i, _buffers)
+            for(auto &&i: _buffers)
                 buffers.push_back(std::move(i));
             _validate();
         }
@@ -2009,7 +2010,7 @@ namespace detail
         template<size_t N> async_data_op_req_impl(async_io_op _precondition, std::array<asio::mutable_buffer, N> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
         {
             buffers.reserve(_buffers.size());
-            BOOST_FOREACH(auto &&i, _buffers)
+            for(auto &&i: _buffers)
                 buffers.push_back(std::move(i));
             _validate();
         }
@@ -2020,7 +2021,7 @@ namespace detail
         {
             if(!precondition.validate()) return false;
             if(buffers.empty()) return false;
-            BOOST_FOREACH(auto &b, buffers)
+            for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
                 if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
@@ -2618,7 +2619,7 @@ template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<as
     retfutures.reserve(callables.size());
     callbacks.reserve(callables.size());
     
-    BOOST_FOREACH(auto &t, callables)
+    for(auto &t: callables)
     {
         std::shared_ptr<tasktype> c(std::make_shared<tasktype>(std::function<R()>(t)));
         retfutures.push_back(c->get_future());
