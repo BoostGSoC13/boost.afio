@@ -137,6 +137,18 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
     }
     
+    // Debug printing of exception info
+    inline std::ostream &output_exception_info(std::ostream &os, const std::exception &e)
+    {
+        return os << "Exception: '" << e.what() << "'";
+    }
+    inline std::ostream &output_exception_info(std::ostream &os)
+    {
+        try { throw; }
+        catch(const std::exception &e) { return output_exception_info(os, e); }
+        catch(...) { return os << "Exception : 'unknown type'"; }
+    }
+    
   } // namespace
 
 #if BOOST_AFIO_USE_BOOST_THREAD

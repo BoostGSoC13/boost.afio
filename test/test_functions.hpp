@@ -716,7 +716,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
 
 static std::ostream &operator<<(std::ostream &s, const boost::afio::chrono::system_clock::time_point &ts)
 {
-    char buf[32];
+    char buf[64];
     struct tm *t;
     size_t len=sizeof(buf);
     size_t ret;

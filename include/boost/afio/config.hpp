@@ -40,12 +40,6 @@
 #endif
 
 
-#if AFIO_STANDALONE 
-#include "bindlib/include/boost/config.hpp"
-#else
-#include "boost/config.hpp"
-#endif
-
 #include "bindlib/include/import.hpp"
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread
 #if defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD
@@ -121,6 +115,36 @@
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))
+#define BOOST_STL1z_NETWORKING_MAP_NO_V4_MAPPED_T
+#define BOOST_STL1z_NETWORKING_MAP_NO_EXECUTOR_ARG_T
+#define BOOST_STL1z_NETWORKING_MAP_NO_WRAP
+#define BOOST_STL1z_NETWORKING_MAP_NO_MAKE_WORK
+#define BOOST_STL1z_NETWORKING_MAP_NO_ASYNC_COMPLETION
+#define BOOST_STL1z_NETWORKING_MAP_NO_EXECUTOR_WORK
+#define BOOST_STL1z_NETWORKING_MAP_NO_EXECUTION_CONTEXT
+#define BOOST_STL1z_NETWORKING_MAP_NO_POST
+#define BOOST_STL1z_NETWORKING_MAP_NO_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_USES_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_BAD_ADDRESS_CAST
+#define BOOST_STL1z_NETWORKING_MAP_NO_BAD_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_GET_ASSOCIATED_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_ASSOCIATED_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_GET_ASSOCIATED_ALLOCATOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_ASSOCIATED_ALLOCATOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_IS_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_MAKE_ADDRESS_V4
+#define BOOST_STL1z_NETWORKING_MAP_NO_MAKE_ADDRESS_V6
+#define BOOST_STL1z_NETWORKING_MAP_NO_MAKE_ADDRESS
+#define BOOST_STL1z_NETWORKING_MAP_NO_ADDRESS_CAST
+#define BOOST_STL1z_NETWORKING_MAP_NO_DEFER
+#define BOOST_STL1z_NETWORKING_MAP_NO_DISPATCH
+#define BOOST_STL1z_NETWORKING_MAP_NO_THREAD_POOL
+#define BOOST_STL1z_NETWORKING_MAP_NO_IS_MUTABLE_BUFFER_SEQUENCE
+#define BOOST_STL1z_NETWORKING_MAP_NO_IS_CONST_BUFFER_SEQUENCE
+#define BOOST_STL1z_NETWORKING_MAP_NO_EXECUTOR_WRAPPER
+#define BOOST_STL1z_NETWORKING_MAP_NO_SYSTEM_EXECUTOR
+#define BOOST_STL1z_NETWORKING_MAP_NO_HANDLER_TYPE
+#define BOOST_STL1z_NETWORKING_MAP_NO_STRAND
 #define BOOST_STL11_RATIO_MAP_NAMESPACE_BEGIN         BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_RATIO_MAP_NAMESPACE_END           BOOST_LOCAL_BIND_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_BEGIN        BOOST_LOCAL_BIND_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
@@ -170,15 +194,15 @@ namespace boost { namespace asio {
 // TODO FIXME: Replace this with bindings
 #include "spinlock/include/boost/spinlock/concurrent_unordered_map.hpp"
 BOOST_AFIO_V1_NAMESPACE_BEGIN
-  template<class Key, class T, class Hash, class Pred, class Alloc> using concurrent_unordered_map = boost::spinlock::v1_std::concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;
-  using boost::spinlock::v1_std::is_lockable_locked;
-  using spins_to_sleep = boost::spinlock::v1_std::spins_to_sleep;
-  template<size_t _0> using spins_to_yield = boost::spinlock::v1_std::spins_to_yield<_0>;
-  template<size_t _0, bool _1=true> using spins_to_loop = boost::spinlock::v1_std::spins_to_loop<_0, _1>;
-  using null_spin_policy = boost::spinlock::v1_std::null_spin_policy;
-  template<class T> using spinlockbase = boost::spinlock::v1_std::spinlockbase<T>;
-  template<class T> using lockable_ptr = boost::spinlock::v1_std::lockable_ptr<T>;
-  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = boost::spinlock::v1_std::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
+  template<class Key, class T, class Hash, class Pred, class Alloc> using concurrent_unordered_map = BOOST_SPINLOCK_V1_NAMESPACE::concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;
+  using BOOST_SPINLOCK_V1_NAMESPACE::is_lockable_locked;
+  using spins_to_sleep = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_sleep;
+  template<size_t _0> using spins_to_yield = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_yield<_0>;
+  template<size_t _0, bool _1=true> using spins_to_loop = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_loop<_0, _1>;
+  using null_spin_policy = BOOST_SPINLOCK_V1_NAMESPACE::null_spin_policy;
+  template<class T> using spinlockbase = BOOST_SPINLOCK_V1_NAMESPACE::spinlockbase<T>;
+  template<class T> using lockable_ptr = BOOST_SPINLOCK_V1_NAMESPACE::lockable_ptr<T>;
+  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_SPINLOCK_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
 BOOST_AFIO_V1_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////

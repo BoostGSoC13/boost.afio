@@ -30,7 +30,7 @@ File Created: Mar 2013
 //#endif
 
 // Define this to have every part of AFIO print, in extremely terse text, what it is doing and why.
-#if (defined(BOOST_AFIO_DEBUG_PRINTING) && BOOST_AFIO_DEBUG_PRINTING) //|| 1
+#if (defined(BOOST_AFIO_DEBUG_PRINTING) && BOOST_AFIO_DEBUG_PRINTING)
 #ifndef BOOST_AFIO_DEBUG_PRINTING
 # define BOOST_AFIO_DEBUG_PRINTING 1
 #endif
@@ -39,6 +39,7 @@ File Created: Mar 2013
     { \
     char buffer[16384]; \
     sprintf(buffer, __VA_ARGS__); \
+    fprintf(stderr, buffer); \
     OutputDebugStringA(buffer); \
     }
 #else
