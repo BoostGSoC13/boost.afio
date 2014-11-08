@@ -382,7 +382,7 @@ namespace detail {
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
-                    asio::error_code ec(errcode, system_category());
+                    asio::error_code ec(errcode, asio::error::get_system_category());
                     ol.complete(ec, 0);
                 }
                 else
@@ -526,7 +526,7 @@ namespace detail {
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
-                    asio::error_code ec(errcode, system_category());
+                    asio::error_code ec(errcode, asio::error::get_system_category());
                     ol.complete(ec, 0);
                 }
                 else
@@ -548,7 +548,7 @@ namespace detail {
                     if(!ok && ERROR_IO_PENDING!=errcode)
                     {
                         //std::cerr << "ERROR " << errcode << std::endl;
-                        asio::error_code ec(errcode, system_category());
+                        asio::error_code ec(errcode, asio::error::get_system_category());
                         ol.complete(ec, 0);
                     }
                     else
@@ -743,7 +743,7 @@ namespace detail {
             {
                 //std::cerr << "ERROR " << errcode << std::endl;
                 SetWin32LastErrorFromNtStatus(ntstat);
-                asio::error_code ec(GetLastError(), system_category());
+                asio::error_code ec(GetLastError(), asio::error::get_system_category());
                 ol.complete(ec, 0);
             }
             else

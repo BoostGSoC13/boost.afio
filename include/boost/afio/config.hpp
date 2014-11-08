@@ -176,8 +176,10 @@ typedef boost::system::error_code error_code;
 // Need to bind in asio::windows
 #ifdef WIN32
 #if ASIO_STANDALONE
+namespace error = ::asio::error;
 namespace windows = ::asio::windows;
 #else
+namespace error = ::boost::asio::error;
 namespace windows = ::boost::asio::windows;
 #endif
 #endif
@@ -240,7 +242,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 ///////////////////////////////////////////////////////////////////////////////
 //  Auto library naming
 #if !defined(BOOST_AFIO_SOURCE) && !defined(BOOST_ALL_NO_LIB) && \
-    !defined(BOOST_AFIO_NO_LIB) && !AFIO_STANDALONE
+    !defined(BOOST_AFIO_NO_LIB) && !AFIO_STANDALONE && !BOOST_AFIO_HEADERS_ONLY
 
 #define BOOST_LIB_NAME boost_afio
 
