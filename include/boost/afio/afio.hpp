@@ -297,9 +297,6 @@ struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-#define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type)
-#else
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
 inline BOOST_CONSTEXPR type operator&(type a, type b) \
 { \
@@ -317,29 +314,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 { \
     return 0==static_cast<size_t>(a); \
 }
-#endif
 
-// Boost's scoped enum emulation is a bit broken for us, so reimplement
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-#define BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(EnumType, UnderlyingType)    \
-    struct EnumType {                                                   \
-        typedef UnderlyingType underlying_type;                         \
-        EnumType() BOOST_NOEXCEPT {}                                    \
-        EnumType(underlying_type v) : v_(v) {}                 \
-        underlying_type get_underlying_value_() const { return v_; }               \
-        BOOST_SCOPED_ENUM_UT_DECLARE_CONVERSION_OPERATOR                \
-    private:                                                            \
-        underlying_type v_;                                             \
-        typedef EnumType self_type;                                     \
-    public:                                                             \
-        enum enum_type
-
-#define BOOST_AFIO_SCOPED_ENUM_DECLARE_END(EnumType) \
-    EnumType(enum_type v) BOOST_NOEXCEPT : v_(v) {}                 \
-    operator underlying_type() const BOOST_NOEXCEPT { return get_underlying_value_(); } \
-    friend bool operator ==(underlying_type lhs, self_type rhs) BOOST_NOEXCEPT { return lhs==rhs.v_; } \
-    BOOST_SCOPED_ENUM_DECLARE_END2()
-#endif
 
 
 /*! \enum file_flags
@@ -348,8 +323,6 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 */
 #ifdef DOXYGEN_NO_CLASS_ENUMS
 enum file_flags
-#elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(file_flags, size_t)
 #else
 enum class file_flags : size_t
 #endif
@@ -379,9 +352,6 @@ enum class file_flags : size_t
     int_opening_link=(1<<29), //!< Internal use only. Don't use.
     int_opening_dir=(1<<30) //!< Internal use only. Don't use.
 };
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-BOOST_AFIO_SCOPED_ENUM_DECLARE_END(file_flags)
-#endif
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 
 /*! \enum async_op_flags
@@ -390,8 +360,6 @@ BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 */
 #ifdef DOXYGEN_NO_CLASS_ENUMS
 enum async_op_flags
-#elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(async_op_flags, size_t)
 #else
 enum class async_op_flags : size_t
 #endif
@@ -399,9 +367,6 @@ enum class async_op_flags : size_t
     none=0,                 //!< No flags set
     immediate=1             //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
 };
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-BOOST_AFIO_SCOPED_ENUM_DECLARE_END(async_op_flags)
-#endif
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 
 namespace detail {
@@ -420,8 +385,6 @@ namespace detail {
     */
 #ifdef DOXYGEN_NO_CLASS_ENUMS
     enum OpType
-#elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-    BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(OpType, int)
 #else
     enum class OpType
 #endif
@@ -445,9 +408,6 @@ namespace detail {
 
         Last
     };
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-    BOOST_AFIO_SCOPED_ENUM_DECLARE_END(OpType)
-#endif
     static const char *optypes[]={
         "unknown",
         "UserCompletion",
@@ -477,8 +437,6 @@ class async_io_handle;
 */
 #ifdef DOXYGEN_NO_CLASS_ENUMS
 enum metadata_flags
-#elif defined(BOOST_NO_CXX11_SCOPED_ENUMS)
-BOOST_AFIO_SCOPED_ENUM_UT_DECLARE_BEGIN(metadata_flags, size_t)
 #else
 enum class metadata_flags : size_t
 #endif
@@ -504,9 +462,6 @@ enum class metadata_flags : size_t
     birthtim=1<<17,
     All=(size_t)-1       //!< Return the maximum possible metadata.
 };
-#ifdef BOOST_NO_CXX11_SCOPED_ENUMS
-BOOST_AFIO_SCOPED_ENUM_DECLARE_END(metadata_flags)
-#endif
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 /*! \struct stat_t
 \brief Metadata about a directory entry
@@ -598,10 +553,8 @@ public:
     directory_entry() : stat(nullptr), have_metadata(metadata_flags::None) { }
     //! \constr
     directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
-#ifndef BOOST_NO_CXX11_DEFAULTED_FUNCTIONS
     directory_entry(const directory_entry &) = default;
     directory_entry &operator=(const directory_entry &) = default;
-#endif
     directory_entry(directory_entry &&o) : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
     directory_entry &operator=(directory_entry &&o)
     {
@@ -2638,8 +2591,6 @@ template<class R> inline std::pair<shared_future<R>, async_io_op> async_file_io_
     return std::make_pair(std::move(ret.first.front()), ret.second.front());
 }
 
-#if !defined(BOOST_NO_CXX11_VARIADIC_TEMPLATES)
-
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
 #else
@@ -2649,25 +2600,6 @@ template<class C, class... Args> inline std::pair<shared_future<typename std::re
     typedef typename std::result_of<C(Args...)>::type rettype;
     return call(req, std::function<rettype()>(std::bind<rettype>(callback, args...)));
 }
-
-#else
-
-#define BOOST_PP_LOCAL_MACRO(N)                                                                                         \
-    template <class C                                                                                                   \
-    BOOST_PP_COMMA_IF(N)                                                                                                \
-    BOOST_PP_ENUM_PARAMS(N, class A)>                                                                                   \
-    inline std::pair<shared_future<typename std::result_of<C(BOOST_PP_ENUM_PARAMS(N, A))>::type>, async_io_op>               \
-    async_file_io_dispatcher_base::call (const async_io_op &req, C callback BOOST_PP_COMMA_IF(N) BOOST_PP_ENUM_BINARY_PARAMS(N, A, a))                 \
-    {                                                                                                                   \
-        typedef typename std::result_of<C(BOOST_PP_ENUM_PARAMS(N, A))>::type rettype;                                   \
-        return call(req, std::function<rettype()>(std::bind<rettype>(callback, BOOST_PP_ENUM_PARAMS(N, a))));                                   \
-    }
-  
-#define BOOST_PP_LOCAL_LIMITS     (1, BOOST_AFIO_MAX_PARAMETERS) //should this be 0 or 1 for the min????
-#include BOOST_PP_LOCAL_ITERATE()
-
-
-#endif
 
 inline async_io_op async_file_io_dispatcher_base::adopt(std::shared_ptr<async_io_handle> h)
 {

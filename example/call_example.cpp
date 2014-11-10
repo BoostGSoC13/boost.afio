@@ -3,7 +3,6 @@
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) // Don't bother with VS2010, its result_of can't cope.
     //[call_example
     // Create a dispatcher instance
     auto dispatcher=boost::afio::make_async_file_io_dispatcher();
@@ -28,6 +27,5 @@ int main(void)
     // Print the result returned by the future for the lambda, which will be 43
     std::cout << "addtovalue() returned " << addtovalue.first.get() << std::endl;
     //]
-#endif
     return 0;
 }

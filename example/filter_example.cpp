@@ -1,6 +1,5 @@
 #include "afio_pch.hpp"
 
-#if !defined(BOOST_NO_CXX11_HDR_INITIALIZER_LIST)
 //[filter_example
 using namespace boost::afio;
 
@@ -35,6 +34,3 @@ int main(void)
     return 0;
 }
 //]
-#else
-int main(void) { return 0; }
-#endif

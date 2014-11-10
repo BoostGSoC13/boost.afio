@@ -1,6 +1,5 @@
 #include "afio_pch.hpp"
 
-#if !(defined(BOOST_MSVC) && BOOST_MSVC <= 1700) && !(defined(__GLIBCXX__) && __GLIBCXX__<=20120920 /* <= GCC 4.7 */) && !defined(__clang__)
 //[filecopy_example
 namespace {
     using namespace boost::afio;
@@ -129,6 +128,3 @@ int main(int argc, const char *argv[])
     return 0;
 }
 //]
-#else
-int main(void) { return 0;  }
-#endif

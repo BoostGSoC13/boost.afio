@@ -3,7 +3,6 @@
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) // Don't bother with VS2010, its result_of can't cope.
     //[completion_example1
     // Create a dispatcher instance
     std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
@@ -55,6 +54,5 @@ int main(void)
     // ... and wait for it to complete
     future.wait();
     //]
-#endif
     return 0;
 }

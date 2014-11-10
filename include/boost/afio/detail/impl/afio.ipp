@@ -32,7 +32,7 @@ File Created: Mar 2013
 //#endif
 
 // Define this to have every part of AFIO print, in extremely terse text, what it is doing and why.
-#if (defined(BOOST_AFIO_DEBUG_PRINTING) && BOOST_AFIO_DEBUG_PRINTING)
+#if (defined(BOOST_AFIO_DEBUG_PRINTING) && BOOST_AFIO_DEBUG_PRINTING) || 1
 #ifndef BOOST_AFIO_DEBUG_PRINTING
 # define BOOST_AFIO_DEBUG_PRINTING 1
 #endif
@@ -459,11 +459,7 @@ namespace detail {
             {
             }
     private:
-        async_file_io_dispatcher_op(const async_file_io_dispatcher_op &o)
-#ifndef BOOST_NO_CXX11_DELETED_FUNCTIONS
-            = delete
-#endif
-            ;
+        async_file_io_dispatcher_op(const async_file_io_dispatcher_op &o) = delete;
     };
     struct async_file_io_dispatcher_base_p
     {
@@ -486,11 +482,7 @@ namespace detail {
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
             flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
         {
-#if !defined(BOOST_MSVC)|| BOOST_MSVC >= 1700 // MSVC 2010 doesn't support reserve
             ops.reserve(10000);
-#else
-            ops.rehash((size_t) std::ceil(10000 / ops.max_load_factor()));
-#endif
         }
         ~async_file_io_dispatcher_base_p()
         {

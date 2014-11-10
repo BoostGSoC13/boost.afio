@@ -35,15 +35,9 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
             {
                     bool _dismissed;
                     callable undoer;
-#ifndef BOOST_NO_CXX11_DEFAULTED_FUNCTIONS
                     UndoerImpl() = delete;
                     UndoerImpl(const UndoerImpl &) = delete;
                     UndoerImpl &operator=(const UndoerImpl &) = delete;
-#else
-                    UndoerImpl();
-                    UndoerImpl(const UndoerImpl &);
-                    UndoerImpl &operator=(const UndoerImpl &);
-#endif
                     explicit UndoerImpl(callable &&c) : _dismissed(false), undoer(std::move(c)) { }
                     void int_trigger() { if(!_dismissed && !is_nullptr(undoer)) { undoer(); _dismissed=true; } }
             public:

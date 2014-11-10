@@ -1,12 +1,8 @@
 #include "afio_pch.hpp"
-#include "boost/exception/diagnostic_information.hpp"
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700)
 #include <iostream>
 #include <fstream>
 #include <regex>
 #include <chrono>
-#include "boost/afio/detail/std_filesystem.hpp" // in lieu of <filesystem>
-#endif
 
 /* My Intel Core i7 3770K running Windows 8 x64 with 7200rpm drive, using
 Sysinternals RAMMap to clear disc cache (http://technet.microsoft.com/en-us/sysinternals/ff700229.aspx)
@@ -28,7 +24,6 @@ OpenMP, cold cache:
 The search took 741.131 seconds which was 52.4684 files per second or 7.94029 Mb/sec.
 */
 
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700)
 //[find_in_files_iostreams
 int main(int argc, const char *argv[])
 {
@@ -101,6 +96,3 @@ int main(int argc, const char *argv[])
     return 0;
 }
 //]
-#else
-int main(void) { return 0; }
-#endif

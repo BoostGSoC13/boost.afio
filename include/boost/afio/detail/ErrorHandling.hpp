@@ -12,10 +12,6 @@ File Created: Nov 2012
 
 
 
-#if defined(BOOST_MSVC) && BOOST_MSVC<=1800 && !defined(__func__)
-#define __func__ __FUNCTION__
-#endif
-
 #ifndef BOOST_AFIO_DECL
 #ifdef BOOST_AFIO_DLL_EXPORTS
 #define BOOST_AFIO_DECL BOOST_SYMBOL_EXPORT

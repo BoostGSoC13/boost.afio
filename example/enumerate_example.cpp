@@ -2,7 +2,6 @@
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) // Don't bother with VS2010.
     //[enumerate_example
     std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
         boost::afio::make_async_file_io_dispatcher();
@@ -43,5 +42,4 @@ int main(void)
         }
     } while(list.second);
     //]
-#endif
 }

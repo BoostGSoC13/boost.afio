@@ -1,12 +1,8 @@
 //#define BOOST_RESULT_OF_USE_DECLTYPE 1
 #include "afio_pch.hpp"
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) && !(defined(__GLIBCXX__) && __GLIBCXX__<=20120920 /* <= GCC 4.7 */)
-#include <future>
-#endif
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) && !(defined(__GLIBCXX__) && __GLIBCXX__<=20120920 /* <= GCC 4.7 */)
     //[completion_example2
     // Create a dispatcher instance
     std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
@@ -78,6 +74,5 @@ int main(void)
     // ... and wait for it to complete
     future.wait();
     //]
-#endif
     return 0;
 }
