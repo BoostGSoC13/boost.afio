@@ -1544,7 +1544,7 @@ namespace detail
         for(; first!=last; ++first)
             state->in.push_back(first->h);
         auto ret=state->out.get_future();
-        process_threadpool()->enqueue(std::bind(&when_all_ops_do<rethrow>, state));
+        process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)] { when_all_ops_do<rethrow>(std::move(state)); });
         return std::move(ret);
     }
     struct when_any_state : std::enable_shared_from_this<when_any_state>
@@ -1579,7 +1579,7 @@ namespace detail
         for(; first!=last; ++first)
             state->in.push_back(first->h);
         auto ret=state->out.get_future();
-        process_threadpool()->enqueue(std::bind(&when_any_ops_do<rethrow>, state));
+        process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)]{ when_any_ops_do<rethrow>(std::move(state)); });
         return std::move(ret);
     }
 #else

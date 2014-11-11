@@ -278,11 +278,21 @@ BOOST_AFIO_V1_NAMESPACE_END
 
 #if defined(__has_feature)
 # if __has_feature(thread_sanitizer)
-# define BOOST_AFIO_DISABLE_THREAD_SANITIZE __attribute__((no_sanitize_thread))
+#  define BOOST_AFIO_DISABLE_THREAD_SANITIZE __attribute__((no_sanitize_thread))
+# endif
+# if __has_feature(cxx_init_captures)
+#  define BOOST_AFIO_LAMBDA_MOVE_CAPTURE(var) var=std::move(var)
 # endif
 #endif
 #ifndef BOOST_AFIO_DISABLE_THREAD_SANITIZE
 # define BOOST_AFIO_DISABLE_THREAD_SANITIZE
+#endif
+#ifndef BOOST_AFIO_LAMBDA_MOVE_CAPTURE
+# if defined(_MSC_VER) && _MSC_VER >= 1900
+#  define BOOST_AFIO_LAMBDA_MOVE_CAPTURE(var) var=std::move(var)
+# else
+#  define BOOST_AFIO_LAMBDA_MOVE_CAPTURE(var) var
+# endif
 #endif
 
 #endif  /* BOOST_AFIO_CONFIG_HPP */

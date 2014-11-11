@@ -376,7 +376,10 @@ namespace detail {
                 size_t headerlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer);
                 size_t reparsebufferheaderlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)-headerlen;
                 rpd->ReparseDataLength=(USHORT)(rpd->MountPointReparseBuffer.SubstituteNameLength+rpd->MountPointReparseBuffer.PrintNameLength+2*sizeof(filesystem::path::value_type)+reparsebufferheaderlen);
-                asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(&async_file_io_dispatcher_windows::boost_asio_symlink_completion_handler, this, id, ret.second, buffer, std::placeholders::_1, std::placeholders::_2));
+                auto dirop(ret.second);
+                asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, id,
+                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(dirop),
+                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(buffer)](const asio::error_code &ec, size_t bytes){ boost_asio_symlink_completion_handler(id, std::move(dirop), std::move(buffer), ec, bytes);});
                 BOOL ok=DeviceIoControl(ret.second->native_handle(), FSCTL_SET_REPARSE_POINT, rpd, (DWORD)(rpd->ReparseDataLength+headerlen), NULL, 0, NULL, ol.get());
                 DWORD errcode=GetLastError();
                 if(!ok && ERROR_IO_PENDING!=errcode)
@@ -515,7 +518,11 @@ namespace detail {
                     }
                 }
                 elems[pages].Alignment=0;
-                asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(&async_file_io_dispatcher_windows::boost_asio_readwrite_completion_handler, this, iswrite, id, h, bytes_to_transfer, std::make_tuple(req.where, 0, req.buffers.size(), amount), std::placeholders::_1, std::placeholders::_2));
+                auto t(std::make_tuple(req.where, 0, req.buffers.size(), amount));
+                asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, id, h, bytes_to_transfer,
+                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const asio::error_code &ec, size_t bytes) {
+                    boost_asio_readwrite_completion_handler(iswrite, id, std::move(h),
+                      bytes_to_transfer, std::move(t), ec, bytes); });
                 ol.get()->Offset=(DWORD) (req.where & 0xffffffff);
                 ol.get()->OffsetHigh=(DWORD) ((req.where>>32) & 0xffffffff);
                 BOOL ok=iswrite ? WriteFileGather
@@ -537,7 +544,11 @@ namespace detail {
                 size_t offset=0, n=0;
                 for(auto &b: req.buffers)
                 {
-                    asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(&async_file_io_dispatcher_windows::boost_asio_readwrite_completion_handler, this, iswrite, id, h, bytes_to_transfer, std::make_tuple(req.where+offset, n, 1, asio::buffer_size(b)), std::placeholders::_1, std::placeholders::_2));
+                    auto t(std::make_tuple(req.where+offset, n, 1, asio::buffer_size(b)));
+                    asio::windows::overlapped_ptr ol(p->h->get_io_service(),  [this, id, h, bytes_to_transfer,
+                      BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const asio::error_code &ec, size_t bytes) {
+                        boost_asio_readwrite_completion_handler(iswrite, id, std::move(h),
+                        bytes_to_transfer, std::move(t), ec, bytes); });
                     ol.get()->Offset=(DWORD) ((req.where+offset) & 0xffffffff);
                     ol.get()->OffsetHigh=(DWORD) (((req.where+offset)>>32) & 0xffffffff);
                     BOOL ok=iswrite ? WriteFile
@@ -625,20 +636,32 @@ namespace detail {
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        typedef std::shared_ptr<std::tuple<std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>, std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]>, async_enumerate_op_req>> enumerate_state_t;
-        void boost_asio_enumerate_completion_handler(size_t id, async_io_op op, enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
+        struct enumerate_state : std::enable_shared_from_this<enumerate_state>
+        {
+            size_t id;
+            async_io_op op;
+            std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret;
+            std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]> buffer;
+            async_enumerate_op_req req;
+            enumerate_state(size_t _id, async_io_op _op, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> _ret,
+              std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]> _buffer, async_enumerate_op_req _req) : id(_id),
+              op(std::move(_op)), ret(std::move(_ret)), buffer(std::move(_buffer)), req(std::move(_req)) { }
+        };
+        typedef std::shared_ptr<enumerate_state> enumerate_state_t;
+        void boost_asio_enumerate_completion_handler(enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
         {
             using windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION;
-            std::shared_ptr<async_io_handle> h(op.get());
-            std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=std::get<0>(*state);
-            std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=std::get<1>(*state);
-            async_enumerate_op_req &req=std::get<2>(*state);
+            size_t id=state->id;
+            std::shared_ptr<async_io_handle> h(state->op.get());
+            std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=state->ret;
+            std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
+            async_enumerate_op_req &req=state->req;
             if(ec && ERROR_MORE_DATA==ec.value() && bytes_transferred<(sizeof(FILE_ID_FULL_DIR_INFORMATION)+buffer.get()->FileNameLength))
             {
                 // Bump maxitems by one and reschedule.
                 req.maxitems++;
                 buffer=std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]);
-                doenumerate(id, op, state);
+                doenumerate(state);
                 return;
             }
             if(ec && ERROR_MORE_DATA!=ec.value())
@@ -709,13 +732,14 @@ namespace detail {
             }
         }
         // Called in unknown thread
-        void doenumerate(size_t id, async_io_op op, enumerate_state_t state)
+        void doenumerate(enumerate_state_t state)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
+            size_t id=state->id;
+            std::shared_ptr<async_io_handle> h(state->op.get());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             using namespace windows_nt_kernel;
-            std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=std::get<1>(*state);
-            async_enumerate_op_req &req=std::get<2>(*state);
+            std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
+            async_enumerate_op_req &req=state->req;
             NTSTATUS ntstat;
             UNICODE_STRING _glob={ 0 };
             if(!req.glob.empty())
@@ -723,7 +747,8 @@ namespace detail {
                 _glob.Buffer=const_cast<filesystem::path::value_type *>(req.glob.c_str());
                 _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
             }
-            asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(&async_file_io_dispatcher_windows::boost_asio_enumerate_completion_handler, this, id, op, state, std::placeholders::_1, std::placeholders::_2));
+            asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, state](const asio::error_code &ec, size_t bytes) {
+              boost_asio_enumerate_completion_handler(std::move(state), ec, bytes); });
             bool done;
             do
             {
@@ -734,7 +759,7 @@ namespace detail {
                 if(STATUS_BUFFER_OVERFLOW==ntstat)
                 {
                     req.maxitems++;
-                    std::get<1>(*state)=std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]);
+                    state->buffer=std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]);
                     done=false;
                 }
                 else done=true;
@@ -756,13 +781,14 @@ namespace detail {
             using namespace windows_nt_kernel;
 
             // A bit messy this, but necessary
-            enumerate_state_t state=std::make_shared<std::tuple<std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>,
-                std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]>, async_enumerate_op_req>>(
+            enumerate_state_t state=std::make_shared<enumerate_state>(
+                id,
+                std::move(op),
                 std::move(ret),
                 std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]),
                 std::move(req)
                 );
-            doenumerate(id, std::move(op), std::move(state));
+            doenumerate(std::move(state));
 
             // Indicate we're not finished yet
             return std::make_pair(false, std::shared_ptr<async_io_handle>());
