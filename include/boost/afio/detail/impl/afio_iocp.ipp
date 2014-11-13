@@ -386,7 +386,7 @@ namespace detail {
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
                     asio::error_code ec(errcode, asio::error::get_system_category());
-                    ol.complete(ec, 0);
+                    ol.complete(ec, ol.get()->InternalHigh);
                 }
                 else
                     ol.release();
@@ -534,7 +534,7 @@ namespace detail {
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
                     asio::error_code ec(errcode, asio::error::get_system_category());
-                    ol.complete(ec, 0);
+                    ol.complete(ec, ol.get()->InternalHigh);
                 }
                 else
                     ol.release();
@@ -560,7 +560,7 @@ namespace detail {
                     {
                         //std::cerr << "ERROR " << errcode << std::endl;
                         asio::error_code ec(errcode, asio::error::get_system_category());
-                        ol.complete(ec, 0);
+                        ol.complete(ec, ol.get()->InternalHigh);
                     }
                     else
                         ol.release();
@@ -774,9 +774,10 @@ namespace detail {
             } while(!done);
             if(STATUS_PENDING!=ntstat)
             {
+                //std::cerr << "ERROR " << errcode << std::endl;
                 SetWin32LastErrorFromNtStatus(ntstat);
                 asio::error_code ec(GetLastError(), asio::error::get_system_category());
-                ol.complete(ec, 0);
+                ol.complete(ec, ol.get()->InternalHigh);
             }
             else
                 ol.release();
