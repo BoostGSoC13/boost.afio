@@ -644,8 +644,12 @@ namespace detail {
             std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]> buffer;
             async_enumerate_op_req req;
             enumerate_state(size_t _id, async_io_op _op, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> _ret,
-              std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]> _buffer, async_enumerate_op_req _req) : id(_id),
-              op(std::move(_op)), ret(std::move(_ret)), buffer(std::move(_buffer)), req(std::move(_req)) { }
+              async_enumerate_op_req _req) : id(_id), op(std::move(_op)), ret(std::move(_ret)), req(std::move(_req)) { reallocate_buffer(); }
+            void reallocate_buffer()
+            {
+              using windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION;
+              buffer=std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]);
+            }
         };
         typedef std::shared_ptr<enumerate_state> enumerate_state_t;
         void boost_asio_enumerate_completion_handler(enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
@@ -660,7 +664,7 @@ namespace detail {
             {
                 // Bump maxitems by one and reschedule.
                 req.maxitems++;
-                buffer=std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]);
+                state->reallocate_buffer();
                 doenumerate(state);
                 return;
             }
@@ -747,26 +751,29 @@ namespace detail {
                 _glob.Buffer=const_cast<filesystem::path::value_type *>(req.glob.c_str());
                 _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
             }
-            asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, state](const asio::error_code &ec, size_t bytes) {
-              boost_asio_enumerate_completion_handler(std::move(state), ec, bytes); });
+            asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, state](const asio::error_code &ec, size_t bytes)
+            {
+              if(!state)
+                abort();
+              boost_asio_enumerate_completion_handler(state, ec, bytes);
+            });
             bool done;
             do
             {
                 // It's not tremendously obvious how to call the kernel directly with an OVERLAPPED. ReactOS's sources told me how ...
-                ntstat=NtQueryDirectoryFile(p->h->native_handle(), ol.get()->hEvent, NULL, ol.get(), (PIO_STATUS_BLOCK) ol.get(),
+                ntstat=NtQueryDirectoryFile(p->h->native_handle(), ol.get()->hEvent, NULL, NULL, (PIO_STATUS_BLOCK) ol.get(),
                     buffer.get(), (ULONG)(sizeof(FILE_ID_FULL_DIR_INFORMATION)*req.maxitems),
                     FileIdFullDirectoryInformation, FALSE, req.glob.empty() ? NULL : &_glob, req.restart);
                 if(STATUS_BUFFER_OVERFLOW==ntstat)
                 {
                     req.maxitems++;
-                    state->buffer=std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]);
+                    state->reallocate_buffer();
                     done=false;
                 }
                 else done=true;
             } while(!done);
             if(STATUS_PENDING!=ntstat)
             {
-                //std::cerr << "ERROR " << errcode << std::endl;
                 SetWin32LastErrorFromNtStatus(ntstat);
                 asio::error_code ec(GetLastError(), asio::error::get_system_category());
                 ol.complete(ec, 0);
@@ -785,7 +792,6 @@ namespace detail {
                 id,
                 std::move(op),
                 std::move(ret),
-                std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]>(new FILE_ID_FULL_DIR_INFORMATION[req.maxitems]),
                 std::move(req)
                 );
             doenumerate(std::move(state));
