@@ -1045,7 +1045,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     // Any post op filters installed? If so, invoke those now.
     if(!p->filters.empty())
     {
-        async_io_op me(this, id, thisop->h());
+        async_io_op me(this, id, thisop->h(), false);
         for(auto &i: p->filters)
         {
             if(i.first==detail::OpType::Unknown || i.first==thisop->optype)
