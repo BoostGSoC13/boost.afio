@@ -4,10 +4,10 @@ Provides a threadpool and asynchronous file i/o infrastructure based on Boost.AS
 File Created: Mar 2013
 */
 
-#ifndef BOOST_AFIO_HPP
-#define BOOST_AFIO_HPP
-
 #include "config.hpp"
+
+#ifdef BOOST_AFIO_NEED_DEFINE
+
 #include "detail/Utility.hpp"
 #include <type_traits>
 #include <exception>

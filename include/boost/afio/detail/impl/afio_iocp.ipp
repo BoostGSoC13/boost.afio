@@ -46,11 +46,11 @@ namespace detail {
             }
             myid=nullptr;
         }
-        virtual void close()
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             int_close();
         }
-        virtual void *native_handle() const { return myid; }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return myid; }
 
         // You can't use shared_from_this() in a constructor so ...
         void do_add_io_handle_to_parent()
@@ -65,7 +65,7 @@ namespace detail {
         {
             int_close();
         }
-        virtual directory_entry direntry(metadata_flags wanted) const
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) const override final
         {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
@@ -147,7 +147,7 @@ namespace detail {
 #endif
             , stat, wanted);
         }
-        virtual filesystem::path target() const
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const override final
         {
             if(!opened_as_symlink())
                 return filesystem::path();
@@ -168,7 +168,7 @@ namespace detail {
             }
             BOOST_AFIO_THROW(std::runtime_error("Unknown type of symbolic link."));
         }
-        virtual void *try_mapfile()
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() override final
         {
             if(!mapaddr)
             {
@@ -806,7 +806,7 @@ namespace detail {
         {
         }
 
-        virtual std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -817,7 +817,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::dir, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dodir);
         }
-        virtual std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -828,7 +828,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::rmdir, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dormdir);
         }
-        virtual std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -839,7 +839,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::file, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dofile);
         }
-        virtual std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -850,7 +850,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::rmfile, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dormfile);
         }
-        virtual std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -861,7 +861,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::symlink, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dosymlink);
         }
-        virtual std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -872,7 +872,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::rmsymlink, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dormsymlink);
         }
-        virtual std::vector<async_io_op> sync(const std::vector<async_io_op> &ops)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> sync(const std::vector<async_io_op> &ops) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: ops)
@@ -883,7 +883,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::sync, ops, async_op_flags::none, &async_file_io_dispatcher_windows::dosync);
         }
-        virtual std::vector<async_io_op> close(const std::vector<async_io_op> &ops)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: ops)
@@ -894,7 +894,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::close, ops, async_op_flags::none, &async_file_io_dispatcher_windows::doclose);
         }
-        virtual std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -905,7 +905,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::read, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::doread);
         }
-        virtual std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -916,7 +916,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::write, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dowrite);
         }
-        virtual std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: ops)
@@ -927,7 +927,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::truncate, ops, sizes, async_op_flags::none, &async_file_io_dispatcher_windows::dotruncate);
         }
-        virtual std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs)
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)

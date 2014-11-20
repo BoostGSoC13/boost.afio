@@ -14,9 +14,6 @@
 
 // most of this comes from Boost.Atomic 
 
-#ifndef BOOST_AFIO_CONFIG_HPP
-#define BOOST_AFIO_CONFIG_HPP
-
 #if !defined(BOOST_AFIO_HEADERS_ONLY) && !defined(BOOST_ALL_DYN_LINK)
 #define BOOST_AFIO_HEADERS_ONLY 1
 #endif
@@ -51,6 +48,14 @@
 #ifndef __cpp_variadic_templates
 #error Boost.AFIO needs variadic template support in the compiler
 #endif
+
+#undef BOOST_AFIO_V1_STL11_IMPL
+#undef BOOST_AFIO_V1_FILESYSTEM_IMPL
+#undef BOOST_AFIO_V1_ASIO_IMPL
+#undef BOOST_AFIO_V1
+#undef BOOST_AFIO_V1_NAMESPACE
+#undef BOOST_AFIO_V1_NAMESPACE_BEGIN
+#undef BOOST_AFIO_V1_NAMESPACE_END
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread
 #if defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD
@@ -362,6 +367,4 @@ BOOST_AFIO_V1_NAMESPACE_END
 #endif
 
 #endif  // BOOST_AFIO_NEED_DEFINE
-
-#endif  /* BOOST_AFIO_CONFIG_HPP */
 

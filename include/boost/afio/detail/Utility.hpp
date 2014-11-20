@@ -18,10 +18,10 @@
 
 //! \def BOOST_AFIO_TYPEALIGNMENT(bytes) The markup this compiler uses to mark a type as having some given alignment
 #ifndef BOOST_AFIO_TYPEALIGNMENT
-#if __cplusplus>=201103L && GCC_VERSION > 40900
+#ifdef __cpp_alignas
 #define BOOST_AFIO_TYPEALIGNMENT(bytes) alignas(bytes)
 #else
-#ifdef BOOST_MSVC
+#ifdef _MSC_VER
 #define BOOST_AFIO_TYPEALIGNMENT(bytes) __declspec(align(bytes))
 #elif defined(__GNUC__)
 #define BOOST_AFIO_TYPEALIGNMENT(bytes) __attribute__((aligned(bytes)))

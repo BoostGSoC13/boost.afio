@@ -14,7 +14,7 @@ Created: Feb 2013
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "boost/afio/config.hpp"
+#include "boost/afio/afio.hpp"
 
 #ifdef __MINGW32__
 #include <stdlib.h> // To pull in __MINGW64_VERSION_MAJOR
@@ -32,7 +32,6 @@ extern "C" void tzset(void);
 #include <algorithm>
 #include <deque>
 #include <unordered_set>
-#include "boost/afio/afio.hpp"
 #include "../detail/SpookyV2.h"
 #include "boost/afio/detail/Aligned_Allocator.hpp"
 #include "boost/afio/detail/valgrind/valgrind.h"
@@ -107,7 +106,7 @@ static inline void set_maximum_cpus(size_t no=0)
 // Boost.Test uses alarm() to timeout tests, which is nearly useless. Hence do our own.
 static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<bool, std::condition_variable>> cv)
 {
-    boost::afio::detail::set_threadname("watchdog_thread");
+    BOOST_AFIO_V1_NAMESPACE::detail::set_threadname("watchdog_thread");
     bool docountdown=timeout>10;
     if(docountdown) timeout-=10;
     std::chrono::duration<size_t> d(timeout);
@@ -141,7 +140,7 @@ template<class T> inline void wrap_test_method(T &t)
     }
     catch(...)
     {
-        std::cerr << "ERROR: unit test exits via " << boost::afio::detail::output_exception_info << std::endl;
+        std::cerr << "ERROR: unit test exits via " << BOOST_AFIO_V1_NAMESPACE::detail::output_exception_info << std::endl;
         BOOST_FAIL("Unit test exits via exception which shouldn't happen");
     }
 }
