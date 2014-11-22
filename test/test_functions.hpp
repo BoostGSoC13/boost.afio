@@ -190,7 +190,7 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
     BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
     auto cv=std::make_shared<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
     BOOST_AFIO_V1_NAMESPACE::thread watchdog(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv);                 \
-    boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
+    boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { BOOST_AFIO_V1_NAMESPACE::wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
 }                                                                       \
                                                                         \
 struct BOOST_AUTO_TC_UNIQUE_ID( test_name ) {};                         \
