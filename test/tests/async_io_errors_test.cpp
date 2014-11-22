@@ -3,11 +3,8 @@
 BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handling works", 120)
 {
 #ifndef BOOST_AFIO_THREAD_SANITIZING
-    using namespace boost::afio;
-    using namespace std;
-    using boost::afio::future;
-    namespace this_thread = boost::afio::this_thread;
-    namespace chrono = boost::afio::chrono;
+    using namespace BOOST_AFIO_V1_NAMESPACE;
+    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 
     if(filesystem::exists("testdir/a"))
         filesystem::remove("testdir/a");
@@ -18,7 +15,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_async_file_io_dispatcher();
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-        vector<async_path_op_req> filereqs;
+        std::vector<async_path_op_req> filereqs;
 
         /* There was once a rare race condition in barrier() which took many, many days
          * to discover and solve, some of which involved much painful refactoring (which

@@ -74,6 +74,7 @@ try{\
 # define BOOST_AFIO_CHECK_NO_THROW(expr) BOOST_CHECK_NO_THROW(expr)
 #endif
 
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 
 // Force maximum CPUs available to threads in this process, if available on this platform
 #ifdef MAXIMUM_TEST_CPUS
@@ -104,23 +105,23 @@ static inline void set_maximum_cpus(size_t no=0)
 #endif
 
 // Boost.Test uses alarm() to timeout tests, which is nearly useless. Hence do our own.
-static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<bool, std::condition_variable>> cv)
+static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<bool, condition_variable>> cv)
 {
-    BOOST_AFIO_V1_NAMESPACE::detail::set_threadname("watchdog_thread");
+    detail::set_threadname("watchdog_thread");
     bool docountdown=timeout>10;
     if(docountdown) timeout-=10;
-    std::chrono::duration<size_t> d(timeout);
-    std::mutex m;
-    std::unique_lock<std::mutex> lock(m);
-    if(!cv->first && std::cv_status::timeout==cv->second.wait_for(lock, d))
+    chrono::duration<size_t, ratio<1, 1>> d(timeout);
+    mutex m;
+    unique_lock<mutex> lock(m);
+    if(!cv->first && cv_status::timeout==cv->second.wait_for(lock, d))
     {
         if(docountdown)
         {
             std::cerr << "Test about to time out ...";
-            d=std::chrono::duration<size_t>(1);
+            d=chrono::duration<size_t, ratio<1, 1>>(1);
             for(size_t n=0; n<10; n++)
             {
-                if(cv->first || std::cv_status::timeout!=cv->second.wait_for(lock, d))
+                if(cv->first || cv_status::timeout!=cv->second.wait_for(lock, d))
                     return;
                 std::cerr << " " << 10-n;
             }
@@ -140,10 +141,12 @@ template<class T> inline void wrap_test_method(T &t)
     }
     catch(...)
     {
-        std::cerr << "ERROR: unit test exits via " << BOOST_AFIO_V1_NAMESPACE::detail::output_exception_info << std::endl;
+        std::cerr << "ERROR: unit test exits via " << detail::output_exception_info << std::endl;
         BOOST_FAIL("Unit test exits via exception which shouldn't happen");
     }
 }
+
+BOOST_AFIO_V1_NAMESPACE_END
 
 #if BOOST_AFIO_USE_BOOST_UNIT_TEST
 // Define a unit test description and timeout
@@ -183,10 +186,10 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
     /*boost::unit_test::unit_test_monitor_t::instance().p_timeout.set(timeout);*/ \
     BOOST_TEST_MESSAGE(desc);                                           \
     std::cout << std::endl << desc << std::endl;                        \
-    try { boost::afio::filesystem::remove_all("testdir"); } catch(...) { } \
-    set_maximum_cpus();                                                 \
-    auto cv=std::make_shared<std::pair<bool, std::condition_variable>>(); \
-    std::thread watchdog(watchdog_thread, timeout, cv);                 \
+    try { BOOST_AFIO_V1_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
+    BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
+    auto cv=std::make_shared<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
+    BOOST_AFIO_V1_NAMESPACE::thread watchdog(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv);                 \
     boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
 }                                                                       \
                                                                         \
@@ -198,7 +201,7 @@ BOOST_AFIO_AUTO_TEST_CASE_REGISTRAR ( test_name )
 
 #define BOOST_AFIO_AUTO_TEST_CASE(__test_name, __desc, __timeout)       \
 static void __test_name ## _impl();                                     \
-CATCH_TEST_CASE(#__test_name, __desc)                                    \
+CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)                                    \
 {                                                                       \
     size_t timeout=__timeout;                                           \
     if(RUNNING_ON_VALGRIND) {                                           \
@@ -207,21 +210,23 @@ CATCH_TEST_CASE(#__test_name, __desc)                                    \
     }                                                                   \
     BOOST_TEST_MESSAGE(__desc);                                           \
     std::cout << std::endl << __desc << std::endl;                        \
-    try { boost::afio::filesystem::remove_all("testdir"); } catch(...) { } \
-    set_maximum_cpus();                                                 \
-    auto cv=std::make_shared<std::pair<bool, std::condition_variable>>(); \
+    try { BOOST_AFIO_V1_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
+    BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
+    auto cv=std::make_shared<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
     struct __deleter_t {                                                \
-      std::shared_ptr<std::pair<bool, std::condition_variable>> cv;     \
-      std::thread watchdog;                                             \
-      __deleter_t(std::shared_ptr<std::pair<bool, std::condition_variable>> _cv, \
-        std::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
+      std::shared_ptr<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>> cv;     \
+      BOOST_AFIO_V1_NAMESPACE::thread watchdog;                                             \
+      __deleter_t(std::shared_ptr<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>> _cv, \
+        BOOST_AFIO_V1_NAMESPACE::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
       ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
-    } __deleter(cv, std::thread(watchdog_thread, timeout, cv));         \
+    } __deleter(cv, BOOST_AFIO_V1_NAMESPACE::thread(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv));         \
     __test_name ## _impl();                                             \
 }                                                                       \
 static void __test_name ## _impl()                                      \
 
 #endif
+
+BOOST_AFIO_V1_NAMESPACE_BEGIN
 
 // From http://burtleburtle.net/bob/rand/smallprng.html
 typedef unsigned int  u4;
@@ -245,29 +250,24 @@ static void raninit(ranctx *x, u4 seed) {
     }
 }
 
-static void dofilter(boost::afio::atomic<size_t> *callcount, boost::afio::detail::OpType, boost::afio::async_io_op &) { ++*callcount; }
-static void checkwrite(boost::afio::detail::OpType, boost::afio::async_io_handle *h, const boost::afio::detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t idx, size_t no, const boost::afio::asio::error_code &, size_t transferred)
+static void dofilter(atomic<size_t> *callcount, detail::OpType, async_io_op &) { ++*callcount; }
+static void checkwrite(detail::OpType, async_io_handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const asio::error_code &, size_t transferred)
 {
     size_t amount=0;
     for(auto &i: req.buffers)
-        amount+=boost::afio::asio::buffer_size(i);
+        amount+=asio::buffer_size(i);
     if(offset!=0)
         BOOST_CHECK(offset==0);
     if(transferred!=amount)
         BOOST_CHECK(transferred==amount);
 }
-static int donothing(boost::afio::atomic<size_t> *callcount, int i) { ++*callcount; return i; }
-static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher, size_t bytes)
+static int donothing(atomic<size_t> *callcount, int i) { ++*callcount; return i; }
+static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t bytes)
 {
     try {
-        using namespace boost::afio;
-        using namespace std;
-        using boost::afio::future;
-        using boost::afio::ratio;
-        namespace chrono = boost::afio::chrono;
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-        vector<char, boost::afio::detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
+        std::vector<char, detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
         assert(!(((size_t) &towrite.front()) & 4095));
 
         // Wait for six seconds to let filing system recover and prime SpeedStep
@@ -276,7 +276,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
 
         // Install a file open filter
         dispatcher->post_op_filter_clear();
-        boost::afio::atomic<size_t> filtercount(0);
+        atomic<size_t> filtercount(0);
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
         filters.push_back(std::make_pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>(detail::OpType::file, std::bind(dofilter, &filtercount, std::placeholders::_1, std::placeholders::_2)));
         dispatcher->post_op_filter(filters);
@@ -312,8 +312,8 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
 
         // As a test of call() which involves significant template metaprogramming, have a do nothing callback
-        boost::afio::atomic<size_t> callcount(0);
-        typedef int (*callable_type)(boost::afio::atomic<size_t> *, int);
+        atomic<size_t> callcount(0);
+        typedef int (*callable_type)(atomic<size_t> *, int);
         callable_type callable=donothing;
         std::vector<std::function<int()>> callables;
         callables.reserve(1000);
@@ -321,7 +321,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
                 callables.push_back(std::bind(callable, &callcount, 78));
         auto manycallbacks(dispatcher->call(manydeletedfiles, std::move(callables)));
         auto dispatched=chrono::high_resolution_clock::now();
-        cout << "There are now " << dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << endl;
+        std::cout << "There are now " << std::dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << std::endl;
 
         // Wait for all files to open
         when_all(manyopenfiles.begin(), manyopenfiles.end()).wait();
@@ -342,20 +342,20 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));
 
         auto diff=chrono::duration_cast<secs_type>(end-begin);
-        cout << "It took " << diff.count() << " secs to do all operations" << endl;
+        std::cout << "It took " << diff.count() << " secs to do all operations" << std::endl;
         diff=chrono::duration_cast<secs_type>(dispatched-begin);
-        cout << "  It took " << diff.count() << " secs to dispatch all operations" << endl;
+        std::cout << "  It took " << diff.count() << " secs to dispatch all operations" << std::endl;
         diff=chrono::duration_cast<secs_type>(end-dispatched);
-        cout << "  It took " << diff.count() << " secs to finish all operations" << endl << endl;
+        std::cout << "  It took " << diff.count() << " secs to finish all operations" << std::endl << std::endl;
 
         diff=chrono::duration_cast<secs_type>(openedsync-begin);
-        cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file opens per sec" << endl;
+        std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file opens per sec" << std::endl;
         diff=chrono::duration_cast<secs_type>(writtensync-openedsync);
-        cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file writes per sec" << endl;
+        std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file writes per sec" << std::endl;
         diff=chrono::duration_cast<secs_type>(closedsync-writtensync);
-        cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file closes per sec" << endl;
+        std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file closes per sec" << std::endl;
         diff=chrono::duration_cast<secs_type>(deletedsync-closedsync);
-        cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file deletions per sec" << endl;
+        std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file deletions per sec" << std::endl;
 
         // Fetch any outstanding error
         when_all(rmdir).wait();
@@ -363,7 +363,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
         BOOST_CHECK((filtercount==1000U));
     }
     catch(...) {
-        std::cerr << boost::afio::detail::output_exception_info << " thrown." << std::endl;
+        std::cerr << detail::output_exception_info << " thrown." << std::endl;
         throw;
     }
 }
@@ -373,7 +373,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
     {
             bool write;
             std::vector<char *> data;
-            boost::afio::async_data_op_req<char> req;
+            async_data_op_req<char> req;
     };
 #else
     struct Op
@@ -389,26 +389,21 @@ static void _1000_open_write_close_deletes(std::shared_ptr<boost::afio::async_fi
 static u4 mkfill() { static char ret='0'; if(ret+1>'z') ret='0'; return ret++; }
 #endif
 
-static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher, size_t no, size_t bytes, size_t alignment=0)
+static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t no, size_t bytes, size_t alignment=0)
 {
     try {
-    using namespace std;
-    using boost::afio::future;
-    using boost::afio::ratio;
-    using boost::afio::off_t;
-    namespace chrono = boost::afio::chrono;
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
 
-    boost::afio::detail::aligned_allocator<char, 4096> aligned_allocator;
-    vector<vector<char, boost::afio::detail::aligned_allocator<char, 4096>>> towrite(no);
-    vector<char *> towriteptrs(no);
-    vector<size_t> towritesizes(no);
+    detail::aligned_allocator<char, 4096> aligned_allocator;
+    std::vector<std::vector<char, detail::aligned_allocator<char, 4096>>> towrite(no);
+    std::vector<char *> towriteptrs(no);
+    std::vector<size_t> towritesizes(no);
     
 #ifdef DEBUG_TORTURE_TEST
-    std::vector<vector<Op>> todo(no);
+    std::vector<std::vector<Op>> todo(no);
 #else
     static_assert(!(sizeof(PadSizeToMultipleOf<Op, 32>)&31), "Op's stored size must be a multiple of 32 bytes");
-    vector<vector<PadSizeToMultipleOf<Op, 32>, boost::afio::detail::aligned_allocator<Op, 32>>> todo(no);
+    std::vector<std::vector<PadSizeToMultipleOf<Op, 32>, detail::aligned_allocator<Op, 32>>> todo(no);
 #endif
 
     for(size_t n=0; n<no; n++)
@@ -475,7 +470,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                                     memcpy(buffer, (char *)((size_t)towriteptrs[n]+(size_t) op.req.where+thisbytes), s);
 #endif
                             thisbytes+=s;
-                            op.req.buffers.push_back(boost::afio::asio::mutable_buffer(buffertouse, s));
+                            op.req.buffers.push_back(asio::mutable_buffer(buffertouse, s));
                     }
 #ifndef DEBUG_TORTURE_TEST
                     if(!op.write)
@@ -484,7 +479,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                             op.hash.AddSHA256To((const char *)(((size_t)towriteptrs[n]+(size_t) op.req.where)), thisbytes);
                             //__sha256_osol((const char *)(((size_t)towriteptrs[n]+(size_t) op.req.where)), thisbytes);
 #ifdef _DEBUG
-                            cout << "<=SHA256 of " << thisbytes << " bytes at " << op.req.where << " is " << op.hash.asHexString() << endl;
+                            std::cout << "<=SHA256 of " << thisbytes << " bytes at " << op.req.where << " is " << op.hash.asHexString() << std::endl;
 #endif
                     }
 #endif
@@ -492,21 +487,21 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                     // Quickly make sure none of these exceed 10Mb
                     off_t end=op.req.where;
                     for(auto &b: op.req.buffers)
-                            end+=boost::afio::asio::buffer_size(b);
+                            end+=asio::buffer_size(b);
                     assert(end<=bytes);
 #endif
-                    todo[n].push_back(move(op));
+                    todo[n].push_back(std::move(op));
                     bytessofar+=thisbytes;
             }
     }
     auto end=chrono::high_resolution_clock::now();
     auto diff=chrono::duration_cast<secs_type>(end-begin);
-    cout << "It took " << diff.count() << " secs to simulate torture test in RAM" << endl;
+    std::cout << "It took " << diff.count() << " secs to simulate torture test in RAM" << std::endl;
     begin=chrono::high_resolution_clock::now(); // start timer for hashes
                 
     // a vector to hold the hash values from SpookyHash
     //SpookyHash returns 2 64bit integers for a 128 bit hash, so we store them as a pair
-    vector<std::pair<uint64, uint64>> memhashes(no);
+    std::vector<std::pair<uint64, uint64>> memhashes(no);
     //  variables to seed and return the hashed values
     uint64 hash1, hash2, seed;
     seed = 1; //initialize the seed value. Completely arbitrary, but it needs to remain consistent 
@@ -527,33 +522,33 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                 
     end=chrono::high_resolution_clock::now(); // end timer for hashes
     diff=chrono::duration_cast<secs_type>(end-begin);
-    cout << "It took " << diff.count() << " secs to hash the results" << endl;
+    std::cout << "It took " << diff.count() << " secs to hash the results" << std::endl;
     for(size_t n=0; n<no; n++)
             memset(towriteptrs[n], 0, towritesizes[n]);
 
-    auto mkdir(dispatcher->dir(boost::afio::async_path_op_req("testdir", boost::afio::file_flags::Create)));
+    auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
     // Wait for three seconds to let filing system recover and prime SpeedStep
     //begin=chrono::high_resolution_clock::now();
     //while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
 
     // Open our test files
     begin=chrono::high_resolution_clock::now();
-    std::vector<boost::afio::async_path_op_req> manyfilereqs;
+    std::vector<async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(no);
     for(size_t n=0; n<no; n++)
-            manyfilereqs.push_back(boost::afio::async_path_op_req(mkdir, "testdir/"+std::to_string(n), boost::afio::file_flags::Create|boost::afio::file_flags::ReadWrite));
+            manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+std::to_string(n), file_flags::Create|file_flags::ReadWrite));
     auto manyopenfiles(dispatcher->file(manyfilereqs));
     std::vector<off_t> sizes(no, bytes);
     auto manywrittenfiles(dispatcher->truncate(manyopenfiles, sizes));
 #if defined(_DEBUG) && 0
     for(size_t n=0; n<manywrittenfiles.size(); n++)
-            cout << n << ": " << manywrittenfiles[n].id << " (" << when_all(manywrittenfiles[n]).get().front()->path() << ") " << endl;
+            std::cout << n << ": " << manywrittenfiles[n].id << " (" << when_all(manywrittenfiles[n]).get().front()->path() << ") " << std::endl;
 #endif
     // Schedule a replay of our in-RAM simulation
 
-    boost::afio::spinlock<size_t> failureslock;
+    spinlock<size_t> failureslock;
     std::deque<std::pair<const Op *, size_t>> failures;
-    auto checkHash=[&failureslock, &failures](Op &op, char *base, size_t, boost::afio::async_io_op _h) -> std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> {
+    auto checkHash=[&failureslock, &failures](Op &op, char *base, size_t, async_io_op _h) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
             const char *data=(const char *)(((size_t) base+(size_t) op.req.where));
             size_t idxoffset=0;
 
@@ -561,7 +556,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
             {
                     const char *buffer=op.data[m];
                     size_t idx;
-                    for(idx=0; idx < boost::afio::asio::buffer_size(op.req.buffers[m]); idx++)
+                    for(idx=0; idx < asio::buffer_size(op.req.buffers[m]); idx++)
                     {
                             if(data[idx]!=buffer[idx])
                             {
@@ -576,9 +571,9 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                                     break;
                             }
                     }
-                    if(idx!=boost::afio::asio::buffer_size(op.req.buffers[m])) break;
-                    data+=boost::afio::asio::buffer_size(op.req.buffers[m]);
-                    idxoffset+=boost::afio::asio::buffer_size(op.req.buffers[m]);
+                    if(idx!=asio::buffer_size(op.req.buffers[m])) break;
+                    data+=asio::buffer_size(op.req.buffers[m]);
+                    idxoffset+=asio::buffer_size(op.req.buffers[m]);
             }
             return std::make_pair(true, _h.get());
     };
@@ -593,16 +588,16 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
                             manywrittenfiles[n]=dispatcher->write(op.req);
                     }
                     else
-                        manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<boost::afio::async_op_flags, std::function<boost::afio::async_file_io_dispatcher_base::completion_t>>(boost::afio::async_op_flags::none, std::bind(checkHash, ref(op), towriteptrs[n], placeholders::_1, placeholders::_2)));
+                        manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>(async_op_flags::none, std::bind(checkHash, std::ref(op), towriteptrs[n], std::placeholders::_1, std::placeholders::_2)));
             }
             // After replay, read the entire file into memory
-            manywrittenfiles[n]=dispatcher->read(boost::afio::async_data_op_req<char>(manywrittenfiles[n], towriteptrs[n], towritesizes[n], 0));
+            manywrittenfiles[n]=dispatcher->read(async_data_op_req<char>(manywrittenfiles[n], towriteptrs[n], towritesizes[n], 0));
     }
    
     // Close each of those files
     auto manyclosedfiles(dispatcher->close(manywrittenfiles));
     auto dispatched=chrono::high_resolution_clock::now();
-    cout << "There are now " << dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << endl;
+    std::cout << "There are now " << std::dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << std::endl;
 
     // Wait for all files to open
     when_all(manyopenfiles.begin(), manyopenfiles.end()).wait();
@@ -616,11 +611,11 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     end=closedsync;
 
     diff=chrono::duration_cast<secs_type>(end-begin);
-    cout << "It took " << diff.count() << " secs to do all operations" << endl;
+    std::cout << "It took " << diff.count() << " secs to do all operations" << std::endl;
     diff=chrono::duration_cast<secs_type>(dispatched-begin);
-    cout << "  It took " << diff.count() << " secs to dispatch all operations" << endl;
+    std::cout << "  It took " << diff.count() << " secs to dispatch all operations" << std::endl;
     diff=chrono::duration_cast<secs_type>(end-dispatched);
-    cout << "  It took " << diff.count() << " secs to finish all operations" << endl << endl;
+    std::cout << "  It took " << diff.count() << " secs to finish all operations" << std::endl << std::endl;
     off_t readed=0, written=0;
     size_t ops=0;
     diff=chrono::duration_cast<secs_type>(end-begin);
@@ -631,36 +626,36 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     }
     for(ptrdiff_t n=0; n<(ptrdiff_t) no; n++)
             ops+=todo[n].size();
-    cout << "We read " << readed << " bytes and wrote " << written << " bytes during " << ops << " operations." << endl;
-    cout << "  That makes " << (readed+written)/diff.count()/1024/1024 << " Mb/sec" << endl;
+    std::cout << "We read " << readed << " bytes and wrote " << written << " bytes during " << ops << " operations." << std::endl;
+    std::cout << "  That makes " << (readed+written)/diff.count()/1024/1024 << " Mb/sec" << std::endl;
 
     diff=chrono::duration_cast<secs_type>(openedsync-begin);
-    cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file opens per sec" << endl;
+    std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file opens per sec" << std::endl;
     diff=chrono::duration_cast<secs_type>(writtensync-openedsync);
-    cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file reads and writes per sec" << endl;
+    std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file reads and writes per sec" << std::endl;
     diff=chrono::duration_cast<secs_type>(closedsync-writtensync);
-    cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file closes per sec" << endl;
+    std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file closes per sec" << std::endl;
 
     BOOST_CHECK(failures.empty());
     if(!failures.empty())
     {
-            cerr << "The following hash failures occurred:" << endl;
+            std::cerr << "The following hash failures occurred:" << std::endl;
             while(!failures.empty())
             {
-                pair<const Op *, size_t> &failedop=failures.front();
+                std::pair<const Op *, size_t> &failedop=failures.front();
                 size_t bytes=0;
                 for(auto &b: failedop.first->req.buffers)
-                    bytes+=boost::afio::asio::buffer_size(b);
-                cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << std::to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << endl;
+                    bytes+=asio::buffer_size(b);
+                std::cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << std::to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << std::endl;
                 failures.pop_front();
             }
     }
     BOOST_TEST_MESSAGE("Checking if the final files have exactly the right contents ... this may take a bit ...");
-    cout << "Checking if the final files have exactly the right contents ... this may take a bit ..." << endl;
+    std::cout << "Checking if the final files have exactly the right contents ... this may take a bit ..." << std::endl;
     {
         // a vector for holding hash results from SpookyHash
         //SpookyHash returns 2 64bit integers for a 128 bit hash, so we store them as a pair
-        vector<std::pair<uint64, uint64>> filehashes(no);
+        std::vector<std::pair<uint64, uint64>> filehashes(no);
 
         for(size_t i = 0; i < no; ++i)
         {
@@ -678,7 +673,7 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
         for(size_t n=0; n<no; n++)
             if(memhashes[n]!=filehashes[n]) // compare hash values from ram and actual IO
             {
-                    string failmsg("File "+std::to_string(n)+" contents were not what they were supposed to be!");
+                    std::string failmsg("File "+std::to_string(n)+" contents were not what they were supposed to be!");
                     BOOST_TEST_MESSAGE(failmsg.c_str());
                     std::cerr << failmsg << std::endl;
             }
@@ -700,24 +695,24 @@ static void evil_random_io(std::shared_ptr<boost::afio::async_file_io_dispatcher
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
     // Wait for all files to delete
     when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
-    auto rmdir(dispatcher->rmdir(boost::afio::async_path_op_req("testdir")));
+    auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));
     // Fetch any outstanding error
     when_all(rmdir).wait();
     } catch(...) {
-        std::cerr << boost::afio::detail::output_exception_info << " thrown." << std::endl;
+        std::cerr << detail::output_exception_info << " thrown." << std::endl;
         throw;
     }
 }
 
 
-static std::ostream &operator<<(std::ostream &s, const boost::afio::chrono::system_clock::time_point &ts)
+static std::ostream &operator<<(std::ostream &s, const chrono::system_clock::time_point &ts)
 {
     char buf[64];
     struct tm *t;
     size_t len=sizeof(buf);
     size_t ret;
-    time_t v=boost::afio::chrono::system_clock::to_time_t(ts);
-    boost::afio::chrono::system_clock::duration remainder(ts-boost::afio::chrono::system_clock::from_time_t(v));
+    time_t v=chrono::system_clock::to_time_t(ts);
+    chrono::system_clock::duration remainder(ts-chrono::system_clock::from_time_t(v));
 
 #ifdef _MSC_VER
     _tzset();
@@ -744,7 +739,7 @@ static std::ostream &operator<<(std::ostream &s, const boost::afio::chrono::syst
     return s;
 }
 
-static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_handle> h)
+static stat_t print_stat(std::shared_ptr<async_io_handle> h)
 {
     using namespace boost::afio;
     auto entry=h->lstat(metadata_flags::All);
@@ -752,26 +747,26 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     switch(entry.st_type)
     {
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-    case boost::afio::filesystem::file_type::symlink_file:
+    case filesystem::file_type::symlink_file:
         std::cout << "link";
         break;
-    case boost::afio::filesystem::file_type::directory_file:
+    case filesystem::file_type::directory_file:
         std::cout << "directory";
         break;
-    case boost::afio::filesystem::file_type::regular_file:
+    case filesystem::file_type::regular_file:
         std::cout << "file";
         break;
     default:
         std::cout << "unknown";
         break;
 #else
-    case boost::afio::filesystem::file_type::symlink:
+    case filesystem::file_type::symlink:
         std::cout << "link";
         break;
-    case boost::afio::filesystem::file_type::directory:
+    case filesystem::file_type::directory:
         std::cout << "directory";
         break;
-    case boost::afio::filesystem::file_type::regular:
+    case filesystem::file_type::regular:
         std::cout << "file";
         break;
     default:
@@ -782,9 +777,9 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     std::cout << " and it has the following information:" << std::endl;
     if(
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-      boost::afio::filesystem::file_type::symlink_file
+      filesystem::file_type::symlink_file
 #else
-      boost::afio::filesystem::file_type::symlink
+      filesystem::file_type::symlink
 #endif
       ==entry.st_type)
     {
@@ -820,7 +815,7 @@ static boost::afio::stat_t print_stat(std::shared_ptr<boost::afio::async_io_hand
     return entry;
 }
 
-static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost::afio::directory_entry direntry)
+static void print_stat(std::shared_ptr<async_io_handle> dirh, directory_entry direntry)
 {
     using namespace boost::afio;
     std::cout << "Entry " << direntry.name() << " is a ";
@@ -828,26 +823,26 @@ static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost
     switch(entry.st_type)
     {
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-    case boost::afio::filesystem::file_type::symlink_file:
+    case filesystem::file_type::symlink_file:
         std::cout << "link";
         break;
-    case boost::afio::filesystem::file_type::directory_file:
+    case filesystem::file_type::directory_file:
         std::cout << "directory";
         break;
-    case boost::afio::filesystem::file_type::regular_file:
+    case filesystem::file_type::regular_file:
         std::cout << "file";
         break;
     default:
         std::cout << "unknown";
         break;
 #else
-    case boost::afio::filesystem::file_type::symlink:
+    case filesystem::file_type::symlink:
         std::cout << "link";
         break;
-    case boost::afio::filesystem::file_type::directory:
+    case filesystem::file_type::directory:
         std::cout << "directory";
         break;
-    case boost::afio::filesystem::file_type::regular:
+    case filesystem::file_type::regular:
         std::cout << "file";
         break;
     default:
@@ -885,5 +880,7 @@ static void print_stat(std::shared_ptr<boost::afio::async_io_handle> dirh, boost
     PRINT_FIELD(birthtim);
 #undef PRINT_FIELD
 }
+
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif

@@ -2,9 +2,10 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() works", 60)
 {
-    auto dispatcher=boost::afio::make_async_file_io_dispatcher();
+    using namespace BOOST_AFIO_V1_NAMESPACE;
+    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    auto dispatcher=make_async_file_io_dispatcher();
     std::cout << "Opening root directory for enumeration" << std::endl;
-    using namespace boost::afio;
     auto rootdir(dispatcher->dir(async_path_op_req("/", file_flags::Read)));
     auto rootdir2(dispatcher->dir(async_path_op_req("/", file_flags::Read)));
     when_all(rootdir).wait();
@@ -20,7 +21,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     bool first=true;
     do
     {
-        auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, directory_entry::compatibility_maximum(), first, boost::afio::filesystem::path(), directory_entry::metadata_fastpath())));
+        auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, directory_entry::compatibility_maximum(), first, filesystem::path(), directory_entry::metadata_fastpath())));
         first=false;
         list=enumeration.first.get();
         if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
@@ -35,7 +36,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     first=true;
     do
     {
-        auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, 1, first, boost::afio::filesystem::path(), directory_entry::metadata_fastpath())));
+        auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, 1, first, filesystem::path(), directory_entry::metadata_fastpath())));
         first=false;
         std::cout << ".";
         list=enumeration.first.get();

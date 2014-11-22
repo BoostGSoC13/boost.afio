@@ -5,7 +5,6 @@ File Created: Nov 2012
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "../ErrorHandling.hpp"
 #include "../../afio.hpp"
 #include <locale>
 #include <cstring>

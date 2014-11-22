@@ -78,6 +78,8 @@ File Created: Mar 2013
 #include "../valgrind/memcheck.h"
 #include "ErrorHandling.ipp"
 
+#include <unordered_map>
+
 #include <sys/types.h>
 #ifdef __MINGW32__
 // Workaround bad headers as usual in mingw
@@ -181,15 +183,15 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_MUNMAP munmap
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
-static inline boost::afio::chrono::system_clock::time_point to_timepoint(struct timespec ts)
+static inline chrono::system_clock::time_point to_timepoint(struct timespec ts)
 {
     // Need to have this self-adapt to the STL being used
-    static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) boost::afio::chrono::system_clock::period::den/boost::afio::chrono::system_clock::period::num;
+    static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) chrono::system_clock::period::den/chrono::system_clock::period::num;
     // We make the big assumption that the STL's system_clock is based on the time_t epoch 1st Jan 1970.
-    boost::afio::chrono::system_clock::duration duration(ts.tv_sec*STL_TICKS_PER_SEC+ts.tv_nsec/(1000000000ULL/STL_TICKS_PER_SEC));
-    return boost::afio::chrono::system_clock::time_point(duration);
+    chrono::system_clock::duration duration(ts.tv_sec*STL_TICKS_PER_SEC+ts.tv_nsec/(1000000000ULL/STL_TICKS_PER_SEC));
+    return chrono::system_clock::time_point(duration);
 }
-static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, boost::afio::metadata_flags wanted)
+static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, metadata_flags wanted)
 {
     using namespace boost::afio;
     if(!!(wanted&metadata_flags::dev)) { stat.st_dev=s.st_dev; }
@@ -230,24 +232,24 @@ struct iovec {
     size_t iov_len;     /* Number of bytes to transfer */
 };
 typedef ptrdiff_t ssize_t;
-static boost::afio::spinlock<bool> preadwritelock;
-inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, boost::afio::off_t offset)
+static spinlock<bool> preadwritelock;
+inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
-    boost::afio::off_t at=offset;
+    off_t at=offset;
     ssize_t transferred;
     std::lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
-    for(; iovcnt; iov++, iovcnt--, at+=(boost::afio::off_t) transferred)
+    for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
         if(-1==(transferred=_read(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
     return (ssize_t)(at-offset);
 }
-inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, boost::afio::off_t offset)
+inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
-    boost::afio::off_t at=offset;
+    off_t at=offset;
     ssize_t transferred;
     std::lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
-    for(; iovcnt; iov++, iovcnt--, at+=(boost::afio::off_t) transferred)
+    for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
         if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
     return (ssize_t)(at-offset);
 }
@@ -769,7 +771,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                                             char buffer2[4096];
                                             sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e %s %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
                                             FILE *ih=popen(buffer2, "r");
-                                            auto unih=boost::afio::detail::Undoer([&ih]{ if(ih) pclose(ih); });
+                                            auto unih=detail::Undoer([&ih]{ if(ih) pclose(ih); });
                                             if(ih)
                                             {
                                                 size_t length=fread(buffer2, 1, sizeof(buffer2), ih);
@@ -823,7 +825,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
     }
     for(size_t n=0; !p->fds.empty(); n++)
     {
-        boost::afio::this_thread::sleep_for(boost::afio::chrono::milliseconds(10));
+        this_thread::sleep_for(chrono::milliseconds(10));
         if(n>300)
         {
             std::cerr << "WARNING: ~async_file_dispatcher_base() sees no change in " << p->fds.size() << " stuck shared_ptr<async_io_handle>'s, so exiting destructor wait" << std::endl;
@@ -1149,7 +1151,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     async_io_op ret(this, thisid, thisop->h());
     typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop));
     bool done=false;
-    auto unopsit=boost::afio::detail::Undoer([this, thisid](){
+    auto unopsit=detail::Undoer([this, thisid](){
         std::string what;
         try { throw; } catch(std::exception &e) { what=e.what(); } catch(...) { what="not a std exception"; }
         BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
@@ -1182,7 +1184,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
             }
         }
     }
-    auto undep=boost::afio::detail::Undoer([done, this, &precondition, &item](){
+    auto undep=detail::Undoer([done, this, &precondition, &item](){
         if(done)
         {
             {
