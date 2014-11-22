@@ -31,6 +31,10 @@ DEALINGS IN THE SOFTWARE.
 */
 
 
+#if !ASIO_STANDALONE   
+#include "boost/exception/diagnostic_information.hpp"  
+#endif
+
 //! \def BOOST_AFIO_TYPEALIGNMENT(bytes) The markup this compiler uses to mark a type as having some given alignment
 #ifndef BOOST_AFIO_TYPEALIGNMENT
 #ifdef __cpp_alignas
