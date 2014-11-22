@@ -59,7 +59,6 @@
 [import ../example/closure_execution_traditional_io_example.cpp]
 [import ../example/completion_example1.cpp]
 [import ../example/completion_example2.cpp]
-[import ../example/current_exception_hack.cpp]
 [import ../example/enumerate_example.cpp]
 [import ../example/filecopy_example.cpp]
 [import ../example/filedir_example.cpp]
