@@ -275,6 +275,7 @@ BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
 #undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
 #undef BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
 // Map an error category
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 #if ASIO_STANDALONE
@@ -305,6 +306,7 @@ namespace boost { namespace asio {
 #endif
 #endif
 BOOST_AFIO_V1_NAMESPACE_END
+#endif
 
 // TODO FIXME: Replace this with bindings
 #include "spinlock/include/boost/spinlock/concurrent_unordered_map.hpp"
@@ -325,13 +327,13 @@ BOOST_AFIO_V1_NAMESPACE_END
 #if (defined(BOOST_AFIO_DYN_LINK) || defined(BOOST_ALL_DYN_LINK)) && \
     !defined(BOOST_AFIO_STATIC_LINK)
 
-#if defined(BOOST_AFIO_SOURCE)
-#undef BOOST_AFIO_HEADERS_ONLY
-#define BOOST_AFIO_DECL BOOST_SYMBOL_EXPORT
-#define BOOST_AFIO_BUILD_DLL
-#else
-#define BOOST_AFIO_DECL
-#endif
+# if defined(BOOST_AFIO_SOURCE)
+#  undef BOOST_AFIO_HEADERS_ONLY
+#  define BOOST_AFIO_DECL BOOST_SYMBOL_EXPORT
+#  define BOOST_AFIO_BUILD_DLL
+# else
+#  define BOOST_AFIO_DECL
+# endif
 #else
 # define BOOST_AFIO_DECL
 #endif // building a shared library

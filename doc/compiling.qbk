@@ -17,15 +17,43 @@ library headers in their programs in order to be able to access definitions
 and algorithms provided by the __boost_afio__ library. No linking against 
 any binaries is required. 
 
-__boost_afio__ is only dependant on headers-only __boost__ libraries apart
-from Boost.Filesystem. Boost.Filesystem in turn is dependant on Boost.System.
+As of v1.3 of the engine, __boost_afio__ is now capable of being used standalone
+with no dependencies. You choose the dependencies by setting the following macros or
+leaving them default:
+
+* `BOOST_AFIO_USE_BOOST_THREAD` (defaults to 0): Use Boost instead of the C++ 11 STL for
+atomic, chrono, future, mutex and thread. This is useful where your C++ 11 STL is deficient.
+
+* `BOOST_AFIO_USE_BOOST_FILESYSTEM` (defaults to 0 except on VS2015 and later): Use
+__boost_filesystem__ instead of the C++ 1y Filesystem TS provided by your STL. As
+currently only VS2015 provides Filesystem, it only defaults to 1 for that platform.
+
+* `ASIO_STANDALONE` (defaults to undefined): Use standalone ASIO instead of __boost_asio__.
+You will need to provide a copy of standalone ASIO on your include path.
+
+If you wish to run unit tests, you may also adjust:
+
+* `BOOST_AFIO_USE_BOOST_UNIT_TEST` (defaults to 0): Use __boost_test__ instead
+of __boost_bindlib__'s emulation based on __catch__.
+
+Thanks to __boost_bindlib__, if your compiler has inline namespace support, you can multiply use the above four build config
+macros in [*any] combination you like, ['including] within the same translation unit
+i.e. a Boost.Thread based AFIO coexists happily with a C++ 11 STL AFIO in the same compiland,
+and any combination thereof. Simply undefine the old values of the macros, and define new values
+including afio.hpp afterwards.
+
+If you do make use of __boost_filesystem__ in your AFIO build, note that
+Boost.Filesystem is dependant on Boost.System which will also need to be linked in.
 On some platforms (e.g. ARM) you may also need Boost.Atomic.
 
-In order to be able to use __boost_afio__, the only thing users need to do 
-is to download and/or install Boost and specify location to include 
-directories, so `include` directives of this scheme will work:
+After defining your build macros of choice, making AFIO available to your
+code is as simple as:
 
-    #include <boost/...>
+    #include "boost.afio/include/boost/afio.hpp"
+
+if being used standalone or if being used as part of Boost:
+
+    #include "boost/afio.hpp"
 
 [heading:trunk_status Supported Compilers And Current Trunk Build And Unit Test State]
 [#unit_test_dashboard]
@@ -469,11 +497,14 @@ directories, so `include` directives of this scheme will work:
 '''
 
 
-[heading Boost AFIO Installation]
+[heading Boost AFIO Installation into Boost]
+
+As of v1.3 of the engine, you can simply git clone __boost_afio__ and get to work. If however you
+wish to use AFIO as part of the Boost libraries, AFIO is also a Boost module:
 
 # Download the latest version of the Boost Libraries from boost.org. 
-  At the time of writing the current version is Boost 1.56. 
-  Boost AFIO is not compatible with versions of Boost earlier than 1.56 as this was
+  At the time of writing the current version is Boost 1.57. 
+  Installing AFIO as a Boost module is not compatible with versions of Boost earlier than 1.56 as this was
   the first Boost version to become source code modularised.
 
 
@@ -509,7 +540,7 @@ directories, so `include` directives of this scheme will work:
 
 #  If you'd also like to execute the unit test suite, do:
   ``
-    b2 libs/afio/test
+    ./b2 libs/afio/test
   ``
 
 #  Similar if you'd like to build documentation, do:
@@ -528,14 +559,30 @@ be used in exactly the same way as if AFIO were already part of Boost.
 
 [heading Running the Unit Tests]
 
-To run the unit tests with [*bjam], run [*b2] from the command line from inside the [*libs/afio/tests] directory. 
-This will run the entire suite of unit tests. Remember that this requires that you have Boost.Build
-properly installed on your system. Please consult boost.org for instructions on how to install 
-Boost.Build.  [@http://www.boost.org/doc/libs/1_54_0/doc/html/bbv2/installation.html]
+To run the unit tests as a standalone build, some like these will probably work for GCC and MSVC respectively:
 
-There are a few command line arguments being used for the unit tests at the moment. These won’t
-be available as the project nears completion, but they serve a useful purpose for the project at the 
-moment. 
+``
+  #!/bin/sh
+  if [ ! -d asio ]; then
+    git clone https://github.com/chriskohlhoff/asio.git
+  fi
+  rm -rf test_all
+  g++ -o test_all -g -O3 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -DSPINLOCK_STANDALONE=1 -Iasio/asio/include -DASIO_STANDALONE=1 -DBOOST_AFIO_RUNNING_IN_CI=1 -lboost_filesystem -lboost_system -lpthread
+``
+
+Note the dependency on __boost_filesystem__ as libstdc++ 4.9 (the last I tested) has insufficient Filesystem support. For VS2015:
+
+``
+  if not exist asio git clone https://github.com/chriskohlhoff/asio.git
+  cl /Zi /EHs /O2 /MD /GF /GR /Gy /bigobj test\test_all.cpp detail\SpookyV2.cpp /DUNICODE=1 /DWIN32=1 /D_UNICODE=1 /D_WIN32=1 /Iinclude /Itest /DAFIO_STANDALONE=1 /DSPINLOCK_STANDALONE=1 /Iasio/asio/include /DASIO_STANDALONE=1 /DBOOST_AFIO_RUNNING_IN_CI=1
+``
+
+
+To run the unit tests under Boost with [*bjam], run from the boost top directory:
+``
+  ./b2 libs/afio/test
+``
+This will run the entire suite of unit tests. Some useful command line arguments for Boost.Build:
 
 * [*--link-test]: will only compile and link the test files. This option can be combined with 
                 the [*--test=] option to only compile and link a specific subset of unit tests.

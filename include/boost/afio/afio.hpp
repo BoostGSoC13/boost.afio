@@ -64,8 +64,25 @@ for dispatch. This, being very useful for debugging, defaults to 1 except when
 
 /*! \file afio.hpp
 \brief Provides a batch asynchronous file i/o implementation based on Boost.ASIO
-
 */
+/*! \def BOOST_AFIO_HEADERS_ONLY
+\brief Determines if AFIO is compiled as headers only. Defaults to 1.
+*/
+/*! \def BOOST_AFIO_USE_BOOST_THREAD
+\brief Determines if AFIO is bound against Boost.Thread or the C++ 11 STL thread. Defaults to 0.
+*/
+/*! \def BOOST_AFIO_USE_BOOST_FILESYSTEM
+\brief Determines if AFIO is bound against Boost.Filesystem or the C++ 1z Filesystem TS. Defaults to 1 unless on VS2015 which provides a full Filesystem TS implementation.
+*/
+/*! \def ASIO_STANDALONE
+\brief Determines if AFIO is bound against standalone ASIO or Boost.ASIO. Defaults to undefined, and therefore Boost.ASIO.
+*/
+#ifdef DOXYGEN_SHOULD_SKIP_THIS
+#define BOOST_AFIO_HEADERS_ONLY 1
+#define BOOST_AFIO_USE_BOOST_THREAD 0
+#define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
+#define ASIO_STANDALONE 0
+#endif
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
@@ -1713,7 +1730,7 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t, std::vector<async_io_op> ops)
+inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, std::vector<async_io_op> ops)
 {
     if(ops.empty())
         return future<std::vector<std::shared_ptr<async_io_handle>>>();
@@ -1729,7 +1746,7 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothr
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-inline future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t, std::vector<async_io_op> ops)
+inline future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::vector<async_io_op> ops)
 {
     if(ops.empty())
         return future<std::shared_ptr<async_io_handle>>();
@@ -2758,7 +2775,7 @@ namespace std
 #pragma warning(pop)
 #endif
 
-#if BOOST_AFIO_HEADERS_ONLY == 1
+#if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
 #undef BOOST_AFIO_VALIDATE_INPUTS // Let BOOST_AFIO_NEVER_VALIDATE_INPUTS take over
 #include "detail/impl/afio.ipp"
 #endif

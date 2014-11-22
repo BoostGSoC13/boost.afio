@@ -15,10 +15,10 @@
 Returns the process threadpool. 
 
 [heading Description]
-On first use, this instantiates a default std\u005fthread\u005fpool running `BOOST\u005fAFIO\u005fMAX\u005fNON\u005fASYNC\u005fQUEUE\u005fDEPTH` threads which will remain until its shared count reaches zero. 
+On first use, this instantiates a default std\u005fthread\u005fpool running [^`BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH`] threads which will remain until its shared count reaches zero. 
 
 [heading Synopsis]
-``BOOST_AFIO_DECL std::shared_ptr<std_thread_pool> process_threadpool()``
+``std::shared_ptr<std_thread_pool> process_threadpool()``
 
 [heading Parameters]
 

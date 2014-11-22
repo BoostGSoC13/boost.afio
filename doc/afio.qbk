@@ -8,7 +8,7 @@
 
 [library Boost.AFIO
     [quickbook 1.7]
-    [version 1.22]
+    [version 1.30]
     [id afio]
     [category afio]
     [authors [Douglas, Niall], [Kirth, Paul]]
@@ -24,6 +24,7 @@
 
 [def __boost__ Boost]
 [def __boost_afio__ Boost.AFIO]
+[def __boost_bindlib__ Boost.BindLib]
 [def __triplegit__ TripleGit]
 [def __dash__ \u2014]
 [def __tick__ [role aligncenter [role green \u2714]]]
@@ -34,6 +35,8 @@
 [def __boost_thread__ [@http://www.boost.org/libs/thread/ Boost.Thread]]
 [def __boost_filesystem__ [@http://www.boost.org/libs/filesystem/ Boost.Filesystem]]
 [def __boost_iostreams__ [@http://www.boost.org/libs/iostreams/ Boost.Iostreams]]
+[def __boost_test__ [@http://www.boost.org/libs/iostreams/ Boost.Test]]
+[def __catch__ [@https://github.com/philsquared/Catch]]
 [def __WG21_N3562__ [@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3731.pdf WG21 N3731 (Executors and schedulers v2)]]
 [def __WG21_N3634__ [@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3721.pdf WG21 N3721 (Improvements to std::future<T> and Related APIs)]]
 [def ___WG21_N3634__ WG21 N3721 (Improvements to std::future<T> and Related APIs)]
@@ -68,16 +71,30 @@
 [import ../example/readwrite_example_traditional.cpp]
 
 [section:introduction Introduction]
-__boost_afio__ is a C++ library which lets you schedule a dependency graph of synchronous
+__boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file
 input/output operations to be executed asynchronously to the maximum capacity of your hardware. Its
 execution engine is lock free and wait free[footnote Its dependency Boost.ASIO may lock and wait.]
-and scales linearly with CPU cores[footnote Tested up to a four core eight thread CPU.]. In addition
-to a pure portable POSIX file i/o backend, specialised file i/o backends making use of host OS asynchronous
-file i/o facilities are provided for:
+and scales linearly with CPU cores[footnote Tested up to a four core eight thread CPU.]. If you want
+to do portable asynchronous file i/o in C++, this is the correct library to be looking at.
+
+__boost_afio__ is a __boost_bindlib__ based Boost library, and therefore is capable of any combination of
+the following build configurations:
+
+* Uses either Boost OR the C++ 11 STL for atomic, thread, future, chrono etc.
+* Uses either Boost OR the C++ 1y STL for Fileystem. At the time of writing, only VS2015 provides Filesystem
+in its STL.
+* Uses either Boost OR standalone ASIO for the i/o engine.
+
+You may note that as a result AFIO can be used as a completely standalone header-only library totally independent from
+any dependencies on Boost which can be dropped into any existing build system as a simple single header include. This,
+incidentally, also extends to its unit test suite which can use either __boost_test__ OR __catch__.
+
+__boost_afio__ provides a pure portable POSIX file i/o backend and specialised file i/o backends
+making use of host OS asynchronous file i/o facilities are provided for:
 
 * Windows NT IOCP (since v1.0)
-* Linux KAIO (planned for v1.3)
-* POSIX AIO, suitable for BSD only (planned for v1.4)
+* Linux KAIO (planned for v1.x)
+* POSIX AIO, suitable for BSD only (planned for v1.x)
 
 __boost_afio__ extends __boost_asio__ and provides an alternative way of programming with ASIO.
 Implementation of this first version has been kept as simple as possible (~ 1000 active
@@ -92,7 +109,8 @@ Note that __boost_afio__ was originally written purely in C++11 and backported l
 It requires, as an absolute minimum, a compiler with rvalue reference support. Some popular
 compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ our Jenkins CI bot] include:
 
-* Microsoft Visual Studio 2010, released in 2010.
+* Microsoft Visual Studio 2010, released in 2010. As of v1.3 of the engine, Microsoft
+Visual Studio 2013 is now minimally required.
 * GNU Compiler Collection v4.6, released in 2011, but may work with as early as GCC v4.3.
 * clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
 
