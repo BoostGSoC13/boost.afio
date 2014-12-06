@@ -105,7 +105,7 @@ static inline void set_maximum_cpus(size_t no=0)
 #endif
 
 // Boost.Test uses alarm() to timeout tests, which is nearly useless. Hence do our own.
-static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<bool, condition_variable>> cv)
+static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<atomic<bool>, condition_variable>> cv)
 {
     detail::set_threadname("watchdog_thread");
     bool docountdown=timeout>10;
@@ -188,7 +188,7 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
     std::cout << std::endl << desc << std::endl;                        \
     try { BOOST_AFIO_V1_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
     BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
-    auto cv=std::make_shared<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
+    auto cv=std::make_shared<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
     BOOST_AFIO_V1_NAMESPACE::thread watchdog(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv);                 \
     boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { BOOST_AFIO_V1_NAMESPACE::wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
 }                                                                       \
@@ -212,11 +212,11 @@ CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)           
     std::cout << std::endl << __desc << std::endl;                        \
     try { BOOST_AFIO_V1_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
     BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
-    auto cv=std::make_shared<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
+    auto cv=std::make_shared<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
     struct __deleter_t {                                                \
-      std::shared_ptr<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>> cv;     \
+      std::shared_ptr<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>> cv;     \
       BOOST_AFIO_V1_NAMESPACE::thread watchdog;                                             \
-      __deleter_t(std::shared_ptr<std::pair<bool, BOOST_AFIO_V1_NAMESPACE::condition_variable>> _cv, \
+      __deleter_t(std::shared_ptr<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>> _cv, \
         BOOST_AFIO_V1_NAMESPACE::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
       ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
     } __deleter(cv, BOOST_AFIO_V1_NAMESPACE::thread(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv));         \

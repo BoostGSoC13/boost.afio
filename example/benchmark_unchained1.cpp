@@ -17,7 +17,7 @@ int main(void)
 {
     using namespace boost::afio;
     auto dispatcher=make_async_file_io_dispatcher();
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
     

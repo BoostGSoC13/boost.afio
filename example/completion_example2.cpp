@@ -39,8 +39,7 @@ int main(void)
             {
                 // In non-deferred completions AFIO traps exceptions for you. Here, you must
                 // do it by hand and tell AFIO about what exception state to return.
-                boost::afio::exception_ptr e(boost::afio::make_exception_ptr(
-                    boost::afio::current_exception()));
+                boost::afio::exception_ptr e(boost::afio::current_exception());
                 dispatcher->complete_async_op(id, e);
             }
             return 0;

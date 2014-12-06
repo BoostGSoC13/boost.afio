@@ -12,7 +12,7 @@ Boost.AFIO Jenkins CI status:
 <tr><th>OS</th><th>Compiler</th><th>STL</th><th>CPU</th><th>Build</th><th>Unit tests</th></tr>
 
 <!-- static analysis clang -->
-<tr align="center"><td rowspan="2">Static analysis</td><td>clang 3.4</td><td></td><td></td><td>
+<tr align="center"><td rowspan="2">Static analysis</td><td>clang 3.4 + GCC 4.7</td><td></td><td></td><td>
 <div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20clang/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20clang' /></a></div></td><td></td>
 </tr>
 
@@ -39,15 +39,11 @@ Boost.AFIO Jenkins CI status:
 </tr>
 
 <!-- clang 3.2 x86 -->
-<tr align="center"><td rowspan="4">Ubuntu Linux 12.04 LTS</td><td>clang 3.2</td><td>libstdc++ 4.8</td><td>x86</td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.2'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.2/badge/icon' /></a></div></td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.2'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.2/badge/icon' /></a></div></td>
+<tr align="center"><td rowspan="3">Ubuntu Linux 12.04 LTS</td><td>clang 3.2</td><td>libstdc++ 4.8</td><td>x86</td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.2'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.2/badge/icon' /></a></div></td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.2'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.2/badge/icon' /></a></div></td>
 </tr>
 
 <!-- clang 3.3 x86 -->
 <tr align="center"><td>clang 3.3</td><td>libstdc++ 4.8</td><td>x86</td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.3'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_clang%203.3/badge/icon' /></a></div></td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.3'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_clang%203.3/badge/icon' /></a></div></td>
-</tr>
-
-<!-- GCC 4.6 x86 -->
-<tr align="center"><td>GCC 4.6</td><td>libstdc++ 4.6</td><td>x86</td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_GCC%204.6'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build%20POSIX_Linux32_GCC%204.6/badge/icon' /></a></div></td><td><div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_GCC%204.6'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Test%20POSIX_Linux32_GCC%204.6/badge/icon' /></a></div></td>
 </tr>
 
 <!-- GCC 4.7 x86 -->

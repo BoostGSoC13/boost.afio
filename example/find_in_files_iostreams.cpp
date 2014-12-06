@@ -3,6 +3,9 @@
 #include <fstream>
 #include <regex>
 #include <chrono>
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#include "boost/filesystem/fstream.hpp"
+#endif
 
 /* My Intel Core i7 3770K running Windows 8 x64 with 7200rpm drive, using
 Sysinternals RAMMap to clear disc cache (http://technet.microsoft.com/en-us/sysinternals/ff700229.aspx)
@@ -28,8 +31,11 @@ The search took 741.131 seconds which was 52.4684 files per second or 7.94029 Mb
 int main(int argc, const char *argv[])
 {
     using namespace std;
-    using filesystem::ifstream;
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    namespace filesystem = boost::afio::filesystem;
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+    using boost::filesystem::ifstream;
+#endif
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
     if(argc<2)
     {
         cerr << "ERROR: Specify a regular expression to search all files in the current directory." << endl;
@@ -47,7 +53,12 @@ int main(int argc, const char *argv[])
         vector<filesystem::path> filepaths;
         for(auto it=filesystem::recursive_directory_iterator("."); it!=filesystem::recursive_directory_iterator(); ++it)
         {
-            if(it->status().type()!=filesystem::regular_file)
+            if(it->status().type()!=
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+              filesystem::file_type::regular_file)
+#else
+              filesystem::file_type::regular)
+#endif
                 continue;
             filepaths.push_back(it->path());
         }

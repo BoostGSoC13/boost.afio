@@ -38,7 +38,7 @@ int main(void)
         list=enumeration.first.get();
         for(boost::afio::directory_entry &i : list.first)
         {
-            std::cout << i.name() << " type " << i.st_type() << std::endl;
+            std::cout << i.name() << " type " << static_cast<int>(i.st_type()) << std::endl;
         }
     } while(list.second);
     //]

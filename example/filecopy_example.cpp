@@ -9,7 +9,7 @@ namespace {
     future<std::vector<std::shared_ptr<async_io_handle>>> async_concatenate_files(
         atomic<off_t> &written, off_t &totalbytes,
         std::shared_ptr<async_file_io_dispatcher_base> dispatcher,
-        std::filesystem::path dest, std::vector<std::filesystem::path> sources,
+        boost::afio::filesystem::path dest, std::vector<boost::afio::filesystem::path> sources,
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
         // Schedule the opening of the output file for writing
@@ -83,7 +83,7 @@ int main(int argc, const char *argv[])
 {
     using namespace boost::afio;
     using boost::afio::off_t;
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
     if(argc<3)
     {
         std::cerr << "ERROR: Need to specify destination path and source paths"
@@ -97,8 +97,8 @@ int main(int argc, const char *argv[])
         std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
             boost::afio::make_async_file_io_dispatcher();
 
-        std::filesystem::path dest=argv[1];
-        std::vector<std::filesystem::path> sources;
+        boost::afio::filesystem::path dest=argv[1];
+        std::vector<boost::afio::filesystem::path> sources;
         std::cout << "Concatenating into " << dest << " the files ";
         for(int n=2; n<argc; argc++)
         {
@@ -111,7 +111,7 @@ int main(int argc, const char *argv[])
         auto begin=chrono::steady_clock::now();
         auto h=async_concatenate_files(written, totalbytes, dispatcher, dest, sources);
         // Print progress once a second until it's done
-        while(future_status::timeout==h.wait_for(boost::chrono::seconds(1)))
+        while(future_status::timeout==h.wait_for(boost::afio::chrono::seconds(1)))
         {
             std::cout << "\r" << (100*written)/totalbytes << "% complete (" << written
                 << " out of " << totalbytes << " @ " << (written/chrono::duration_cast<secs_type>(

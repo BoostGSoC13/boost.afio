@@ -31,7 +31,7 @@ int main(void)
             
         // Close the file and delete it
         openfile.close();  /*< closes file >*/
-        std::filesystem::remove("example_file.txt");  /*< deletes file >*/
+        boost::afio::filesystem::remove("example_file.txt");  /*< deletes file >*/
         
         // Convert the read array into a string
         std::string contents(buffer.begin(), buffer.end());

@@ -12,14 +12,6 @@
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
-* It is hereby noted that the v1.2 engine will be the last to support Microsoft
-Visual Studio 2010. v1.3 engines will [*require] Microsoft Visual Studio 2012
-or better.
-
-* The v1.3 engine will gain a new concurrent unordered_map implementation giving
-still further significant performance gains. This will remove all locking completely
-from AFIO code.
-
 * The v1.4 engine will have an async fast batch hash engine which provides
 transparent hashing of all async reads and writes.
   * New completion handler metaprogramming letting you bind add hash to each
@@ -44,7 +36,36 @@ using a shocking amount of RAM.
 
 
 [/=================]
-[heading Boost 1.56 AFIO v1.22 trunk]
+[heading Boost 1.57 AFIO v1.3x unstable branch]
+[/=================]
+
+AFIO is now a Boost.BindLib based library. This has resulted in an enormous change set
+which is only barely summarised here:
+
+* AFIO is now capable of:
+  * Being used standalone, or as a Boost module, or if you have inline namespace support in your
+  compiler then both simultaneously in the same translation unit or in the same binary, including
+  any combination of the following library dependency configurations (config macro and its default
+  is shown):
+  * Using Boost.Atomic, Boost.Chrono and Boost.Thread OR the C++ 11 STL (BOOST_AFIO_USE_BOOST_THREAD=0).
+  * Using Boost.Filesystem OR the C++ 1z Filesystem TS (BOOST_AFIO_USE_BOOST_FILESYSTEM=1, except on
+  VS2015 which provides Filesystem).
+  * Using Boost.ASIO OR standalone ASIO (ASIO_STANDALONE=0)
+  
+  That makes eight different potential configurations, and all eight can coexist in the same translation unit,
+  though you will find compilation time becomes enormous.
+
+* AFIO's unit test suite no longer requires Boost.Test, and can now alternatively use CATCH C++
+(BOOST_AFIO_USE_BOOST_UNIT_TEST=0).
+
+* Dropped support for these compiler versions due to insufficient C++ 11 support:
+  * Anything before GCC 4.7, as these lack template alias support.
+  * Anything before VS2013, as these lack template alias support. I took the opportunity to clean out
+  the VS2010 special code paths and all the variadic template emulation.
+
+
+[/=================]
+[heading Boost 1.57 AFIO v1.22 stable branch]
 [/=================]
 
 Fixed buffer underflow when decoding Win32 error codes to strings. Thanks to ariccio
@@ -213,49 +234,43 @@ First release for end of Google Summer of Code 2013.
 [section:closure_performance What is the maximum throughput of AFIO's closure execution engine aka
 how many IOPS can I push with AFIO?]
 
-For v1.21 of the engine, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
+For v1.3 of the engine, maximum ops [*dispatch] throughput is approximately as follows, where the values for `call()` might be for
 use as a closure engine whereas the values for `completion()` might be for max filing system IOPS[footnote The phrase
 ["might be] is important: a null closure benchmark will always have dispatch rate problems i.e. the closures being executed
 take less time to execute than the time to dispatch them, so these figures are best read as maximum dispatch rate, not
 maximum IOPS.]:
 
-[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.21[footnote Not using Intel TSX.
-Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
+[table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.3[footnote Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
 [[Operating system][`call()` unchained][`call()` chained][`completion()` unchained][`completion()` chained][Raw ASIO]]
 [[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 1133730]][[role alignright 605569]][[role alignright 1629110]][[role alignright 647738]][[role alignright 2376440]]]
 [[['Relative to ASIO]][[role alignright 48%]][[role alignright 25%]][[role alignright 69%]][[role alignright 27%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.21]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[role alignright 100%]]]
 [[['Relative to AFIO v1.1]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[role alignright 100%]]]
 [[][][][][][]]
 
 [[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1291250]][[role alignright 1022970]][[role alignright 1479540]][[role alignright 1200450]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
 [[['Relative to ASIO]][[role alignright 80%]][[role alignright 64%]][[role alignright 92%]][[role alignright 75%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.21]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
 [[['Relative to AFIO v1.1]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
 [[][][][][][]]
 
-[[Microsoft Windows 8 x64 with Visual Studio 2010][[role alignright 930424]][[role alignright 709952]][[role alignright 1495740]][[role alignright 697333]][[role alignright 2393570]]]
-[[['Relative to ASIO]][[role alignright 39%]][[role alignright 30%]][[role alignright 62%]][[role alignright 29%]][[role alignright 100%]]]
-[[['Relative to AFIO v1.1]][[role alignright +43%]][[role alignright +51%]][[role alignright +46%]][[role alignright +14%]][[role alignright 100%]]]
 ]
-
-Note how Visual Studio with its incomplete C++ 11 support does not fare well against a fully C++ 11 compliant compiler. In fact,
-with the v1.21 engine old VS2010 riddled with compatibility shims does surprisingly well, the new much simpler implementation really
-favours VS2010 to the extent it's actually faster than VS2013 for chained ops.
 
 We hope that ~600k min IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
 PCIe based SSD too, and if paired with a CPU with more cores, AFIO's almost wait free design ought to scale out fairly
-well too such that it may be able to max out even top end PCIe SSDs, some of which can push 10m IOPS now. If that isn't
-fast enough for you, try AFIO on an Intel CPU with memory transaction support (a runtime check will automatically
-replace locks with TSX memory transactions), or try support for `__transaction_relaxed` compilers if `BOOST_HAVE_TRANSACTIONAL_MEMORY_COMPILER` is defined.
+well too such that it may be able to max out even top end PCIe SSDs, some of which can push 10m IOPS now.
 
 [endsect] [/closure_performance]
 
 [section:closure_latency What is the latency of AFIO's closure execution engine aka
 how quickly can I push a single op with AFIO?]
 
-For v1.21 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
+For v1.3 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
 the following latency graph which is in CPU cycles:
 
 [role aligncenter [$afio_latencies.svg]]
+
+[role aligncenter [$afio_latencies_1.2.svg]]
 
 The solid lines represent average dispatch to execution and execution finish to completion
 notification latencies and are cumulative on the left scale, whilst the dotted lines represent
