@@ -106,11 +106,11 @@ project boost/afio/test
       <toolset>msvc:<define>_UNICODE
       <target-os>linux:<linkflags>"-lpthread -ldl -lrt"
       <target-os>freebsd:<linkflags>"-lpthread"
-      <link>shared:<define>BOOST_AFIO_DYN_LINK=1<define>BOOST_TEST_DYN_LINK=1
+      <link>shared:<define>BOOST_AFIO_DYN_LINK=1
       <library>../../system/build//boost_system
       <library>../../filesystem/build//boost_filesystem
       <library>../../atomic/build//boost_atomic
-      <library>../../thread/build//boost_thread      
+      <library>../../thread/build//boost_thread
       <define>BOOST_AFIO_USE_BOOST_UNIT_TEST=1
       <library>../../test/build//boost_unit_test_framework
       <conditional>@running-in-ci
