@@ -73,8 +73,8 @@ DEALINGS IN THE SOFTWARE.
 #undef BOOST_AFIO_V1_NAMESPACE_BEGIN
 #undef BOOST_AFIO_V1_NAMESPACE_END
 
-// Default to the C++ 11 STL for atomic, chrono, mutex and thread
-#if defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD
+// Default to the C++ 11 STL for atomic, chrono, mutex and thread except on libstdc++ 4.6 and earlier
+#if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(BOOST_GCC) && BOOST_GCC <= 40600)
 # define BOOST_AFIO_V1_STL11_IMPL boost
 #else
 # define BOOST_AFIO_V1_STL11_IMPL std
