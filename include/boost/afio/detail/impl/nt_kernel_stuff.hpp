@@ -8,9 +8,10 @@ File Created: Mar 2013
 #include <Windows.h>
 #include <winioctl.h>
 
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+
 namespace windows_nt_kernel
 {
-    namespace filesystem = boost::afio::filesystem;
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/FILE_INFORMATION_CLASS.html
     typedef enum _FILE_INFORMATION_CLASS {
         FileDirectoryInformation                 = 1,
@@ -418,16 +419,16 @@ namespace windows_nt_kernel
 #endif
     }
 
-    static inline boost::afio::chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)
+    static inline chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)
     {
         // We make the big assumption that the STL's system_clock is based on the time_t epoch 1st Jan 1970.
         static BOOST_CONSTEXPR_OR_CONST unsigned long long FILETIME_OFFSET_TO_1970=((27111902ULL << 32U) + 3577643008ULL);
         // Need to have this self-adapt to the STL being used
-        static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) boost::afio::chrono::system_clock::period::den/boost::afio::chrono::system_clock::period::num;
+        static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) chrono::system_clock::period::den/chrono::system_clock::period::num;
 
         unsigned long long ticks_since_1970=(time.QuadPart - FILETIME_OFFSET_TO_1970); // In 100ns increments
-        boost::afio::chrono::system_clock::duration duration(ticks_since_1970/(10000000ULL/STL_TICKS_PER_SEC));
-        return boost::afio::chrono::system_clock::time_point(duration);
+        chrono::system_clock::duration duration(ticks_since_1970/(10000000ULL/STL_TICKS_PER_SEC));
+        return chrono::system_clock::time_point(duration);
     }
 
     // Adapted from http://www.cprogramming.com/snippets/source-code/convert-ntstatus-win32-error
@@ -455,7 +456,7 @@ namespace windows_nt_kernel
 
 // WinVista and later have the SetFileInformationByHandle() function, but for WinXP
 // compatibility we use the kernel syscall directly
-static inline bool wintruncate(HANDLE h, boost::afio::off_t newsize)
+static inline bool wintruncate(HANDLE h, off_t newsize)
 {
     windows_nt_kernel::init();
     using namespace windows_nt_kernel;
@@ -463,7 +464,7 @@ static inline bool wintruncate(HANDLE h, boost::afio::off_t newsize)
     BOOST_AFIO_ERRHNT(NtSetInformationFile(h, &isb, &newsize, sizeof(newsize), FileEndOfFileInformation));
     return true;
 }
-static inline int winftruncate(int fd, boost::afio::off_t _newsize)
+static inline int winftruncate(int fd, off_t _newsize)
 {
 #if 1
     return wintruncate((HANDLE) _get_osfhandle(fd), _newsize) ? 0 : -1;
@@ -481,7 +482,7 @@ static inline int winftruncate(int fd, boost::afio::off_t _newsize)
     }
 #endif
 }
-static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, boost::afio::metadata_flags wanted)
+static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, metadata_flags wanted)
 {
     using namespace boost::afio;
 #ifndef WIN32
@@ -503,5 +504,7 @@ static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=chrono::system_clock::from_time_t(s.st_ctime); }
     if(!!(wanted&metadata_flags::size)) { stat.st_size=s.st_size; }
 }
+
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif

@@ -177,7 +177,7 @@ namespace detail {
                     HANDLE sectionh;
                     if(INVALID_HANDLE_VALUE!=(sectionh=CreateFileMapping(myid, NULL, PAGE_READONLY, 0, 0, nullptr)))
                     {
-                        auto unsectionh=boost::afio::detail::Undoer([&sectionh]{ CloseHandle(sectionh); });
+                        auto unsectionh=detail::Undoer([&sectionh]{ CloseHandle(sectionh); });
                         mapaddr=MapViewOfFile(sectionh, FILE_MAP_READ, 0, 0, 0);
                     }
                 }
@@ -436,7 +436,7 @@ namespace detail {
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const asio::error_code &ec, size_t bytes_transferred)
         {
             if(!this->p->filters_buffers.empty())
             {
@@ -494,7 +494,7 @@ namespace detail {
             {
                 amount+=asio::buffer_size(b);
             }
-            auto bytes_to_transfer=std::make_shared<std::tuple<boost::afio::atomic<bool>, boost::afio::atomic<size_t>, detail::async_data_op_req_impl<true>>>();
+            auto bytes_to_transfer=std::make_shared<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>>();
             //mingw choked on atomic<T>::operator=, thought amount was atomic&, so changed to store to avoid issue
             std::get<1>(*bytes_to_transfer).store(amount);
             std::get<2>(*bytes_to_transfer)=req;
