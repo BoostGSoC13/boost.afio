@@ -285,13 +285,13 @@ using std::system_category;
 using boost::system::generic_category;
 using boost::system::system_category;
 #endif
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && 0
 // Stupid MSVC doesn't resolve namespace binds correctly ...
 #if ASIO_STANDALONE
 namespace asio {
   namespace asio = ::asio;
   namespace detail { namespace asio = ::asio; }
-  namespace windows { namespace asio = ::asio; }
+  //namespace windows { namespace asio = ::asio; }
 }
 namespace asio_handler_cont_helpers { namespace asio = ::asio; }
 namespace asio_handler_alloc_helpers { namespace asio = ::asio; }

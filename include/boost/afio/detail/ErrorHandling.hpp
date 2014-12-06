@@ -31,7 +31,9 @@ DEALINGS IN THE SOFTWARE.
 #include <string>
 #include <stdexcept>
 
-
+#if defined(BOOST_MSVC) && BOOST_MSVC<=1800 && !defined(__func__)
+#define __func__ __FUNCTION__
+#endif
 
 #ifdef BOOST_AFIO_EXCEPTION_DISABLESOURCEINFO
 #define BOOST_AFIO_EXCEPTION_FILE(p) (const char *) 0
