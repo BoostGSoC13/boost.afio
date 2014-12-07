@@ -237,7 +237,7 @@ inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
     off_t at=offset;
     ssize_t transferred;
-    std::lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
+    lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
     for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
         if(-1==(transferred=_read(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
@@ -247,7 +247,7 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset
 {
     off_t at=offset;
     ssize_t transferred;
-    std::lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
+    lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
     if(-1==_lseeki64(fd, offset, SEEK_SET)) return -1;
     for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
         if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
@@ -284,7 +284,7 @@ std::shared_ptr<std_thread_pool> process_threadpool()
     std::shared_ptr<std_thread_pool> ret(shared.lock());
     if(!ret)
     {
-        std::lock_guard<decltype(lock)> lockh(lock);
+        lock_guard<decltype(lock)> lockh(lock);
         ret=shared.lock();
         if(!ret)
         {
@@ -494,7 +494,7 @@ namespace detail {
         template<class F> std::shared_ptr<async_io_handle> get_handle_to_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
         {
             std::shared_ptr<async_io_handle> dirh;
-            std::lock_guard<dircachelock_t> dircachelockh(dircachelock);
+            lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
             {
                 std::unordered_map<filesystem::path, std::weak_ptr<async_io_handle>, filesystem_hash>::iterator it=dirhcache.find(req.path);
@@ -734,7 +734,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
     {
         std::vector<std::pair<size_t, const shared_future<std::shared_ptr<async_io_handle>> *>> outstanding;
         {
-            std::lock_guard<decltype(p->opslock)> g(p->opslock);
+            lock_guard<decltype(p->opslock)> g(p->opslock);
             if(!p->ops.empty())
             {
                 outstanding.reserve(p->ops.size());
@@ -839,7 +839,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h)
 {
     {
-        std::lock_guard<decltype(p->fdslock)> g(p->fdslock);
+        lock_guard<decltype(p->fdslock)> g(p->fdslock);
         p->fds.insert(std::make_pair(key, std::weak_ptr<async_io_handle>(h)));
     }
 }
@@ -847,7 +847,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_add
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_del_io_handle(void *key)
 {
     {
-        std::lock_guard<decltype(p->fdslock)> g(p->fdslock);
+        lock_guard<decltype(p->fdslock)> g(p->fdslock);
         p->fds.erase(key);
     }
 }
@@ -879,7 +879,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::wait_
 {
     size_t ret=0;
     {
-        std::lock_guard<decltype(p->opslock)> g(p->opslock);
+        lock_guard<decltype(p->opslock)> g(p->opslock);
         ret=p->ops.size();
     }
     return ret;
@@ -889,7 +889,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::fd_co
 {
     size_t ret=0;
     {
-        std::lock_guard<decltype(p->fdslock)> g(p->fdslock);
+        lock_guard<decltype(p->fdslock)> g(p->fdslock);
         ret=p->fds.size();
     }
     return ret;
@@ -909,7 +909,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::
 {
     async_io_op ret;
     {
-        std::lock_guard<decltype(p->opslock)> g(p->opslock);
+        lock_guard<decltype(p->opslock)> g(p->opslock);
         ret=int_op_from_scheduled_id(id);
     }
     return ret;
@@ -994,7 +994,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     std::shared_ptr<detail::async_file_io_dispatcher_op> thisop;
     std::vector<detail::async_file_io_dispatcher_op::completion_t> completions;
     {
-        std::lock_guard<decltype(p->opslock)> g(p->opslock);
+        lock_guard<decltype(p->opslock)> g(p->opslock);
         // Find me in ops, remove my completions and delete me from extant ops
         auto it=p->ops.find(id);
         if(p->ops.end()==it)
@@ -1086,7 +1086,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::share
 #ifndef NDEBUG
         // Find our op
         {
-            std::lock_guard<decltype(p->opslock)> g(p->opslock);
+            lock_guard<decltype(p->opslock)> g(p->opslock);
             auto it(p->ops.find(id));
             if(p->ops.end()==it)
             {
@@ -1156,7 +1156,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         try { throw; } catch(std::exception &e) { what=e.what(); } catch(...) { what="not a std exception"; }
         BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
         {
-            std::lock_guard<decltype(p->opslock)> g(p->opslock);
+            lock_guard<decltype(p->opslock)> g(p->opslock);
             auto opsit=p->ops.find(thisid);
             if(p->ops.end()!=opsit) p->ops.erase(opsit);
         }
@@ -1169,7 +1169,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         obviously _insane_. The workaround is to feed insert() a copy. */
         auto item2(item);
         {
-            std::lock_guard<decltype(p->opslock)> g(p->opslock);
+            lock_guard<decltype(p->opslock)> g(p->opslock);
             auto opsit=p->ops.insert(std::move(item2));
             assert(opsit.second);
             if(precondition.id)
@@ -1188,7 +1188,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         if(done)
         {
             {
-                std::lock_guard<decltype(p->opslock)> g(p->opslock);
+                lock_guard<decltype(p->opslock)> g(p->opslock);
                 auto dep(p->ops.find(precondition.id));
                 // Items may have been added by other threads ...
                 for(auto it=--dep->second->completions.end(); true; --it)

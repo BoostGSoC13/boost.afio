@@ -73,9 +73,16 @@ DEALINGS IN THE SOFTWARE.
 #undef BOOST_AFIO_V1_NAMESPACE_BEGIN
 #undef BOOST_AFIO_V1_NAMESPACE_END
 
-// Default to the C++ 11 STL for atomic, chrono, mutex and thread except on libstdc++ 4.6 and earlier
-#if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(BOOST_GCC) && BOOST_GCC <= 40600)
+// Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
+#if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64_VERSION_MAJOR))
 # define BOOST_AFIO_V1_STL11_IMPL boost
+# define BOOST_SPINLOCK_V1_STL11_IMPL boost
+# ifndef BOOST_THREAD_VERSION
+#  define BOOST_THREAD_VERSION 3
+# endif
+# if BOOST_THREAD_VERSION < 3
+#  error Boost.AFIO requires that Boost.Thread be configured to v3 or later
+# endif
 #else
 # define BOOST_AFIO_V1_STL11_IMPL std
 # ifndef BOOST_AFIO_USE_BOOST_THREAD
@@ -248,12 +255,6 @@ DEALINGS IN THE SOFTWARE.
 #include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, ratio)
 #include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
 
-#if BOOST_AFIO_USE_BOOST_THREAD
-# if BOOST_THREAD_VERSION < 3
-#  error Boost.AFIO requires that Boost.Thread be configured to v3 or later
-# endif
-#endif
-
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))
 BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
@@ -281,9 +282,11 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 #if ASIO_STANDALONE
 using std::generic_category;
 using std::system_category;
+using std::system_error;
 #else
 using boost::system::generic_category;
 using boost::system::system_category;
+using boost::system::system_error;
 #endif
 #if defined(_MSC_VER) && 0
 // Stupid MSVC doesn't resolve namespace binds correctly ...
