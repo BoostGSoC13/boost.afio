@@ -82,7 +82,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
 #ifdef WIN32
                         // Sometimes Windows gets a bit stuck on slower CPUs when deleting files and occasionally
                         // returns this error. It's rare, but it confounds the test results :(
-                        catch(const std::system_error &e)
+                        catch(const std::exception &e)
                         {
                             if(!strncmp(e.what(), "A non close operation has been requested of a file object with a delete pending", 79))
                               throw; // reset and retry

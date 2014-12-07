@@ -266,6 +266,9 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
 {
     try {
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
+#if AFIO_STANDALONE
+        using std::to_string;
+#endif
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
         std::vector<char, detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
         assert(!(((size_t) &towrite.front()) & 4095));
@@ -291,7 +294,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         std::vector<async_path_op_req> manyfilereqs;
         manyfilereqs.reserve(1000);
         for(size_t n=0; n<1000; n++)
-                manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+std::to_string(n), file_flags::Create|file_flags::Write));
+                manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+to_string(n), file_flags::Create|file_flags::Write));
         auto manyopenfiles(dispatcher->file(manyfilereqs));
 
         // Write to each of those 1000 files as they are opened
@@ -393,6 +396,9 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
 {
     try {
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
+#if AFIO_STANDALONE
+    using std::to_string;
+#endif
 
     detail::aligned_allocator<char, 4096> aligned_allocator;
     std::vector<std::vector<char, detail::aligned_allocator<char, 4096>>> towrite(no);
@@ -536,7 +542,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
     std::vector<async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(no);
     for(size_t n=0; n<no; n++)
-            manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+std::to_string(n), file_flags::Create|file_flags::ReadWrite));
+            manyfilereqs.push_back(async_path_op_req(mkdir, "testdir/"+to_string(n), file_flags::Create|file_flags::ReadWrite));
     auto manyopenfiles(dispatcher->file(manyfilereqs));
     std::vector<off_t> sizes(no, bytes);
     auto manywrittenfiles(dispatcher->truncate(manyopenfiles, sizes));
@@ -561,7 +567,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
                             if(data[idx]!=buffer[idx])
                             {
                                     {
-                                        std::lock_guard<decltype(failureslock)> h(failureslock);
+                                        lock_guard<decltype(failureslock)> h(failureslock);
                                         failures.push_back(std::make_pair(&op, idxoffset+idx));
                                     }
 #ifdef _DEBUG
@@ -646,7 +652,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
                 size_t bytes=0;
                 for(auto &b: failedop.first->req.buffers)
                     bytes+=asio::buffer_size(b);
-                std::cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << std::to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << std::endl;
+                std::cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << std::endl;
                 failures.pop_front();
             }
     }
@@ -673,7 +679,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
         for(size_t n=0; n<no; n++)
             if(memhashes[n]!=filehashes[n]) // compare hash values from ram and actual IO
             {
-                    std::string failmsg("File "+std::to_string(n)+" contents were not what they were supposed to be!");
+                    std::string failmsg("File "+to_string(n)+" contents were not what they were supposed to be!");
                     BOOST_TEST_MESSAGE(failmsg.c_str());
                     std::cerr << failmsg << std::endl;
             }
