@@ -252,11 +252,14 @@ maximum IOPS.]:
 
 [[][][][][][]]
 
-[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1291250]][[role alignright 1022970]][[role alignright 1479540]][[role alignright 1200450]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
+[[Ubuntu 14.04 LTS Linux x64 with GCC 4.9.2][[role alignright 1002490]][[role alignright 1036150]][[role alignright 1467650]][[role alignright 1199460]][[role alignright 1686100[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
 [[['Relative to ASIO]][[role alignright 80%]][[role alignright 64%]][[role alignright 92%]][[role alignright 75%]][[role alignright 100%]]]
 [[['Relative to AFIO v1.21]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
 [[['Relative to AFIO v1.1]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
 [[][][][][][]]
+
+[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1291250]][[role alignright 1022970]][[role alignright 1479540]][[role alignright 1200450]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
+[[['Relative to AFIO v1.1]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
 
 ]
 
