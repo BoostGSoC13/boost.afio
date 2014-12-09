@@ -4,6 +4,7 @@ Provides a threadpool and asynchronous file i/o infrastructure based on Boost.AS
 File Created: Mar 2013
 */
 
+//#define BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
 //#define BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH 1
 
 #ifndef BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH
@@ -79,6 +80,16 @@ File Created: Mar 2013
 #include "ErrorHandling.ipp"
 
 #include <unordered_map>
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  template<class Key, class T, class Hash=std::hash<Key>, class Pred=std::equal_to<Key>, class Alloc=std::allocator<std::pair<const Key, T>>> using engine_unordered_map_t=concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;
+  struct null_lock { void lock() { } bool try_lock() { return true; } void unlock() { } };
+BOOST_AFIO_V1_NAMESPACE_END
+#else
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+  template<class Key, class T, class Hash=std::hash<Key>, class Pred=std::equal_to<Key>, class Alloc=std::allocator<std::pair<const Key, T>>> using engine_unordered_map_t=std::unordered_map<Key, T, Hash, Pred, Alloc>;
+BOOST_AFIO_V1_NAMESPACE_END
+#endif
 
 #include <sys/types.h>
 #ifdef __MINGW32__
@@ -470,15 +481,20 @@ namespace detail {
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters_buffers;
 
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+        typedef null_lock fdslock_t;
+        typedef null_lock opslock_t;
+#else
         typedef spinlock<size_t> fdslock_t;
         typedef spinlock<size_t,
             spins_to_loop<100>::policy,
             spins_to_yield<500>::policy,
             spins_to_sleep::policy
         > opslock_t;
+#endif
         typedef recursive_mutex dircachelock_t;
-        fdslock_t fdslock; std::unordered_map<void *, std::weak_ptr<async_io_handle>> fds;
-        opslock_t opslock; atomic<size_t> monotoniccount; std::unordered_map<size_t, std::shared_ptr<async_file_io_dispatcher_op>> ops;
+        fdslock_t fdslock; engine_unordered_map_t<void *, std::weak_ptr<async_io_handle>> fds;
+        opslock_t opslock; atomic<size_t> monotoniccount; engine_unordered_map_t<size_t, std::shared_ptr<async_file_io_dispatcher_op>> ops;
         dircachelock_t dircachelock; std::unordered_map<filesystem::path, std::weak_ptr<async_io_handle>, filesystem_hash> dirhcache;
 
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
@@ -729,7 +745,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::async_file_i
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
 {
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
-    std::unordered_map<const shared_future<std::shared_ptr<async_io_handle>> *, std::pair<size_t, future_status>> reallyoutstanding;
+    engine_unordered_map_t<const shared_future<std::shared_ptr<async_io_handle>> *, std::pair<size_t, future_status>> reallyoutstanding;
     for(;;)
     {
         std::vector<std::pair<size_t, const shared_future<std::shared_ptr<async_io_handle>> *>> outstanding;
@@ -898,12 +914,23 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::fd_co
 // Non op lock holding variant
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::int_op_from_scheduled_id(size_t id) const
 {
-    std::unordered_map<size_t, std::shared_ptr<detail::async_file_io_dispatcher_op>>::iterator it=p->ops.find(id);
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+    async_io_op ret;
+    if(!p->ops.visit(id, [this, id, &ret](const typename decltype(p->ops)::value_type &op){
+        ret=async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, op.second->h());
+    }))
+    {
+        BOOST_AFIO_THROW(std::runtime_error("Failed to find this operation in list of currently executing operations"));
+    }
+    return ret;
+#else
+    engine_unordered_map_t<size_t, std::shared_ptr<detail::async_file_io_dispatcher_op>>::iterator it=p->ops.find(id);
     if(p->ops.end()==it)
     {
         BOOST_AFIO_THROW(std::runtime_error("Failed to find this operation in list of currently executing operations"));
     }
     return async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, it->second->h());
+#endif
 }
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::op_from_scheduled_id(size_t id) const
 {
@@ -994,10 +1021,16 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     std::shared_ptr<detail::async_file_io_dispatcher_op> thisop;
     std::vector<detail::async_file_io_dispatcher_op::completion_t> completions;
     {
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+        // We can atomically remove without destruction
+        auto np=p->ops.extract(id);
+        if(!np)
+#else
         lock_guard<decltype(p->opslock)> g(p->opslock);
         // Find me in ops, remove my completions and delete me from extant ops
         auto it=p->ops.find(id);
         if(p->ops.end()==it)
+#endif
         {
 #ifndef NDEBUG
             std::vector<size_t> opsids;
@@ -1009,9 +1042,13 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
 #endif
             BOOST_AFIO_THROW_FATAL(std::runtime_error("Failed to find this operation in list of currently executing operations"));
         }
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+        thisop.swap(np->second);
+#else
         thisop.swap(it->second); // thisop=it->second;
         // Erase me from ops
         p->ops.erase(it);
+#endif
         // Ok so this op is now removed from the ops list.
         // Because chain_async_op() holds the opslock during the finding of preconditions
         // and adding ops to its completions, we can now safely detach our completions
@@ -1156,14 +1193,29 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         try { throw; } catch(std::exception &e) { what=e.what(); } catch(...) { what="not a std exception"; }
         BOOST_AFIO_DEBUG_PRINT("E X %u (%s)\n", (unsigned) thisid, what.c_str());
         {
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+            p->ops.erase(thisid);
+#else
             lock_guard<decltype(p->opslock)> g(p->opslock);
             auto opsit=p->ops.find(thisid);
             if(p->ops.end()!=opsit) p->ops.erase(opsit);
+#endif
         }
     });
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+    p->ops.insert(item);
+    if(precondition.id)
+    {
+        // If still in flight, chain item to be executed when precondition completes
+        p->ops.visit(precondition.id, [&item, &done](const typename decltype(p->ops)::value_type &dep){
+          dep.second->completions.push_back(item);
+          done=true;
+        });
+    }
+#else
     {
         /* This is a weird bug which took me several days to track down ...
-        It turns out that very new compilers will *move* insert item into
+        It turns out that libstdc++ 4.8.0 will *move* insert item into
         p->ops because item's type is not *exactly* the value_type wanted
         by unordered_map. That destroys item for use later, which is
         obviously _insane_. The workaround is to feed insert() a copy. */
@@ -1184,23 +1236,37 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
             }
         }
     }
+#endif
     auto undep=detail::Undoer([done, this, &precondition, &item](){
         if(done)
         {
-            {
-                lock_guard<decltype(p->opslock)> g(p->opslock);
-                auto dep(p->ops.find(precondition.id));
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+            p->ops.visit(precondition.id, [&item](const typename decltype(p->ops)::value_type &dep){
                 // Items may have been added by other threads ...
-                for(auto it=--dep->second->completions.end(); true; --it)
+                for(auto it=--dep.second->completions.end(); true; --it)
                 {
                     if(it->first==item.first)
                     {
-                        dep->second->completions.erase(it);
+                        dep.second->completions.erase(it);
                         break;
                     }
-                    if(dep->second->completions.begin()==it) break;
+                    if(dep.second->completions.begin()==it) break;
+                }              
+            });
+#else
+            lock_guard<decltype(p->opslock)> g(p->opslock);
+            auto dep(p->ops.find(precondition.id));
+            // Items may have been added by other threads ...
+            for(auto it=--dep->second->completions.end(); true; --it)
+            {
+                if(it->first==item.first)
+                {
+                    dep->second->completions.erase(it);
+                    break;
                 }
+                if(dep->second->completions.begin()==it) break;
             }
+#endif
         }
     });
     BOOST_AFIO_DEBUG_PRINT("I %u (d=%d) < %u (%s)\n", (unsigned) thisid, done, (unsigned) precondition.id, detail::optypes[static_cast<int>(optype)]);
