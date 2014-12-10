@@ -266,6 +266,9 @@ maximum IOPS.]:
 clang 3.4 with    concurrent: 177682 157440 184407 138465 122453
 clang 3.4 without concurrent: 180448 170979 187123 130066 
 
+gcc 4.9 with    concurrent: 481860 504530 775678 878487
+gcc 4.9 without concurrent:
+
 We hope that ~600k min IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
 PCIe based SSD too, and if paired with a CPU with more cores, AFIO's almost wait free design ought to scale out fairly
 well too such that it may be able to max out even top end PCIe SSDs, some of which can push 10m IOPS now.

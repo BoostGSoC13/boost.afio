@@ -4,7 +4,7 @@ Provides a threadpool and asynchronous file i/o infrastructure based on Boost.AS
 File Created: Mar 2013
 */
 
-//#define BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+#define BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
 //#define BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH 1
 
 #ifndef BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH
@@ -500,7 +500,16 @@ namespace detail {
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
             flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
         {
+#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+            // concurrent_unordered_map doesn't lock, so we actually don't need many buckets for max performance
+            fds.min_bucket_capacity(2);
+            fds.reserve(51);
+            ops.min_bucket_capacity(2);
+            ops.reserve(51);
+#else
+            // unordered_map needs to release the lock as quickly as possible
             ops.reserve(10000);
+#endif
         }
         ~async_file_io_dispatcher_base_p()
         {

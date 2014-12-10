@@ -42,6 +42,7 @@ for row in matrixrows:
       rowspan=int(cols[x].get("rowspan"))
       platform=Platform(cols[x].text)
       platforms.append(platform)
+      count+=0.5
     col=cols[x]
     atags=col.xpath("div/a")
     imgs=col.xpath("div/img")
@@ -53,7 +54,9 @@ for row in matrixrows:
       col.getchildren()[-1].getchildren()[-1].tail=columntocompiler[len(columntocompiler)-(len(cols)-x)]
       outrow+=etree.tostring(col).decode('utf-8')
       count+=1
-  if count:
+  if count==0.5:
+    platform.rows.append(outrow[:outrow.find("</td>")+5])
+  elif count:
     platform.rows.append(outrow)
   else:
     platform.rows.append("<td/>")
