@@ -925,7 +925,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::
 {
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
     async_io_op ret;
-    if(!p->ops.visit(id, [this, id, &ret](const typename decltype(p->ops)::value_type &op){
+    typedef typename decltype(p->ops)::value_type op_value_type;
+    if(!p->ops.visit(id, [this, id, &ret](const op_value_type &op){
         ret=async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, op.second->h());
     }))
     {
@@ -1216,7 +1217,8 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     if(precondition.id)
     {
         // If still in flight, chain item to be executed when precondition completes
-        p->ops.visit(precondition.id, [&item, &done](const typename decltype(p->ops)::value_type &dep){
+        typedef typename decltype(p->ops)::value_type op_value_type;
+        p->ops.visit(precondition.id, [&item, &done](const op_value_type &dep){
           dep.second->completions.push_back(item);
           done=true;
         });
@@ -1250,7 +1252,8 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         if(done)
         {
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
-            p->ops.visit(precondition.id, [&item](const typename decltype(p->ops)::value_type &dep){
+            typedef typename decltype(p->ops)::value_type op_value_type;
+            p->ops.visit(precondition.id, [&item](const op_value_type &dep){
                 // Items may have been added by other threads ...
                 for(auto it=--dep.second->completions.end(); true; --it)
                 {
