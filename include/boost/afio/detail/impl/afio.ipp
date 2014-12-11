@@ -925,7 +925,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::
 {
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
     async_io_op ret;
-    typedef typename decltype(p->ops)::value_type op_value_type;
+    typedef decltype(p->ops)::value_type op_value_type;
     if(!p->ops.visit(id, [this, id, &ret](const op_value_type &op){
         ret=async_io_op(const_cast<async_file_io_dispatcher_base *>(this), id, op.second->h());
     }))
