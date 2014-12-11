@@ -82,7 +82,22 @@ File Created: Mar 2013
 #include <unordered_map>
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
 BOOST_AFIO_V1_NAMESPACE_BEGIN
-  template<class Key, class T, class Hash=std::hash<Key>, class Pred=std::equal_to<Key>, class Alloc=std::allocator<std::pair<const Key, T>>> using engine_unordered_map_t=concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;
+  template<class T> using default_engine_unordered_map_spinlock=spinlock<T,
+    spins_to_loop<100>::policy,
+    spins_to_yield<500>::policy,
+    spins_to_sleep::policy>;
+  template<class Key,
+           class T,
+           class Hash=BOOST_SPINLOCK_V1_NAMESPACE::fnv1a_hash<Key>,
+           class Pred=std::equal_to<Key>,
+           class Alloc=std::allocator<std::pair<const Key, T>>
+           > using engine_unordered_map_t=BOOST_SPINLOCK_V1_NAMESPACE::concurrent_unordered_map<Key,
+                                                                   T,
+                                                                   Hash,
+                                                                   Pred,
+                                                                   Alloc,
+                                                                   default_engine_unordered_map_spinlock
+                                                                   >;
   struct null_lock { void lock() { } bool try_lock() { return true; } void unlock() { } };
 BOOST_AFIO_V1_NAMESPACE_END
 #else
@@ -503,9 +518,9 @@ namespace detail {
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
             // concurrent_unordered_map doesn't lock, so we actually don't need many buckets for max performance
             fds.min_bucket_capacity(2);
-            fds.reserve(51);
+            fds.reserve(499);
             ops.min_bucket_capacity(2);
-            ops.reserve(51);
+            ops.reserve(499);
 #else
             // unordered_map needs to release the lock as quickly as possible
             ops.reserve(10000);
