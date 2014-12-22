@@ -377,11 +377,13 @@ enum class file_flags : size_t
     ReadWrite=3,        //!< Read and write access
     Append=4,           //!< Append only
     Truncate=8,         //!< Truncate existing file to zero
-    Create=16,          //!< Open and create if doesn't exist
+    Create=16,          //!< Open and create if doesn't exist. Always creates sparse files if possible.
     CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
+    CreateCompressed=64,     //!< Create a compressed file. Only succeeds if supported by the underlying filing system.
 
     WillBeSequentiallyAccessed=128, //!< Will be exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
     WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
+    NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
     FastDirectoryEnumeration=(1<<10), //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration.
     UniqueDirectoryHandle=(1<<11), //!< Return a unique directory handle rather than a shared directory handle
@@ -504,6 +506,8 @@ enum class metadata_flags : size_t
     flags=1<<15,
     gen=1<<16,
     birthtim=1<<17,
+    sparse=1<<24,
+    compressed=1<<25,
     All=(size_t)-1       //!< Return the maximum possible metadata.
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
@@ -521,6 +525,8 @@ syscall, is provided by `st_type` which is one of the values from `filesystem::f
 `st_perms` which is solely the permissions bits. If you want to test permission bits in `st_perms`
 but don't want to include platform specific headers, note that `filesystem::perms` contains
 definitions of the POSIX permissions flags.
+(v) The st_sparse and st_compressed flags indicate if your file is sparse and/or compressed, or if
+the directory is capable of holding such files.
 */
 struct stat_t
 {
@@ -528,12 +534,12 @@ struct stat_t
     uint64_t        st_dev;                       /*!< inode of device containing file (POSIX only) */
 #endif
     uint64_t        st_ino;                       /*!< inode of file                   (Windows, POSIX) */
-    filesystem::file_type st_type;           /*!< type of file                    (Windows, POSIX) */
+    filesystem::file_type st_type;                /*!< type of file                    (Windows, POSIX) */
 #ifndef WIN32
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
     uint16_t        st_perms;
 #else
-    filesystem::perms st_perms;              /*!< uint16_t bitfield perms of file (POSIX only) */
+    filesystem::perms st_perms;                   /*!< uint16_t bitfield perms of file (POSIX only) */
 #endif
 #endif
     int16_t         st_nlink;                     /*!< number of hard links            (Windows, POSIX) */
@@ -553,6 +559,9 @@ struct stat_t
     uint32_t        st_gen;                       /*!< file generation number          (FreeBSD, OS X, zero otherwise)*/
     chrono::system_clock::time_point st_birthtim; /*!< time of file creation           (Windows, FreeBSD, OS X, zero otherwise) */
 
+    unsigned        st_sparse : 1;                /*!< if this file is sparse, or this directory capable of sparse files (All) */
+    unsigned        st_compressed : 1;            /*!< if this file is compressed, or this directory capable of compressed files (All) */
+    
     //! Constructs a UNINITIALIZED instance i.e. full of random garbage
     stat_t() { }
     //! Constructs a zeroed instance
@@ -573,7 +582,66 @@ struct stat_t
 #ifndef WIN32
         st_uid(0), st_gid(0), st_rdev(0),
 #endif
-        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0) { }
+        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0), st_sparse(0), st_compressed(0) { }
+};
+
+/*! \enum fs_metadata_flags
+\brief Bitflags for availability of metadata from `struct statfs_t`
+\ingroup fs_metadata_flags
+*/
+#ifdef DOXYGEN_NO_CLASS_ENUMS
+enum fs_metadata_flags
+#else
+enum class fs_metadata_flags : size_t
+#endif
+{
+    None=0,
+    type=1<<0,
+    flags=1<<1,
+    bsize=1<<2,
+    iosize=1<<3,
+    blocks=1<<4,
+    bfree=1<<5,
+    bavail=1<<6,
+    files=1<<7,
+    ffree=1<<8,
+    namemax=1<<9,
+    owner=1<<10,
+    fsid=1<<11,
+    fstypename=1<<12,
+    mntfromname=1<<13,
+    mntonname=1<<14,
+    All=(size_t)-1       //!< Return the maximum possible metadata.
+};
+BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(fs_metadata_flags)
+/*! \struct statfs_t
+\brief Metadata about a filing system
+*/
+struct statfs_t
+{
+     struct
+     {
+        uint32_t rdonly : 1;    //!< Filing system is read only                        (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t noexec : 1;    //!< Filing system cannot execute programs             (POSIX only)
+        uint32_t nosuid : 1;    //!< Filing system cannot superuser                    (POSIX only)
+        uint32_t acls : 1;      //!< Filing system provides ACLs                       (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t xattr : 1;     //!< Filing system provides extended attributes        (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+     } f_flags;                           /*!< copy of mount exported flags       (POSIX) */
+     uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.SectorsPerAllocationUnit*FILE_FS_FULL_SIZE_INFORMATION.BytesPerSector */
+     uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, BSD, OS X) FILE_FS_SECTOR_SIZE_INFORMATION.PhysicalBytesPerSectorForPerformance */
+     uint64_t f_blocks;                   /*!< total data blocks in filesystem    (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.TotalAllocationUnits */
+     uint64_t f_bfree;                    /*!< free blocks in filesystem          (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.ActualAvailableAllocationUnits */
+     uint64_t f_bavail;                   /*!< free blocks avail to non-superuser (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.CallerAvailableAllocationUnits */
+     uint64_t f_files;                    /*!< total file nodes in filesystem     (POSIX) */
+     uint64_t f_ffree;                    /*!< free nodes avail to non-superuser  (POSIX) */
+     uint32_t f_namemax;                  /*!< maximum filename length            (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.MaximumComponentNameLength */
+#ifndef WIN32
+     int16_t  f_owner;                    /*!< user that mounted the filesystem   (BSD, OS X) */
+#endif
+     uint64_t f_fsid;                     /*!< filesystem id                      (Windows, POSIX) FILE_FS_OBJECTID_INFORMATION */
+     std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemName */
+     std::string f_mntfromname;           /*!< mounted filesystem                 (BSD, OS X) */
+     filesystem::path f_mntonname;        /*!< directory on which mounted         (BSD, OS X) */
 };
 
 /*! \brief The abstract base class for an entry in a directory with lazily filled metadata.
@@ -641,6 +709,12 @@ public:
         fetch_metadata(dirh, wanted);
         return stat;
     }
+    /*! \brief Fetches extra metadata about a directory entry. This is always a blocking call.
+    \return The extra metadata requested.
+    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
+    \param wanted A bitfield of the metadata to fetch.
+    */
+    stat_extra_t fetch_lstat_extra(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 #define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
 decltype(stat_t().st_##field) st_##field() const { if(!(have_metadata&metadata_flags::field)) { BOOST_AFIO_THROW(std::runtime_error("Field st_" #field " not present.")); } return stat.st_##field; } \
@@ -1185,6 +1259,9 @@ public:
     inline async_io_op rmdir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
     
+    Be aware that any files created are by default sparse if supported on the local filing system. Use
+    file_flags::NoSparse to prevent this on those filing systems which permit it.
+    
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1195,6 +1272,9 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
+    
+    Be aware that any files created are by default sparse if supported on the local filing system. Use
+    file_flags::NoSparse to prevent this on those filing systems which permit it.
     
     \return An op handle.
     \param req An `async_path_op_req` structure.
@@ -1305,6 +1385,46 @@ public:
     \qexample{readwrite_example}
     */
     inline async_io_op sync(const async_io_op &req);
+    /*! \brief Schedule a batch of asynchronous deallocations of physical storage ("hole punching") after preceding operations.
+    
+    Many filing systems let you deallocate extents of file storage using a special ioctl or kernel syscall. You should be aware
+    that filing systems may partially or fully ignore the request sometimes (e.g. if the region doesn't fully encompass an aligned 4Kb extent),
+    so instead of incrementally deallocating chunks as you proceed, you should include into each deallocation any previously
+    deallocated regions by sorting the list of regions and coalescing any which overlap.
+    
+    If you opened the file with compression and deallocation fails, you might consider writing zeros into the regions instead.
+    In this situation coalescing regions is a bad idea, and you should proceed region by region.
+    
+    \return A batch of op handles.
+    \param ops A batch of op handles.
+    \param ranges A batch of vectors of extents to deallocate.
+    \ingroup async_file_io_dispatcher_base__trim
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if deallocation is constant time.}
+    \exceptionmodelstd
+    \qexample{trim_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> trim(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous deallocations of physical storage ("hole punching") after a preceding operation.
+    
+    Many filing systems let you deallocate extents of file storage using a special ioctl or kernel syscall. You should be aware
+    that filing systems may partially or fully ignore the request sometimes (e.g. if the region doesn't fully encompass an aligned 4Kb extent),
+    so instead of incrementally deallocating chunks as you proceed, you should include into each deallocation any previously
+    deallocated regions by sorting the list of regions and coalescing any which overlap.
+    
+    If you opened the file with compression and deallocation fails, you might consider writing zeros into the regions instead.
+    In this situation coalescing regions is a bad idea, and you should proceed region by region.
+    
+    \return An op handle.
+    \param req An op handle.
+    \param ranges A vector of extents to deallocate.
+    \ingroup async_file_io_dispatcher_base__trim
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
+    \exceptionmodelstd
+    \qexample{trim_example}
+    */
+    inline async_io_op trim(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
     
     \return A batch of op handles.
@@ -1427,7 +1547,7 @@ public:
     \qexample{readwrite_example}
     */
     inline async_io_op truncate(const async_io_op &op, off_t newsize);
-    /*! \brief Schedule a batch of asynchronous directory enumerations after a preceding operations.
+    /*! \brief Schedule a batch of asynchronous directory enumerations after preceding operations.
 
     By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
     handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
@@ -1469,6 +1589,28 @@ public:
     \qexample{enumerate_example}
     */
     inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> enumerate(const async_enumerate_op_req &req);
+    /*! \brief Schedule a batch of asynchronous volume enumerations after preceding operations.
+
+    \return A batch of future volume metadatas.
+    \param reqs A batch of metadata requests.
+    \ingroup async_file_io_dispatcher_base__statfs
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
+    \exceptionmodelstd
+    \qexample{statfs_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous volume enumeration after a preceding operation.
+
+    \return A future volume metadatas.
+    \param req A etadata requests.
+    \ingroup async_file_io_dispatcher_base__statfs
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
+    \exceptionmodelstd
+    \qexample{statfs_example}
+    */
+    inline std::pair<future<statfs_t>, async_io_op> statfs(const async_io_op &op, const fs_metadata_flags &req);
 
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
     
@@ -2701,6 +2843,16 @@ inline async_io_op async_file_io_dispatcher_base::sync(const async_io_op &req)
     i.push_back(req);
     return std::move(sync(i).front());
 }
+inline async_io_op async_file_io_dispatcher_base::trim(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges)
+{
+    std::vector<async_io_op> i;
+    std::vector<std::vector<std::pair<off_t, off_t>>> r;
+    i.reserve(1);
+    i.push_back(req);
+    r.reserve(1);
+    r.push_back(ranges);
+    return std::move(trim(i).front());
+}
 inline async_io_op async_file_io_dispatcher_base::close(const async_io_op &req)
 {
     std::vector<async_io_op> i;
@@ -2749,6 +2901,16 @@ inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io
     i.push_back(req);
     auto ret=enumerate(i);
     return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
+}
+inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::statfs(const async_io_op &op, const fs_metadata_flags &req)
+{
+    std::vector<async_io_op> o;
+    std::vector<off_t> i;
+    o.reserve(1);
+    o.push_back(op);
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(statfs(o, i).front());
 }
 
 
