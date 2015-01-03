@@ -20,6 +20,10 @@ op easily.
 
 [h5 In some later version:]
 
+* Extended attributes support
+
+* ACL support
+
 * Multiple dispatcher support
   * Integration of direct proposed Boost.Fiber library support as a secondary
 thread_source to std_thread_source.
@@ -62,6 +66,10 @@ which is only barely summarised here:
   * Anything before GCC 4.7, as these lack template alias support.
   * Anything before VS2013, as these lack template alias support. I took the opportunity to clean out
   the VS2010 special code paths and all the variadic template emulation.
+
+*** FIXME BEFORE RELEASE ***
+ * Add file symbolic link creation for Windows
+ * File handle closing should become asynchronous
 
 
 [/=================]

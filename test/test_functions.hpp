@@ -817,6 +817,8 @@ static stat_t print_stat(std::shared_ptr<async_io_handle> h)
     PRINT_FIELD(flags);
     PRINT_FIELD(gen);
     PRINT_FIELD(birthtim);
+    PRINT_FIELD(sparse);
+    PRINT_FIELD(compressed);
 #undef PRINT_FIELD
     return entry;
 }
@@ -884,6 +886,8 @@ static void print_stat(std::shared_ptr<async_io_handle> dirh, directory_entry di
     PRINT_FIELD(flags);
     PRINT_FIELD(gen);
     PRINT_FIELD(birthtim);
+    PRINT_FIELD(sparse);
+    PRINT_FIELD(compressed);
 #undef PRINT_FIELD
 }
 

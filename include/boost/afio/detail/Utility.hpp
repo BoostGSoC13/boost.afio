@@ -212,7 +212,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         return exception_ptr();
 #endif
     }
-    template<typename T> inline exception_ptr get_exception_ptr(shared_future<T> &f)
+    template<typename T> inline exception_ptr get_exception_ptr(const shared_future<T> &f)
     {
 #if BOOST_AFIO_USE_BOOST_THREAD && BOOST_VERSION>=105500
         // Thanks to Vicente for adding this to Boost.Thread

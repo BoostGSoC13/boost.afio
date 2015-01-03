@@ -451,6 +451,8 @@ namespace detail {
         barrier,
         enumerate,
         adopt,
+        zero,
+        statfs,
 
         Last
     };
@@ -470,7 +472,9 @@ namespace detail {
         "truncate",
         "barrier",
         "enumerate",
-        "adopt"
+        "adopt",
+        "zero",
+        "statfs"
     };
     static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
 }
@@ -709,12 +713,6 @@ public:
         fetch_metadata(dirh, wanted);
         return stat;
     }
-    /*! \brief Fetches extra metadata about a directory entry. This is always a blocking call.
-    \return The extra metadata requested.
-    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
-    \param wanted A bitfield of the metadata to fetch.
-    */
-    stat_extra_t fetch_lstat_extra(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 #define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
 decltype(stat_t().st_##field) st_##field() const { if(!(have_metadata&metadata_flags::field)) { BOOST_AFIO_THROW(std::runtime_error("Field st_" #field " not present.")); } return stat.st_##field; } \
@@ -888,8 +886,8 @@ struct async_io_op
     async_io_op &operator=(const async_io_op &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
     //! \massign
     async_io_op &operator=(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
-    //! Retrieves the handle or exception from the shared state. Same as h->get().
-    std::shared_ptr<async_io_handle> get(bool return_null_if_errored=false)
+    //! Retrieves the handle or exception from the shared state. Same as h.get().
+    std::shared_ptr<async_io_handle> get(bool return_null_if_errored=false) const
     {
         if(!parent && !id)
             return std::shared_ptr<async_io_handle>();
@@ -898,6 +896,14 @@ struct async_io_op
         auto e=get_exception_ptr(h);
         return e ? std::shared_ptr<async_io_handle>() : h.get();
     }
+    //! Dereferences the handle from the shared state. Same as *h.get().
+    const async_io_handle &operator *() const { return *get(); }
+    //! Dereferences the handle from the shared state. Same as *h.get().
+    async_io_handle &operator *() { return *get(); }
+    //! Dereferences the handle from the shared state. Same as h.get()->get().
+    const async_io_handle *operator->() const { return get().get(); }
+    //! Dereferences the handle from the shared state. Same as h.get()->get().
+    async_io_handle *operator->() { return get().get(); }
     //! Validates contents
     bool validate(bool check_handle=true) const
     {
@@ -1385,46 +1391,50 @@ public:
     \qexample{readwrite_example}
     */
     inline async_io_op sync(const async_io_op &req);
-    /*! \brief Schedule a batch of asynchronous deallocations of physical storage ("hole punching") after preceding operations.
+    /*! \brief Schedule a batch of asynchronous zeroing and deallocations of physical storage ("hole punching") after preceding operations.
     
-    Many filing systems let you deallocate extents of file storage using a special ioctl or kernel syscall. You should be aware
-    that filing systems may partially or fully ignore the request sometimes (e.g. if the region doesn't fully encompass an aligned 4Kb extent),
-    so instead of incrementally deallocating chunks as you proceed, you should include into each deallocation any previously
-    deallocated regions by sorting the list of regions and coalescing any which overlap.
-    
-    If you opened the file with compression and deallocation fails, you might consider writing zeros into the regions instead.
-    In this situation coalescing regions is a bad idea, and you should proceed region by region.
+    Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
+    and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading
+    those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros
+    for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
+    sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
+    on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
+    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, an attempt is made to use DIOCGDELETE
+    which if it fails then a write of zeros corresponding to the same ranges is made instead. On OS X, there is no formal hole punching API
+    that we are aware of, and so zeros are simply written.
     
     \return A batch of op handles.
     \param ops A batch of op handles.
-    \param ranges A batch of vectors of extents to deallocate.
+    \param ranges A batch of vectors of extents to zero and deallocate.
     \ingroup async_file_io_dispatcher_base__trim
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if deallocation is constant time.}
     \exceptionmodelstd
     \qexample{trim_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> trim(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous deallocations of physical storage ("hole punching") after a preceding operation.
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation.
     
-    Many filing systems let you deallocate extents of file storage using a special ioctl or kernel syscall. You should be aware
-    that filing systems may partially or fully ignore the request sometimes (e.g. if the region doesn't fully encompass an aligned 4Kb extent),
-    so instead of incrementally deallocating chunks as you proceed, you should include into each deallocation any previously
-    deallocated regions by sorting the list of regions and coalescing any which overlap.
-    
-    If you opened the file with compression and deallocation fails, you might consider writing zeros into the regions instead.
-    In this situation coalescing regions is a bad idea, and you should proceed region by region.
-    
+    Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
+    and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading
+    those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros
+    for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
+    sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
+    on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
+    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, an attempt is made to use DIOCGDELETE
+    which if it fails then a write of zeros corresponding to the same ranges is made instead. On OS X, there is no formal hole punching API
+    that we are aware of, and so zeros are simply written.
+
     \return An op handle.
     \param req An op handle.
-    \param ranges A vector of extents to deallocate.
+    \param ranges A vector of extents to zero and deallocate.
     \ingroup async_file_io_dispatcher_base__trim
     \qbk{distinguish, single}
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
     \exceptionmodelstd
     \qexample{trim_example}
     */
-    inline async_io_op trim(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
+    inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
     
     \return A batch of op handles.
@@ -1667,6 +1677,7 @@ protected:
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_path_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_path_op_req));
     template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<detail::async_data_op_req_impl<iswrite>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, detail::async_data_op_req_impl<iswrite>));
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
     template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, async_io_op h, T);
 
     
@@ -2843,7 +2854,7 @@ inline async_io_op async_file_io_dispatcher_base::sync(const async_io_op &req)
     i.push_back(req);
     return std::move(sync(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::trim(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges)
+inline async_io_op async_file_io_dispatcher_base::zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges)
 {
     std::vector<async_io_op> i;
     std::vector<std::vector<std::pair<off_t, off_t>>> r;
@@ -2851,7 +2862,7 @@ inline async_io_op async_file_io_dispatcher_base::trim(const async_io_op &req, c
     i.push_back(req);
     r.reserve(1);
     r.push_back(ranges);
-    return std::move(trim(i).front());
+    return std::move(zero(i, r).front());
 }
 inline async_io_op async_file_io_dispatcher_base::close(const async_io_op &req)
 {
@@ -2905,12 +2916,13 @@ inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io
 inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::statfs(const async_io_op &op, const fs_metadata_flags &req)
 {
     std::vector<async_io_op> o;
-    std::vector<off_t> i;
+    std::vector<fs_metadata_flags> i;
     o.reserve(1);
     o.push_back(op);
     i.reserve(1);
     i.push_back(req);
-    return std::move(statfs(o, i).front());
+    auto ret=statfs(o, i);
+    return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
 
 

@@ -124,6 +124,14 @@ namespace windows_nt_kernel
       PVOID           SecurityQualityOfService;
     }  OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
 
+    typedef
+      VOID
+      (NTAPI *PIO_APC_ROUTINE) (
+      IN PVOID ApcContext,
+      IN PIO_STATUS_BLOCK IoStatusBlock,
+      IN ULONG Reserved
+      );
+
 
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/NtQueryInformationFile.html
     // and http://msdn.microsoft.com/en-us/library/windows/hardware/ff567052(v=vs.85).aspx
@@ -186,7 +194,7 @@ namespace windows_nt_kernel
     typedef NTSTATUS (NTAPI *NtQueryDirectoryFile_t)(
         /*_In_*/      HANDLE FileHandle,
         /*_In_opt_*/  HANDLE Event,
-        /*_In_opt_*/  void *ApcRoutine,
+        /*_In_opt_*/  PIO_APC_ROUTINE ApcRoutine,
         /*_In_opt_*/  PVOID ApcContext,
         /*_Out_*/     PIO_STATUS_BLOCK IoStatusBlock,
         /*_Out_*/     PVOID FileInformation,

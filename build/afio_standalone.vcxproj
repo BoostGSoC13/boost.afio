@@ -54,7 +54,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);AFIO_STANDALONE=1;SPINLOCK_STANDALONE=1;ASIO_STANDALONE=1;BOOST_TEST_DYN_LINK=1</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>..\include;..\test;..\asio\asio\include </AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4456;4458;4503;4100;4457</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4456;4458;4503;4100;4457;4127;4706</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

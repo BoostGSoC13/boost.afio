@@ -79,7 +79,7 @@ namespace detail {
             FILE_ALL_INFORMATION &fai=*(FILE_ALL_INFORMATION *)buffer;
             FILE_FS_SECTOR_SIZE_INFORMATION ffssi={0};
             bool needInternal=!!(wanted&metadata_flags::ino);
-            bool needBasic=(!!(wanted&metadata_flags::type) || !!(wanted&metadata_flags::atim) || !!(wanted&metadata_flags::mtim) || !!(wanted&metadata_flags::ctim) || !!(wanted&metadata_flags::birthtim));
+            bool needBasic=(!!(wanted&metadata_flags::type) || !!(wanted&metadata_flags::atim) || !!(wanted&metadata_flags::mtim) || !!(wanted&metadata_flags::ctim) || !!(wanted&metadata_flags::birthtim) || !!(wanted&metadata_flags::sparse) || !!(wanted&metadata_flags::compressed));
             bool needStandard=(!!(wanted&metadata_flags::nlink) || !!(wanted&metadata_flags::size) || !!(wanted&metadata_flags::allocated) || !!(wanted&metadata_flags::blocks));
             // It's not widely known that the NT kernel supplies a stat() equivalent i.e. get me everything in a single syscall
             // However fetching FileAlignmentInformation which comes with FILE_ALL_INFORMATION is slow as it touches the device driver,
@@ -139,6 +139,8 @@ namespace detail {
             if(!!(wanted&metadata_flags::blocks)) { stat.st_blocks=fai.StandardInformation.AllocationSize.QuadPart/ffssi.PhysicalBytesPerSectorForPerformance; }
             if(!!(wanted&metadata_flags::blksize)) { stat.st_blksize=(uint16_t) ffssi.PhysicalBytesPerSectorForPerformance; }
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(fai.BasicInformation.CreationTime); }
+            if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE); }
+            if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
             return directory_entry(path()
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
               .leaf()
@@ -221,7 +223,7 @@ namespace detail {
         completion_returntype dofile(size_t id, async_io_op, async_path_op_req req)
         {
             std::shared_ptr<async_io_handle> dirh;
-            DWORD access=FILE_READ_ATTRIBUTES, creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/, attribs=FILE_ATTRIBUTE_NORMAL;
+            DWORD access=FILE_READ_ATTRIBUTES, creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
             req.flags=fileflags(req.flags);
             if(!!(req.flags & file_flags::int_opening_dir))
             {
@@ -255,6 +257,11 @@ namespace detail {
             if(!!(req.flags & file_flags::FastDirectoryEnumeration))
                 dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_windows::dofile);
 
+            DWORD attribs=FILE_ATTRIBUTE_NORMAL;
+            if(!(req.flags & file_flags::int_opening_dir)) attribs|=FILE_ATTRIBUTE_SPARSE_FILE;
+            if(!!(req.flags & file_flags::CreateCompressed)) attribs|=FILE_ATTRIBUTE_COMPRESSED;
+            if(!!(req.flags & file_flags::NoSparse)) attribs&=~FILE_ATTRIBUTE_SPARSE_FILE;
+
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
             HANDLE h=nullptr;
@@ -277,7 +284,7 @@ namespace detail {
             //                because NT won't let you create a new file with the same name as one which
             //                has been deleted if that deleted file is still open. This is more annoying
             //                and harder to detect than accepting the fact NT won't delete open files.
-            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/,
+            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/,
                 creatdisp, flags, NULL, 0), req.path);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, dirh, req.path, req.flags,
@@ -336,88 +343,154 @@ namespace detail {
             {
                 return dodir(id, op, req);
             }
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            using windows_nt_kernel::REPARSE_DATA_BUFFER;
+            // Our new object needs write access and if we're linking a directory, create a directory
+            req.flags=req.flags|file_flags::Write;
             if(!!(h->flags()&file_flags::int_opening_dir))
+              req.flags=req.flags|file_flags::int_opening_dir;
+            completion_returntype ret=dodir(id, op, req);
+            assert(ret.first);
+            filesystem::path destpath(h->path());
+            size_t destpathbytes=destpath.native().size()*sizeof(filesystem::path::value_type);
+            size_t buffersize=sizeof(REPARSE_DATA_BUFFER)+destpathbytes*2+256;
+            auto buffer=std::make_shared<std::unique_ptr<filesystem::path::value_type[]>>(new filesystem::path::value_type[buffersize]);
+            REPARSE_DATA_BUFFER *rpd=(REPARSE_DATA_BUFFER *) buffer->get();
+            memset(rpd, 0, sizeof(*rpd));
+            // Create a directory junction for directories and symbolic links for files
+            if(!!(h->flags()&file_flags::int_opening_dir))
+              rpd->ReparseTag=IO_REPARSE_TAG_MOUNT_POINT;
+            else
+              rpd->ReparseTag=IO_REPARSE_TAG_SYMLINK;
+            if(isalpha(destpath.native()[0]) && destpath.native()[1]==':')
             {
-                // Create a directory junction
-                windows_nt_kernel::init();
-                using namespace windows_nt_kernel;
-                using windows_nt_kernel::REPARSE_DATA_BUFFER;
-                // First we need a new directory with write access
-                req.flags=req.flags|file_flags::Write;
-                completion_returntype ret=dodir(id, op, req);
-                assert(ret.first);
-                filesystem::path destpath(h->path());
-                size_t destpathbytes=destpath.native().size()*sizeof(filesystem::path::value_type);
-                size_t buffersize=sizeof(REPARSE_DATA_BUFFER)+destpathbytes*2+256;
-                auto buffer=std::make_shared<std::unique_ptr<filesystem::path::value_type[]>>(new filesystem::path::value_type[buffersize]);
-                REPARSE_DATA_BUFFER *rpd=(REPARSE_DATA_BUFFER *) buffer->get();
-                memset(rpd, 0, sizeof(*rpd));
-                rpd->ReparseTag=IO_REPARSE_TAG_MOUNT_POINT;
-                if(isalpha(destpath.native()[0]) && destpath.native()[1]==':')
-                {
-                    destpath=ntpath_from_dospath(destpath);
-                    destpathbytes=destpath.native().size()*sizeof(filesystem::path::value_type);
-                    memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(filesystem::path::value_type));
-                    rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
-                    rpd->MountPointReparseBuffer.SubstituteNameLength=(USHORT)destpathbytes;
-                    rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(filesystem::path::value_type));
-                    rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)(h->path().native().size()*sizeof(filesystem::path::value_type));
-                    memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(filesystem::path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(filesystem::path::value_type));
-                }
-                else
-                {
-                    memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(filesystem::path::value_type));
-                    rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
-                    rpd->MountPointReparseBuffer.SubstituteNameLength=(USHORT)destpathbytes;
-                    rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(filesystem::path::value_type));
-                    rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)destpathbytes;
-                    memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(filesystem::path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(filesystem::path::value_type));
-                }
-                size_t headerlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer);
-                size_t reparsebufferheaderlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)-headerlen;
-                rpd->ReparseDataLength=(USHORT)(rpd->MountPointReparseBuffer.SubstituteNameLength+rpd->MountPointReparseBuffer.PrintNameLength+2*sizeof(filesystem::path::value_type)+reparsebufferheaderlen);
-                auto dirop(ret.second);
-                asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, id,
-                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(dirop),
-                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(buffer)](const asio::error_code &ec, size_t bytes){ boost_asio_symlink_completion_handler(id, std::move(dirop), std::move(buffer), ec, bytes);});
-                BOOL ok=DeviceIoControl(ret.second->native_handle(), FSCTL_SET_REPARSE_POINT, rpd, (DWORD)(rpd->ReparseDataLength+headerlen), NULL, 0, NULL, ol.get());
-                DWORD errcode=GetLastError();
-                if(!ok && ERROR_IO_PENDING!=errcode)
-                {
-                    //std::cerr << "ERROR " << errcode << std::endl;
-                    asio::error_code ec(errcode, asio::error::get_system_category());
-                    ol.complete(ec, ol.get()->InternalHigh);
-                }
-                else
-                    ol.release();
-                // Indicate we're not finished yet
-                return std::make_pair(false, h);
+                destpath=ntpath_from_dospath(destpath);
+                destpathbytes=destpath.native().size()*sizeof(filesystem::path::value_type);
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(filesystem::path::value_type));
+                rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
+                rpd->MountPointReparseBuffer.SubstituteNameLength=(USHORT)destpathbytes;
+                rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(filesystem::path::value_type));
+                rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)(h->path().native().size()*sizeof(filesystem::path::value_type));
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(filesystem::path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(filesystem::path::value_type));
             }
             else
             {
-                // Create a symbolic link to a file
-                BOOST_AFIO_THROW(std::runtime_error("Creating symbolic links to files is not yet supported on Windows. It wouldn't work without Administrator privileges anyway."));
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(filesystem::path::value_type));
+                rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
+                rpd->MountPointReparseBuffer.SubstituteNameLength=(USHORT)destpathbytes;
+                rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(filesystem::path::value_type));
+                rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)destpathbytes;
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(filesystem::path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(filesystem::path::value_type));
             }
+            size_t headerlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer);
+            size_t reparsebufferheaderlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)-headerlen;
+            rpd->ReparseDataLength=(USHORT)(rpd->MountPointReparseBuffer.SubstituteNameLength+rpd->MountPointReparseBuffer.PrintNameLength+2*sizeof(filesystem::path::value_type)+reparsebufferheaderlen);
+            auto dirop(ret.second);
+            asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, id,
+              BOOST_AFIO_LAMBDA_MOVE_CAPTURE(dirop),
+              BOOST_AFIO_LAMBDA_MOVE_CAPTURE(buffer)](const asio::error_code &ec, size_t bytes){ boost_asio_symlink_completion_handler(id, std::move(dirop), std::move(buffer), ec, bytes);});
+            DWORD bytesout=0;
+            BOOL ok=DeviceIoControl(ret.second->native_handle(), FSCTL_SET_REPARSE_POINT, rpd, (DWORD)(rpd->ReparseDataLength+headerlen), NULL, 0, &bytesout, ol.get());
+            DWORD errcode=GetLastError();
+            if(!ok && ERROR_IO_PENDING!=errcode)
+            {
+                //std::cerr << "ERROR " << errcode << std::endl;
+                asio::error_code ec(errcode, asio::error::get_system_category());
+                ol.complete(ec, ol.get()->InternalHigh);
+            }
+            else
+                ol.release();
+            // Indicate we're not finished yet
+            return std::make_pair(false, h);
         }
         // Called in unknown thread
         completion_returntype dormsymlink(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            BOOST_AFIO_ERRHWINFN(RemoveDirectory(req.path.c_str()), req.path);
+            if(GetFileAttributes(req.path.c_str())&FILE_ATTRIBUTE_DIRECTORY)
+            {
+              BOOST_AFIO_ERRHWINFN(RemoveDirectory(req.path.c_str()), req.path);
+            }
+            else
+            {
+              BOOST_AFIO_ERRHWINFN(DeleteFile(req.path.c_str()), req.path);
+            }
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
-        completion_returntype dosync(size_t id, async_io_op op, async_io_op)
+        completion_returntype dozero(size_t id, async_io_op op, std::vector<std::pair<off_t, off_t>> ranges)
         {
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
-            off_t bytestobesynced=p->write_count_since_fsync();
-            if(bytestobesynced)
-                BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->h->native_handle()), p->path());
-            p->byteswrittenatlastfsync+=bytestobesynced;
-            return std::make_pair(true, h);
+            auto buffers=std::make_shared<std::vector<FILE_ZERO_DATA_INFORMATION>>();
+            buffers->reserve(ranges.size());
+            off_t bytes=0;
+            for(auto &i : ranges)
+            {
+              FILE_ZERO_DATA_INFORMATION fzdi;
+              fzdi.FileOffset.QuadPart=i.first;
+              fzdi.BeyondFinalZero.QuadPart=i.first+i.second;
+              buffers->push_back(std::move(fzdi));
+              bytes+=i.second;
+            }
+            auto bytes_to_transfer=std::make_shared<std::pair<atomic<bool>, atomic<off_t>>>(false, bytes);
+            auto completion_handler=[this, id, h, bytes_to_transfer, buffers](const asio::error_code &ec, size_t bytes)
+            {
+              if(ec)
+              {
+                exception_ptr e;
+                // boost::system::system_error makes no attempt to ask windows for what the error code means :(
+                try
+                {
+                  BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                }
+                catch(...)
+                {
+                  e=current_exception();
+                  bool exp=false;
+                  // If someone else has already returned an error, simply exit
+                  if(bytes_to_transfer->first.compare_exchange_strong(exp, true))
+                    return;
+                }
+                complete_async_op(id, h, e);
+              }
+              else if(!(bytes_to_transfer->second-=bytes))
+              {
+                complete_async_op(id, h);
+              }
+            };
+            for(auto &i : *buffers)
+            {
+              asio::windows::overlapped_ptr ol(p->h->get_io_service(), completion_handler);
+              DWORD bytesout=0;
+              BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_SET_ZERO_DATA, &i, sizeof(i), nullptr, 0, &bytesout, ol.get());
+              DWORD errcode=GetLastError();
+              if(!ok && ERROR_IO_PENDING!=errcode)
+              {
+                //std::cerr << "ERROR " << errcode << std::endl;
+                asio::error_code ec(errcode, asio::error::get_system_category());
+                ol.complete(ec, ol.get()->InternalHigh);
+              }
+              else
+                ol.release();
+            }
+            // Indicate we're not finished yet
+            return std::make_pair(false, h);
+        }
+        // Called in unknown thread
+        completion_returntype dosync(size_t id, async_io_op op, async_io_op)
+        {
+          std::shared_ptr<async_io_handle> h(op.get());
+          async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
+          assert(p);
+          off_t bytestobesynced=p->write_count_since_fsync();
+          if(bytestobesynced)
+            BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->h->native_handle()), p->path());
+          p->byteswrittenatlastfsync+=bytestobesynced;
+          return std::make_pair(true, h);
         }
         // Called in unknown thread
         completion_returntype doclose(size_t id, async_io_op op, async_io_op)
@@ -551,10 +624,11 @@ namespace detail {
                         bytes_to_transfer, std::move(t), ec, bytes); });
                     ol.get()->Offset=(DWORD) ((req.where+offset) & 0xffffffff);
                     ol.get()->OffsetHigh=(DWORD) (((req.where+offset)>>32) & 0xffffffff);
+                    DWORD bytesmoved=0;
                     BOOL ok=iswrite ? WriteFile
-                        (p->h->native_handle(), asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), NULL, ol.get())
+                        (p->h->native_handle(), asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), &bytesmoved, ol.get())
                         : ReadFile
-                        (p->h->native_handle(), (LPVOID) asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), NULL, ol.get());
+                        (p->h->native_handle(), (LPVOID) asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), &bytesmoved, ol.get());
                     DWORD errcode=GetLastError();
                     if(!ok && ERROR_IO_PENDING!=errcode)
                     {
@@ -721,6 +795,8 @@ namespace detail {
                     item.stat.st_size=ffdi->EndOfFile.QuadPart;
                     item.stat.st_allocated=ffdi->AllocationSize.QuadPart;
                     item.stat.st_birthtim=to_timepoint(ffdi->CreationTime);
+                    item.stat.st_sparse=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE);
+                    item.stat.st_compressed=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_COMPRESSED);
                     _ret.push_back(std::move(item));
                     if(!ffdi->NextEntryOffset) done=true;
                 }
@@ -760,8 +836,20 @@ namespace detail {
             bool done;
             do
             {
-                // It's not tremendously obvious how to call the kernel directly with an OVERLAPPED. ReactOS's sources told me how ...
-                ntstat=NtQueryDirectoryFile(p->h->native_handle(), ol.get()->hEvent, NULL, NULL, (PIO_STATUS_BLOCK) ol.get(),
+                // 2015-01-03 ned: I've been battling this stupid memory corruption bug for a while now, and it's really a bug in NT because they're probably not
+                //                 testing asynchronous direction enumeration so hence this evil workaround. Basically 32 bit kernels will corrupt memory if
+                //                 ApcContext is the i/o status block, and they demand ApcContext to be zero or else! Unfortunately 64 bit kernels, including
+                //                 when a 32 bit process is running under WoW64, pass ApcContext not IoStatusBlock as the completion port overlapped output,
+                //                 so on 64 bit kernels we have no choice and must always set ApcContext to IoStatusBlock!
+                //
+                //                 So, if I'm a 32 bit build, check IsWow64Process() to see if I'm really 32 bit and don't set ApcContext, else set ApcContext.
+                void *ApcContext=ol.get();
+#ifndef _WIN64
+                BOOL isWow64=false;
+                if(IsWow64Process(GetCurrentProcess(), &isWow64), !isWow64)
+                  ApcContext=nullptr;
+#endif
+                ntstat=NtQueryDirectoryFile(p->h->native_handle(), ol.get()->hEvent, NULL, ApcContext, (PIO_STATUS_BLOCK) ol.get(),
                     buffer.get(), (ULONG)(sizeof(FILE_ID_FULL_DIR_INFORMATION)*req.maxitems),
                     FileIdFullDirectoryInformation, FALSE, req.glob.empty() ? NULL : &_glob, req.restart);
                 if(STATUS_BUFFER_OVERFLOW==ntstat)
@@ -796,6 +884,26 @@ namespace detail {
                 std::move(req)
                 );
             doenumerate(std::move(state));
+
+            // Indicate we're not finished yet
+            return std::make_pair(false, std::shared_ptr<async_io_handle>());
+        }
+        // Called in unknown thread
+        completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> ret)
+        {
+#if 0
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+
+            // A bit messy this, but necessary
+            enumerate_state_t state=std::make_shared<enumerate_state>(
+                id,
+                std::move(op),
+                std::move(ret),
+                std::move(req)
+                );
+            doenumerate(std::move(state));
+#endif
 
             // Indicate we're not finished yet
             return std::make_pair(false, std::shared_ptr<async_io_handle>());
@@ -883,6 +991,17 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::sync, ops, async_op_flags::none, &async_file_io_dispatcher_windows::dosync);
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+          for(auto &i: ops)
+          {
+            if(!i.validate())
+              BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+          }
+#endif
+          return chain_async_ops((int) detail::OpType::zero, ops, ranges, async_op_flags::none, &async_file_io_dispatcher_windows::dozero);
+        }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
@@ -924,6 +1043,8 @@ namespace detail {
                 if(!i.validate())
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
             }
+            if(ops.size()!=sizes.size())
+                BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
 #endif
             return chain_async_ops((int) detail::OpType::truncate, ops, sizes, async_op_flags::none, &async_file_io_dispatcher_windows::dotruncate);
         }
@@ -938,6 +1059,20 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::enumerate, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::doenumerate);
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: ops)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+            }
+            if(ops.size()!=reqs.size())
+                BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+#endif
+            return chain_async_ops((int) detail::OpType::statfs, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dostatfs);
+        }
+
     };
 } // namespace
 BOOST_AFIO_V1_NAMESPACE_END

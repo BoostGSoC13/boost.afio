@@ -619,6 +619,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
         //| metadata_flags::flags
         //| metadata_flags::gen
         | metadata_flags::birthtim   // FILE_BASIC_INFORMATION, enumerated
+        | metadata_flags::sparse     // FILE_BASIC_INFORMATION, enumerated
+        | metadata_flags::compressed // FILE_BASIC_INFORMATION, enumerated
         ;
 #elif defined(__linux__)
     ret=metadata_flags::None
@@ -643,6 +645,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
         //| metadata_flags::birthtim
     // According to http://computer-forensics.sans.org/blog/2011/03/14/digital-forensics-understanding-ext4-part-2-timestamps
     // ext4 keeps birth time at offset 144 to 151 in the inode. If we ever got round to it, birthtime could be hacked.
+        | metadata_flags::sparse
+        //| metadata_flags::compressed
         ;
 #else
     // Kinda assumes FreeBSD or OS X really ...
@@ -668,6 +672,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
         | metadata_flags::gen
 #define HAVE_BIRTHTIMESPEC
         | metadata_flags::birthtim
+        | metadata_flags::sparse
+        //| metadata_flags::compressed
         ;
 #endif
     return ret;
@@ -696,6 +702,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
         //| metadata_flags::flags
         //| metadata_flags::gen
         | metadata_flags::birthtim   // FILE_BASIC_INFORMATION, enumerated
+        | metadata_flags::sparse     // FILE_BASIC_INFORMATION, enumerated
+        | metadata_flags::compressed // FILE_BASIC_INFORMATION, enumerated
         ;
 #elif defined(__linux__)
     ret=metadata_flags::None
@@ -720,6 +728,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
         //| metadata_flags::birthtim
     // According to http://computer-forensics.sans.org/blog/2011/03/14/digital-forensics-understanding-ext4-part-2-timestamps
     // ext4 keeps birth time at offset 144 to 151 in the inode. If we ever got round to it, birthtime could be hacked.
+        | metadata_flags::sparse
+        //| metadata_flags::compressed
         ;
 #else
     // Kinda assumes FreeBSD or OS X really ...
@@ -745,6 +755,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
         | metadata_flags::gen
 #define HAVE_BIRTHTIMESPEC
         | metadata_flags::birthtim
+        | metadata_flags::sparse
+        //| metadata_flags::compressed
         ;
 #endif
     return ret;
@@ -1396,6 +1408,29 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
         auto transport=std::make_shared<promise<retitemtype>>();
         retfutures.push_back(std::move(transport->get_future()));
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i, transport));
+    }
+    return std::make_pair(std::move(retfutures), std::move(ret));
+}
+// statfs specialisation
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret))
+{
+    typedef statfs_t retitemtype;
+    std::vector<async_io_op> ret;
+    std::vector<future<retitemtype>> retfutures;
+    ret.reserve(container.size());
+    retfutures.reserve(container.size());
+    assert(req.size()==container.size());
+    if(req.size()!=container.size())
+        BOOST_AFIO_THROW(std::runtime_error("req size does not match size of ops data"));
+    detail::immediate_async_ops immediates;
+    auto req_it=req.cbegin();
+    auto container_it=container.cbegin();
+    for(; req_it!=req.cend() && container_it!=container.cend(); ++req_it, ++container_it)
+    {
+        // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
+        auto transport=std::make_shared<promise<retitemtype>>();
+        retfutures.push_back(std::move(transport->get_future()));
+        ret.push_back(chain_async_op(immediates, optype, *container_it, flags, f, *req_it, transport));
     }
     return std::make_pair(std::move(retfutures), std::move(ret));
 }
