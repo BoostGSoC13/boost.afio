@@ -978,24 +978,91 @@ namespace detail {
           return doextents(id, op, std::move(ret), 16);
         }
         // Called in unknown thread
-        completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> ret)
+        completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> out)
         {
-#if 0
+          try
+          {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
+            std::shared_ptr<async_io_handle> h(op.get());
+            async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
+            assert(p);
+            statfs_t ret;
 
-            // A bit messy this, but necessary
-            enumerate_state_t state=std::make_shared<enumerate_state>(
-                id,
-                std::move(op),
-                std::move(ret),
-                std::move(req)
-                );
-            doenumerate(std::move(state));
-#endif
-
-            // Indicate we're not finished yet
-            return std::make_pair(false, std::shared_ptr<async_io_handle>());
+            // Probably not worth doing these asynchronously, so execute synchronously
+            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[32769];
+            IO_STATUS_BLOCK isb={ 0 };
+            NTSTATUS ntstat;
+            if(!!(req&fs_metadata_flags::flags) || !!(req&fs_metadata_flags::namemax) || !!(req&fs_metadata_flags::fstypename))
+            {
+              FILE_FS_ATTRIBUTE_INFORMATION *ffai=(FILE_FS_ATTRIBUTE_INFORMATION *) buffer;
+              ntstat=NtQueryVolumeInformationFile(h->native_handle(), &isb, ffai, sizeof(buffer), FileFsAttributeInformation);
+              if(STATUS_PENDING==ntstat)
+                  ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
+              BOOST_AFIO_ERRHNTFN(ntstat, h->path());
+              if(!!(req&fs_metadata_flags::flags))
+              {
+                ret.f_flags.rdonly=!!(ffai->FileSystemAttributes & FILE_READ_ONLY_VOLUME);
+                ret.f_flags.acls=!!(ffai->FileSystemAttributes & FILE_PERSISTENT_ACLS);
+                ret.f_flags.xattr=!!(ffai->FileSystemAttributes & FILE_NAMED_STREAMS);
+                ret.f_flags.compression=!!(ffai->FileSystemAttributes & FILE_VOLUME_IS_COMPRESSED);
+                ret.f_flags.extents=!!(ffai->FileSystemAttributes & FILE_SUPPORTS_SPARSE_FILES);
+                ret.f_flags.filecompression=!!(ffai->FileSystemAttributes & FILE_FILE_COMPRESSION);
+              }
+              if(!!(req&fs_metadata_flags::namemax)) ret.f_namemax=ffai->MaximumComponentNameLength;
+              if(!!(req&fs_metadata_flags::fstypename))
+              {
+                ret.f_fstypename.resize(ffai->FileSystemNameLength/sizeof(filesystem::path::value_type));
+                for(size_t n=0; n<ffai->FileSystemNameLength/sizeof(filesystem::path::value_type); n++)
+                  ret.f_fstypename[n]=(char) ffai->FileSystemName[n];
+              }
+            }
+            if(!!(req&fs_metadata_flags::bsize) || !!(req&fs_metadata_flags::blocks) || !!(req&fs_metadata_flags::bfree) || !!(req&fs_metadata_flags::bavail))
+            {
+              FILE_FS_FULL_SIZE_INFORMATION *fffsi=(FILE_FS_FULL_SIZE_INFORMATION *) buffer;
+              ntstat=NtQueryVolumeInformationFile(h->native_handle(), &isb, fffsi, sizeof(buffer), FileFsFullSizeInformation);
+              if(STATUS_PENDING==ntstat)
+                  ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
+              BOOST_AFIO_ERRHNTFN(ntstat, h->path());
+              if(!!(req&fs_metadata_flags::bsize)) ret.f_bsize=fffsi->BytesPerSector*fffsi->SectorsPerAllocationUnit;
+              if(!!(req&fs_metadata_flags::blocks)) ret.f_blocks=fffsi->TotalAllocationUnits.QuadPart;
+              if(!!(req&fs_metadata_flags::bfree)) ret.f_bfree=fffsi->ActualAvailableAllocationUnits.QuadPart;
+              if(!!(req&fs_metadata_flags::bavail)) ret.f_bavail=fffsi->CallerAvailableAllocationUnits.QuadPart;
+            }
+            if(!!(req&fs_metadata_flags::fsid))
+            {
+              FILE_FS_OBJECTID_INFORMATION *ffoi=(FILE_FS_OBJECTID_INFORMATION *) buffer;
+              ntstat=NtQueryVolumeInformationFile(h->native_handle(), &isb, ffoi, sizeof(buffer), FileFsObjectIdInformation);
+              if(STATUS_PENDING==ntstat)
+                  ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
+              if(0/*STATUS_SUCCESS*/==ntstat)
+              {
+                // FAT32 doesn't support filing system id, so sink error
+                memcpy(&ret.f_fsid, ffoi->ObjectId, sizeof(ret.f_fsid));
+              }
+            }
+            if(!!(req&fs_metadata_flags::iosize))
+            {
+              FILE_FS_SECTOR_SIZE_INFORMATION *ffssi=(FILE_FS_SECTOR_SIZE_INFORMATION *) buffer;
+              ntstat=NtQueryVolumeInformationFile(h->native_handle(), &isb, ffssi, sizeof(buffer), FileFsSectorSizeInformation);
+              if(STATUS_PENDING==ntstat)
+                  ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
+              if(0/*STATUS_SUCCESS*/!=ntstat)
+              {
+                  // Windows XP and Vista don't support the FILE_FS_SECTOR_SIZE_INFORMATION
+                  // API, so we'll just hardcode 512 bytes
+                  ffssi->PhysicalBytesPerSectorForPerformance=512;
+              }
+              ret.f_iosize=ffssi->PhysicalBytesPerSectorForPerformance;
+            }
+            out->set_value(ret);
+            return std::make_pair(true, h);
+          }
+          catch(...)
+          {
+            out->set_exception(current_exception());
+            throw;
+          }
         }
 
     public:

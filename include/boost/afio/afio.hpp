@@ -604,7 +604,6 @@ enum class fs_metadata_flags : size_t
 #endif
 {
     None=0,
-    type=1<<0,
     flags=1<<1,
     bsize=1<<2,
     iosize=1<<3,
@@ -623,17 +622,20 @@ enum class fs_metadata_flags : size_t
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(fs_metadata_flags)
 /*! \struct statfs_t
-\brief Metadata about a filing system
+\brief Metadata about a filing system. Unsupported entries are -1.
 */
 struct statfs_t
 {
      struct
      {
-        uint32_t rdonly : 1;    //!< Filing system is read only                        (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
-        uint32_t noexec : 1;    //!< Filing system cannot execute programs             (POSIX only)
-        uint32_t nosuid : 1;    //!< Filing system cannot superuser                    (POSIX only)
-        uint32_t acls : 1;      //!< Filing system provides ACLs                       (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
-        uint32_t xattr : 1;     //!< Filing system provides extended attributes        (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t rdonly : 1;          //!< Filing system is read only                                      (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t noexec : 1;          //!< Filing system cannot execute programs                           (POSIX only)
+        uint32_t nosuid : 1;          //!< Filing system cannot superuser                                  (POSIX only)
+        uint32_t acls : 1;            //!< Filing system provides ACLs                                     (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t xattr : 1;           //!< Filing system provides extended attributes                      (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t compression : 1;     //!< Filing system provides whole volume compression                 (Windows, POSIX)
+        uint32_t extents : 1;         //!< Filing system provides extent based file storage (sparse files) (Windows, POSIX)
+        uint32_t filecompression : 1; //!< Filing system provides per-file selectable compression          (Windows)
      } f_flags;                           /*!< copy of mount exported flags       (POSIX) */
      uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.SectorsPerAllocationUnit*FILE_FS_FULL_SIZE_INFORMATION.BytesPerSector */
      uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, BSD, OS X) FILE_FS_SECTOR_SIZE_INFORMATION.PhysicalBytesPerSectorForPerformance */
@@ -646,10 +648,16 @@ struct statfs_t
 #ifndef WIN32
      int16_t  f_owner;                    /*!< user that mounted the filesystem   (BSD, OS X) */
 #endif
-     uint64_t f_fsid;                     /*!< filesystem id                      (Windows, POSIX) FILE_FS_OBJECTID_INFORMATION */
+     uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) FILE_FS_OBJECTID_INFORMATION */
      std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemName */
      std::string f_mntfromname;           /*!< mounted filesystem                 (BSD, OS X) */
      filesystem::path f_mntonname;        /*!< directory on which mounted         (BSD, OS X) */
+     statfs_t()
+     {
+       size_t frontbytes=((char *) &f_fstypename)-((char *) this);
+       memset(this, 0xff, frontbytes);
+       memset(this, 0, sizeof(f_flags));
+     }
 };
 
 /*! \brief The abstract base class for an entry in a directory with lazily filled metadata.

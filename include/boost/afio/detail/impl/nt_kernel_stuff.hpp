@@ -279,6 +279,26 @@ namespace windows_nt_kernel
       FILE_NAME_INFORMATION      NameInformation;
     } FILE_ALL_INFORMATION, *PFILE_ALL_INFORMATION;
 
+    typedef struct _FILE_FS_ATTRIBUTE_INFORMATION {
+      ULONG FileSystemAttributes;
+      LONG  MaximumComponentNameLength;
+      ULONG FileSystemNameLength;
+      WCHAR FileSystemName[1];
+    } FILE_FS_ATTRIBUTE_INFORMATION, *PFILE_FS_ATTRIBUTE_INFORMATION;
+
+    typedef struct _FILE_FS_FULL_SIZE_INFORMATION {
+      LARGE_INTEGER TotalAllocationUnits;
+      LARGE_INTEGER CallerAvailableAllocationUnits;
+      LARGE_INTEGER ActualAvailableAllocationUnits;
+      ULONG         SectorsPerAllocationUnit;
+      ULONG         BytesPerSector;
+    } FILE_FS_FULL_SIZE_INFORMATION, *PFILE_FS_FULL_SIZE_INFORMATION;
+
+    typedef struct _FILE_FS_OBJECTID_INFORMATION {
+      UCHAR ObjectId[16];
+      UCHAR ExtendedInfo[48];
+    } FILE_FS_OBJECTID_INFORMATION, *PFILE_FS_OBJECTID_INFORMATION;
+
     typedef struct _FILE_FS_SECTOR_SIZE_INFORMATION {
       ULONG LogicalBytesPerSector;
       ULONG PhysicalBytesPerSectorForAtomicity;
