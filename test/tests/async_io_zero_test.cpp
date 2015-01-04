@@ -32,7 +32,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       BOOST_REQUIRE(beforezerostatc.st_size==buffer.size());
       if(beforezerostatsp.st_allocated<buffer.size())
       {
-        BOOST_WARN_MESSAGE("The sparse file allocation is smaller than expected, is this file system compressed?");
+        BOOST_WARN_MESSAGE(false, "The sparse file allocation is smaller than expected, is this file system compressed?");
         std::cout << "WARNING: The sparse file allocation is smaller than expected, is this file system compressed? allocated=" << beforezerostatsp.st_allocated << "." << std::endl;
       }
       if(beforezerostatc.st_compressed)
@@ -41,7 +41,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       }
       else
       {
-        BOOST_WARN_MESSAGE("File isn't marked as compressed, assuming no filing system support for per-file compression.");
+        BOOST_WARN_MESSAGE(false, "File isn't marked as compressed, assuming no filing system support for per-file compression.");
         std::cout << "File isn't marked as compressed, assuming no filing system support for per-file compression." << std::endl;
       }
       
@@ -73,7 +73,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       std::cout << "The compressed file now consumes " << afterzerostatc.st_allocated << " bytes on disc for " << afterzerostatc.st_size << " bytes." << std::endl;
       if(afterzerostatsp.st_allocated==buffer.size())
       {
-        BOOST_WARN_MESSAGE("This filing system does not support sparse files, so skipping some tests.");
+        BOOST_WARN_MESSAGE(false, "This filing system does not support sparse files, so skipping some tests.");
         std::cout << "This filing system does not support sparse files, so skipping some tests." << std::endl;
         BOOST_CHECK(!afterzerostatsp.st_sparse);
       }

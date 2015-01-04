@@ -952,7 +952,7 @@ namespace detail {
                 // Search entire file
                 buffers->front().FileOffset.QuadPart=0;
                 buffers->front().Length.QuadPart=((off_t)1<<63)-1; // Microsoft claims this is 1<<64-1024 for NTFS, but I get bad parameter error with anything higher than 1<<63-1.
-                BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_QUERY_ALLOCATED_RANGES, buffers->data(), sizeof(FILE_ALLOCATED_RANGE_BUFFER), buffers->data(), buffers->size()*sizeof(FILE_ALLOCATED_RANGE_BUFFER), &bytesout, ol.get());
+                BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_QUERY_ALLOCATED_RANGES, buffers->data(), sizeof(FILE_ALLOCATED_RANGE_BUFFER), buffers->data(), (DWORD)(buffers->size()*sizeof(FILE_ALLOCATED_RANGE_BUFFER)), &bytesout, ol.get());
                 DWORD errcode=GetLastError();
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
