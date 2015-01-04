@@ -32,6 +32,7 @@ extern "C" void tzset(void);
 #include <algorithm>
 #include <deque>
 #include <unordered_set>
+#include <random>
 #include "../detail/SpookyV2.h"
 #include "boost/afio/detail/Aligned_Allocator.hpp"
 #include "boost/afio/detail/valgrind/valgrind.h"

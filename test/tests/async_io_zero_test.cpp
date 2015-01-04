@@ -1,5 +1,4 @@
 #include "test_functions.hpp"
-#include <random>
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of sparse and compressed files", 5)
 {
