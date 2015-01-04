@@ -941,7 +941,7 @@ namespace detail {
                   out[n].first=buffers->data()[n].FileOffset.QuadPart;
                   out[n].second=buffers->data()[n].Length.QuadPart;
                 }
-                ret->set_value(out);
+                ret->set_value(std::move(out));
                 complete_async_op(id, h);
               }
             };
@@ -1055,7 +1055,7 @@ namespace detail {
               }
               ret.f_iosize=ffssi->PhysicalBytesPerSectorForPerformance;
             }
-            out->set_value(ret);
+            out->set_value(std::move(ret));
             return std::make_pair(true, h);
           }
           catch(...)

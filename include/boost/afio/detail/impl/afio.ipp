@@ -232,7 +232,7 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
     if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(s.st_mtim); }
     if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(s.st_ctim); }
     if(!!(wanted&metadata_flags::size)) { stat.st_size=s.st_size; }
-    if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=s.st_blocks*s.st_blksize; }
+    if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=s.st_blocks*512; }
     if(!!(wanted&metadata_flags::blocks)) { stat.st_blocks=s.st_blocks; }
     if(!!(wanted&metadata_flags::blksize)) { stat.st_blksize=s.st_blksize; }
 #ifdef HAVE_STAT_FLAGS
@@ -244,6 +244,7 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
 #ifdef HAVE_BIRTHTIMESPEC
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(s.st_birthtim); }
 #endif
+    if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=(s.st_blocks*512)<s.st_size; }
 }
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
@@ -1666,6 +1667,76 @@ namespace detail {
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
+        completion_returntype dozero(size_t id, async_io_op op, std::vector<std::pair<off_t, off_t>> ranges)
+        {
+            std::shared_ptr<async_io_handle> h(op.get());
+            async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+            bool done=false;
+#ifndef WIN32
+#if defined(__linux__)
+            done=true;
+            for(auto &i: ranges)
+            {
+              int ret;
+              while(-1==(ret=fallocate(p->fd, FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, i.first, i.second)) && EINTR==errno);
+              if(-1==ret)
+              {
+                if(EOPNOTSUPP==errno)
+                {
+                  done=false;
+                  break;
+                }
+                BOOST_AFIO_ERRHOSFN(-1, p->path());
+              }
+            }
+#elif defined(__FreeBSD__)
+            done=true;
+            for(auto &i: ranges)
+            {
+              int ret;
+              // Probably best not to use the std::pair directly ...
+              ::off_t ioarg[2]={i.first, i.second};
+              while(-1==(ret=ioctl(p->fd, DIOCGDELETE, ioarg)) && EINTR==errno);
+              if(-1==ret)
+              {
+                if(EINVAL==errno)
+                {
+                  done=false;
+                  break;
+                }
+                BOOST_AFIO_ERRHOSFN(-1, p->path());
+              }
+            }
+#endif
+#endif
+            // Fall back onto a write of zeros
+            if(!done)
+            {
+              char buffer[1024*1024];
+              memset(buffer, 0, sizeof(buffer));
+              for(auto &i: ranges)
+              {
+                ssize_t byteswritten=0, bytestowrite=0;
+                std::vector<iovec> vecs(1+i.second/sizeof(buffer));
+                for(size_t n=0; n<vecs.size(); n++)
+                {
+                  vecs[n].iov_base=buffer;
+                  vecs[n].iov_len=(n<vecs.size()-1) ? sizeof(buffer) : (i.second-n*sizeof(buffer));
+                }
+                for(size_t n=0; n<vecs.size(); n+=IOV_MAX)
+                {
+                    ssize_t _byteswritten;
+                    size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
+                    off_t offset=i.first+byteswritten;
+                    while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
+                    BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+                    byteswritten+=_byteswritten;
+                } 
+              }
+            }
+            return std::make_pair(true, h);
+        }
+        // Called in unknown thread
         completion_returntype dosync(size_t id, async_io_op op, async_io_op)
         {
             std::shared_ptr<async_io_handle> h(op.get());
@@ -1730,7 +1801,7 @@ namespace detail {
                 ssize_t _bytesread;
                 size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
                 off_t offset=req.where+bytesread;
-                _bytesread=preadv(p->fd, (&vecs.front())+n, (int) amount, offset);
+                while(-1==(_bytesread=preadv(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
                 if(!this->p->filters_buffers.empty())
                 {
                     asio::error_code ec(errno, generic_category());
@@ -1778,7 +1849,7 @@ namespace detail {
                 ssize_t _byteswritten;
                 size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
                 off_t offset=req.where+byteswritten;
-                _byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset);
+                while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
                 if(!this->p->filters_buffers.empty())
                 {
                     asio::error_code ec(errno, generic_category());
@@ -1804,7 +1875,9 @@ namespace detail {
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FTRUNCATE(p->fd, newsize), p->path());
+            int ret;
+            while(-1==(ret=BOOST_AFIO_POSIX_FTRUNCATE(p->fd, newsize)) && EINTR==errno);
+            BOOST_AFIO_ERRHOSFN(ret, p->path());
             return std::make_pair(true, h);
         }
 #ifdef __linux__
@@ -1955,6 +2028,44 @@ namespace detail {
                 throw;
             }
         }
+        // Called in unknown thread
+        completion_returntype doextents(size_t id, async_io_op op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret)
+        {
+          try
+          {
+            std::shared_ptr<async_io_handle> h(op.get());
+            async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+            std::vector<std::pair<off_t, off_t>> out;
+            off_t start=0, end=0;
+            for(;;)
+            {
+#ifdef __linux__
+                start=lseek64(p->fd, end, SEEK_DATA);
+                if(ENXIO==errno) break;
+                end=lseek64(p->fd, start, SEEK_HOLE);
+#else
+                start=lseek(p->fd, end, SEEK_DATA);
+                if(ENXIO==errno) break;
+                end=lseek(p->fd, start, SEEK_HOLE);
+#endif
+                out.push_back(std::make_pair<off_t, off_t>(std::move(start), end-start));
+            }
+            ret->set_value(std::move(out));
+            return std::make_pair(true, h);
+          }
+          catch(...)
+          {
+            ret->set_exception(current_exception());
+            throw;
+          }
+        }
+        // Called in unknown thread
+        completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> out)
+        {
+            std::shared_ptr<async_io_handle> h(op.get());
+            async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+            return std::make_pair(true, h);
+        }
 
     public:
         async_file_io_dispatcher_compat(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask)
@@ -2039,6 +2150,17 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::sync, ops, async_op_flags::none, &async_file_io_dispatcher_compat::dosync);
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+          for(auto &i: ops)
+          {
+            if(!i.validate())
+              BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+          }
+#endif
+          return chain_async_ops((int) detail::OpType::zero, ops, ranges, async_op_flags::none, &async_file_io_dispatcher_compat::dozero);
+        }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
@@ -2093,6 +2215,30 @@ namespace detail {
             }
 #endif
             return chain_async_ops((int) detail::OpType::enumerate, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::doenumerate);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: ops)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::extents, ops, async_op_flags::none, &async_file_io_dispatcher_compat::doextents);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: ops)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+            }
+            if(ops.size()!=reqs.size())
+                BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+#endif
+            return chain_async_ops((int) detail::OpType::statfs, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dostatfs);
         }
     };
 }

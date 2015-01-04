@@ -16,7 +16,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_statfs, "Tests statfs", 20)
 
     auto statfs(statfs_.first.get());
 #define PRINT_FIELD(field, ...) \
-    std::cout << "  f_flags." #field ": "; std::cout << statfs.f_flags.##field __VA_ARGS__ << std::endl
+    std::cout << "  f_flags." #field ": "; std::cout << statfs.f_flags.field __VA_ARGS__ << std::endl
     PRINT_FIELD(rdonly);
     PRINT_FIELD(noexec);
     PRINT_FIELD(nosuid);
