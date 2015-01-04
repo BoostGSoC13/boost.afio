@@ -904,6 +904,80 @@ namespace detail {
             return std::make_pair(false, std::shared_ptr<async_io_handle>());
         }
         // Called in unknown thread
+        completion_returntype doextents(size_t id, async_io_op op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret, size_t entries)
+        {
+            std::shared_ptr<async_io_handle> h(op.get());
+            async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
+            assert(p);
+            auto buffers=std::make_shared<std::vector<FILE_ALLOCATED_RANGE_BUFFER>>(entries);
+            auto completion_handler=[this, id, op, ret, entries, buffers](const asio::error_code &ec, size_t bytes)
+            {
+              std::shared_ptr<async_io_handle> h(op.get());
+              if(ec)
+              {
+                if(ERROR_MORE_DATA==ec.value())
+                {
+                    doextents(id, std::move(op), std::move(ret), entries*2);
+                    return;
+                }
+                exception_ptr e;
+                // boost::system::system_error makes no attempt to ask windows for what the error code means :(
+                try
+                {
+                  BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                }
+                catch(...)
+                {
+                  e=current_exception();
+                }
+                ret->set_exception(e);
+                complete_async_op(id, h, e);
+              }
+              else
+              {
+                std::vector<std::pair<off_t, off_t>> out(bytes/sizeof(FILE_ALLOCATED_RANGE_BUFFER));
+                for(size_t n=0; n<out.size(); n++)
+                {
+                  out[n].first=buffers->data()[n].FileOffset.QuadPart;
+                  out[n].second=buffers->data()[n].Length.QuadPart;
+                }
+                ret->set_value(out);
+                complete_async_op(id, h);
+              }
+            };
+            asio::windows::overlapped_ptr ol(p->h->get_io_service(), completion_handler);
+            do
+            {
+                DWORD bytesout=0;
+                // Search entire file
+                buffers->front().FileOffset.QuadPart=0;
+                buffers->front().Length.QuadPart=((off_t)1<<63)-1; // Microsoft claims this is 1<<64-1024 for NTFS, but I get bad parameter error with anything higher than 1<<63-1.
+                BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_QUERY_ALLOCATED_RANGES, buffers->data(), sizeof(FILE_ALLOCATED_RANGE_BUFFER), buffers->data(), buffers->size()*sizeof(FILE_ALLOCATED_RANGE_BUFFER), &bytesout, ol.get());
+                DWORD errcode=GetLastError();
+                if(!ok && ERROR_IO_PENDING!=errcode)
+                {
+                  if(ERROR_INSUFFICIENT_BUFFER==errcode || ERROR_MORE_DATA==errcode)
+                  {
+                    buffers->resize(buffers->size()*2);
+                    continue;
+                  }
+                  //std::cerr << "ERROR " << errcode << std::endl;
+                  asio::error_code ec(errcode, asio::error::get_system_category());
+                  ol.complete(ec, ol.get()->InternalHigh);
+                }
+                else
+                  ol.release();
+            } while(false);
+
+            // Indicate we're not finished yet
+            return std::make_pair(false, h);
+        }
+        // Called in unknown thread
+        completion_returntype doextents(size_t id, async_io_op op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret)
+        {
+          return doextents(id, op, std::move(ret), 16);
+        }
+        // Called in unknown thread
         completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> ret)
         {
 #if 0
@@ -1073,6 +1147,17 @@ namespace detail {
             }
 #endif
             return chain_async_ops((int) detail::OpType::enumerate, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::doenumerate);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: ops)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::extents, ops, async_op_flags::none, &async_file_io_dispatcher_windows::doextents);
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) override final
         {

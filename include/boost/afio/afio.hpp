@@ -452,6 +452,7 @@ namespace detail {
         enumerate,
         adopt,
         zero,
+        extents,
         statfs,
 
         Last
@@ -474,6 +475,7 @@ namespace detail {
         "enumerate",
         "adopt",
         "zero",
+        "extents",
         "statfs"
     };
     static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
@@ -530,7 +532,9 @@ syscall, is provided by `st_type` which is one of the values from `filesystem::f
 but don't want to include platform specific headers, note that `filesystem::perms` contains
 definitions of the POSIX permissions flags.
 (v) The st_sparse and st_compressed flags indicate if your file is sparse and/or compressed, or if
-the directory is capable of holding such files.
+the directory will compress newly created files by default. Note that on POSIX, a file is sparse
+if and only if st_allocated < st_size which can include compressed files if that filing system is mounted
+with compression enabled (e.g. ZFS with ZLE compression which elides runs of zeros).
 */
 struct stat_t
 {
@@ -563,8 +567,8 @@ struct stat_t
     uint32_t        st_gen;                       /*!< file generation number          (FreeBSD, OS X, zero otherwise)*/
     chrono::system_clock::time_point st_birthtim; /*!< time of file creation           (Windows, FreeBSD, OS X, zero otherwise) */
 
-    unsigned        st_sparse : 1;                /*!< if this file is sparse, or this directory capable of sparse files (All) */
-    unsigned        st_compressed : 1;            /*!< if this file is compressed, or this directory capable of compressed files (All) */
+    unsigned        st_sparse : 1;                /*!< if this file is sparse, or this directory capable of sparse files (Windows, POSIX) */
+    unsigned        st_compressed : 1;            /*!< if this file is compressed, or this directory capable of compressed files (Windows) */
     
     //! Constructs a UNINITIALIZED instance i.e. full of random garbage
     stat_t() { }
@@ -1410,7 +1414,7 @@ public:
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if deallocation is constant time.}
     \exceptionmodelstd
-    \qexample{trim_example}
+    \qexample{extents_example}
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation.
@@ -1432,7 +1436,7 @@ public:
     \qbk{distinguish, single}
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
     \exceptionmodelstd
-    \qexample{trim_example}
+    \qexample{extents_example}
     */
     inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
@@ -1599,6 +1603,34 @@ public:
     \qexample{enumerate_example}
     */
     inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> enumerate(const async_enumerate_op_req &req);
+    /*! \brief Schedule a batch of asynchronous extent enumerations after preceding operations.
+
+    In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
+    call is racy when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
+
+    \return A batch of future vectors of extents.
+    \param reqs A batch of extent enumeration requests.
+    \ingroup async_file_io_dispatcher_base__extents
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of extents in each file.}
+    \exceptionmodelstd
+    \qexample{extents_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous extent enumeration after a preceding operation.
+
+    In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
+    call is racy when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
+
+    \return A future vector of extents.
+    \param reqs An extent enumeration requests.
+    \ingroup async_file_io_dispatcher_base__extents
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of extents in each file.}
+    \exceptionmodelstd
+    \qexample{extents_example}
+    */
+    inline std::pair<future<std::vector<std::pair<off_t, off_t>>>, async_io_op> extents(const async_io_op &op);
     /*! \brief Schedule a batch of asynchronous volume enumerations after preceding operations.
 
     \return A batch of future volume metadatas.
@@ -1677,6 +1709,7 @@ protected:
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_path_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_path_op_req));
     template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<detail::async_data_op_req_impl<iswrite>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, detail::async_data_op_req_impl<iswrite>));
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret));
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
     template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, async_io_op h, T);
 
@@ -2913,16 +2946,24 @@ inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io
     auto ret=enumerate(i);
     return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
-inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::statfs(const async_io_op &op, const fs_metadata_flags &req)
+inline std::pair<future<std::vector<std::pair<off_t, off_t>>>, async_io_op> async_file_io_dispatcher_base::extents(const async_io_op &op)
 {
     std::vector<async_io_op> o;
-    std::vector<fs_metadata_flags> i;
     o.reserve(1);
     o.push_back(op);
-    i.reserve(1);
-    i.push_back(req);
-    auto ret=statfs(o, i);
+    auto ret=extents(o);
     return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
+}
+inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::statfs(const async_io_op &op, const fs_metadata_flags &req)
+{
+  std::vector<async_io_op> o;
+  std::vector<fs_metadata_flags> i;
+  o.reserve(1);
+  o.push_back(op);
+  i.reserve(1);
+  i.push_back(req);
+  auto ret = statfs(o, i);
+  return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
 
 

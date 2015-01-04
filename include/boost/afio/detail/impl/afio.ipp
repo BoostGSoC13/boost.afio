@@ -1411,6 +1411,24 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     }
     return std::make_pair(std::move(retfutures), std::move(ret));
 }
+// extents specialisation
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret))
+{
+    typedef std::vector<std::pair<off_t, off_t>> retitemtype;
+    std::vector<async_io_op> ret;
+    std::vector<future<retitemtype>> retfutures;
+    ret.reserve(container.size());
+    retfutures.reserve(container.size());
+    detail::immediate_async_ops immediates;
+    for(auto &i: container)
+    {
+        // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
+        auto transport=std::make_shared<promise<retitemtype>>();
+        retfutures.push_back(std::move(transport->get_future()));
+        ret.push_back(chain_async_op(immediates, optype, i, flags, f, transport));
+    }
+    return std::make_pair(std::move(retfutures), std::move(ret));
+}
 // statfs specialisation
 template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret))
 {
@@ -2100,7 +2118,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         {
             // Fast path skips opening a handle per file by enumerating the containing directory using a glob
             // exactly matching the leafname. This is about 10x quicker, so it's very much worth it.
-            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[sizeof(FILE_ALL_INFORMATION)/sizeof(filesystem::path::value_type)+32769];
+            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[sizeof(FILE_ID_FULL_DIR_INFORMATION)/sizeof(filesystem::path::value_type)+32769];
             IO_STATUS_BLOCK isb={ 0 };
             UNICODE_STRING _glob;
             NTSTATUS ntstat;
