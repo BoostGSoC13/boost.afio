@@ -45,13 +45,20 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 std::string errstr(buffer, buffer+len);
                 errstr.append(" ("+to_string(code)+") in '"+std::string(file)+"':"+std::string(function)+":"+to_string(lineno));
                 // Add the filename where appropriate. This helps debugging a lot.
-                if(ERROR_FILE_NOT_FOUND==code || ERROR_PATH_NOT_FOUND==code)
+                if(filename)
                 {
-                        errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
-                }
-                else if(ERROR_ACCESS_DENIED==code || ERROR_EA_ACCESS_DENIED==code)
-                {
-                        errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                    if(ERROR_FILE_NOT_FOUND==code || ERROR_PATH_NOT_FOUND==code)
+                    {
+                            errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
+                    }
+                    else if(ERROR_ACCESS_DENIED==code || ERROR_EA_ACCESS_DENIED==code)
+                    {
+                            errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                    }
+                    else
+                    {
+                      errstr.append(" [Path: '"+filename->generic_string()+"']");
+                    }
                 }
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
@@ -103,13 +110,20 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 std::string errstr(buffer, buffer+len);
                 errstr.append(" ("+to_string(code)+") in '"+std::string(file)+"':"+std::string(function)+":"+to_string(lineno));
                 // Add the filename where appropriate. This helps debugging a lot.
-                if(0xC000000F/*STATUS_NO_SUCH_FILE*/==code || 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==code)
+                if(filename)
                 {
-                    errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
-                }
-                else if(0xC0000022/*STATUS_ACCESS_DENIED*/==code)
-                {
-                    errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                    if(0xC000000F/*STATUS_NO_SUCH_FILE*/==code || 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==code)
+                    {
+                        errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
+                    }
+                    else if(0xC0000022/*STATUS_ACCESS_DENIED*/==code)
+                    {
+                        errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                    }
+                    else
+                    {
+                      errstr.append(" [Path: '"+filename->generic_string()+"']");
+                    }
                 }
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
@@ -131,13 +145,20 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 std::string errstr(strerror(code));
                 errstr.append(" ("+to_string(code)+") in '"+std::string(file)+"':"+std::string(function)+":"+to_string(lineno));
                 // Add the filename where appropriate. This helps debugging a lot.
-                if(ENOENT==code || ENOTDIR==code)
+                if(filename)
                 {
-                        errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
-                }
-                else if(EACCES==code)
-                {
-                        errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                    if(ENOENT==code || ENOTDIR==code)
+                    {
+                            errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
+                    }
+                    else if(EACCES==code)
+                    {
+                            errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                    }
+                    else
+                    {
+                      errstr.append(" [Path: '"+filename->generic_string()+"']");
+                    }
                 }
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }// end int_throwOSError

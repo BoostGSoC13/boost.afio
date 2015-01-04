@@ -379,7 +379,7 @@ enum class file_flags : size_t
     Truncate=8,         //!< Truncate existing file to zero
     Create=16,          //!< Open and create if doesn't exist. Always creates sparse files if possible.
     CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
-    CreateCompressed=64,     //!< Create a compressed file. Only succeeds if supported by the underlying filing system.
+    CreateCompressed=64,     //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
     WillBeSequentiallyAccessed=128, //!< Will be exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
     WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.

@@ -2120,6 +2120,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
             if(!!(wanted&metadata_flags::size)) { stat.st_size=ffdi->EndOfFile.QuadPart; }
             if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=ffdi->AllocationSize.QuadPart; }
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(ffdi->CreationTime); }
+            if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE); }
+            if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
         }
         else
         {
@@ -2152,6 +2154,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
 #ifdef HAVE_BIRTHTIMESPEC
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=direntry.stat.st_birthtim; }
 #endif
+            if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=direntry.stat.st_sparse; }
+            if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=direntry.stat.st_compressed; }
         }
     }
     else

@@ -215,7 +215,8 @@ namespace detail {
         completion_returntype dormdir(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            BOOST_AFIO_ERRHWINFN(RemoveDirectory(req.path.c_str()), req.path);
+            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native());
+            BOOST_AFIO_ERRHWINFN(RemoveDirectory(escapedpath.c_str()), req.path);
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
@@ -257,11 +258,6 @@ namespace detail {
             if(!!(req.flags & file_flags::FastDirectoryEnumeration))
                 dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_windows::dofile);
 
-            DWORD attribs=FILE_ATTRIBUTE_NORMAL;
-            if(!(req.flags & file_flags::int_opening_dir)) attribs|=FILE_ATTRIBUTE_SPARSE_FILE;
-            if(!!(req.flags & file_flags::CreateCompressed)) attribs|=FILE_ATTRIBUTE_COMPRESSED;
-            if(!!(req.flags & file_flags::NoSparse)) attribs&=~FILE_ATTRIBUTE_SPARSE_FILE;
-
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
             HANDLE h=nullptr;
@@ -284,22 +280,40 @@ namespace detail {
             //                because NT won't let you create a new file with the same name as one which
             //                has been deleted if that deleted file is still open. This is more annoying
             //                and harder to detect than accepting the fact NT won't delete open files.
-            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/,
+            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/,
                 creatdisp, flags, NULL, 0), req.path);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, dirh, req.path, req.flags,
                 (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
                 h);
             static_cast<async_io_handle_windows *>(ret.get())->do_add_io_handle_to_parent();
-            if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link) && !!(req.flags & file_flags::OSMMap))
+            // If creating a file or directory or link and he wants compression, try that now
+            if(!!(req.flags & file_flags::CreateCompressed) && (!!(req.flags & file_flags::CreateOnlyIfNotExist) || !!(req.flags & file_flags::Create)))
+            {
+              DWORD bytesout=0;
+              USHORT val=COMPRESSION_FORMAT_DEFAULT;
+              BOOST_AFIO_ERRHWINFN(DeviceIoControl(ret->native_handle(), FSCTL_SET_COMPRESSION, &val, sizeof(val), nullptr, 0, &bytesout, nullptr), req.path);
+            }
+            if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link))
+            {
+              // If opening existing file for write, try to convert to sparse, ignoring any failures
+              if(!(req.flags & file_flags::NoSparse) && !!(req.flags & file_flags::Write))
+              {
+                DWORD bytesout=0;
+                FILE_SET_SPARSE_BUFFER fssb={true};
+                DeviceIoControl(ret->native_handle(), FSCTL_SET_SPARSE, &fssb, sizeof(fssb), nullptr, 0, &bytesout, nullptr);
+              }
+              if(!!(req.flags & file_flags::OSMMap))
                 ret->try_mapfile();
+            }
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
         completion_returntype dormfile(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            BOOST_AFIO_ERRHWINFN(DeleteFile(req.path.c_str()), req.path);
+            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native());
+            BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), req.path);
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
@@ -408,13 +422,14 @@ namespace detail {
         completion_returntype dormsymlink(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            if(GetFileAttributes(req.path.c_str())&FILE_ATTRIBUTE_DIRECTORY)
+            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native());
+            if(GetFileAttributes(escapedpath.c_str())&FILE_ATTRIBUTE_DIRECTORY)
             {
-              BOOST_AFIO_ERRHWINFN(RemoveDirectory(req.path.c_str()), req.path);
+              BOOST_AFIO_ERRHWINFN(RemoveDirectory(escapedpath.c_str()), req.path);
             }
             else
             {
-              BOOST_AFIO_ERRHWINFN(DeleteFile(req.path.c_str()), req.path);
+              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), req.path);
             }
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
@@ -437,7 +452,7 @@ namespace detail {
               bytes+=i.second;
             }
             auto bytes_to_transfer=std::make_shared<std::pair<atomic<bool>, atomic<off_t>>>(false, bytes);
-            auto completion_handler=[this, id, h, bytes_to_transfer, buffers](const asio::error_code &ec, size_t bytes)
+            auto completion_handler=[this, id, h, bytes_to_transfer, buffers](const asio::error_code &ec, size_t bytes, off_t thisbytes)
             {
               if(ec)
               {
@@ -457,14 +472,14 @@ namespace detail {
                 }
                 complete_async_op(id, h, e);
               }
-              else if(!(bytes_to_transfer->second-=bytes))
+              else if(!(bytes_to_transfer->second-=thisbytes))
               {
                 complete_async_op(id, h);
               }
             };
             for(auto &i : *buffers)
             {
-              asio::windows::overlapped_ptr ol(p->h->get_io_service(), completion_handler);
+              asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(completion_handler, std::placeholders::_1, std::placeholders::_2, i.BeyondFinalZero.QuadPart-i.FileOffset.QuadPart));
               DWORD bytesout=0;
               BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_SET_ZERO_DATA, &i, sizeof(i), nullptr, 0, &bytesout, ol.get());
               DWORD errcode=GetLastError();
@@ -838,7 +853,7 @@ namespace detail {
             {
                 // 2015-01-03 ned: I've been battling this stupid memory corruption bug for a while now, and it's really a bug in NT because they're probably not
                 //                 testing asynchronous direction enumeration so hence this evil workaround. Basically 32 bit kernels will corrupt memory if
-                //                 ApcContext is the i/o status block, and they demand ApcContext to be zero or else! Unfortunately 64 bit kernels, including
+                //                 ApcContext is the i/o status block, and they demand ApcContext to be null or else! Unfortunately 64 bit kernels, including
                 //                 when a 32 bit process is running under WoW64, pass ApcContext not IoStatusBlock as the completion port overlapped output,
                 //                 so on 64 bit kernels we have no choice and must always set ApcContext to IoStatusBlock!
                 //
