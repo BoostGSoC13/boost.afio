@@ -628,28 +628,28 @@ struct statfs_t
 {
      struct
      {
-        uint32_t rdonly : 1;          //!< Filing system is read only                                      (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t rdonly : 1;          //!< Filing system is read only                                      (Windows, POSIX)
         uint32_t noexec : 1;          //!< Filing system cannot execute programs                           (POSIX only)
         uint32_t nosuid : 1;          //!< Filing system cannot superuser                                  (POSIX only)
-        uint32_t acls : 1;            //!< Filing system provides ACLs                                     (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
-        uint32_t xattr : 1;           //!< Filing system provides extended attributes                      (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemAttributes
+        uint32_t acls : 1;            //!< Filing system provides ACLs                                     (Windows, POSIX)
+        uint32_t xattr : 1;           //!< Filing system provides extended attributes                      (Windows, POSIX)
         uint32_t compression : 1;     //!< Filing system provides whole volume compression                 (Windows, POSIX)
         uint32_t extents : 1;         //!< Filing system provides extent based file storage (sparse files) (Windows, POSIX)
         uint32_t filecompression : 1; //!< Filing system provides per-file selectable compression          (Windows)
      } f_flags;                           /*!< copy of mount exported flags       (POSIX) */
-     uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.SectorsPerAllocationUnit*FILE_FS_FULL_SIZE_INFORMATION.BytesPerSector */
-     uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, BSD, OS X) FILE_FS_SECTOR_SIZE_INFORMATION.PhysicalBytesPerSectorForPerformance */
-     uint64_t f_blocks;                   /*!< total data blocks in filesystem    (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.TotalAllocationUnits */
-     uint64_t f_bfree;                    /*!< free blocks in filesystem          (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.ActualAvailableAllocationUnits */
-     uint64_t f_bavail;                   /*!< free blocks avail to non-superuser (Windows, POSIX) FILE_FS_FULL_SIZE_INFORMATION.CallerAvailableAllocationUnits */
+     uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) */
+     uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, BSD, OS X) */
+     uint64_t f_blocks;                   /*!< total data blocks in filesystem    (Windows, POSIX) */
+     uint64_t f_bfree;                    /*!< free blocks in filesystem          (Windows, POSIX) */
+     uint64_t f_bavail;                   /*!< free blocks avail to non-superuser (Windows, POSIX) */
      uint64_t f_files;                    /*!< total file nodes in filesystem     (POSIX) */
      uint64_t f_ffree;                    /*!< free nodes avail to non-superuser  (POSIX) */
-     uint32_t f_namemax;                  /*!< maximum filename length            (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.MaximumComponentNameLength */
+     uint32_t f_namemax;                  /*!< maximum filename length            (Windows, POSIX) */
 #ifndef WIN32
      int16_t  f_owner;                    /*!< user that mounted the filesystem   (BSD, OS X) */
 #endif
-     uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) FILE_FS_OBJECTID_INFORMATION */
-     std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) FILE_FS_ATTRIBUTE_INFORMATION.FileSystemName */
+     uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) */
+     std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) */
      std::string f_mntfromname;           /*!< mounted filesystem                 (BSD, OS X) */
      filesystem::path f_mntonname;        /*!< directory on which mounted         (BSD, OS X) */
      statfs_t()
