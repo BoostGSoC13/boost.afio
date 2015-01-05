@@ -648,7 +648,7 @@ struct statfs_t
         uint32_t filecompression : 1; //!< Filing system provides per-file selectable compression          (Windows)
      } f_flags;                           /*!< copy of mount exported flags       (POSIX) */
      uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) */
-     uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, BSD, OS X) */
+     uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, POSIX) */
      uint64_t f_blocks;                   /*!< total data blocks in filesystem    (Windows, POSIX) */
      uint64_t f_bfree;                    /*!< free blocks in filesystem          (Windows, POSIX) */
      uint64_t f_bavail;                   /*!< free blocks avail to non-superuser (Windows, POSIX) */

@@ -4,7 +4,7 @@ Provides a threadpool and asynchronous file i/o infrastructure based on Boost.AS
 File Created: Mar 2013
 */
 
-#define BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
+//#define BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
 //#define BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH 1
 
 #ifndef BOOST_AFIO_MAX_NON_ASYNC_QUEUE_DEPTH

@@ -62,7 +62,7 @@
 [import ../example/completion_example1.cpp]
 [import ../example/completion_example2.cpp]
 [import ../example/enumerate_example.cpp]
-[import ../example/extents_example.cpp]
+[import ../test/tests/atomic_log_append_test.cpp]
 [import ../example/filecopy_example.cpp]
 [import ../example/filedir_example.cpp]
 [import ../example/filter_example.cpp]
