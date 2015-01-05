@@ -193,6 +193,11 @@ BOOST_AFIO_V1_NAMESPACE_END
 #include <fnmatch.h>
 #include <sys/uio.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
+#ifdef __linux__
+# include <sys/statfs.h>
+# include <mntent.h>
+#endif
 #include <limits.h>
 #define BOOST_AFIO_POSIX_MKDIR mkdir
 #define BOOST_AFIO_POSIX_RMDIR ::rmdir
@@ -2037,6 +2042,7 @@ namespace detail {
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             std::vector<std::pair<off_t, off_t>> out;
             off_t start=0, end=0;
+#ifndef WIN32
             for(;;)
             {
 #ifdef __linux__
@@ -2050,6 +2056,7 @@ namespace detail {
 #endif
                 out.push_back(std::make_pair<off_t, off_t>(std::move(start), end-start));
             }
+#endif
             ret->set_value(std::move(out));
             return std::make_pair(true, h);
           }
@@ -2060,11 +2067,124 @@ namespace detail {
           }
         }
         // Called in unknown thread
-        completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> out)
+        completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> ret)
         {
+          try
+          {
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+            statfs_t out;
+#ifndef WIN32
+#ifdef __linux__
+            struct statfs64 s={0};
+            BOOST_AFIO_ERRHOS(fstatfs64(p->fd, &s));
+            if(!!(req&fs_metadata_flags::bsize))       out.f_bsize      =s.f_bsize;
+            if(!!(req&fs_metadata_flags::iosize))      out.f_iosize     =s.f_frsize;
+            if(!!(req&fs_metadata_flags::blocks))      out.f_blocks     =s.f_blocks;
+            if(!!(req&fs_metadata_flags::bfree))       out.f_bfree      =s.f_bfree;
+            if(!!(req&fs_metadata_flags::bavail))      out.f_bavail     =s.f_bavail;
+            if(!!(req&fs_metadata_flags::files))       out.f_files      =s.f_files;
+            if(!!(req&fs_metadata_flags::ffree))       out.f_ffree      =s.f_ffree;
+            if(!!(req&fs_metadata_flags::namemax))     out.f_namemax    =s.f_namelen;
+//            if(!!(req&fs_metadata_flags::owner))       out.f_owner      =s.f_owner;
+            if(!!(req&fs_metadata_flags::fsid))        { out.f_fsid[0]=(unsigned) s.f_fsid.__val[0]; out.f_fsid[1]=(unsigned) s.f_fsid.__val[1]; }
+            if(!!(req&fs_metadata_flags::flags) || !!(req&fs_metadata_flags::fstypename) || !!(req&fs_metadata_flags::mntfromname) || !!(req&fs_metadata_flags::mntonname))
+            {
+              struct mountentry
+              {
+                std::string mnt_fsname, mnt_dir, mnt_type, mnt_opts;
+                mountentry(const char *a, const char *b, const char *c, const char *d) : mnt_fsname(a), mnt_dir(b), mnt_type(c), mnt_opts(d) { }
+              };
+              std::vector<std::pair<mountentry, struct statfs64>> mountentries;
+              {
+                // Need to parse mount options on Linux
+                FILE *mtab=setmntent("/etc/mtab", "r");
+                if(!mtab) BOOST_AFIO_ERRHOS(-1);
+                auto unmtab=detail::Undoer([mtab]{endmntent(mtab);});
+                struct mntent m;
+                char buffer[32768];
+                while(getmntent_r(mtab, &m, buffer, sizeof(buffer)))
+                {
+                  struct statfs64 temp={0};
+                  if(0==statfs64(m.mnt_dir, &temp) && temp.f_type==s.f_type && !memcmp(&temp.f_fsid, &s.f_fsid, sizeof(s.f_fsid)))
+                    mountentries.push_back(std::make_pair(mountentry(m.mnt_fsname, m.mnt_dir, m.mnt_type, m.mnt_opts), temp));
+                }
+              }
+              if(mountentries.empty())
+                BOOST_AFIO_THROW("The filing system of this handle does not appear in /etc/mtab!");
+              // Choose the mount entry with the most closely matching statfs. You can't choose
+              // exclusively based on mount point because of bind mounts
+              if(mountentries.size()>1)
+              {
+                std::vector<std::pair<size_t, size_t>> scores(mountentries.size());
+                for(size_t n=0; n<mountentries.size(); n++)
+                {
+                  const char *a=(const char *) &mountentries[n].second;
+                  const char *b=(const char *) &s;
+                  scores[n].first=0;
+                  for(size_t x=0; x<sizeof(struct statfs64); x++)
+                    scores[n].first+=abs(a[x]-b[x]);
+                  scores[n].second=n;
+                }
+                std::sort(scores.begin(), scores.end());
+                auto temp(std::move(mountentries[scores.front().second]));
+                mountentries.clear();
+                mountentries.push_back(std::move(temp));
+              }
+              if(!!(req&fs_metadata_flags::flags))
+              {
+                out.f_flags.rdonly     =!!(s.f_flags & MS_RDONLY);
+                out.f_flags.noexec     =!!(s.f_flags & MS_NOEXEC);
+                out.f_flags.nosuid     =!!(s.f_flags & MS_NOSUID);
+                out.f_flags.acls       =(std::string::npos!=mountentries.front().first.mnt_opts.find("acl") && std::string::npos==mountentries.front().first.mnt_opts.find("noacl"));
+                out.f_flags.xattr      =(std::string::npos!=mountentries.front().first.mnt_opts.find("xattr") && std::string::npos==mountentries.front().first.mnt_opts.find("nouser_xattr"));
+//                out.f_flags.compression=0;
+                // Those filing systems supporting FALLOC_FL_PUNCH_HOLE
+                out.f_flags.extents    =(mountentries.front().first.mnt_type=="btrfs"
+                                      || mountentries.front().first.mnt_type=="ext4"
+                                      || mountentries.front().first.mnt_type=="xfs"
+                                      || mountentries.front().first.mnt_type=="tmpfs");
+              }
+              if(!!(req&fs_metadata_flags::fstypename)) out.f_fstypename=mountentries.front().first.mnt_type;
+              if(!!(req&fs_metadata_flags::mntfromname)) out.f_mntfromname=mountentries.front().first.mnt_fsname;
+              if(!!(req&fs_metadata_flags::mntonname)) out.f_mntonname=mountentries.front().first.mnt_dir;
+            }
+#else
+            struct statfs s;
+            BOOST_AFIO_ERRHOS(fstatfs(p->fd, &s));
+            if(!!(req&fs_metadata_flags::flags))
+            {
+              out.f_flags.rdonly     =!!(s.f_flags & MNT_RDONLY);
+              out.f_flags.noexec     =!!(s.f_flags & MNT_NOEXEC);
+              out.f_flags.nosuid     =!!(s.f_flags & MNT_NOSUID);
+              out.f_flags.acls       =!!(s.f_flags & MNT_ACLS);
+              out.f_flags.xattr      =1; // UFS and ZFS support xattr. TODO FIXME actually calculate this.
+              out.f_flags.compression=!strcmp(s.f_fstypename, "zfs");
+              out.f_flags.extents    =1; // UFS and ZFS support extents. TODO FIXME actually calculate this.
+            }
+            if(!!(req&fs_metadata_flags::bsize))       out.f_bsize      =s.f_bsize;
+            if(!!(req&fs_metadata_flags::iosize))      out.f_iosize     =s.f_iosize;
+            if(!!(req&fs_metadata_flags::blocks))      out.f_blocks     =s.f_blocks;
+            if(!!(req&fs_metadata_flags::bfree))       out.f_bfree      =s.f_bfree;
+            if(!!(req&fs_metadata_flags::bavail))      out.f_bavail     =s.f_bavail;
+            if(!!(req&fs_metadata_flags::files))       out.f_files      =s.f_files;
+            if(!!(req&fs_metadata_flags::ffree))       out.f_ffree      =s.f_ffree;
+            if(!!(req&fs_metadata_flags::namemax))     out.f_namemax    =s.f_namemax;
+            if(!!(req&fs_metadata_flags::owner))       out.f_owner      =s.f_owner;
+            if(!!(req&fs_metadata_flags::fsid))        { out.f_fsid[0]=s.f_fsid[0]; out.f_fsid[1]=s.f_fsid[1]; }
+            if(!!(req&fs_metadata_flags::fstypename))  out.f_fstypename =s.f_fstypename;
+            if(!!(req&fs_metadata_flags::mntfromname)) out.f_mntfromname=s.f_mntfromname;
+            if(!!(req&fs_metadata_flags::mntonname))   out.f_mntonname  =s.f_mntonname;            
+#endif
+#endif
+            ret->set_value(std::move(out));
             return std::make_pair(true, h);
+          }
+          catch(...)
+          {
+            ret->set_exception(current_exception());
+            throw;
+          }
         }
 
     public:

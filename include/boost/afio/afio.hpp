@@ -650,8 +650,8 @@ struct statfs_t
 #endif
      uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) */
      std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) */
-     std::string f_mntfromname;           /*!< mounted filesystem                 (BSD, OS X) */
-     filesystem::path f_mntonname;        /*!< directory on which mounted         (BSD, OS X) */
+     std::string f_mntfromname;           /*!< mounted filesystem                 (POSIX) */
+     filesystem::path f_mntonname;        /*!< directory on which mounted         (POSIX) */
      statfs_t()
      {
        size_t frontbytes=((char *) &f_fstypename)-((char *) this);
