@@ -451,7 +451,9 @@ namespace detail {
               buffers->push_back(std::move(fzdi));
               bytes+=i.second;
             }
-            auto bytes_to_transfer=std::make_shared<std::pair<atomic<bool>, atomic<off_t>>>(false, bytes);
+            auto bytes_to_transfer=std::make_shared<std::pair<atomic<bool>, atomic<off_t>>>();
+            bytes_to_transfer->first=false;
+            bytes_to_transfer->second=bytes;
             auto completion_handler=[this, id, h, bytes_to_transfer, buffers](const asio::error_code &ec, size_t bytes, off_t thisbytes)
             {
               if(ec)
