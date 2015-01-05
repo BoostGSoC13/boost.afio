@@ -903,10 +903,11 @@ struct async_io_op
     {
         if(!parent && !id)
             return std::shared_ptr<async_io_handle>();
+        // std::shared_future in older libstdc++ does not have a const get().
         if(!return_null_if_errored)
-            return h.get();
+            return const_cast<async_io_op *>(this)->h.get();
         auto e=get_exception_ptr(h);
-        return e ? std::shared_ptr<async_io_handle>() : h.get();
+        return e ? std::shared_ptr<async_io_handle>() : const_cast<async_io_op *>(this)->h.get();
     }
     //! Dereferences the handle from the shared state. Same as *h.get().
     const async_io_handle &operator *() const { return *get(); }

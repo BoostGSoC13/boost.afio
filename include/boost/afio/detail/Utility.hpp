@@ -222,7 +222,8 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         bool success=false;
         try
         {
-            f.get();
+            // std::shared_future in older libstdc++ does not have a const get().
+            const_cast<shared_future<T> &>(f).get();
             success=true;
         }
         catch(...)

@@ -1683,7 +1683,7 @@ namespace detail {
             for(auto &i: ranges)
             {
               int ret;
-              while(-1==(ret=fallocate(p->fd, FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, i.first, i.second)) && EINTR==errno);
+              while(-1==(ret=fallocate(p->fd, 0x02/*FALLOC_FL_PUNCH_HOLE*/|0x01/*FALLOC_FL_KEEP_SIZE*/, i.first, i.second)) && EINTR==errno);
               if(-1==ret)
               {
                 if(EOPNOTSUPP==errno)
