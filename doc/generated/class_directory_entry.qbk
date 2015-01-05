@@ -15,7 +15,7 @@
 The abstract base class for an entry in a directory with lazily filled metadata. 
 
 [heading Description]
-Note that `directory\u005fentry\u005fhash` will hash one of these for you, and a `std::hash<directory\u005fentry>` specialisation is defined for you so you ought to be able to use directory\u005fentry directly in an `unordered\u005fmap<>`. 
+Note that [^`directory_entry_hash`] will hash one of these for you, and a [^`std::hash<``directory_entry``>`] specialisation is defined for you so you ought to be able to use directory\u005fentry directly in an [^`unordered_map<>`]. 
 
 [heading Synopsis]
 ``class directory_entry
@@ -33,9 +33,9 @@ Note that `directory\u005fentry\u005fhash` will hash one of these for you, and a
 
 
 ]]
-[[``directory_entry(std::filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata)``
+[[``directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata)``
 
-] [Default constructor. ] [[* std::filesystem::path]: ['_leafname]:  
+] [Default constructor. ] [[* filesystem::path]: ['_leafname]:  
 
 [* stat_t]: ['__stat]:  
 
@@ -130,7 +130,7 @@ Note that `directory\u005fentry\u005fhash` will hash one of these for you, and a
 
 
 ]]
-[[``std::filesystem::path name()``
+[[``filesystem::path name()``
 
 ] [] [
 
@@ -163,14 +163,14 @@ The metadata now available in this directory entry.
 ]]
 [[``stat_t fetch_lstat(std::shared_ptr< async_io_handle > dirh, metadata_flags wanted = directory_entry::metadata_fastpath())``
 
-] [Returns a copy of the internal `stat_t` structure. This is a blocking call if wanted metadata is not yet ready. ] [[* std::shared_ptr< async_io_handle >]: ['dirh]:  An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get(). 
+] [Returns a copy of the internal [^`stat_t`] structure. This is a blocking call if wanted metadata is not yet ready. ] [[* std::shared_ptr< async_io_handle >]: ['dirh]:  An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get(). 
 
 [* metadata_flags]: ['wanted]:  A bitfield of the metadata to fetch. This does not replace existing metadata. 
 
 
 
 ][
-A copy of the internal `stat_t` structure. 
+A copy of the internal [^`stat_t`] structure. 
 
 
 ]]

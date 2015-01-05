@@ -15,10 +15,11 @@
 Abstract base class for dispatching file i/o asynchronously. 
 
 [heading Description]
-This is a reference counted instance with platform-specific implementation optionally hidden in object code. Construct an instance using the `boostafio::make\u005fasync\u005ffile\u005fio\u005fdispatcher()` function.
+This is a reference counted instance with platform-specific implementation optionally hidden in object code. Construct an instance using the [^`boost::afio::make_async_file_io_dispatcher()`] function.
 
 [heading Synopsis]
 ``class async_file_io_dispatcher_base
+      : public std::enable_shared_from_this< async_file_io_dispatcher_base >
 {
   // ...
 };
@@ -83,7 +84,7 @@ An async_io_op with the same shared future as all op refs with this id.
 ]]
 [[``void post_op_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>> filters)``
 
-] [Install op filters for non-buffer taking ops. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`
+] [Install op filters for non-buffer taking ops. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_t`]
 
 
 
@@ -91,7 +92,7 @@ An async_io_op with the same shared future as all op refs with this id.
 ]]
 [[``void post_readwrite_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>> filters)``
 
-] [Install read/write op filters, useful for tight ASIO integration. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`
+] [Install read/write op filters, useful for tight ASIO integration. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_buffers_t`]
 
 
 
@@ -101,7 +102,7 @@ An async_io_op with the same shared future as all op refs with this id.
 
 ] [Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete. ] [[* const std::vector< async_io_op > &]: ['ops]:  A batch of precondition op handles. 
 
-[* const std::vector< std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >>> &]: ['callbacks]:  A batch of pairs of op flags and bound completion handler functions of type `completion_t`
+[* const std::vector< std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >>> &]: ['callbacks]:  A batch of pairs of op flags and bound completion handler functions of type [^`completion_t`]
 
 
 
@@ -114,7 +115,7 @@ A batch of op handles
 
 ] [Schedule the asynchronous invocation of the specified single function when the supplied single operation completes. ] [[* const async_io_op &]: ['req]:  A precondition op handle 
 
-[* const std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >> &]: ['callback]:  A pair of op flag and bound completion handler function of type `completion_t`
+[* const std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >> &]: ['callback]:  A pair of op flag and bound completion handler function of type [^`completion_t`]
 
 
 
@@ -166,7 +167,7 @@ A pair with a future returning the result of the callable and an op handle.
 [[``template<class C, class... Args>
 std::pair< shared_future< typename std::result_of< C(Args...)>::type >, async_io_op > call(const async_io_op & req, C callback, Args... args)``
 
-] [Schedule an asynchronous invocation of the specified unbound callable when its supplied precondition completes. Note that this function essentially calls `std::bind()` on the callable and the args and passes it to the other call() overload taking a `std::function<>`. You should therefore use `std::ref()` etc. as appropriate. ] [[* const async_io_op &]: ['req]:  A precondition op handle. If default constructed, the precondition is null. 
+] [Schedule an asynchronous invocation of the specified unbound callable when its supplied precondition completes. Note that this function essentially calls [^`std::bind()`] on the callable and the args and passes it to the other call() overload taking a [^`std::function<>`]. You should therefore use [^`std::ref()`] etc. as appropriate. ] [[* const async_io_op &]: ['req]:  A precondition op handle. If default constructed, the precondition is null. 
 
 [* C]: ['callback]:  An unbound callable to call. 
 
@@ -203,7 +204,7 @@ An op handle.
 ]]
 [[``std::vector< async_io_op > dir(const std::vector< async_path_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous directory creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of `async_path_op_req` structures.
+] [Schedule a batch of asynchronous directory creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
 
 
 
@@ -214,7 +215,7 @@ A batch of op handles.
 ]]
 [[``async_io_op dir(const async_path_op_req & req)``
 
-] [Schedule an asynchronous directory creation and open after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An `async_path_op_req` structure.
+] [Schedule an asynchronous directory creation and open after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
 
 
 
@@ -225,7 +226,7 @@ An op handle.
 ]]
 [[``std::vector< async_io_op > rmdir(const std::vector< async_path_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous directory deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of `async_path_op_req` structures.
+] [Schedule a batch of asynchronous directory deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
 
 
 
@@ -236,7 +237,7 @@ A batch of op handles.
 ]]
 [[``async_io_op rmdir(const async_path_op_req & req)``
 
-] [Schedule an asynchronous directory deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An `async_path_op_req` structure.
+] [Schedule an asynchronous directory deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
 
 
 
@@ -247,7 +248,7 @@ An op handle.
 ]]
 [[``std::vector< async_io_op > file(const std::vector< async_path_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous file creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of `async_path_op_req` structures.
+] [Schedule a batch of asynchronous file creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
 
 
 
@@ -258,7 +259,7 @@ A batch of op handles.
 ]]
 [[``async_io_op file(const async_path_op_req & req)``
 
-] [Schedule an asynchronous file creation and open after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An `async_path_op_req` structure.
+] [Schedule an asynchronous file creation and open after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
 
 
 
@@ -269,7 +270,7 @@ An op handle.
 ]]
 [[``std::vector< async_io_op > rmfile(const std::vector< async_path_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous file deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of `async_path_op_req` structures.
+] [Schedule a batch of asynchronous file deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
 
 
 
@@ -280,7 +281,7 @@ A batch of op handles.
 ]]
 [[``async_io_op rmfile(const async_path_op_req & req)``
 
-] [Schedule an asynchronous file deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An `async_path_op_req` structure.
+] [Schedule an asynchronous file deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
 
 
 
@@ -291,7 +292,7 @@ An op handle.
 ]]
 [[``std::vector< async_io_op > symlink(const std::vector< async_path_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of `async_path_op_req` structures.
+] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
 
 
 
@@ -302,7 +303,7 @@ A batch of op handles.
 ]]
 [[``async_io_op symlink(const async_path_op_req & req)``
 
-] [Schedule an asynchronous symlink creation and open after a precondition. ] [[* const async_path_op_req &]: ['req]:  An `async_path_op_req` structure.
+] [Schedule an asynchronous symlink creation and open after a precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
 
 
 
@@ -313,7 +314,7 @@ An op handle.
 ]]
 [[``std::vector< async_io_op > rmsymlink(const std::vector< async_path_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous symlink deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of `async_path_op_req` structures.
+] [Schedule a batch of asynchronous symlink deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
 
 
 
@@ -324,7 +325,7 @@ A batch of op handles.
 ]]
 [[``async_io_op rmsymlink(const async_path_op_req & req)``
 
-] [Schedule an asynchronous symlink deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An `async_path_op_req` structure.
+] [Schedule an asynchronous symlink deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
 
 
 
@@ -347,6 +348,32 @@ A batch of op handles.
 [[``async_io_op sync(const async_io_op & req)``
 
 ] [Schedule an asynchronous content synchronisation with physical storage after a preceding operation. ] [[* const async_io_op &]: ['req]:  An op handle.
+
+
+
+][
+An op handle. 
+
+
+]]
+[[``std::vector< async_io_op > zero(const std::vector< async_io_op > & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)``
+
+] [Schedule a batch of asynchronous zeroing and deallocations of physical storage ("hole punching") after preceding operations. ] [[* const std::vector< async_io_op > &]: ['ops]:  A batch of op handles. 
+
+[* const std::vector< std::vector< std::pair< off_t, off_t >>> &]: ['ranges]:  A batch of vectors of extents to zero and deallocate.
+
+
+
+][
+A batch of op handles. 
+
+
+]]
+[[``async_io_op zero(const async_io_op & req, const std::vector< std::pair< off_t, off_t >> & ranges)``
+
+] [Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation. ] [[* const async_io_op &]: ['req]:  An op handle. 
+
+[* const std::vector< std::pair< off_t, off_t >> &]: ['ranges]:  A vector of extents to zero and deallocate.
 
 
 
@@ -453,7 +480,7 @@ An op handle.
 ]]
 [[``std::pair< std::vector< future< std::pair< std::vector< directory_entry >, bool > > >, std::vector< async_io_op > > enumerate(const std::vector< async_enumerate_op_req > & reqs)``
 
-] [Schedule a batch of asynchronous directory enumerations after a preceding operations. ] [[* const std::vector< async_enumerate_op_req > &]: ['reqs]:  A batch of enumeration requests.
+] [Schedule a batch of asynchronous directory enumerations after preceding operations. ] [[* const std::vector< async_enumerate_op_req > &]: ['reqs]:  A batch of enumeration requests.
 
 
 
@@ -470,6 +497,54 @@ A batch of future vectors of directory entries with boolean returning false if d
 
 ][
 A future vector of directory entries with a boolean returning false if done. 
+
+
+]]
+[[``std::pair< std::vector< future< std::vector< std::pair< off_t, off_t > > > >, std::vector< async_io_op > > extents(const std::vector< async_io_op > & ops)``
+
+] [Schedule a batch of asynchronous extent enumerations after preceding operations. ] [[* const std::vector< async_io_op > &]: ['ops]:  A batch of op handles.
+
+
+
+][
+A batch of future vectors of extents. 
+
+
+]]
+[[``std::pair< future< std::vector< std::pair< off_t, off_t > > >, async_io_op > extents(const async_io_op & op)``
+
+] [Schedule an asynchronous extent enumeration after a preceding operation. ] [[* const async_io_op &]: ['op]:  An op handle.
+
+
+
+][
+A future vector of extents. 
+
+
+]]
+[[``std::pair< std::vector< future< statfs_t > >, std::vector< async_io_op > > statfs(const std::vector< async_io_op > & ops, const std::vector< fs_metadata_flags > & reqs)``
+
+] [Schedule a batch of asynchronous volume enumerations after preceding operations. ] [[* const std::vector< async_io_op > &]: ['ops]:  A batch of op handles. 
+
+[* const std::vector< fs_metadata_flags > &]: ['reqs]:  A batch of metadata requests.
+
+
+
+][
+A batch of future volume metadatas. 
+
+
+]]
+[[``std::pair< future< statfs_t >, async_io_op > statfs(const async_io_op & op, const fs_metadata_flags & req)``
+
+] [Schedule an asynchronous volume enumeration after a preceding operation. ] [[* const async_io_op &]: ['op]:  An op handle. 
+
+[* const fs_metadata_flags &]: ['req]:  A metadata request.
+
+
+
+][
+A future volume metadatas. 
 
 
 ]]
@@ -516,6 +591,15 @@ The page size of this architecture.
 
 ]]
 [[``template<class T>
+std::vector< async_io_op > read(const std::vector< async_data_op_req< T >> & ops)``
+
+] [] [[* const std::vector< async_data_op_req< T >> &]: ['ops]:  
+
+
+
+
+]]
+[[``template<class T>
 std::vector< async_io_op > write(const std::vector< async_data_op_req< T >> & ops)``
 
 ] [] [[* const std::vector< async_data_op_req< T >> &]: ['ops]:  
@@ -536,6 +620,8 @@ std::vector< async_io_op > write(const std::vector< async_data_op_req< T >> & op
 [include generated/group_async_file_io_dispatcher_base__filedirops.qbk]
 [include generated/group_async_file_io_dispatcher_base__barrier.qbk]
 [include generated/group_async_file_io_dispatcher_base__enumerate.qbk]
+[include generated/group_async_file_io_dispatcher_base__extents.qbk]
+[include generated/group_async_file_io_dispatcher_base__statfs.qbk]
 [include generated/group_async_file_io_dispatcher_base__misc.qbk]
 
 [endsect]

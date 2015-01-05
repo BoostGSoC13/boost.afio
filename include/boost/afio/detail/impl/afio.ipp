@@ -1671,6 +1671,10 @@ namespace detail {
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, -999);
             return std::make_pair(true, ret);
         }
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6262) // Excessive stack usage
+#endif
         // Called in unknown thread
         completion_returntype dozero(size_t id, async_io_op op, std::vector<std::pair<off_t, off_t>> ranges)
         {
@@ -1741,6 +1745,9 @@ namespace detail {
             }
             return std::make_pair(true, h);
         }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         // Called in unknown thread
         completion_returntype dosync(size_t id, async_io_op op, async_io_op)
         {

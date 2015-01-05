@@ -17,9 +17,9 @@ A convenience bundle of path and flags, with optional precondition.
 [heading Synopsis]
 ``struct async_path_op_req
 {
-  std::filesystem::path path;  // The filing system path to be used for this operation. 
-  file_flags flags;            // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction). 
-  async_io_op precondition;    // An optional precondition for this operation 
+  filesystem::path path;     // The filing system path to be used for this operation. 
+  file_flags flags;          // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction). 
+  async_io_op precondition;  // An optional precondition for this operation 
 };
 ``
 
@@ -32,9 +32,9 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(std::filesystem::path _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(filesystem::path _path, file_flags _flags = file_flags::None)``
 
-] [Constructs an instance. ] [[* std::filesystem::path]: ['_path]:  The filing system path to be used. Must be absolute. 
+] [Constructs an instance. ] [[* filesystem::path]: ['_path]:  The filing system path to be used. Must be absolute. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -42,11 +42,11 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(async_io_op _precondition, std::filesystem::path _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(async_io_op _precondition, filesystem::path _path, file_flags _flags = file_flags::None)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
-[* std::filesystem::path]: ['_path]:  The filing system path to be used. Must be absolute. 
+[* filesystem::path]: ['_path]:  The filing system path to be used. Must be absolute. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 

@@ -48,6 +48,8 @@
 [def __afio_dispatcher__ [link afio.reference.classes.async_file_io_dispatcher_base `async_file_io_dispatcher_base`]]
 [def __afio_enumerate__ [link afio.reference.classes.async_file_io_dispatcher_base.enumerate_1_batch `async_file_io_dispatcher_base::enumerate()`]]
 [def __afio_truncate__ [link afio.reference.classes.async_file_io_dispatcher_base.truncate_2_batch `async_file_io_dispatcher_base::truncate()`]]
+[def __afio_zero__ [link afio.reference.classes.async_file_io_dispatcher_base.zero_2_batch `async_file_io_dispatcher_base::zero()`]]
+[def __afio_extents__ [link afio.reference.classes.async_file_io_dispatcher_base.extents_1_batch `async_file_io_dispatcher_base::extents()`]]
 [def __afio_op__ [link afio.reference.structs.async_io_op `struct async_io_op`]]
 [def __afio_handle__ [link afio.reference.classes.async_io_handle `class async_io_handle`]]
 [def __afio_when_all__ [link afio.reference.functions.when_all_ops `when_all()`]]
@@ -60,6 +62,7 @@
 [import ../example/completion_example1.cpp]
 [import ../example/completion_example2.cpp]
 [import ../example/enumerate_example.cpp]
+[import ../example/extents_example.cpp]
 [import ../example/filecopy_example.cpp]
 [import ../example/filedir_example.cpp]
 [import ../example/filter_example.cpp]
@@ -68,6 +71,7 @@
 [import ../example/readallof_example.cpp]
 [import ../example/readwrite_example.cpp]
 [import ../example/readwrite_example_traditional.cpp]
+[import ../example/statfs_example.cpp]
 
 [section:introduction Introduction]
 __boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file

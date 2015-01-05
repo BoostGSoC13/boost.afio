@@ -16,6 +16,7 @@ The abstract base class encapsulating a platform-specific file handle.
 
 [heading Synopsis]
 ``class async_io_handle
+      : public std::enable_shared_from_this< async_io_handle >
 {
   // ...
 };
@@ -43,13 +44,13 @@ The abstract base class encapsulating a platform-specific file handle.
 ]]
 [[``std::shared_ptr< async_io_handle > container()``
 
-] [Returns a handle to the directory containing this handle. Only works if `file_flagsFastDirectoryEnumeration` was specified when this handle was opened. ] [
+] [Returns a handle to the directory containing this handle. Only works if [^`file_flags::FastDirectoryEnumeration`] was specified when this handle was opened. ] [
 
 
 ]]
 [[``void * native_handle()``
 
-] [Returns the native handle of this io handle. On POSIX, you can cast this to a fd using `(int)(size_t) native_handle()`. On Windows it's a simple `(HANDLE) native_handle()`. ] [
+] [Returns the native handle of this io handle. On POSIX, you can cast this to a fd using [^`(int)(size_t) ``native_handle()`]. On Windows it's a simple [^`(HANDLE) ``native_handle()`]. ] [
 
 
 ]]
@@ -59,7 +60,7 @@ The abstract base class encapsulating a platform-specific file handle.
 
 
 ]]
-[[``const std::filesystem::path & path()``
+[[``const filesystem::path & path()``
 
 ] [Returns the path of this io handle. ] [
 
@@ -109,7 +110,7 @@ The abstract base class encapsulating a platform-specific file handle.
 ]]
 [[``directory_entry direntry(metadata_flags wanted = directory_entry::metadata_fastpath())``
 
-] [Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flagsAll` if you want it as complete as your platform allows, even at the cost of severe performance loss. ] [[* metadata_flags]: ['wanted]:  
+] [Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use [^`metadata_flags::All`] if you want it as complete as your platform allows, even at the cost of severe performance loss. ] [[* metadata_flags]: ['wanted]:  
 
 
 
@@ -117,13 +118,13 @@ The abstract base class encapsulating a platform-specific file handle.
 ]]
 [[``stat_t lstat(metadata_flags wanted = directory_entry::metadata_fastpath())``
 
-] [Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flagsAll` if you want it as complete as your platform allows, even at the cost of severe performance loss. ] [[* metadata_flags]: ['wanted]:  
+] [Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use [^`metadata_flags::All`] if you want it as complete as your platform allows, even at the cost of severe performance loss. ] [[* metadata_flags]: ['wanted]:  
 
 
 
 
 ]]
-[[``std::filesystem::path target()``
+[[``filesystem::path target()``
 
 ] [Returns the target path of this handle if it is a symbolic link. ] [
 

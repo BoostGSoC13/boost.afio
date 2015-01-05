@@ -16,11 +16,24 @@
 
 [heading Synopsis]
 ``struct detail::when_any_state
+      : public std::enable_shared_from_this< when_any_state >
 {
+  atomic< size_t > count;
   promise< std::shared_ptr< async_io_handle > > out;
   std::vector< shared_future< std::shared_ptr< async_io_handle > > > in;
 };
 ``
+
+[heading Constructor(s)]
+[table
+[[Function] [Description] [Parameters] ]
+[[``when_any_state()``
+
+] [] [
+
+
+]]
+]
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`

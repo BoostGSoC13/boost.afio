@@ -199,20 +199,21 @@ EXPAND_ONLY_PREDEF     = YES
 SEARCH_INCLUDES        = YES
 INCLUDE_PATH           = 
 INCLUDE_FILE_PATTERNS  = 
-PREDEFINED             = BOOST_CONCEPT_REQUIRES(x)= \
-                         BOOST_CONCEPT_ASSERT(x) = \
-                         BOOST_STATIC_ASSERT(x) = \
+PREDEFINED             = \
+                         BOOST_CONCEPT_REQUIRES(x)= \
+                         BOOST_CONCEPT_ASSERT(x)= \
+                         BOOST_STATIC_ASSERT(x)= \
                          BOOST_AFIO_DECL= \
-                         BOOST_AFIO_V1_NAMESPACE=boost::afio \
-                         BOOST_AFIO_V1_NAMESPACE_BEGIN=namespace boost { namespace afio { \
-                         BOOST_AFIO_V1_NAMESPACE_END= } } \
                          DOXYGEN_SHOULD_SKIP_THIS \
                          DOXYGEN_NO_CLASS_ENUMS
 EXPAND_AS_DEFINED      = BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD \
                          BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC \
                          BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC \
                          BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC \
-                         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+                         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC \
+                         BOOST_AFIO_V1_NAMESPACE \
+                         BOOST_AFIO_V1_NAMESPACE_BEGIN \
+                         BOOST_AFIO_V1_NAMESPACE_END
 SKIP_FUNCTION_MACROS   = YES
 
 

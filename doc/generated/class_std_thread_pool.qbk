@@ -15,7 +15,7 @@
 A very simple thread pool based on std::thread or boost::thread. 
 
 [heading Description]
-This instantiates a `boost::asio::io\u005fservice` and a latchable `boost::asio::io\u005fservice::work` to keep any threads working until the instance is destructed. 
+This instantiates a [^`asio::io_service`] and a latchable [^`asio::io_service::work`] to keep any threads working until the instance is destructed. 
 
 [heading Synopsis]
 ``class std_thread_pool
@@ -47,7 +47,7 @@ This instantiates a `boost::asio::io\u005fservice` and a latchable `boost::asio:
 [heading Member Function(s)]
 [table
 [[Function] [Description] [Parameters]  [Returns]]
-[[``boost::asio::io_service & io_service()``
+[[``asio::io_service & io_service()``
 
 ] [Returns the underlying io_service. ] [
 

@@ -29,7 +29,23 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
+#ifdef DOXYGEN_SHOULD_SKIP_THIS
+#define BOOST_AFIO_HEADERS_ONLY 1
+#define BOOST_AFIO_USE_BOOST_THREAD 0
+#define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
+#define ASIO_STANDALONE 0
+#endif
+
 #include "config.hpp"
+
+#ifdef DOXYGEN_SHOULD_SKIP_THIS
+#undef BOOST_AFIO_V1_NAMESPACE
+#undef BOOST_AFIO_V1_NAMESPACE_BEGIN
+#undef BOOST_AFIO_V1_NAMESPACE_END
+#define BOOST_AFIO_V1_NAMESPACE boost::afio
+#define BOOST_AFIO_V1_NAMESPACE_BEGIN namespace boost { namespace afio {
+#define BOOST_AFIO_V1_NAMESPACE_END } }
+#endif
 
 #ifdef BOOST_AFIO_NEED_DEFINE
 
@@ -77,12 +93,6 @@ for dispatch. This, being very useful for debugging, defaults to 1 except when
 /*! \def ASIO_STANDALONE
 \brief Determines if AFIO is bound against standalone ASIO or Boost.ASIO. Defaults to undefined, and therefore Boost.ASIO.
 */
-#ifdef DOXYGEN_SHOULD_SKIP_THIS
-#define BOOST_AFIO_HEADERS_ONLY 1
-#define BOOST_AFIO_USE_BOOST_THREAD 0
-#define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
-#define ASIO_STANDALONE 0
-#endif
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
@@ -992,6 +1002,8 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 [include generated/group_async_file_io_dispatcher_base__filedirops.qbk]
 [include generated/group_async_file_io_dispatcher_base__barrier.qbk]
 [include generated/group_async_file_io_dispatcher_base__enumerate.qbk]
+[include generated/group_async_file_io_dispatcher_base__extents.qbk]
+[include generated/group_async_file_io_dispatcher_base__statfs.qbk]
 [include generated/group_async_file_io_dispatcher_base__misc.qbk]
 }
 */
@@ -1419,7 +1431,7 @@ public:
     \return A batch of op handles.
     \param ops A batch of op handles.
     \param ranges A batch of vectors of extents to zero and deallocate.
-    \ingroup async_file_io_dispatcher_base__trim
+    \ingroup async_file_io_dispatcher_base__extents
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if deallocation is constant time.}
     \exceptionmodelstd
@@ -1441,7 +1453,7 @@ public:
     \return An op handle.
     \param req An op handle.
     \param ranges A vector of extents to zero and deallocate.
-    \ingroup async_file_io_dispatcher_base__trim
+    \ingroup async_file_io_dispatcher_base__extents
     \qbk{distinguish, single}
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
     \exceptionmodelstd
@@ -1618,7 +1630,7 @@ public:
     call is racy when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
 
     \return A batch of future vectors of extents.
-    \param reqs A batch of extent enumeration requests.
+    \param ops A batch of op handles.
     \ingroup async_file_io_dispatcher_base__extents
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of extents in each file.}
@@ -1632,7 +1644,7 @@ public:
     call is racy when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
 
     \return A future vector of extents.
-    \param reqs An extent enumeration requests.
+    \param op An op handle.
     \ingroup async_file_io_dispatcher_base__extents
     \qbk{distinguish, single}
     \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of extents in each file.}
@@ -1643,6 +1655,7 @@ public:
     /*! \brief Schedule a batch of asynchronous volume enumerations after preceding operations.
 
     \return A batch of future volume metadatas.
+    \param ops A batch of op handles.
     \param reqs A batch of metadata requests.
     \ingroup async_file_io_dispatcher_base__statfs
     \qbk{distinguish, batch}
@@ -1654,7 +1667,8 @@ public:
     /*! \brief Schedule an asynchronous volume enumeration after a preceding operation.
 
     \return A future volume metadatas.
-    \param req A etadata requests.
+    \param op An op handle.
+    \param req A metadata request.
     \ingroup async_file_io_dispatcher_base__statfs
     \qbk{distinguish, single}
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}

@@ -200,6 +200,9 @@ An op handle.
 '''<indexterm><primary>file</primary></indexterm>'''
 Schedule a batch of asynchronous file creations and opens after optional preconditions. 
 
+[heading Description]
+Be aware that any files created are by default sparse if supported on the local filing system. Use file\u005fflags::NoSparse to prevent this on those filing systems which permit it.
+
 [heading Synopsis]
 ``virtual std::vector<async_io_op> async_file_io_dispatcher_base::file(const std::vector< async_path_op_req > & reqs)``
 
@@ -228,6 +231,9 @@ A batch of op handles.
 
 '''<indexterm><primary>file</primary></indexterm>'''
 Schedule an asynchronous file creation and open after an optional precondition. 
+
+[heading Description]
+Be aware that any files created are by default sparse if supported on the local filing system. Use file\u005fflags::NoSparse to prevent this on those filing systems which permit it.
 
 [heading Synopsis]
 ``async_io_op async_file_io_dispatcher_base::file(const async_path_op_req & req)``
