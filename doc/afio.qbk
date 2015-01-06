@@ -146,3 +146,8 @@ As a very quick example of minimal usage:
 [include release_notes.qbk]
 [include acknowledgments.qbk]
 
+[section:index Index]
+'''
+<index/>
+'''
+[endsect] [/index]

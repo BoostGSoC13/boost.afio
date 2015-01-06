@@ -205,7 +205,8 @@ PREDEFINED             = \
                          BOOST_STATIC_ASSERT(x)= \
                          BOOST_AFIO_DECL= \
                          DOXYGEN_SHOULD_SKIP_THIS \
-                         DOXYGEN_NO_CLASS_ENUMS
+                         DOXYGEN_NO_CLASS_ENUMS \
+                         BOOST_NOEXCEPT_OR_NOTHROW=noexcept
 EXPAND_AS_DEFINED      = BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD \
                          BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC \
                          BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC \

@@ -17,28 +17,20 @@ Metadata about a filing system. Unsupported entries are -1.
 [heading Synopsis]
 ``struct statfs_t
 {
-  uint32_t rdonly;                           // Filing system is read only (Windows, POSIX) 
-  uint32_t noexec;                           // Filing system cannot execute programs (POSIX only) 
-  uint32_t nosuid;                           // Filing system cannot superuser (POSIX only) 
-  uint32_t acls;                             // Filing system provides ACLs (Windows, POSIX) 
-  uint32_t xattr;                            // Filing system provides extended attributes (Windows, POSIX) 
-  uint32_t compression;                      // Filing system provides whole volume compression (Windows, POSIX) 
-  uint32_t extents;                          // Filing system provides extent based file storage (sparse files) (Windows, POSIX) 
-  uint32_t filecompression;                  // Filing system provides per-file selectable compression (Windows) 
-  struct boost::afio::statfs_t::@0 f_flags;  // copy of mount exported flags (POSIX) 
-  uint64_t f_bsize;                          // fundamental filesystem block size (Windows, POSIX) 
-  uint64_t f_iosize;                         // optimal transfer block size (Windows, BSD, OS X) 
-  uint64_t f_blocks;                         // total data blocks in filesystem (Windows, POSIX) 
-  uint64_t f_bfree;                          // free blocks in filesystem (Windows, POSIX) 
-  uint64_t f_bavail;                         // free blocks avail to non-superuser (Windows, POSIX) 
-  uint64_t f_files;                          // total file nodes in filesystem (POSIX) 
-  uint64_t f_ffree;                          // free nodes avail to non-superuser (POSIX) 
-  uint32_t f_namemax;                        // maximum filename length (Windows, POSIX) 
-  int16_t f_owner;                           // user that mounted the filesystem (BSD, OS X) 
-  uint64_t f_fsid;                           // filesystem id (Windows, POSIX) 
-  std::string f_fstypename;                  // filesystem type name (Windows, POSIX) 
-  std::string f_mntfromname;                 // mounted filesystem (POSIX) 
-  filesystem::path f_mntonname;              // directory on which mounted (POSIX) 
+  struct boost::afio::statfs_t::f_flags_t f_flags;  // copy of mount exported flags (POSIX) 
+  uint64_t f_bsize;                                 // fundamental filesystem block size (Windows, POSIX) 
+  uint64_t f_iosize;                                // optimal transfer block size (Windows, POSIX) 
+  uint64_t f_blocks;                                // total data blocks in filesystem (Windows, POSIX) 
+  uint64_t f_bfree;                                 // free blocks in filesystem (Windows, POSIX) 
+  uint64_t f_bavail;                                // free blocks avail to non-superuser (Windows, POSIX) 
+  uint64_t f_files;                                 // total file nodes in filesystem (POSIX) 
+  uint64_t f_ffree;                                 // free nodes avail to non-superuser (POSIX) 
+  uint32_t f_namemax;                               // maximum filename length (Windows, POSIX) 
+  int16_t f_owner;                                  // user that mounted the filesystem (BSD, OS X) 
+  uint64_t f_fsid;                                  // filesystem id (Windows, POSIX) 
+  std::string f_fstypename;                         // filesystem type name (Windows, POSIX) 
+  std::string f_mntfromname;                        // mounted filesystem (POSIX) 
+  filesystem::path f_mntonname;                     // directory on which mounted (POSIX) 
 };
 ``
 
@@ -55,6 +47,8 @@ Metadata about a filing system. Unsupported entries are -1.
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
+
+[include generated/struct_statfs_t_1_1f_flags_t.qbk]
 
 [endsect]
 

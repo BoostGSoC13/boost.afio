@@ -30,7 +30,7 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
-#define BOOST_AFIO_HEADERS_ONLY 1
+#define BOOST_AFIO_HEADERS_ONLY 0
 #define BOOST_AFIO_USE_BOOST_THREAD 0
 #define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
 #define ASIO_STANDALONE 0
@@ -42,9 +42,14 @@ DEALINGS IN THE SOFTWARE.
 #undef BOOST_AFIO_V1_NAMESPACE
 #undef BOOST_AFIO_V1_NAMESPACE_BEGIN
 #undef BOOST_AFIO_V1_NAMESPACE_END
+#undef BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
+#undef BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC
+
 #define BOOST_AFIO_V1_NAMESPACE boost::afio
 #define BOOST_AFIO_V1_NAMESPACE_BEGIN namespace boost { namespace afio {
 #define BOOST_AFIO_V1_NAMESPACE_END } }
+#define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
+#define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC virtual
 #endif
 
 #ifdef BOOST_AFIO_NEED_DEFINE
@@ -633,10 +638,14 @@ enum class fs_metadata_flags : size_t
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(fs_metadata_flags)
 /*! \struct statfs_t
 \brief Metadata about a filing system. Unsupported entries are -1.
+
+\qbk{
+[include generated/struct_statfs_t_1_1f_flags_t.qbk]
+}
 */
 struct statfs_t
 {
-     struct
+     struct f_flags_t
      {
         uint32_t rdonly : 1;          //!< Filing system is read only                                      (Windows, POSIX)
         uint32_t noexec : 1;          //!< Filing system cannot execute programs                           (POSIX only)
@@ -2720,7 +2729,7 @@ function FsRtlIsNameInExpression() is probably sound: * means zero or more chara
 use <, > or " as these have special MS-DOS compatibility inducing consequences. Do not use ^ as this is the Windows
 wildcard escape character.
 
-* POSIX further extends NT's wildcards with [seq] which is a subset of characters and [!seq] which is not any subset of
+* POSIX further extends NT's wildcards with \\[seq\\] which is a subset of characters and \\[!seq\\] which is not any subset of
 characters. Here a \\ is the wildcard escape character.
 */
 struct async_enumerate_op_req

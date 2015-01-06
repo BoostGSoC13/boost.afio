@@ -124,7 +124,7 @@ there is a `when_all(std::nothrow_t(), ...)` overload available.
 
 [endsect] [/hello_world]
 
-[section:file_concat A less toy example]
+[section:file_concat A less toy example: Concatenating files]
 
 The Hello World example didn't really demonstrate why using AFIO is any better than using
 STL iostreams. The next example after this one will give a ["real world] and unfortunately
@@ -152,11 +152,52 @@ The chances are that this file copying implementation would be little faster tha
 implementation however (unless the source files are on different physical devices, in which
 case you'd see maximum performance). Some might also argue that firing a consumer producer thread per source
 file would be just as easy, albeit that output file position management across threads
-might be slightly tricky. Let us now look at an example where the AFIO implementation blows
-away a naive multithreaded example: finding which files in a directory tree contain a regular
-expression.
+might be slightly tricky.
+
+Let us now look at two examples where the AFIO implementation blows
+away a naive multithreaded example: a multiprocess safe log file and
+finding which files in a directory tree contain a regular expression.
 
 [endsect] [/file_concat]
+
+[section:atomic_logging A multiprocess safe log file]
+
+__triplegit__, the forthcoming reliable graph database store, uses a neat trick to avoid
+having to use file locking during transaction commits, thus allowing multiple processes to
+concurrently read and write the graph store without file locking. Each collection of hashes which form
+the tree which makes up some given version of the graph is itself a hashed object in the content
+addressable store, and to transact a new version of that graph one takes the following steps:
+
+1. Atomically append a new 512 bit (64 byte) record to the log file for the graph. This record
+contains the 256 bit hash (32 bytes) of the tree object representing the new version, two bytes of the record
+index where we think this entry will append modulo 16 bits (2 bytes), the local version number we think this
+ought to be (2 bytes), the current date and time (8 bytes), reserved fields (4 bytes) and a SipHash of the 48
+bytes preceding the final 12 bytes of the record plus the 64 bytes of the last known good record, and
+finally four bytes of Hamming (127, 120) coding for the preceding 60 bytes (480 bits) which enable
+one bitrot per 15 bytes to be healed.
+
+2. If more than one thread or process appends simultaneously, due to the atomicity only one will come
+first. We can tell if we "won" by reading backwards from the end until we find our entry which if it
+has the correct record index we know it is now the canonical new version. If it does not have the
+correct index, we will have to recalculate a new transaction from the latest known good entry or
+return an error to the end user as per their request.
+
+3. It may now occur to you that surely the log file will grow forever! Luckily, modern filing systems
+are ['extent based] which means you can ["punch holes] into file storage, and AFIO has a function
+for that called __afio_zero__ which ostensibly zeros a region of a file, but will also deallocate
+it if the filing system supports it. In our example below, we simply chop off the front of the log
+file such that no more than 4Kb of data is actually stored on disc, even if the log file appears
+to be many gigabytes or even terabytes in size!
+
+(It isn't shown in the example code below, but the 8 byte hash is used to roll back the log to
+a known good state in the event of sudden power loss which can be detected by spotting if the file
+begins with zeros as for proper shutdown the dud entries in the log are removed, and the entries
+compacted. One examines the index at the end of the file
+and walks backwards for about 128Kb, healing any bit flips and checking the hashs. If any do not match
+up, the entire index is parsed from the beginning up until the first entry with an incorrect hash, at which point the index
+is truncated)
+
+[endsect] [/atomic_logging]
 
 [section:so_what What benefit does asynchronous file i/o bring me? A demonstration of AFIO's power]
 

@@ -284,8 +284,9 @@ data, and TripleGit of course will offer such a facility, at both the per-graph 
 levels.
 
 __triplegit__'s normal persistence strategy is a bit more clever: write all your data, but keep a hash like a SHA of its contents
-as you write it[footnote TripleGit actually uses a different, much faster 256 bit hash by
-default, but one can force use of SHA256 on a per-graph basis.]. When you write your intent log,
+as you write it[footnote TripleGit actually uses a different, much faster 256 bit 3 cycles/byte cryptographic hash
+called [@https://blake2.net/ Blake2] by default, but one can force use of SHA256/512 on a per-graph basis,
+or indeed if your CPU has SHA hardware offload instructions these may be used by default.]. When you write your intent log,
 atomically append all the SHAs of the items
 you just wrote and skip `O_DATA` and `fsync()` completely. If power gets removed
 before all the data is written to non-volatile storage, you can figure out that
