@@ -2064,6 +2064,8 @@ namespace detail {
                 if(ENXIO==errno) break;
                 end=lseek(p->fd, start, SEEK_HOLE);
 #endif
+                BOOST_AFIO_ERRHOS(start);
+                BOOST_AFIO_ERRHOS(end);
                 out.push_back(std::make_pair<off_t, off_t>(std::move(start), end-start));
             }
 #endif
