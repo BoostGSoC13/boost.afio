@@ -135,8 +135,14 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
     }
 }
 
+#define BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(callable) \
+  try { callable; } \
+  catch(const system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); } \
+  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); } \
+  catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); }
 template<class T> inline void wrap_test_method(T &t)
 {
+  BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(t.test_method());
     try
     {
         t.test_method();
@@ -222,7 +228,7 @@ CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)           
         BOOST_AFIO_V1_NAMESPACE::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
       ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
     } __deleter(cv, BOOST_AFIO_V1_NAMESPACE::thread(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv));         \
-    __test_name ## _impl();                                             \
+    BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(__test_name ## _impl());         \
 }                                                                       \
 static void __test_name ## _impl()                                      \
 
