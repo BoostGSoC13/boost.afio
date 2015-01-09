@@ -198,6 +198,9 @@ BOOST_AFIO_V1_NAMESPACE_END
 # include <sys/statfs.h>
 # include <mntent.h>
 #endif
+#ifdef __FreeBSD__
+# include <sys/disk.h>  // For DIOCGDELETE
+#endif
 #include <limits.h>
 #define BOOST_AFIO_POSIX_MKDIR mkdir
 #define BOOST_AFIO_POSIX_RMDIR ::rmdir
@@ -1704,7 +1707,7 @@ namespace detail {
             {
               int ret;
               // Probably best not to use the std::pair directly ...
-              ::off_t ioarg[2]={i.first, i.second};
+              ::off_t ioarg[2]={(::off_t) i.first, (::off_t) i.second};
               while(-1==(ret=ioctl(p->fd, DIOCGDELETE, ioarg)) && EINTR==errno);
               if(-1==ret)
               {
@@ -2178,7 +2181,7 @@ namespace detail {
             if(!!(req&fs_metadata_flags::ffree))       out.f_ffree      =s.f_ffree;
             if(!!(req&fs_metadata_flags::namemax))     out.f_namemax    =s.f_namemax;
             if(!!(req&fs_metadata_flags::owner))       out.f_owner      =s.f_owner;
-            if(!!(req&fs_metadata_flags::fsid))        { out.f_fsid[0]=s.f_fsid[0]; out.f_fsid[1]=s.f_fsid[1]; }
+            if(!!(req&fs_metadata_flags::fsid))        { out.f_fsid[0]=(unsigned) s.f_fsid.val[0]; out.f_fsid[1]=(unsigned) s.f_fsid.val[1]; }
             if(!!(req&fs_metadata_flags::fstypename))  out.f_fstypename =s.f_fstypename;
             if(!!(req&fs_metadata_flags::mntfromname)) out.f_mntfromname=s.f_mntfromname;
             if(!!(req&fs_metadata_flags::mntonname))   out.f_mntonname  =s.f_mntonname;            
