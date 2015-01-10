@@ -2062,6 +2062,8 @@ namespace detail {
                 BOOST_AFIO_ERRHOS(-1);
             }
 #endif
+            // Some filing systems like to return zero sized allocations, so filter those out
+            out.erase(std::remove_if(out.begin(), out.end(), [](const std::pair<off_t, off_t> &i) { return i.second==0; }), out.end());
             ret->set_value(std::move(out));
             return std::make_pair(true, h);
           }

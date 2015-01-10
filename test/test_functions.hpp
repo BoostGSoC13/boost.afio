@@ -143,15 +143,6 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
 template<class T> inline void wrap_test_method(T &t)
 {
   BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(t.test_method());
-    try
-    {
-        t.test_method();
-    }
-    catch(...)
-    {
-        std::cerr << "ERROR: unit test exits via " << detail::output_exception_info << std::endl;
-        BOOST_FAIL("Unit test exits via exception which shouldn't happen");
-    }
 }
 
 BOOST_AFIO_V1_NAMESPACE_END

@@ -45,10 +45,9 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
           // to complete, then fetch the new size of the log file.
           stat_t s=dispatcher->write(make_async_data_op_req(logfilea,
             buffer.bytes, 32, 0))->lstat();
-          off_t allocated=s.st_allocated*s.st_blksize;
-          if(allocated>1024)
+          if(s.st_allocated>8192)
           {
-            // Allocated space exceeds 1Kb. The actual file size reported may be
+            // Allocated space exceeds 8Kb. The actual file size reported may be
             // many times larger if the filing system supports hole punching.
             
             // Get the list of allocated extents
@@ -57,10 +56,22 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
             // Filing system may not yet have allocated any storage ...
             if(!extents.empty())
             {
-              extents.resize(1);
-              extents.front().second-=1024;
-              // Fire and forget chopping off the front of the log file
-              dispatcher->zero(logfilez, extents);
+              //std::cout << "Allocated=" << s.st_allocated << ". Extents are ";
+              //for(auto &i : extents)
+              //  std::cout << i.first << ", " << i.second << "; ";
+              //std::cout << std::endl;
+              if(extents.back().second>=1024)
+                extents.back().second-=1024;
+              else
+                extents.resize(extents.size()-1);
+              if(!extents.empty())
+              {
+                //std::cout << "Zeroing ";
+                //for(auto &i : extents)
+                //  std::cout << i.first << ", " << i.second << "; ";
+                //std::cout << std::endl;
+                dispatcher->zero(logfilez, extents).get();
+              }
             }
           }
         }
@@ -72,9 +83,9 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
     std::cout << "Waiting for threads to exit ..." << std::endl;
     for(auto &i : threads)
       i.join();
-    std::cout << "Examining the file ..." << std::endl;
     // Examine the file for consistency
     {
+      std::cout << "Examining the file, skipping zeros ..." << std::endl;
       std::ifstream is("testdir/log");
       uint64 hash1, hash2;
       union
@@ -84,7 +95,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
       } buffer;
       bool isZero=true;
       size_t entries=0;
-      while(is.good())
+      while(is.good() && isZero)
       {
         is.read(buffer.bytes, 32);
         if(!is) break;
@@ -92,10 +103,10 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
           if(buffer.bytes[n])
           {
             isZero=false;
-            goto startprinting;
+            break;
           }
       }
-startprinting:
+      std::cout << "Examining the file, checking records ..." << std::endl;
       while(is.good())
       {
         if(isZero)
@@ -118,9 +129,10 @@ startprinting:
           SpookyHash::Hash128(buffer.bytes, 16, &hash1, &hash2);
           BOOST_CHECK((buffer.h1==hash1 && buffer.h2==hash2));
           entries++;
+          isZero=true;
         }
       }
-      BOOST_CHECK((entries==32 || entries==33));
+      BOOST_CHECK((entries>=32 && entries<=8192/32+1));
       std::cout << "There were " << entries << " valid entries." << std::endl;
     }
     filesystem::remove_all("testdir");
