@@ -84,7 +84,11 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
         auto extentssp=dispatcher->extents(mkfilesp).first.get();
         // Tolerate systems which can't enumerate extents
         BOOST_CHECK((extentssp.size()==2 || extentssp.size()==1));
-        if(extentssp.size()==2)
+        if(extentssp.size()==1)
+        {
+          BOOST_WARN_MESSAGE(false, "This filing system reports one extent where there should be two, skipping some tests.");
+        }
+        else if(extentssp.size()==2)
         {
           BOOST_CHECK(extentssp[0].first==buffer.size()/4);
           BOOST_CHECK(extentssp[0].second==buffer.size()/4);

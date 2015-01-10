@@ -87,12 +87,14 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
       while(is.good())
       {
         is.read(buffer.bytes, 32);
+        if(!is) break;
         for(size_t n=0; n<32; n++)
           if(buffer.bytes[n]) goto startprinting;
       }
       while(is.good())
       {
         is.read(buffer.bytes, 32);
+        if(!is) break;
         isZero=true;
         for(size_t n=0; n<32; n++)
           if(buffer.bytes[n]) isZero=false;
@@ -107,11 +109,12 @@ startprinting:
           // First 16 bytes is random, second 16 bytes is hash
           hash1=hash2=1;
           SpookyHash::Hash128(buffer.bytes, 16, &hash1, &hash2);
-          BOOST_REQUIRE((buffer.h1==hash1 && buffer.h2==hash2));
+          BOOST_CHECK((buffer.h1==hash1 && buffer.h2==hash2));
           entries++;
         }
       }
+      BOOST_CHECK((entries==32 || entries==33));
       std::cout << "There were " << entries << " valid entries." << std::endl;
     }
-    //filesystem::remove_all("testdir");
+    filesystem::remove_all("testdir");
 }
