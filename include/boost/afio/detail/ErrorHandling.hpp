@@ -78,11 +78,11 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
             /*! Use this macro to wrap POSIX, UNIX or CLib functions. On BOOST_WINDOWS, the includes anything in
             MSVCRT which sets errno
             */
-#define BOOST_AFIO_ERRHOS(exp)                  { int __errcode=(exp); if(__errcode<0) BOOST_AFIO_ERRGOS(errno); }
+#define BOOST_AFIO_ERRHOS(exp)                  { int __errcode=(int)(exp); if(__errcode<0) BOOST_AFIO_ERRGOS(errno); }
             /*! Use this macro to wrap POSIX, UNIX or CLib functions taking a filename. On BOOST_WINDOWS, the includes anything in
             MSVCRT which sets errno
             */
-#define BOOST_AFIO_ERRHOSFN(exp, filename)      { int __errcode=(exp); if(__errcode<0) BOOST_AFIO_ERRGOSFN(errno, filename); }
+#define BOOST_AFIO_ERRHOSFN(exp, filename)      { int __errcode=(int)(exp); if(__errcode<0) BOOST_AFIO_ERRGOSFN(errno, filename); }
   }//namespace detail
 
 BOOST_AFIO_V1_NAMESPACE_END

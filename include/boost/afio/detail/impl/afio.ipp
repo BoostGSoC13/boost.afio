@@ -1694,6 +1694,7 @@ namespace detail {
               while(-1==(ret=fallocate(p->fd, 0x02/*FALLOC_FL_PUNCH_HOLE*/|0x01/*FALLOC_FL_KEEP_SIZE*/, i.first, i.second)) && EINTR==errno);
               if(-1==ret)
               {
+                // The filing system may not support trim
                 if(EOPNOTSUPP==errno)
                 {
                   done=false;
@@ -1707,17 +1708,38 @@ namespace detail {
             for(auto &i: ranges)
             {
               int ret;
-              // Probably best not to use the std::pair directly ...
-              ::off_t ioarg[2]={(::off_t) i.first, (::off_t) i.second};
-              while(-1==(ret=ioctl(p->fd, DIOCGDELETE, ioarg)) && EINTR==errno);
-              if(-1==ret)
+              // Align to sectors
+              ::off_t ioarg[2]={(::off_t) i.first, (::off_t) i.second};              
+              ioarg[0]=(511+ioarg[0]) & ~511;
+              ioarg[1]-=(ioarg[0]-(::off_t) i.first);
+              ioarg[1]=ioarg[1] & ~511;
+              // Write zeros to the non-sector aligned parts
+              ssize_t _byteswritten;
+              iovec vec;
+              char zeros[512];
+              memset(zeros, 0, sizeof(zeros));
+              vec.iov_base=zeros;
+              vec.iov_len=ioarg[0]-(::off_t) i.first;
+              while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, (::off_t) i.first)) && EINTR==errno);
+              BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+              vec.iov_base=zeros;
+              vec.iov_len=(::off_t)(i.first+i.second)-(ioarg[0]+ioarg[1]);
+              while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, ioarg[0]+ioarg[1])) && EINTR==errno);
+              BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+              // And delete the whole sectors, if any
+              if(ioarg[1]>0)
               {
-                if(EINVAL==errno)
+                while(-1==(ret=ioctl(p->fd, DIOCGDELETE, ioarg)) && EINTR==errno);
+                if(-1==ret)
                 {
-                  done=false;
-                  break;
+                  // The filing system may not support trim
+                  if(EINVAL==errno)
+                  {
+                    done=false;
+                    break;
+                  }
+                  BOOST_AFIO_ERRHOSFN(-1, p->path());
                 }
-                BOOST_AFIO_ERRHOSFN(-1, p->path());
               }
             }
 #endif
