@@ -89,12 +89,20 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
         is.read(buffer.bytes, 32);
         if(!is) break;
         for(size_t n=0; n<32; n++)
-          if(buffer.bytes[n]) goto startprinting;
+          if(buffer.bytes[n])
+          {
+            isZero=false;
+            goto startprinting;
+          }
       }
+startprinting:
       while(is.good())
       {
-        is.read(buffer.bytes, 32);
-        if(!is) break;
+        if(isZero)
+        {
+          is.read(buffer.bytes, 32);
+          if(!is) break;
+        }
         isZero=true;
         for(size_t n=0; n<32; n++)
           if(buffer.bytes[n]) isZero=false;
@@ -105,7 +113,6 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
         }
         else
         {
-startprinting:
           // First 16 bytes is random, second 16 bytes is hash
           hash1=hash2=1;
           SpookyHash::Hash128(buffer.bytes, 16, &hash1, &hash2);
