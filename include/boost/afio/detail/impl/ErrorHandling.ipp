@@ -60,6 +60,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                       errstr.append(" [Path: '"+filename->generic_string()+"']");
                     }
                 }
+                BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
@@ -125,6 +126,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                       errstr.append(" [Path: '"+filename->generic_string()+"']");
                     }
                 }
+                BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
@@ -160,6 +162,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                       errstr.append(" [Path: '"+filename->generic_string()+"']");
                     }
                 }
+                BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }// end int_throwOSError
   }// namespace detail

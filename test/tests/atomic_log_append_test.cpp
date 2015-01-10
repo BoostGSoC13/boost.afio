@@ -23,7 +23,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
         // Retrieve any errors which occurred
         logfilez.get(); logfilea.get();
         // Initialise a random number generator
-        ranctx ctx; raninit(&ctx, n);
+        ranctx ctx; raninit(&ctx, (u4) n);
         while(!done)
         {
           // Each log entry is 32 bytes in length
