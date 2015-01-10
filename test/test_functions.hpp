@@ -137,9 +137,9 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
 
 #define BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(callable) \
   try { callable; } \
-  catch(const system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); } \
-  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); } \
-  catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); }
+  catch(const system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
+  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
+  catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; }
 template<class T> inline void wrap_test_method(T &t)
 {
   BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(t.test_method());

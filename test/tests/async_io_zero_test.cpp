@@ -5,10 +5,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
     using namespace BOOST_AFIO_V1_NAMESPACE;
     namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
     std::vector<char> buffer(1024*1024, 'n');
-    std::random_device incompressible;
-    std::random_device::result_type *buf=(std::random_device::result_type *) buffer.data();
+    ranctx ctx; raninit(&ctx, 1);
+    u4 *buf=(u4 *) buffer.data();
     for(size_t n=0; n<buffer.size()/sizeof(*buf); n++)
-      buf[n]=incompressible();
+      buf[n]=ranval(&ctx);
     auto dispatcher = make_async_file_io_dispatcher();
     std::cout << "\n\nTesting async range content zeroing of sparse and compressed files:\n";
     {
@@ -82,8 +82,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
         BOOST_CHECK(afterzerostatsp.st_sparse);
         BOOST_CHECK((afterzerostatsp.st_allocated+2*buffer2.size())==beforezerostatsp.st_allocated);
         auto extentssp=dispatcher->extents(mkfilesp).first.get();
-        BOOST_CHECK(extentssp.size()==2);
-        if(!extentssp.empty())
+        // Tolerate systems which can't enumerate extents
+        BOOST_CHECK((extentssp.size()==2 || extentssp.size()==1));
+        if(extentssp.size()==2)
         {
           BOOST_CHECK(extentssp[0].first==buffer.size()/4);
           BOOST_CHECK(extentssp[0].second==buffer.size()/4);

@@ -54,10 +54,14 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
             // Get the list of allocated extents
             std::vector<std::pair<off_t, off_t>> extents=
                 dispatcher->extents(logfilea).first.get();
-            extents.resize(1);
-            extents.front().second-=1024;
-            // Fire and forget chopping off the front of the log file
-            dispatcher->zero(logfilez, extents);
+            // Filing system may not yet have allocated any storage ...
+            if(!extents.empty())
+            {
+              extents.resize(1);
+              extents.front().second-=1024;
+              // Fire and forget chopping off the front of the log file
+              dispatcher->zero(logfilez, extents);
+            }
           }
         }
 //]
