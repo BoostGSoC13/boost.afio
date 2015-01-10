@@ -2105,7 +2105,7 @@ namespace detail {
                 if(out.empty())
                 {
                   struct stat s;
-                  BOOST_AFIO_ERRHOS(lstat(p->fd, &s));
+                  BOOST_AFIO_ERRHOS(fstat(p->fd, &s));
                   out.push_back(std::make_pair<off_t, off_t>(0, s.st_size));                
                 }
               }
