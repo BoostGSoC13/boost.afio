@@ -199,9 +199,6 @@ BOOST_AFIO_V1_NAMESPACE_END
 # include <sys/statfs.h>
 # include <mntent.h>
 #endif
-#ifdef __FreeBSD__
-# include <sys/disk.h>  // For DIOCGDELETE
-#endif
 #include <limits.h>
 #define BOOST_AFIO_POSIX_MKDIR mkdir
 #define BOOST_AFIO_POSIX_RMDIR ::rmdir
@@ -1685,7 +1682,6 @@ namespace detail {
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             bool done=false;
-#ifndef WIN32
 #if defined(__linux__)
             done=true;
             for(auto &i: ranges)
@@ -1703,52 +1699,6 @@ namespace detail {
                 BOOST_AFIO_ERRHOSFN(-1, p->path());
               }
             }
-#elif defined(__FreeBSD__)
-            done=true;
-            for(auto &i: ranges)
-            {
-              int ret;
-              // Align to sectors
-              ::off_t ioarg[2]={(::off_t) i.first, (::off_t) i.second};              
-              ioarg[0]=(511+ioarg[0]) & ~511;
-              ioarg[1]-=(ioarg[0]-(::off_t) i.first);
-              ioarg[1]=ioarg[1] & ~511;
-              // Write zeros to the non-sector aligned parts
-              ssize_t _byteswritten;
-              iovec vec;
-              char zeros[512];
-              memset(zeros, 0, sizeof(zeros));
-              vec.iov_base=zeros;
-              vec.iov_len=ioarg[0]-(::off_t) i.first;
-              if(vec.iov_len)
-              {
-                while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, (::off_t) i.first)) && EINTR==errno);
-                BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
-              }
-              vec.iov_base=zeros;
-              vec.iov_len=(::off_t)(i.first+i.second)-(ioarg[0]+ioarg[1]);
-              if(vec.iov_len)
-              {
-                while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, ioarg[0]+ioarg[1])) && EINTR==errno);
-                BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
-              }
-              // And delete the whole sectors, if any
-              if(ioarg[1]>0)
-              {
-                while(-1==(ret=ioctl(p->fd, DIOCGDELETE, ioarg)) && EINTR==errno);
-                if(-1==ret)
-                {
-                  // The filing system may not support trim
-                  if(EINVAL==errno)
-                  {
-                    done=false;
-                    break;
-                  }
-                  BOOST_AFIO_ERRHOSFN(-1, p->path());
-                }
-              }
-            }
-#endif
 #endif
             // Fall back onto a write of zeros
             if(!done)
