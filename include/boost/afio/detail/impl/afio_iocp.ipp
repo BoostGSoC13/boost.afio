@@ -401,7 +401,7 @@ namespace detail {
             size_t reparsebufferheaderlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)-headerlen;
             rpd->ReparseDataLength=(USHORT)(rpd->MountPointReparseBuffer.SubstituteNameLength+rpd->MountPointReparseBuffer.PrintNameLength+2*sizeof(filesystem::path::value_type)+reparsebufferheaderlen);
             auto dirop(ret.second);
-            asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, id,
+            asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, id,
               BOOST_AFIO_LAMBDA_MOVE_CAPTURE(dirop),
               BOOST_AFIO_LAMBDA_MOVE_CAPTURE(buffer)](const asio::error_code &ec, size_t bytes){ boost_asio_symlink_completion_handler(id, std::move(dirop), std::move(buffer), ec, bytes);});
             DWORD bytesout=0;
@@ -469,7 +469,7 @@ namespace detail {
                   e=current_exception();
                   bool exp=false;
                   // If someone else has already returned an error, simply exit
-                  if(bytes_to_transfer->first.compare_exchange_strong(exp, true))
+                  if(!bytes_to_transfer->first.compare_exchange_strong(exp, true))
                     return;
                 }
                 complete_async_op(id, h, e);
@@ -481,9 +481,9 @@ namespace detail {
             };
             for(auto &i : *buffers)
             {
-              asio::windows::overlapped_ptr ol(p->h->get_io_service(), std::bind(completion_handler, std::placeholders::_1, std::placeholders::_2, i.BeyondFinalZero.QuadPart-i.FileOffset.QuadPart));
+              asio::windows::overlapped_ptr ol(threadsource()->io_service(), std::bind(completion_handler, std::placeholders::_1, std::placeholders::_2, i.BeyondFinalZero.QuadPart-i.FileOffset.QuadPart));
               DWORD bytesout=0;
-              BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_SET_ZERO_DATA, &i, sizeof(i), nullptr, 0, &bytesout, ol.get());
+              BOOL ok=DeviceIoControl(p->native_handle(), FSCTL_SET_ZERO_DATA, &i, sizeof(i), nullptr, 0, &bytesout, ol.get());
               DWORD errcode=GetLastError();
               if(!ok && ERROR_IO_PENDING!=errcode)
               {
@@ -505,7 +505,7 @@ namespace detail {
           assert(p);
           off_t bytestobesynced=p->write_count_since_fsync();
           if(bytestobesynced)
-            BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->h->native_handle()), p->path());
+            BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->native_handle()), p->path());
           p->byteswrittenatlastfsync+=bytestobesynced;
           return std::make_pair(true, h);
         }
@@ -551,7 +551,7 @@ namespace detail {
                     e=current_exception();
                     bool exp=false;
                     // If someone else has already returned an error, simply exit
-                    if(std::get<0>(*bytes_to_transfer).compare_exchange_strong(exp, true))
+                    if(!std::get<0>(*bytes_to_transfer).compare_exchange_strong(exp, true))
                         return;
                 }
                 complete_async_op(id, h, e);
@@ -609,16 +609,16 @@ namespace detail {
                 }
                 elems[pages].Alignment=0;
                 auto t(std::make_tuple(req.where, 0, req.buffers.size(), amount));
-                asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, id, h, bytes_to_transfer,
+                asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, id, h, bytes_to_transfer,
                   BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const asio::error_code &ec, size_t bytes) {
                     boost_asio_readwrite_completion_handler(iswrite, id, std::move(h),
                       bytes_to_transfer, std::move(t), ec, bytes); });
                 ol.get()->Offset=(DWORD) (req.where & 0xffffffff);
                 ol.get()->OffsetHigh=(DWORD) ((req.where>>32) & 0xffffffff);
                 BOOL ok=iswrite ? WriteFileGather
-                    (p->h->native_handle(), &elems.front(), (DWORD) amount, NULL, ol.get())
+                    (p->native_handle(), &elems.front(), (DWORD) amount, NULL, ol.get())
                     : ReadFileScatter
-                    (p->h->native_handle(), &elems.front(), (DWORD) amount, NULL, ol.get());
+                    (p->native_handle(), &elems.front(), (DWORD) amount, NULL, ol.get());
                 DWORD errcode=GetLastError();
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
@@ -635,7 +635,7 @@ namespace detail {
                 for(auto &b: req.buffers)
                 {
                     auto t(std::make_tuple(req.where+offset, n, 1, asio::buffer_size(b)));
-                    asio::windows::overlapped_ptr ol(p->h->get_io_service(),  [this, id, h, bytes_to_transfer,
+                    asio::windows::overlapped_ptr ol(threadsource()->io_service(),  [this, id, h, bytes_to_transfer,
                       BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const asio::error_code &ec, size_t bytes) {
                         boost_asio_readwrite_completion_handler(iswrite, id, std::move(h),
                         bytes_to_transfer, std::move(t), ec, bytes); });
@@ -643,9 +643,9 @@ namespace detail {
                     ol.get()->OffsetHigh=(DWORD) (((req.where+offset)>>32) & 0xffffffff);
                     DWORD bytesmoved=0;
                     BOOL ok=iswrite ? WriteFile
-                        (p->h->native_handle(), asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), &bytesmoved, ol.get())
+                        (p->native_handle(), asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), &bytesmoved, ol.get())
                         : ReadFile
-                        (p->h->native_handle(), (LPVOID) asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), &bytesmoved, ol.get());
+                        (p->native_handle(), (LPVOID) asio::buffer_cast<const void *>(b), (DWORD) asio::buffer_size(b), &bytesmoved, ol.get());
                     DWORD errcode=GetLastError();
                     if(!ok && ERROR_IO_PENDING!=errcode)
                     {
@@ -711,7 +711,7 @@ namespace detail {
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
 #if 1
-            BOOST_AFIO_ERRHWINFN(wintruncate(p->h->native_handle(), _newsize), p->path());
+            BOOST_AFIO_ERRHWINFN(wintruncate(p->native_handle(), _newsize), p->path());
 #else
             // This is a bit tricky ... overlapped files ignore their file position except in this one
             // case, but clearly here we have a race condition. No choice but to rinse and repeat I guess.
@@ -719,9 +719,9 @@ namespace detail {
             newsize.QuadPart=_newsize;
             while(size.QuadPart!=newsize.QuadPart)
             {
-                BOOST_AFIO_ERRHWINFN(SetFilePointerEx(p->h->native_handle(), newsize, NULL, FILE_BEGIN), p->path());
-                BOOST_AFIO_ERRHWINFN(SetEndOfFile(p->h->native_handle()), p->path());
-                BOOST_AFIO_ERRHWINFN(GetFileSizeEx(p->h->native_handle(), &size), p->path());
+                BOOST_AFIO_ERRHWINFN(SetFilePointerEx(p->native_handle(), newsize, NULL, FILE_BEGIN), p->path());
+                BOOST_AFIO_ERRHWINFN(SetEndOfFile(p->native_handle()), p->path());
+                BOOST_AFIO_ERRHWINFN(GetFileSizeEx(p->native_handle(), &size), p->path());
             }
 #endif
             return std::make_pair(true, h);
@@ -844,7 +844,7 @@ namespace detail {
                 _glob.Buffer=const_cast<filesystem::path::value_type *>(req.glob.c_str());
                 _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
             }
-            asio::windows::overlapped_ptr ol(p->h->get_io_service(), [this, state](const asio::error_code &ec, size_t bytes)
+            asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, state](const asio::error_code &ec, size_t bytes)
             {
               if(!state)
                 abort();
@@ -866,7 +866,7 @@ namespace detail {
                 if(IsWow64Process(GetCurrentProcess(), &isWow64), !isWow64)
                   ApcContext=nullptr;
 #endif
-                ntstat=NtQueryDirectoryFile(p->h->native_handle(), ol.get()->hEvent, NULL, ApcContext, (PIO_STATUS_BLOCK) ol.get(),
+                ntstat=NtQueryDirectoryFile(p->native_handle(), ol.get()->hEvent, NULL, ApcContext, (PIO_STATUS_BLOCK) ol.get(),
                     buffer.get(), (ULONG)(sizeof(FILE_ID_FULL_DIR_INFORMATION)*req.maxitems),
                     FileIdFullDirectoryInformation, FALSE, req.glob.empty() ? NULL : &_glob, req.restart);
                 if(STATUS_BUFFER_OVERFLOW==ntstat)
@@ -947,14 +947,14 @@ namespace detail {
                 complete_async_op(id, h);
               }
             };
-            asio::windows::overlapped_ptr ol(p->h->get_io_service(), completion_handler);
+            asio::windows::overlapped_ptr ol(threadsource()->io_service(), completion_handler);
             do
             {
                 DWORD bytesout=0;
                 // Search entire file
                 buffers->front().FileOffset.QuadPart=0;
                 buffers->front().Length.QuadPart=((off_t)1<<63)-1; // Microsoft claims this is 1<<64-1024 for NTFS, but I get bad parameter error with anything higher than 1<<63-1.
-                BOOL ok=DeviceIoControl(p->h->native_handle(), FSCTL_QUERY_ALLOCATED_RANGES, buffers->data(), sizeof(FILE_ALLOCATED_RANGE_BUFFER), buffers->data(), (DWORD)(buffers->size()*sizeof(FILE_ALLOCATED_RANGE_BUFFER)), &bytesout, ol.get());
+                BOOL ok=DeviceIoControl(p->native_handle(), FSCTL_QUERY_ALLOCATED_RANGES, buffers->data(), sizeof(FILE_ALLOCATED_RANGE_BUFFER), buffers->data(), (DWORD)(buffers->size()*sizeof(FILE_ALLOCATED_RANGE_BUFFER)), &bytesout, ol.get());
                 DWORD errcode=GetLastError();
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {

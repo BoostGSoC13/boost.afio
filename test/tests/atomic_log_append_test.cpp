@@ -11,71 +11,77 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
     for(size_t n=0; n<4; n++)
     {
       threads.push_back(std::thread([&done, n]{
-//[extents_example
-        // Create a dispatcher
-        auto dispatcher = make_async_file_io_dispatcher();
-        // Schedule opening the log file for hole punching
-        auto logfilez(dispatcher->file(async_path_op_req("testdir/log",
-            file_flags::Create | file_flags::ReadWrite)));
-        // Schedule opening the log file for atomic appending of log entries
-        auto logfilea(dispatcher->file(async_path_op_req("testdir/log",
-            file_flags::Create | file_flags::Write | file_flags::Append)));
-        // Retrieve any errors which occurred
-        logfilez.get(); logfilea.get();
-        // Initialise a random number generator
-        ranctx ctx; raninit(&ctx, (u4) n);
-        while(!done)
+        try
         {
-          // Each log entry is 32 bytes in length
-          union
-          {
-            char bytes[32];
-            struct
+//[extents_example
+            // Create a dispatcher
+            auto dispatcher = make_async_file_io_dispatcher();
+            // Schedule opening the log file for hole punching
+            auto logfilez(dispatcher->file(async_path_op_req("testdir/log",
+                file_flags::Create | file_flags::ReadWrite)));
+            // Schedule opening the log file for atomic appending of log entries
+            auto logfilea(dispatcher->file(async_path_op_req("testdir/log",
+                file_flags::Create | file_flags::Write | file_flags::Append)));
+            // Retrieve any errors which occurred
+            logfilez.get(); logfilea.get();
+            // Initialise a random number generator
+            ranctx ctx; raninit(&ctx, (u4) n);
+            while(!done)
             {
-              uint64 id;     // The id of the writer
-              uint64 r;      // A random number
-              uint64 h1, h2; // A hash of the previous two items
-            };
-          } buffer;
-          buffer.id=n;
-          buffer.r=ranval(&ctx);
-          buffer.h1=buffer.h2=1;
-          SpookyHash::Hash128(buffer.bytes, 16, &buffer.h1, &buffer.h2);
-          // Atomically append the log entry to the log file and wait for it
-          // to complete, then fetch the new size of the log file.
-          stat_t s=dispatcher->write(make_async_data_op_req(logfilea,
-            buffer.bytes, 32, 0))->lstat();
-          if(s.st_allocated>8192)
-          {
-            // Allocated space exceeds 8Kb. The actual file size reported may be
-            // many times larger if the filing system supports hole punching.
-            
-            // Get the list of allocated extents
-            std::vector<std::pair<off_t, off_t>> extents=
-                dispatcher->extents(logfilea).first.get();
-            // Filing system may not yet have allocated any storage ...
-            if(!extents.empty())
-            {
-              //std::cout << "Allocated=" << s.st_allocated << ". Extents are ";
-              //for(auto &i : extents)
-              //  std::cout << i.first << ", " << i.second << "; ";
-              //std::cout << std::endl;
-              if(extents.back().second>=1024)
-                extents.back().second-=1024;
-              else
-                extents.resize(extents.size()-1);
-              if(!extents.empty())
+              // Each log entry is 32 bytes in length
+              union
               {
-                //std::cout << "Zeroing ";
-                //for(auto &i : extents)
-                //  std::cout << i.first << ", " << i.second << "; ";
-                //std::cout << std::endl;
-                dispatcher->zero(logfilez, extents).get();
+                char bytes[32];
+                struct
+                {
+                  uint64 id;     // The id of the writer
+                  uint64 r;      // A random number
+                  uint64 h1, h2; // A hash of the previous two items
+                };
+              } buffer;
+              buffer.id=n;
+              buffer.r=ranval(&ctx);
+              buffer.h1=buffer.h2=1;
+              SpookyHash::Hash128(buffer.bytes, 16, &buffer.h1, &buffer.h2);
+              // Atomically append the log entry to the log file and wait for it
+              // to complete, then fetch the new size of the log file.
+              stat_t s=dispatcher->write(make_async_data_op_req(logfilea,
+                buffer.bytes, 32, 0))->lstat();
+              if(s.st_allocated>8192)
+              {
+                // Allocated space exceeds 8Kb. The actual file size reported may be
+                // many times larger if the filing system supports hole punching.
+                
+                // Get the list of allocated extents
+                std::vector<std::pair<off_t, off_t>> extents=
+                    dispatcher->extents(logfilea).first.get();
+                // Filing system may not yet have allocated any storage ...
+                if(!extents.empty())
+                {
+                  //std::cout << "Allocated=" << s.st_allocated << ". Extents are ";
+                  //for(auto &i : extents)
+                  //  std::cout << i.first << ", " << i.second << "; ";
+                  //std::cout << std::endl;
+                  if(extents.back().second>=1024)
+                    extents.back().second-=1024;
+                  else
+                    extents.resize(extents.size()-1);
+                  if(!extents.empty())
+                  {
+                    //std::cout << "Zeroing ";
+                    //for(auto &i : extents)
+                    //  std::cout << i.first << ", " << i.second << "; ";
+                    //std::cout << std::endl;
+                    dispatcher->zero(logfilez, extents).get();
+                  }
+                }
               }
             }
-          }
-        }
 //]
+        }
+      catch(const system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); abort(); }
+      catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); abort(); }
+      catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); abort(); }
       }));
     }
     std::this_thread::sleep_for(std::chrono::seconds(10));

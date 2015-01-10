@@ -1707,11 +1707,11 @@ namespace detail {
               for(auto &i: ranges)
               {
                 ssize_t byteswritten=0, bytestowrite=0;
-                std::vector<iovec> vecs(1+i.second/sizeof(buffer));
+                std::vector<iovec> vecs(1+(size_t)(i.second/sizeof(buffer)));
                 for(size_t n=0; n<vecs.size(); n++)
                 {
                   vecs[n].iov_base=buffer;
-                  vecs[n].iov_len=(n<vecs.size()-1) ? sizeof(buffer) : (i.second-n*sizeof(buffer));
+                  vecs[n].iov_len=(n<vecs.size()-1) ? sizeof(buffer) : (size_t)(i.second-(off_t) n*sizeof(buffer));
                 }
                 for(size_t n=0; n<vecs.size(); n+=IOV_MAX)
                 {

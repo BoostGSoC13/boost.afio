@@ -14,7 +14,9 @@ BOOST_AFIO_AUTO_TEST_CASE(api_error_check, "Tests that every API returns errors 
 #endif
 
     // Create a bad handle
-    async_io_op op=dispatcher->rmfile(async_path_op_req(dispatcher->close(dispatcher->file(async_path_op_req("testfile", file_flags::Create))), "testfile"));
+	async_io_op op=dispatcher->file(async_path_op_req("testfile", file_flags::Create|file_flags::ReadWrite));
+	auto h=op.get();
+    dispatcher->rmfile(async_path_op_req(dispatcher->close(op), "testfile")).get();
     char buffer[32];
 
     BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->dir("should not exist this").get(), BOOST_AFIO_FILE_NOT_FOUND_ERRCODE);
