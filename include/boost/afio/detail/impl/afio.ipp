@@ -1720,12 +1720,18 @@ namespace detail {
               memset(zeros, 0, sizeof(zeros));
               vec.iov_base=zeros;
               vec.iov_len=ioarg[0]-(::off_t) i.first;
-              while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, (::off_t) i.first)) && EINTR==errno);
-              BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+              if(vec.iov_len)
+              {
+                while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, (::off_t) i.first)) && EINTR==errno);
+                BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+              }
               vec.iov_base=zeros;
               vec.iov_len=(::off_t)(i.first+i.second)-(ioarg[0]+ioarg[1]);
-              while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, ioarg[0]+ioarg[1])) && EINTR==errno);
-              BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+              if(vec.iov_len)
+              {
+                while(-1==(_byteswritten=pwritev(p->fd, &vec, 1, ioarg[0]+ioarg[1])) && EINTR==errno);
+                BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+              }
               // And delete the whole sectors, if any
               if(ioarg[1]>0)
               {
@@ -2080,16 +2086,31 @@ namespace detail {
             {
 #ifdef __linux__
                 start=lseek64(p->fd, end, SEEK_DATA);
-                if(ENXIO==errno) break;
+                if((off_t)-1==start) break;
                 end=lseek64(p->fd, start, SEEK_HOLE);
+                if((off_t)-1==end) break;
 #else
                 start=lseek(p->fd, end, SEEK_DATA);
-                if(ENXIO==errno) break;
+                if((off_t)-1==start) break;
                 end=lseek(p->fd, start, SEEK_HOLE);
+                if((off_t)-1==end) break;
 #endif
-                BOOST_AFIO_ERRHOS(start);
-                BOOST_AFIO_ERRHOS(end);
                 out.push_back(std::make_pair<off_t, off_t>(std::move(start), end-start));
+            }
+            if(ENXIO!=errno)
+            {
+              if(EINVAL==errno)
+              {
+                // If it failed with no output, probably this filing system doesn't support extents
+                if(out.empty())
+                {
+                  struct stat s;
+                  BOOST_AFIO_ERRHOS(lstat(p->fd, &s));
+                  out.push_back(std::make_pair<off_t, off_t>(0, s.st_size));                
+                }
+              }
+              else
+                BOOST_AFIO_ERRHOS(-1);
             }
 #endif
             ret->set_value(std::move(out));
