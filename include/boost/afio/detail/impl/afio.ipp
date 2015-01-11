@@ -1706,7 +1706,7 @@ namespace detail {
               memset(buffer, 0, sizeof(buffer));
               for(auto &i: ranges)
               {
-                ssize_t byteswritten=0, bytestowrite=0;
+                ssize_t byteswritten=0;
                 std::vector<iovec> vecs(1+(size_t)(i.second/sizeof(buffer)));
                 for(size_t n=0; n<vecs.size(); n++)
                 {

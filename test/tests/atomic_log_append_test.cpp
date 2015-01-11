@@ -66,7 +66,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
                   // Note that some operating systems (Windows) will supply you sizes,
                   // allocations and extents which oscillate i.e. they do NOT monotonically
                   // increase
-                  if (extents.back().second >= 1024)
+                  if (extents.back().second > 1024)
                     extents.back().second -= 1024;
                   else
                     extents.resize(extents.size() - 1);
