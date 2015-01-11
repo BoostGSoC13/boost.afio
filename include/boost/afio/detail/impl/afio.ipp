@@ -237,7 +237,7 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
     if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(s.st_mtim); }
     if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(s.st_ctim); }
     if(!!(wanted&metadata_flags::size)) { stat.st_size=s.st_size; }
-    if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=s.st_blocks*512; }
+    if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=(off_t) s.st_blocks*512; }
     if(!!(wanted&metadata_flags::blocks)) { stat.st_blocks=s.st_blocks; }
     if(!!(wanted&metadata_flags::blksize)) { stat.st_blksize=s.st_blksize; }
 #ifdef HAVE_STAT_FLAGS
@@ -249,7 +249,7 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
 #ifdef HAVE_BIRTHTIMESPEC
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(s.st_birthtim); }
 #endif
-    if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=(s.st_blocks*512)<s.st_size; }
+    if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=((off_t) s.st_blocks*512)<s.st_size; }
 }
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
@@ -2433,7 +2433,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
             if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=direntry.stat.st_mtim; }
             if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=direntry.stat.st_ctim; }
             if(!!(wanted&metadata_flags::size)) { stat.st_size=direntry.stat.st_size; }
-            if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=direntry.stat.st_blocks*direntry.stat.st_blksize; }
+            if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=direntry.stat.st_allocated; }
             if(!!(wanted&metadata_flags::blocks)) { stat.st_blocks=direntry.stat.st_blocks; }
             if(!!(wanted&metadata_flags::blksize)) { stat.st_blksize=direntry.stat.st_blksize; }
 #ifdef HAVE_STAT_FLAGS

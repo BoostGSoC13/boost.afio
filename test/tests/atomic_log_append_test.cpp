@@ -68,10 +68,10 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
                     extents.resize(extents.size()-1);
                   if(!extents.empty())
                   {
-                    //std::cout << "Zeroing ";
-                    //for(auto &i : extents)
-                    //  std::cout << i.first << ", " << i.second << "; ";
-                    //std::cout << std::endl;
+                    std::cout << "Allocated=" << s.st_allocated << " Size=" << s.st_size << " Zeroing ";
+                    for(auto &i : extents)
+                      std::cout << i.first << ", " << i.second << "; ";
+                    std::cout << std::endl;
                     dispatcher->zero(logfilez, extents).get();
                   }
                 }
@@ -138,8 +138,9 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
           isZero=true;
         }
       }
+      auto bytes=is.tellg();
       BOOST_CHECK((entries>=32 && entries<=8192/32+1));
-      std::cout << "There were " << entries << " valid entries." << std::endl;
+      std::cout << "There were " << entries << " valid entries. Log files is " << bytes << " bytes long." << std::endl;
     }
     filesystem::remove_all("testdir");
 }
