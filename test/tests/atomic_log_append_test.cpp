@@ -5,9 +5,10 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
     std::cout << "\n\nTesting atomic append to a shared log file\n";
     using namespace BOOST_AFIO_V1_NAMESPACE;
     using BOOST_AFIO_V1_NAMESPACE::off_t;
+    try { filesystem::remove_all("testdir"); } catch(...) {}
     filesystem::create_directory("testdir");
     std::vector<std::thread> threads;
-    std::atomic<bool> done;
+    std::atomic<bool> done(false);
     for(size_t n=0; n<4; n++)
     {
       threads.push_back(std::thread([&done, n]{
@@ -47,34 +48,39 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
               // to complete, then fetch the new size of the log file.
               stat_t s=dispatcher->write(make_async_data_op_req(logfilea,
                 buffer.bytes, 32, 0))->lstat();
-              if(s.st_allocated>8192)
+              if(s.st_allocated>8192 || s.st_size>8192)
               {
                 // Allocated space exceeds 8Kb. The actual file size reported may be
                 // many times larger if the filing system supports hole punching.
                 
                 // Get the list of allocated extents
                 std::vector<std::pair<off_t, off_t>> extents=
-                    dispatcher->extents(logfilea).first.get();
+                    dispatcher->extents(logfilez).first.get();
                 // Filing system may not yet have allocated any storage ...
-                if(!extents.empty())
+                if (!extents.empty())
                 {
                   //std::cout << "Allocated=" << s.st_allocated << ". Extents are ";
-                  //for(auto &i : extents)
+                  //for (auto &i : extents)
                   //  std::cout << i.first << ", " << i.second << "; ";
                   //std::cout << std::endl;
-                  if(extents.back().second>=1024)
-                    extents.back().second-=1024;
+                  // Note that some operating systems (Windows) will supply you sizes,
+                  // allocations and extents which oscillate i.e. they do NOT monotonically
+                  // increase
+                  if (extents.back().second >= 1024)
+                    extents.back().second -= 1024;
                   else
-                    extents.resize(extents.size()-1);
-                  if(!extents.empty())
+                    extents.resize(extents.size() - 1);
+                  if (!extents.empty())
                   {
-                    std::cout << "Allocated=" << s.st_allocated << " Size=" << s.st_size << " Zeroing ";
-                    for(auto &i : extents)
-                      std::cout << i.first << ", " << i.second << "; ";
-                    std::cout << std::endl;
+                    //std::cout << "Allocated=" << s.st_allocated << " Size=" << s.st_size << " Zeroing ";
+                    //for (auto &i : extents)
+                    //  std::cout << i.first << ", " << i.second << "; ";
+                    //std::cout << std::endl;
                     dispatcher->zero(logfilez, extents).get();
                   }
                 }
+                else
+                  std::cout << "NOTE: extents() returns empty despite " << s.st_allocated << " bytes allocated (possibly delayed allocation)" << std::endl;
               }
             }
 //]
@@ -92,7 +98,8 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
     // Examine the file for consistency
     {
       std::cout << "Examining the file, skipping zeros ..." << std::endl;
-      std::ifstream is("testdir/log");
+      std::ifstream is("testdir/log", std::ifstream::binary);
+      size_t count=0;
       uint64 hash1, hash2;
       union
       {
@@ -105,6 +112,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
       {
         is.read(buffer.bytes, 32);
         if(!is) break;
+        count+=32;
         for(size_t n=0; n<32; n++)
           if(buffer.bytes[n])
           {
@@ -119,6 +127,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
         {
           is.read(buffer.bytes, 32);
           if(!is) break;
+          count+=32;
         }
         isZero=true;
         for(size_t n=0; n<32; n++)
@@ -138,9 +147,8 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
           isZero=true;
         }
       }
-      auto bytes=is.tellg();
       BOOST_CHECK((entries>=32 && entries<=8192/32+1));
-      std::cout << "There were " << entries << " valid entries. Log files is " << bytes << " bytes long." << std::endl;
+      std::cout << "There were " << entries << " valid entries in " << count << " bytes" << std::endl;
     }
     filesystem::remove_all("testdir");
 }

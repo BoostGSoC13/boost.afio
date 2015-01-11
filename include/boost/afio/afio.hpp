@@ -1433,8 +1433,8 @@ public:
     for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
     sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
     on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
-    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, an attempt is made to use DIOCGDELETE
-    which if it fails then a write of zeros corresponding to the same ranges is made instead. On OS X, there is no formal hole punching API
+    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically
+    detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API
     that we are aware of, and so zeros are simply written.
     
     \return A batch of op handles.
@@ -1455,10 +1455,10 @@ public:
     for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
     sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
     on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
-    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, an attempt is made to use DIOCGDELETE
-    which if it fails then a write of zeros corresponding to the same ranges is made instead. On OS X, there is no formal hole punching API
+    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically
+    detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API
     that we are aware of, and so zeros are simply written.
-
+    
     \return An op handle.
     \param req An op handle.
     \param ranges A vector of extents to zero and deallocate.
@@ -1636,7 +1636,9 @@ public:
     /*! \brief Schedule a batch of asynchronous extent enumerations after preceding operations.
 
     In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
-    call is racy when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
+    call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date
+    with respect to one another) when other threads or processes are concurrently calling zero() or write() - this
+    is a host OS API limitation.
 
     \return A batch of future vectors of extents.
     \param ops A batch of op handles.
@@ -1650,7 +1652,9 @@ public:
     /*! \brief Schedule an asynchronous extent enumeration after a preceding operation.
 
     In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
-    call is racy when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
+    call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date
+    with respect to one another) when other threads or processes are concurrently calling zero() or write() - this
+    is a host OS API limitation.
 
     \return A future vector of extents.
     \param op An op handle.
