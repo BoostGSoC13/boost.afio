@@ -2044,7 +2044,9 @@ namespace detail {
                 end=lseek(p->fd, start, SEEK_HOLE);
                 if((off_t)-1==end) break;
 #endif
-                out.push_back(std::make_pair<off_t, off_t>(std::move(start), end-start));
+                // Data region may have been concurrently deleted
+                if(end>start)
+                  out.push_back(std::make_pair<off_t, off_t>(std::move(start), end-start));
             }
             if(ENXIO!=errno)
             {
@@ -2062,9 +2064,18 @@ namespace detail {
                 BOOST_AFIO_ERRHOS(-1);
             }
 #endif
-            // Some filing systems like to return zero sized allocations, so filter those out
-            out.erase(std::remove_if(out.begin(), out.end(), [](const std::pair<off_t, off_t> &i) { return i.second==0; }), out.end());
-            ret->set_value(std::move(out));
+            // A problem with SEEK_DATA and SEEK_HOLE is that they are racy under concurrent extents changing
+            // Coalesce sequences of contiguous data e.g. 0, 64; 64, 64; 128, 64 ...
+            std::vector<std::pair<off_t, off_t>> outfixed; outfixed.reserve(out.size());
+            outfixed.push_back(out.front());
+            for(size_t n=1; n<out.size(); n++)
+            {
+              if(outfixed.back().first+outfixed.back().second==out[n].first)
+                outfixed.back().second+=out[n].second;
+              else
+                outfixed.push_back(out[n]);
+            }
+            ret->set_value(std::move(outfixed));
             return std::make_pair(true, h);
           }
           catch(...)
