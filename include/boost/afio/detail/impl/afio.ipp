@@ -218,8 +218,10 @@ static inline chrono::system_clock::time_point to_timepoint(struct timespec ts)
 {
     // Need to have this self-adapt to the STL being used
     static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) chrono::system_clock::period::den/chrono::system_clock::period::num;
+    static BOOST_CONSTEXPR_OR_CONST unsigned long long multiplier=STL_TICKS_PER_SEC>=1000000000ULL ? STL_TICKS_PER_SEC/1000000000ULL : 1;
+    static BOOST_CONSTEXPR_OR_CONST unsigned long long divider=STL_TICKS_PER_SEC>=1000000000ULL ? 1 : 1000000000ULL/STL_TICKS_PER_SEC;
     // We make the big assumption that the STL's system_clock is based on the time_t epoch 1st Jan 1970.
-    chrono::system_clock::duration duration(ts.tv_sec*STL_TICKS_PER_SEC+ts.tv_nsec/(1000000000ULL/STL_TICKS_PER_SEC));
+    chrono::system_clock::duration duration(ts.tv_sec*STL_TICKS_PER_SEC+ts.tv_nsec*multiplier/divider);
     return chrono::system_clock::time_point(duration);
 }
 static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, metadata_flags wanted)

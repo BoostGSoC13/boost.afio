@@ -453,9 +453,11 @@ namespace windows_nt_kernel
         static BOOST_CONSTEXPR_OR_CONST unsigned long long FILETIME_OFFSET_TO_1970=((27111902ULL << 32U) + 3577643008ULL);
         // Need to have this self-adapt to the STL being used
         static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) chrono::system_clock::period::den/chrono::system_clock::period::num;
+        static BOOST_CONSTEXPR_OR_CONST unsigned long long multiplier=STL_TICKS_PER_SEC>=10000000ULL ? STL_TICKS_PER_SEC/10000000ULL : 1;
+        static BOOST_CONSTEXPR_OR_CONST unsigned long long divider=STL_TICKS_PER_SEC>=10000000ULL ? 1 : 10000000ULL/STL_TICKS_PER_SEC;
 
         unsigned long long ticks_since_1970=(time.QuadPart - FILETIME_OFFSET_TO_1970); // In 100ns increments
-        chrono::system_clock::duration duration(ticks_since_1970/(10000000ULL/STL_TICKS_PER_SEC));
+        chrono::system_clock::duration duration(ticks_since_1970*multiplier/divider);
         return chrono::system_clock::time_point(duration);
     }
 

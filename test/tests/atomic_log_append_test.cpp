@@ -59,23 +59,12 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
                 // Filing system may not yet have allocated any storage ...
                 if (!extents.empty())
                 {
-                  //std::cout << "Allocated=" << s.st_allocated << ". Extents are ";
-                  //for (auto &i : extents)
-                  //  std::cout << i.first << ", " << i.second << "; ";
-                  //std::cout << std::endl;
-                  // Note that some operating systems (Windows) will supply you sizes,
-                  // allocations and extents which oscillate i.e. they do NOT monotonically
-                  // increase
                   if (extents.back().second > 1024)
                     extents.back().second -= 1024;
                   else
                     extents.resize(extents.size() - 1);
                   if (!extents.empty())
                   {
-                    std::cout << "Allocated=" << s.st_allocated << " Size=" << s.st_size << " Zeroing ";
-                    for (auto &i : extents)
-                      std::cout << i.first << ", " << i.second << "; ";
-                    std::cout << std::endl;
                     dispatcher->zero(logfilez, extents).get();
                   }
                 }

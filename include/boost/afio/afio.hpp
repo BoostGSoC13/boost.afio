@@ -648,14 +648,14 @@ struct statfs_t
      struct f_flags_t
      {
         uint32_t rdonly : 1;          //!< Filing system is read only                                      (Windows, POSIX)
-        uint32_t noexec : 1;          //!< Filing system cannot execute programs                           (POSIX only)
-        uint32_t nosuid : 1;          //!< Filing system cannot superuser                                  (POSIX only)
+        uint32_t noexec : 1;          //!< Filing system cannot execute programs                           (POSIX)
+        uint32_t nosuid : 1;          //!< Filing system cannot superuser                                  (POSIX)
         uint32_t acls : 1;            //!< Filing system provides ACLs                                     (Windows, POSIX)
         uint32_t xattr : 1;           //!< Filing system provides extended attributes                      (Windows, POSIX)
         uint32_t compression : 1;     //!< Filing system provides whole volume compression                 (Windows, POSIX)
         uint32_t extents : 1;         //!< Filing system provides extent based file storage (sparse files) (Windows, POSIX)
         uint32_t filecompression : 1; //!< Filing system provides per-file selectable compression          (Windows)
-     } f_flags;                           /*!< copy of mount exported flags       (POSIX) */
+     } f_flags;                           /*!< copy of mount exported flags       (Windows, POSIX) */
      uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) */
      uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, POSIX) */
      uint64_t f_blocks;                   /*!< total data blocks in filesystem    (Windows, POSIX) */
@@ -819,6 +819,9 @@ public:
 };
 
 /*! \brief The abstract base class encapsulating a platform-specific file handle
+
+Note that failure to explicitly schedule closing a file handle in the dispatcher means it will be synchronously closed on last reference count
+by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
 */
 class async_io_handle : public std::enable_shared_from_this<async_io_handle>
 {
@@ -1471,6 +1474,9 @@ public:
     inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
     
+    Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
+    by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
+
     \return A batch of op handles.
     \param ops A batch of op handles.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1482,6 +1488,9 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file or directory handle close after a preceding operation.
     
+    Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
+    by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
+
     \return An op handle.
     \param req An op handle.
     \ingroup async_file_io_dispatcher_base__filedirops
