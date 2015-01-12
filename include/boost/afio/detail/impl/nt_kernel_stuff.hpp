@@ -447,6 +447,10 @@ namespace windows_nt_kernel
 #endif
     }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6326) // comparison of constants
+#endif
     static inline chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)
     {
         // We make the big assumption that the STL's system_clock is based on the time_t epoch 1st Jan 1970.
@@ -460,6 +464,9 @@ namespace windows_nt_kernel
         chrono::system_clock::duration duration(ticks_since_1970*multiplier/divider);
         return chrono::system_clock::time_point(duration);
     }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
     // Adapted from http://www.cprogramming.com/snippets/source-code/convert-ntstatus-win32-error
     // Could use RtlNtStatusToDosError() instead
