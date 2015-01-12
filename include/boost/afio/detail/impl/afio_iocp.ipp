@@ -299,6 +299,12 @@ namespace detail {
               // If opening existing file for write, try to convert to sparse, ignoring any failures
               if(!(req.flags & file_flags::NoSparse) && !!(req.flags & file_flags::Write))
               {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+                // Mingw32 currently lacks the FILE_SET_SPARSE_BUFFER structure
+                typedef struct _FILE_SET_SPARSE_BUFFER {
+                  BOOLEAN SetSparse;
+                } FILE_SET_SPARSE_BUFFER, *PFILE_SET_SPARSE_BUFFER;
+#endif
                 DWORD bytesout=0;
                 FILE_SET_SPARSE_BUFFER fssb={true};
                 DeviceIoControl(ret->native_handle(), FSCTL_SET_SPARSE, &fssb, sizeof(fssb), nullptr, 0, &bytesout, nullptr);
@@ -437,6 +443,14 @@ namespace detail {
         // Called in unknown thread
         completion_returntype dozero(size_t id, async_io_op op, std::vector<std::pair<off_t, off_t>> ranges)
         {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+            // Mingw32 currently lacks the FILE_ZERO_DATA_INFORMATION structure and FSCTL_SET_ZERO_DATA
+            typedef struct _FILE_ZERO_DATA_INFORMATION {
+              LARGE_INTEGER FileOffset;
+              LARGE_INTEGER BeyondFinalZero;
+            } FILE_ZERO_DATA_INFORMATION, *PFILE_ZERO_DATA_INFORMATION;
+#define FSCTL_SET_ZERO_DATA             CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 50, METHOD_BUFFERED, FILE_WRITE_DATA)
+#endif
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
@@ -908,6 +922,14 @@ namespace detail {
         // Called in unknown thread
         completion_returntype doextents(size_t id, async_io_op op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret, size_t entries)
         {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+            // Mingw32 currently lacks the FILE_ALLOCATED_RANGE_BUFFER structure and FSCTL_QUERY_ALLOCATED_RANGES
+            typedef struct _FILE_ALLOCATED_RANGE_BUFFER {
+              LARGE_INTEGER FileOffset;
+              LARGE_INTEGER Length;
+            } FILE_ALLOCATED_RANGE_BUFFER, *PFILE_ALLOCATED_RANGE_BUFFER;
+#define FSCTL_QUERY_ALLOCATED_RANGES    CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 51,  METHOD_NEITHER, FILE_READ_DATA)
+#endif
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
