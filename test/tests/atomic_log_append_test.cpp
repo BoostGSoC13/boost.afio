@@ -7,11 +7,11 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
     using BOOST_AFIO_V1_NAMESPACE::off_t;
     try { filesystem::remove_all("testdir"); } catch(...) {}
     filesystem::create_directory("testdir");
-    std::vector<std::thread> threads;
-    std::atomic<bool> done(false);
+    std::vector<thread> threads;
+    atomic<bool> done(false);
     for(size_t n=0; n<4; n++)
     {
-      threads.push_back(std::thread([&done, n]{
+      threads.push_back(thread([&done, n]{
         try
         {
 //[extents_example
@@ -79,7 +79,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
       catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); abort(); }
       }));
     }
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    this_thread::sleep_for(chrono::seconds(10));
     done=true;
     std::cout << "Waiting for threads to exit ..." << std::endl;
     for(auto &i : threads)
