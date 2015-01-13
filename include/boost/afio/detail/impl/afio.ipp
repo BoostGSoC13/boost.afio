@@ -251,7 +251,7 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
 #ifdef HAVE_BIRTHTIMESPEC
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(s.st_birthtim); }
 #endif
-    if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=((off_t) s.st_blocks*512)<s.st_size; }
+    if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=((off_t) s.st_blocks*512)<(off_t) s.st_size; }
 }
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
@@ -581,13 +581,16 @@ namespace detail {
     {
         typedef std::shared_ptr<async_io_handle> rettype;
         typedef rettype retfuncttype();
+        size_t reservation;
         std::vector<enqueued_task<retfuncttype>> toexecute;
 
-        immediate_async_ops() { }
+        immediate_async_ops(size_t reserve) : reservation(reserve) { }
         // Returns a promise which is fulfilled when this is destructed
         void enqueue(enqueued_task<retfuncttype> task)
         {
-            toexecute.push_back(task);
+          if(toexecute.empty())
+            toexecute.reserve(reservation);
+          toexecute.push_back(task);
         }
         ~immediate_async_ops()
         {
@@ -1018,7 +1021,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
     ret.reserve(callbacks.size());
     std::vector<async_io_op>::const_iterator i;
     std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>>::const_iterator c;
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(callbacks.size());
     if(ops.empty())
     {
         async_io_op empty;
@@ -1045,7 +1048,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
     ret.reserve(callbacks.size());
     std::vector<async_io_op>::const_iterator i;
     std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>>::const_iterator c;
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(callbacks.size());
     if(ops.empty())
     {
         async_io_op empty;
@@ -1062,7 +1065,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
 // Called in unknown thread
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complete_async_op(size_t id, std::shared_ptr<async_io_handle> h, exception_ptr e)
 {
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(1);
     std::shared_ptr<detail::async_file_io_dispatcher_op> thisop;
     std::vector<detail::async_file_io_dispatcher_op::completion_t> completions;
     {
@@ -1345,7 +1348,7 @@ template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<asyn
     assert(preconditions.size()==container.size());
     if(preconditions.size()!=container.size())
         BOOST_AFIO_THROW(std::runtime_error("preconditions size does not match size of ops data"));
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(preconditions.size());
     auto precondition_it=preconditions.cbegin();
     auto container_it=container.cbegin();
     for(; precondition_it!=preconditions.cend() && container_it!=container.cend(); ++precondition_it, ++container_it)
@@ -1358,7 +1361,7 @@ template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<asyn
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
     async_io_op precondition;
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, precondition, flags, f, i));
@@ -1370,7 +1373,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> 
 {
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, i, flags, f, i));
@@ -1382,7 +1385,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> 
 {
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i));
@@ -1394,7 +1397,7 @@ template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector
 {
     std::vector<async_io_op> ret;
     ret.reserve(container.size());
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i));
@@ -1409,7 +1412,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     std::vector<future<retitemtype>> retfutures;
     ret.reserve(container.size());
     retfutures.reserve(container.size());
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
         // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
@@ -1427,7 +1430,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     std::vector<future<retitemtype>> retfutures;
     ret.reserve(container.size());
     retfutures.reserve(container.size());
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
         // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
@@ -1448,7 +1451,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     assert(req.size()==container.size());
     if(req.size()!=container.size())
         BOOST_AFIO_THROW(std::runtime_error("req size does not match size of ops data"));
-    detail::immediate_async_ops immediates;
+    detail::immediate_async_ops immediates(container.size());
     auto req_it=req.cbegin();
     auto container_it=container.cbegin();
     for(; req_it!=req.cend() && container_it!=container.cend(); ++req_it, ++container_it)
