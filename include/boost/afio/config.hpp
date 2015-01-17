@@ -34,35 +34,39 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_AFIO_HEADERS_ONLY 1
 #endif
 
+// Pull in detection of __MINGW64_VERSION_MAJOR
+#ifdef __MINGW32__
+# include <_mingw.h>
+#endif
 // Get Mingw to assume we are on at least Windows 2000
 #if __MSVCRT_VERSION__ < 0x601
-#undef __MSVCRT_VERSION__
-#define __MSVCRT_VERSION__ 0x601
+# undef __MSVCRT_VERSION__
+# define __MSVCRT_VERSION__ 0x601
 #endif
 
 // Fix up mingw weirdness
 #if !defined(WIN32) && defined(_WIN32)
-#define WIN32 1
+# define WIN32 1
 #endif
 // Boost ASIO needs this
 #if !defined(_WIN32_WINNT) && defined(WIN32)
-#define _WIN32_WINNT 0x0501
+# define _WIN32_WINNT 0x0501
 #endif
 #if defined(WIN32) && _WIN32_WINNT<0x0501
-#error _WIN32_WINNT must at least be set to Windows XP for Boost ASIO to compile
+# error _WIN32_WINNT must at least be set to Windows XP for Boost ASIO to compile
 #endif
 
 
 #include "bindlib/include/import.h"
 
 #ifndef __cpp_exceptions
-#error Boost.AFIO needs C++ exceptions to be turned on
+# error Boost.AFIO needs C++ exceptions to be turned on
 #endif
 #ifndef __cpp_alias_templates
-#error Boost.AFIO needs template alias support in the compiler
+# error Boost.AFIO needs template alias support in the compiler
 #endif
 #ifndef __cpp_variadic_templates
-#error Boost.AFIO needs variadic template support in the compiler
+# error Boost.AFIO needs variadic template support in the compiler
 #endif
 
 #undef BOOST_AFIO_V1_STL11_IMPL
@@ -74,7 +78,7 @@ DEALINGS IN THE SOFTWARE.
 #undef BOOST_AFIO_V1_NAMESPACE_END
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
-#if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__))
+#if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR))
 # define BOOST_AFIO_V1_STL11_IMPL boost
 # define BOOST_SPINLOCK_V1_STL11_IMPL boost
 # ifndef BOOST_THREAD_VERSION

@@ -82,7 +82,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
         BOOST_CHECK(afterzerostatsp.st_sparse);
         BOOST_CHECK((afterzerostatsp.st_allocated+2*buffer2.size())==beforezerostatsp.st_allocated);
         auto extentssp=dispatcher->extents(mkfilesp).first.get();
-        // Tolerate systems which can't enumerate extents
+        // Tolerate systems which can't enumerate extents, one those a single file sized extent is returned
+        BOOST_CHECK(!extentssp.empty());
         BOOST_CHECK((extentssp.size()==2 || extentssp.size()==1));
         if(extentssp.size()==1)
         {
