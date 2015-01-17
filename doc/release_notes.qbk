@@ -473,7 +473,8 @@ whatever error the operating system returned. If a ['partial] read happens, then
 exits the application with the above message as it is probably a logic error in your code.
 
 You may now wonder how to easily not exceed file extents during i/o: for writing, see
-__afio_truncate__ to ensure a file's size before writing. For reading, the following code
+__afio_truncate__ to ensure a file's size before writing, or else open a file for append-only
+in which case all writes atomically occur at the end of the file. For reading, the following code
 is suggested:
 
 [readallof_example_single]

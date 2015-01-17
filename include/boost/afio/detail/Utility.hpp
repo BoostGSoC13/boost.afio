@@ -172,9 +172,9 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
       >::type type;
     };
     // Support for SFINAE detection of iterator/pointer ranges (Can it dereference? Can it increment?)
-    template<class T, typename = void> struct is_rangeable : std::false_type { };
-    template<class T> struct is_rangeable<T, decltype(*std::declval<T&>(), ++std::declval<T&>(), void())> : std::true_type { };
-    // Support for SFINAE detection of containers (does it have begin() and end()?)
+//    template<class T, typename = void> struct is_rangeable : std::false_type { };
+//    template<class T> struct is_rangeable<T, decltype(*std::declval<T&>(), ++std::declval<T&>(), void())> : std::true_type { };
+    // Support for SFINAE detection of containers (does it have begin() and end()?), made considerably more complex by needing MSVC to work.
     template<class T> inline auto is_container_impl(T) ->  decltype(*std::begin(std::declval<T>()), *std::end(std::declval<T>()), bool()) { return true; }
     inline int is_container_impl(...) { return 0; }
     template<class T, typename=decltype(is_container_impl(std::declval<T>()))> struct is_container : std::false_type { };
