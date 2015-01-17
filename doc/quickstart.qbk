@@ -197,6 +197,8 @@ and walks backwards for about 128Kb, healing any bit flips and checking the hash
 up, the entire index is parsed from the beginning up until the first entry with an incorrect hash, at which point the index
 is truncated)
 
+[benchmark_atomic_log]
+
 [endsect] [/atomic_logging]
 
 [section:so_what What benefit does asynchronous file i/o bring me? A demonstration of AFIO's power]

@@ -2625,7 +2625,7 @@ template<class T> inline auto make_async_data_op_req(async_io_op _precondition, 
 */
 template<class T> inline async_data_op_req<const std::initializer_list<T>> make_async_data_op_req(async_io_op _precondition, const std::initializer_list<T> &v, off_t _where)
 {
-  return async_data_op_req<const std::initializer_list<T>>()(std::move(_precondition), v, _where);
+  return async_data_op_req<const std::initializer_list<T>>(std::move(_precondition), v, _where);
 }
 /*! \brief Convenience instantiator of a async_data_op_req, letting the compiler deduce the template specialisation to use.
 
