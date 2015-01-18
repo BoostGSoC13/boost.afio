@@ -34,16 +34,6 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_AFIO_HEADERS_ONLY 1
 #endif
 
-// Pull in detection of __MINGW64_VERSION_MAJOR
-#ifdef __MINGW32__
-# include <_mingw.h>
-#endif
-// Get Mingw to assume we are on at least Windows 2000
-#if __MSVCRT_VERSION__ < 0x601
-# undef __MSVCRT_VERSION__
-# define __MSVCRT_VERSION__ 0x601
-#endif
-
 // Fix up mingw weirdness
 #if !defined(WIN32) && defined(_WIN32)
 # define WIN32 1
@@ -55,7 +45,15 @@ DEALINGS IN THE SOFTWARE.
 #if defined(WIN32) && _WIN32_WINNT<0x0501
 # error _WIN32_WINNT must at least be set to Windows XP for Boost ASIO to compile
 #endif
-
+// Get Mingw to assume we are on at least Windows 2000
+#if __MSVCRT_VERSION__ < 0x601
+# undef __MSVCRT_VERSION__
+# define __MSVCRT_VERSION__ 0x601
+#endif
+// Pull in detection of __MINGW64_VERSION_MAJOR
+#ifdef __MINGW32__
+# include <_mingw.h>
+#endif
 
 #include "bindlib/include/import.h"
 
