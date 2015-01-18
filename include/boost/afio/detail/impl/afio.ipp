@@ -346,10 +346,10 @@ namespace detail {
     struct async_io_handle_posix : public async_io_handle
     {
         int fd;
-        bool has_been_added, SyncOnClose, has_ever_been_fsynced;
+        bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
 
-        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
+        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
         {
             if(fd!=-999)
                 BOOST_AFIO_ERRHOSFN(fd, path);
@@ -369,6 +369,8 @@ namespace detail {
                     BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(fd), path());
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), path());
                 fd=-1;
+                if(DeleteOnClose)
+                  BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(path().c_str()), path());
             }
             // Deregister AFTER close of file handle
             if(has_been_added)
@@ -1597,7 +1599,7 @@ namespace detail {
         {
             req.flags=fileflags(req.flags);
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RMDIR(req.path.c_str()), req.path);
-            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, -999);
+            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
@@ -1636,7 +1638,7 @@ namespace detail {
             if(!!(req.flags & file_flags::FastDirectoryEnumeration))
                 dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_compat::dofile);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
-            auto ret=std::make_shared<async_io_handle_posix>(this, dirh, req.path, req.flags, (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
+            auto ret=std::make_shared<async_io_handle_posix>(this, dirh, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
                 BOOST_AFIO_POSIX_OPEN(req.path.c_str(), flags, 0x1b0/*660*/));
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
             if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link) && !!(req.flags & file_flags::OSMMap))
@@ -1648,7 +1650,7 @@ namespace detail {
         {
             req.flags=fileflags(req.flags);
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(req.path.c_str()), req.path);
-            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, -999);
+            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
@@ -1673,7 +1675,7 @@ namespace detail {
         {
             req.flags=fileflags(req.flags);
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(req.path.c_str()), req.path);
-            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, -999);
+            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
 #ifdef _MSC_VER

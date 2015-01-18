@@ -403,7 +403,9 @@ enum class file_flags : size_t
     NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
     FastDirectoryEnumeration=(1<<10), //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration.
-    UniqueDirectoryHandle=(1<<11), //!< Return a unique directory handle rather than a shared directory handle
+    UniqueDirectoryHandle=(1<<11),    //!< Return a unique directory handle rather than a shared directory handle
+    TemporaryFile=(1<<12),   //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
+    DeleteOnClose=(1<<13),   //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit.
 
     OSDirect=(1<<16),   //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
     OSMMap=(1<<17),     //!< Memory map files (for reads only).

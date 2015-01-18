@@ -1,5 +1,23 @@
 #include "afio_pch.hpp"
 
+/* On my Win8.1 x86 laptop Intel i5 540M @ 2.53Ghz on Samsung SSD:
+
+Benchmarking traditional file locks with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 1720.7 attempts per second with a success rate of 1335.24 writes per second which is a 77.5984% success rate.
+
+Benchmarking file locks via atomic append with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 2413.66 attempts per second with a success rate of 790.364 writes per second which is a 32.7455% success rate.
+Traditional locks were 1.6894 times faster.
+
+Without file_flags::TemporaryFile | file_flags::DeleteOnClose, traditional file locks were:
+
+Benchmarking traditional file locks with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 1266.4 attempts per second with a success rate of 809.013 writes per second which is a 63.883% success rate.
+*/
+
 //[benchmark_atomic_log
 int main(int argc, const char *argv[])
 {
@@ -11,9 +29,10 @@ int main(int argc, const char *argv[])
     using boost::to_string;
 #endif
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
+    double traditional_locks=0, atomic_log_locks=0;
     try { filesystem::remove_all("testdir"); } catch(...) {}
 
-    size_t totalwriters=1, writers=totalwriters;
+    size_t totalwriters=2, writers=totalwriters;
     if(argc>1)
       writers=totalwriters=atoi(argv[1]);
     {
@@ -42,7 +61,7 @@ int main(int argc, const char *argv[])
       PRINT_FIELD(bavail, << " (" << (statfs.f_bavail*statfs.f_bsize / 1024.0 / 1024.0 / 1024.0) << " Gb)");
 #undef PRINT_FIELD
     }
-    if(0)
+    if(1)
     {
       std::cout << "\nBenchmarking traditional file locks with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
@@ -67,12 +86,10 @@ int main(int argc, const char *argv[])
               // Traditional file locks are very simple: try to exclusively create the lock file.
               // If you succeed, you have the lock.
               auto lockfile(dispatcher->file(async_path_op_req("testdir/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write)));
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose)));
               attempts.fetch_add(1, memory_order_relaxed);
               // v1.4 of the AFIO engine will return error_code instead of exceptions for this
               try { lockfile.get(); } catch(const system_error &e) { this_thread::sleep_for(chrono::milliseconds(1)); continue; }
-              // Schedule closing the lock file handle
-              auto closelockfile(dispatcher->close(lockfile));
               std::string logentry("I am log writer "), mythreadid(to_string(n)), logentryend("!\n");
               // Fetch the size
               off_t where=logfile->lstat().st_size, entrysize=logentry.size()+mythreadid.size()+logentryend.size();
@@ -81,10 +98,9 @@ int main(int argc, const char *argv[])
               // Schedule writing the new entry
               auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
               // Schedule releasing the lock
-              closelockfile.get();
-              auto releaselock(dispatcher->rmfile(async_path_op_req(writetolog, "testdir/log.lock")));
+              auto closelockfile(dispatcher->close(lockfile));
               // Fetch errors from the last operation first to avoid sleep-wake cycling
-              releaselock.get();
+              closelockfile.get();
               extendlog.get();
               writetolog.get();
               successes.fetch_add(1, memory_order_relaxed);
@@ -106,6 +122,7 @@ int main(int argc, const char *argv[])
       auto diff=chrono::duration_cast<secs_type>(end-begin);
       std::cout << "For " << writers << " concurrent writers, achieved " << (attempts/diff.count()) << " attempts per second with a "
       "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
+      traditional_locks=successes/diff.count();
     }
     
     /* Some notes on this mutual exclusion via atomic append to a file algorithm ...
@@ -164,9 +181,9 @@ int main(int argc, const char *argv[])
       std::vector<thread> threads;
       atomic<bool> done(true);
       atomic<size_t> attempts(0), successes(0);
-      for(size_t n=0; n<writers; n++)
+      for(size_t thread=0; thread<writers; thread++)
       {
-        threads.push_back(std::thread([&done, &attempts, &successes, n]{
+        threads.push_back(std::thread([&done, &attempts, &successes, thread]{
           try
           {
             // Create a dispatcher
@@ -207,9 +224,10 @@ int main(int argc, const char *argv[])
               };
 #pragma pack(pop)
               static_assert(sizeof(message_t)==16, "message_t is not 16 bytes long!");
-              message_t temp, buffers[1/*1024*/];
+              auto gettime=[]{ return (uint32_t)(std::time(nullptr)-1420070400UL/* 1st Jan 2015*/); };
+              message_t temp, buffers[256];
               off_t buffersoffset;
-              uint32_t nowtimestamp=(uint32_t) chrono::system_clock::now().time_since_epoch().count();
+              uint32_t nowtimestamp=gettime();
               // TODO FIXME: If multiple machines are all accessing the lock file, nowtimestamp
               //             ought to be corrected for drift
 
@@ -217,6 +235,7 @@ int main(int argc, const char *argv[])
               memset(temp.bytes, 0, sizeof(temp));
               temp.code=message_code_t::interest;
               temp.timestamp=nowtimestamp;
+              temp.uniqueid=thread; // TODO FIXME: Needs to be a VERY random number to prevent collision.
               dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
 
               // Step 2: Wait until my interest message appears, also figure out what interests precede
@@ -227,17 +246,24 @@ int main(int argc, const char *argv[])
               std::vector<std::pair<bool, off_t>> preceding;
               std::pair<bool, off_t> lockid;
               auto iterate=[&]{
+                size_t validPrecedingCount=0;
                 off_t lockfilesize=lockfilez->lstat(metadata_flags::size).st_size;
                 buffersoffset=lockfilesize>sizeof(buffers) ? lockfilesize-sizeof(buffers) : 0;
                 //buffersoffset-=buffersoffset % sizeof(buffers[0]);
-                for(; buffersoffset>=startofinterest && buffersoffset<lockfilesize; buffersoffset-=sizeof(buffers))
+                for(; !validPrecedingCount && buffersoffset>=startofinterest && buffersoffset<lockfilesize; buffersoffset-=sizeof(buffers))
                 {
                   size_t amount=(size_t)(lockfilesize-buffersoffset);
                   if(amount>sizeof(buffers))
                     amount=sizeof(buffers);
                   dispatcher->read(make_async_data_op_req(lockfilez, (void *) buffers, amount, buffersoffset)).get();
-                  for(size_t n=amount/sizeof(buffers[0])-1; n<amount/sizeof(buffers[0]); n--)
+                  for(size_t n=amount/sizeof(buffers[0])-1; !validPrecedingCount && n<amount/sizeof(buffers[0]); n--)
                   {
+                    // Early exit if messages have become stale
+                    if(!buffers[n].timestamp || (buffers[n].timestamp<nowtimestamp && nowtimestamp-buffers[n].timestamp>20))
+                    {
+                      startofinterest=buffersoffset+n*sizeof(buffers[0]);
+                      break;
+                    }
                     // Find if he is locked or unlocked
                     if(lockid.second==(off_t) -1)
                       if(buffers[n].code==message_code_t::unlock)
@@ -250,32 +276,32 @@ int main(int argc, const char *argv[])
                       if(!memcmp(buffers+n, &temp, sizeof(temp)))
                         myuniqueid=buffersoffset+n*sizeof(buffers[0]);
                     }
-                    else if(findPreceding && ((buffers[n].uniqueid && buffers[n].uniqueid<myuniqueid) || buffersoffset+n*sizeof(buffers[0])<myuniqueid))
+                    else if(findPreceding && (buffers[n].uniqueid<myuniqueid || buffersoffset+n*sizeof(buffers[0])<myuniqueid))
                     {
                       // We are searching for preceding claims now
                       if(buffers[n].code==message_code_t::rescind || buffers[n].code==message_code_t::unlock)
                         preceding.push_back(std::make_pair(false, buffers[n].uniqueid));
                       else if(buffers[n].code==message_code_t::nominate || buffers[n].code==message_code_t::havelock)
                       {
-                        if(preceding.end()==std::find(preceding.begin(), preceding.end(), std::make_pair(false, buffers[n].uniqueid)))
+                        if(buffers[n].uniqueid<myuniqueid && preceding.end()==std::find(preceding.begin(), preceding.end(), std::make_pair(false, buffers[n].uniqueid)))
+                        {
                           preceding.push_back(std::make_pair(true, buffers[n].uniqueid));
+                          validPrecedingCount++;
+                        }
                       }
                       else if(buffers[n].code==message_code_t::interest)
                       {
-                        if(preceding.end()==std::find(preceding.begin(), preceding.end(), std::make_pair(false, buffersoffset+n*sizeof(buffers[0]))))
+                        if(buffersoffset+n*sizeof(buffers[0])<myuniqueid && preceding.end()==std::find(preceding.begin(), preceding.end(), std::make_pair(false, buffersoffset+n*sizeof(buffers[0]))))
+                        {
                           preceding.push_back(std::make_pair(true, buffersoffset+n*sizeof(buffers[0])));
+                          validPrecedingCount++;
+                        }
                       }
-                    }
-                    // Early exit if messages have become stale
-                    if(buffers[n].timestamp<nowtimestamp && nowtimestamp-buffers[n].timestamp>20)
-                    {
-                      startofinterest=buffersoffset+n*sizeof(buffers[0]);
-                      break;
                     }
                   }
                 }
 #if 0
-                std::cout << n << ": myuniqueid=" << myuniqueid << " startofinterest=" << startofinterest << " size=" << lockfilez->lstat(metadata_flags::size).st_size << " lockid=" << lockid.first << "," << lockid.second << " preceding=";
+                std::cout << thread << ": myuniqueid=" << myuniqueid << " startofinterest=" << startofinterest << " size=" << lockfilez->lstat(metadata_flags::size).st_size << " lockid=" << lockid.first << "," << lockid.second << " preceding=";
                 for(auto &i : preceding)
                   std::cout << i.first << "," << i.second << ";";
                 std::cout << std::endl;
@@ -304,16 +330,20 @@ int main(int argc, const char *argv[])
                 condition_variable c;
                 unique_lock<decltype(m)> l(m);
                 atomic<bool> fileChanged(false);
-                do
+                for(;;)
                 {
                   attempts.fetch_add(1, memory_order_relaxed);
-                  temp.timestamp=(uint32_t) chrono::system_clock::now().time_since_epoch().count();
+                  temp.timestamp=gettime();
                   temp.uniqueid=myuniqueid;
                   if(preceding.empty())
                   {
                     temp.code=message_code_t::havelock;
                     dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
-                    //std::cout << n << ": lock taken for myuniqueid=" << myuniqueid << std::endl;
+                    // Zero the range between startofinterest and myuniqueid
+                    std::vector<std::pair<off_t, off_t>> range={{startofinterest, myuniqueid-startofinterest}};
+                    dispatcher->zero(lockfilez, range).get();
+//                    std::cout << thread << ": lock taken for myuniqueid=" << myuniqueid << ", zeroing " << range.front().first << ", " << range.front().second << std::endl;
+                    break;
                   }
                   else
                   {
@@ -335,11 +365,11 @@ int main(int argc, const char *argv[])
                     lockid=std::make_pair(false, (off_t)-1);
                     iterate();
                   }
-                } while(!preceding.empty());
+                }
               }
 
               // Step 4: I now have the lock, so do my thing
-              std::string logentry("I am log writer "), mythreadid(to_string(n)), logentryend("!\n");
+              std::string logentry("I am log writer "), mythreadid(to_string(thread)), logentryend("!\n");
               // Fetch the size
               off_t where=logfile->lstat().st_size, entrysize=logentry.size()+mythreadid.size()+logentryend.size();
               // Schedule extending the log file
@@ -350,12 +380,14 @@ int main(int argc, const char *argv[])
               writetolog.get();
               extendlog.get();
               successes.fetch_add(1, memory_order_relaxed);
+//              std::cout << thread << ": doing work for myuniqueid=" << myuniqueid << std::endl;
+//              this_thread::sleep_for(chrono::milliseconds(250));
 
               // Step 5: Release the lock
               temp.code=message_code_t::unlock;
-              temp.timestamp=(uint32_t) chrono::system_clock::now().time_since_epoch().count();
+              temp.timestamp=gettime();
               temp.uniqueid=myuniqueid;
-              //std::cout << n << ": lock released for myuniqueid=" << myuniqueid << std::endl;
+//              std::cout << thread << ": lock released for myuniqueid=" << myuniqueid << std::endl;
               dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
             }
           }
@@ -375,8 +407,10 @@ int main(int argc, const char *argv[])
       auto diff=chrono::duration_cast<secs_type>(end-begin);
       std::cout << "For " << writers << " concurrent writers, achieved " << (attempts/diff.count()) << " attempts per second with a "
       "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
+      atomic_log_locks=successes/diff.count();
     }
     filesystem::remove_all("testdir");
+    std::cout << "Traditional locks were " << (traditional_locks/atomic_log_locks) << " times faster." << std::endl;
     return 0;
 }
 //]

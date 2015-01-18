@@ -224,7 +224,13 @@ namespace detail {
         completion_returntype dofile(size_t id, async_io_op, async_path_op_req req)
         {
             std::shared_ptr<async_io_handle> dirh;
-            DWORD access=FILE_READ_ATTRIBUTES, creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
+            // 2014-11-6 ned: Use of FILE_SHARE_DELETE causes generation of ERROR_DELETE_PENDING errors
+            //                because NT won't let you create a new file with the same name as one which
+            //                has been deleted if that deleted file is still open. This is more annoying
+            //                and harder to detect than accepting the fact NT won't delete open files.
+            DWORD access=FILE_READ_ATTRIBUTES, attribs=FILE_ATTRIBUTE_NORMAL;
+            DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/;
+            DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
             req.flags=fileflags(req.flags);
             if(!!(req.flags & file_flags::int_opening_dir))
             {
@@ -248,6 +254,14 @@ namespace detail {
                     flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
                 else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
                     flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
+                if(!!(req.flags & file_flags::TemporaryFile))
+                    attribs|=FILE_ATTRIBUTE_TEMPORARY;
+                if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
+                {
+                    fileshare|=FILE_SHARE_DELETE;
+                    flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
+                    access|=DELETE;
+                }
             }
             if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
             else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
@@ -276,11 +290,7 @@ namespace detail {
             oa.ObjectName=&_path;
             // Should I bother with oa.RootDirectory? For now, no.
             LARGE_INTEGER AllocationSize={0};
-            // 2014-11-6 ned: Use of FILE_SHARE_DELETE causes generation of ERROR_DELETE_PENDING errors
-            //                because NT won't let you create a new file with the same name as one which
-            //                has been deleted if that deleted file is still open. This is more annoying
-            //                and harder to detect than accepting the fact NT won't delete open files.
-            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/,
+            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, fileshare,
                 creatdisp, flags, NULL, 0), req.path);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, dirh, req.path, req.flags,
