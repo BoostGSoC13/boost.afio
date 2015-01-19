@@ -41,6 +41,19 @@ Benchmarking file locks via atomic append with 2 concurrent writers ...
 Waiting for threads to exit ...
 For 2 concurrent writers, achieved 7304.17 attempts per second with a success rate of 1759.44 writes per second which is a 24.0882% success rate.
 Traditional locks were 1.15548 times faster.
+
+
+On my Linux x64 workstation Intel i7-3770k @ 3.9Ghz on ext4 Samsung SSD:
+
+Benchmarking traditional file locks with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 3804.9 attempts per second with a success rate of 2972.49 writes per second which is a 78.1228% success rate.
+
+Benchmarking file locks via atomic append with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 11458.2 attempts per second with a success rate of 1876.94 writes per second which is a 16.3808% success rate.
+Traditional locks were 1.58369 times faster.
+
 */
 
 //[benchmark_atomic_log
@@ -308,7 +321,7 @@ int main(int argc, const char *argv[])
                         preceding.push_back(std::make_pair(false, buffers[n].uniqueid));
                       else if(buffers[n].code==message_code_t::nominate || buffers[n].code==message_code_t::havelock)
                       {
-                        if(buffers[n].uniqueid<myuniqueid && preceding.end()==std::find(preceding.begin(), preceding.end(), std::make_pair(false, buffers[n].uniqueid)))
+                        if(buffers[n].uniqueid<myuniqueid && preceding.end()==std::find(preceding.begin(), preceding.end(), std::make_pair(false, (off_t) buffers[n].uniqueid)))
                         {
                           preceding.push_back(std::make_pair(true, buffers[n].uniqueid));
                           validPrecedingCount++;
@@ -365,9 +378,12 @@ int main(int argc, const char *argv[])
                     temp.code=message_code_t::havelock;
                     dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
                     // Zero the range between startofinterest and myuniqueid
-                    std::vector<std::pair<off_t, off_t>> range={{startofinterest, myuniqueid-startofinterest}};
-                    dispatcher->zero(lockfilez, range).get();
-//                    std::cout << thread << ": lock taken for myuniqueid=" << myuniqueid << ", zeroing " << range.front().first << ", " << range.front().second << std::endl;
+                    if(startofinterest<myuniqueid)
+                    {
+                      std::vector<std::pair<off_t, off_t>> range={{startofinterest, myuniqueid-startofinterest}};
+                      dispatcher->zero(lockfilez, range).get();
+  //                    std::cout << thread << ": lock taken for myuniqueid=" << myuniqueid << ", zeroing " << range.front().first << ", " << range.front().second << std::endl;
+                    }
                     break;
                   }
                   else
