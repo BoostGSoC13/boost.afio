@@ -76,6 +76,14 @@ int main(int argc, const char *argv[])
     {
       auto dispatcher = make_async_file_io_dispatcher();
       auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
+      auto mkdir1(dispatcher->dir(async_path_op_req(mkdir, "testdir/1", file_flags::Create)));
+      auto mkdir2(dispatcher->dir(async_path_op_req(mkdir, "testdir/2", file_flags::Create)));
+      auto mkdir3(dispatcher->dir(async_path_op_req(mkdir, "testdir/3", file_flags::Create)));
+      auto mkdir4(dispatcher->dir(async_path_op_req(mkdir, "testdir/4", file_flags::Create)));
+      auto mkdir5(dispatcher->dir(async_path_op_req(mkdir, "testdir/5", file_flags::Create)));
+      auto mkdir6(dispatcher->dir(async_path_op_req(mkdir, "testdir/6", file_flags::Create)));
+      auto mkdir7(dispatcher->dir(async_path_op_req(mkdir, "testdir/7", file_flags::Create)));
+      auto mkdir8(dispatcher->dir(async_path_op_req(mkdir, "testdir/8", file_flags::Create)));
       auto statfs_(dispatcher->statfs(mkdir, fs_metadata_flags::All));
       auto statfs(statfs_.first.get());
       std::cout << "The filing system holding our test directory is " << statfs.f_fstypename << " and has features:" << std::endl;
@@ -99,9 +107,9 @@ int main(int argc, const char *argv[])
       PRINT_FIELD(bavail, << " (" << (statfs.f_bavail*statfs.f_bsize / 1024.0 / 1024.0 / 1024.0) << " Gb)");
 #undef PRINT_FIELD
     }
-    if(1)
+    if(0)
     {
-      std::cout << "\nBenchmarking traditional file locks with " << writers << " concurrent writers ...\n";
+      std::cout << "\nBenchmarking a single traditional lock file with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
       atomic<bool> done(true);
       atomic<size_t> attempts(0), successes(0);
@@ -127,7 +135,7 @@ int main(int argc, const char *argv[])
                 file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose)));
               attempts.fetch_add(1, memory_order_relaxed);
               // v1.4 of the AFIO engine will return error_code instead of exceptions for this
-              try { lockfile.get(); } catch(const system_error &e) { this_thread::sleep_for(chrono::milliseconds(1)); continue; }
+              try { lockfile.get(); } catch(const system_error &e) { continue; }
               std::string logentry("I am log writer "), mythreadid(to_string(n)), logentryend("!\n");
               // Fetch the size
               off_t where=logfile->lstat().st_size, entrysize=logentry.size()+mythreadid.size()+logentryend.size();
@@ -135,12 +143,8 @@ int main(int argc, const char *argv[])
               auto extendlog(dispatcher->truncate(logfile, where+entrysize));
               // Schedule writing the new entry
               auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
-              // Schedule releasing the lock
-              auto closelockfile(dispatcher->close(lockfile));
-              // Fetch errors from the last operation first to avoid sleep-wake cycling
-              closelockfile.get();
-              extendlog.get();
               writetolog.get();
+              extendlog.get();
               successes.fetch_add(1, memory_order_relaxed);
             }
           }
@@ -163,57 +167,101 @@ int main(int argc, const char *argv[])
       traditional_locks=successes/diff.count();
     }
     
-    /* Some notes on this mutual exclusion via atomic append to a file algorithm ...
-    
-    How this algorithm works is interesting, as it sort of resembles distributed mutual exclusion by
-    message passing of which the algorithms by Suzuki and Kasami, Maekawa and Ricart and Agrawala are the
-    most famous. However, we aren't passing messages, we're appending messages to a file, and we are therefore
-    guaranteed that appends are atomic, and that means that unlike message passing where messages can arrive
-    in any order, everyone in this algorithm sees an identical ordering of messages which is effectively a
-    free Lamport clock. This, unfortunately, is where the good differences end.
-
-    The big unhelpful difference is that locking actors aren't around to respond to messages unless they are
-    trying to claim the lock. This creates a mix of rapidly oscillating messaging nodes and a potentially very
-    high rate of nodes failing to respond, and this makes the traditional algorithms mentioned above problematic.
-    I have therefore come up with something of my own:
-
-    1. First thing someone who wants the lock does is to append an "I am interested in this lock" message.
-    This registers the sequential priority of this claim relative to other claims based on the relative
-    offset the message ends up landing at.
-
-    2. You now scan the lock file from its end backwards to find your claim message. Its offset is now your
-    unique claim id. You also find the preceding lock interest message (if any), and the subsequent lock
-    interest message (if any). You now append an "This is how my claim relates to this preceding and
-    subsequent claims" message. You now scan the lock file from its end backwards again to find your
-    newly posted claim relation message.
-
-    3. By reordering the claim relation messages based on their unique claim id, you have a priority queue.
-    Let us imagine the combinations that two writers 1 happens before 2 could append:
-      a. Interest(1)          Interest(1)          Interest(1)
-      b. Relation(1, 0, 0)    Interest(2)          Interest(2)
-      c. Interest(2)          Relation(1, 0, 2)    Relation(2, 1, 0)
-      d. Relation(2, 1, 0)    Relation(2, 1, 0)    Relation(1, 0, 2)
-    Clearly, if your claim relation message shows no preceding claim, you now have the mutex. You indicate
-    this by posting a "I have the mutex" message.
-    
-    4. If your claim relation message does show a preceding claim, you now spin on scanning the lock file from
-    the unique claim id with the mutex to the end of the lock file. When the holder of the mutex is finished,
-    they unlock by scanning the lock file from its unique claim id to the end of the lock file looking for the
-    next unique claim id without a rescind message, and they post an unlock message with the unique claim id
-    of the next claim. After posting the unlock message, they scan the lock file from its end backwards to find
-    the unlock message just posted and if the writer they just handed the mutex to has rescinded their interest,
-    they nominate the next writer in the priority queue and so on until a nominated writer issues a "I have the
-    mutex" message. At this point, the newly released writer may examine the lock file extents to see if it's
-    worth zeroing the lock file up to the point of the just released unique claim id.
-
-    5. For efficiency, all those interested in the lock can rescind their interest with a rescind message.
-    If a process with interest dies without rescinding it, one is allowed to ignore interest messages once
-    their most recent claim relation message becomes older than twenty seconds. For this reason, those interested
-    in the lock, or those holding the mutex, should reissue their claim relation or mutex ownership message
-    every fifteen seconds with an updated timestamp.
-
-    */
     if(1)
+    {
+      std::cout << "\nBenchmarking eight traditional lock files with " << writers << " concurrent writers ...\n";
+      std::vector<thread> threads;
+      atomic<bool> done(true);
+      atomic<size_t> attempts(0), successes(0);
+      for(size_t n=0; n<writers; n++)
+      {
+        threads.push_back(thread([&done, &attempts, &successes, n]{
+          try
+          {
+            // Create a dispatcher
+            auto dispatcher = make_async_file_io_dispatcher();
+            // Schedule opening the log file for writing log entries
+            auto logfile(dispatcher->file(async_path_op_req("testdir/log",
+                file_flags::Create | file_flags::ReadWrite)));
+            // Retrieve any errors which occurred
+            logfile.get();
+            // Wait until all threads are ready
+            while(done) { this_thread::yield(); }
+            while(!done)
+            {
+              // Parallel try to exclusively create all eight lock files
+              std::vector<async_path_op_req> lockfiles; lockfiles.reserve(8);
+              lockfiles.push_back(async_path_op_req("testdir/1/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/2/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/3/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/4/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/5/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/6/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/7/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              lockfiles.push_back(async_path_op_req("testdir/8/log.lock",
+                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+              auto lockfile(dispatcher->file(lockfiles));
+              attempts.fetch_add(1, memory_order_relaxed);
+#if 1
+              // v1.4 of the AFIO engine will return error_code instead of exceptions for this
+              try { lockfile[7].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[6].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[5].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[4].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[3].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[2].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[1].get(); } catch(const system_error &e) { continue; }
+              try { lockfile[0].get(); } catch(const system_error &e) { continue; }
+#else
+              try
+              {
+                auto barrier(dispatcher->barrier(lockfile));
+                // v1.4 of the AFIO engine will return error_code instead of exceptions for this
+                for(size_t n=0; n<8; n++)
+                  barrier[n].get();
+              }
+              catch(const system_error &e) { continue; }
+#endif
+              std::string logentry("I am log writer "), mythreadid(to_string(n)), logentryend("!\n");
+              // Fetch the size
+              off_t where=logfile->lstat().st_size, entrysize=logentry.size()+mythreadid.size()+logentryend.size();
+              // Schedule extending the log file
+              auto extendlog(dispatcher->truncate(logfile, where+entrysize));
+              // Schedule writing the new entry
+              auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
+              // Fetch errors from the last operation first to avoid sleep-wake cycling
+              writetolog.get();
+              extendlog.get();
+              successes.fetch_add(1, memory_order_relaxed);
+            }
+          }
+          catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
+          catch(const std::exception &e) { std::cerr << "ERROR: test exits via exception (" << e.what() << ")" << std::endl; abort(); }
+          catch(...) { std::cerr << "ERROR: test exits via unknown exception" << std::endl; abort(); }
+        }));
+      }
+      auto begin=chrono::high_resolution_clock::now();
+      done=false;
+      std::this_thread::sleep_for(std::chrono::seconds(20));
+      done=true;
+      std::cout << "Waiting for threads to exit ..." << std::endl;
+      for(auto &i : threads)
+        i.join();
+      auto end=chrono::high_resolution_clock::now();
+      auto diff=chrono::duration_cast<secs_type>(end-begin);
+      std::cout << "For " << writers << " concurrent writers, achieved " << (attempts/diff.count()) << " attempts per second with a "
+      "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
+      traditional_locks=successes/diff.count();
+    }
+
+    if(0)
     {
       std::cout << "\nBenchmarking file locks via atomic append with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
