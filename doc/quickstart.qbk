@@ -180,22 +180,22 @@ A less naive solution is to keep one lock file per graph, and to
 use a multiple lock and backoff strategy to lock the requisite number of graphs for some given
 transaction. The big problem with this approach is that you are unfairly penalised for especially large transactions over others
 with smaller transactions as lock complexity is worse than linear. Nevertheless performance is actually not bad: these are results for my 3.9Ghz i7-3770K workstation
-using AFIO to implement the lock file with two concurrent writers (note that Windows provides magic
+using AFIO to implement the lock file with various numbers of concurrent writers (note that Windows provides magic
 flags for telling it about lock files, if not used expect a 40% performance reduction):
 
 [table:lock_file_performance Lock file performance on various operating systems:
   [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD]]
-  [[1][1][?][?][3590]]
-  [[2][1][?][?][3583]]
-  [[4][1][?][?][3664]]
-  [[8][1][?][?][3703]]
-  [[16][1][?][?][3833]]
+  [[1][1][2468][2295][3590]]
+  [[2][1][2507][2385][3583]]
+  [[4][1][1966][2161][3664]]
+  [[8][1][1400][1851][3703]]
+  [[16][1][742][602][3833]]
   []
-  [[1][8][?][?][1378]]
-  [[2][8][?][?][576]]
-  [[4][8][?][?][417]]
-  [[8][8][?][?][106]]
-  [[16][8][?][?][26]]
+  [[1][8][826][888][1378]]
+  [[2][8][508][637][576]]
+  [[4][8][67][167][417]]
+  [[8][8][37][117][106]]
+  [[16][8][33][77][26]]
 ]
 
 As you can see, a single lock file has O(1) complexity to the number of waiters whilst eight lock
