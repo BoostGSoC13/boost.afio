@@ -1,6 +1,6 @@
 #include "afio_pch.hpp"
 
-/* On my Win8.1 x86 laptop Intel i5 540M @ 2.53Ghz on Samsung SSD:
+/* On my Win8.1 x86 laptop Intel i5 540M @ 2.53Ghz on NTFS Samsung SSD:
 
 Benchmarking traditional file locks with 2 concurrent writers ...
 Waiting for threads to exit ...
@@ -16,6 +16,31 @@ Without file_flags::TemporaryFile | file_flags::DeleteOnClose, traditional file 
 Benchmarking traditional file locks with 2 concurrent writers ...
 Waiting for threads to exit ...
 For 2 concurrent writers, achieved 1266.4 attempts per second with a success rate of 809.013 writes per second which is a 63.883% success rate.
+
+
+
+On my Win8.1 x64 workstation Intel i7-3770k @ 3.9Ghz on NTFS magnetic HD:
+
+Benchmarking traditional file locks with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 1923.97 attempts per second with a success rate of 1793.62 writes per second which is a 93.2249% success rate.
+
+Benchmarking file locks via atomic append with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 4550.45 attempts per second with a success rate of 1094.96 writes per second which is a 24.0626% success rate.
+Traditional locks were 1.63807 times faster.
+
+
+On my Win8.1 x64 workstation Intel i7-3770k @ 3.9Ghz on NTFS Samsung SSD:
+
+Benchmarking traditional file locks with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 2167.26 attempts per second with a success rate of 2032.99 writes per second which is a 93.8046% success rate.
+
+Benchmarking file locks via atomic append with 2 concurrent writers ...
+Waiting for threads to exit ...
+For 2 concurrent writers, achieved 7304.17 attempts per second with a success rate of 1759.44 writes per second which is a 24.0882% success rate.
+Traditional locks were 1.15548 times faster.
 */
 
 //[benchmark_atomic_log
@@ -358,7 +383,7 @@ int main(int argc, const char *argv[])
                       dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
                       nowtimestamp=temp.timestamp;
                     }
-                    c.wait_for(l, chrono::milliseconds(1), [&fileChanged]{ return fileChanged==true; });
+                    //c.wait_for(l, chrono::milliseconds(1), [&fileChanged]{ return fileChanged==true; });
                     fileChanged=false;
                     preceding.clear();
                     findPreceding=true;
