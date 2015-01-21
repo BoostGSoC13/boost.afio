@@ -79,6 +79,7 @@ File Created: Mar 2013
 #include "../valgrind/memcheck.h"
 #include "ErrorHandling.ipp"
 
+#include <limits>
 #include <unordered_map>
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
 BOOST_AFIO_V1_NAMESPACE_BEGIN
@@ -328,6 +329,147 @@ std::shared_ptr<std_thread_pool> process_threadpool()
     return ret;
 }
 
+// Experimental file region locking
+namespace detail {
+  struct process_lockfile_registry;
+  struct actual_lock_file;
+  struct lock_file;
+  typedef spinlock<bool> process_lockfile_registry_lock_t;
+  static process_lockfile_registry_lock_t process_lockfile_registry_lock;
+  static std::unique_ptr<process_lockfile_registry> process_lockfile_registry_ptr;
+
+  struct process_lockfile_registry
+  {
+    std::unordered_map<async_io_handle *, lock_file *> handle_to_lockfile;
+    std::unordered_map<filesystem::path, std::weak_ptr<actual_lock_file>, filesystem_hash> path_to_lockfile;
+    static std::unique_ptr<lock_file> open(async_io_handle *h)
+    {
+      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      if(!process_lockfile_registry_ptr)
+        process_lockfile_registry_ptr=make_unique<process_lockfile_registry>();
+      auto p=make_unique<lock_file>(h);
+      process_lockfile_registry_ptr->handle_to_lockfile.insert(std::make_pair(h, p.get()));
+      return p;
+    }
+  };
+  struct actual_lock_file : std::enable_shared_from_this<actual_lock_file>
+  {
+#ifdef WIN32
+    typedef void *native_handle_type;
+#else
+    typedef int native_handle_type;
+#endif
+    native_handle_type h;
+    filesystem::path path, lockfilepath;
+    actual_lock_file(filesystem::path p) : h(0), path(p), lockfilepath(p)
+    {
+      lockfilepath+=".afiolockfile";
+#ifdef WIN32
+      todo;
+#else
+      bool done=false;
+      do
+      {
+        struct stat before, after;
+        BOOST_AFIO_ERRHOS(lstat(path.c_str(), &before));
+        BOOST_AFIO_ERRHOS(h=open(lockfilepath.c_str(), O_CREAT|O_RDWR, before.st_mode));
+        // Place a read lock on the final byte as a way of detecting when this lock file no longer in use
+        struct flock l;
+        l.l_type=F_RDLCK;
+        l.l_whence=SEEK_SET;
+        l.l_start=std::numeric_limits<decltype(l.l_start)>::max()-1;
+        l.l_len=1;
+        int retcode;
+        while(-1==(retcode=fcntl(h, F_SETLKW, &l)) && EINTR==errno);
+        // Between the time of opening the lock file and indicating we are using it did someone else delete it
+        // or even delete and recreate it?
+        if(-1!=fstat(h, &before) && -1!=lstat(lockfilepath.c_str(), &after) && before.st_ino==after.st_ino)
+          done=true;
+        else
+          close(h);
+      } while(!done);
+#endif
+    }
+    ~actual_lock_file()
+    {
+#ifdef WIN32
+      todo;
+#else
+      // Place a write lock on the final byte as a way of detecting when this lock file no longer in use
+      struct flock l;
+      l.l_type=F_WRLCK;
+      l.l_whence=SEEK_SET;
+      l.l_start=std::numeric_limits<decltype(l.l_start)>::max()-1;
+      l.l_len=1;
+      int retcode;
+      while(-1==(retcode=fcntl(h, F_SETLK, &l)) && EINTR==errno);
+      if(-1!=retcode)
+        BOOST_AFIO_ERRHOS(unlink(lockfilepath.c_str()));
+      BOOST_AFIO_ERRHOS(close(h));
+#endif
+      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      process_lockfile_registry_ptr->path_to_lockfile.erase(path);
+    }
+  };
+  struct lock_file
+  {
+    friend struct process_lockfile_registry;
+    async_io_handle *h;
+    std::vector<async_lock_op_req> locks;
+    std::shared_ptr<actual_lock_file> actual;
+    lock_file(async_io_handle *_h=nullptr) : h(_h)
+    {
+      if(h)
+      {
+        auto mypath=h->path();
+        auto it=process_lockfile_registry_ptr->path_to_lockfile.find(mypath);
+        if(process_lockfile_registry_ptr->path_to_lockfile.end()!=it)
+          actual=it->second.lock();
+        if(!actual)
+        {
+          if(process_lockfile_registry_ptr->path_to_lockfile.end()!=it)
+            process_lockfile_registry_ptr->path_to_lockfile.erase(it);
+          actual=std::make_shared<actual_lock_file>(mypath);
+          process_lockfile_registry_ptr->path_to_lockfile.insert(std::make_pair(mypath, actual));
+        }
+      }
+    }
+    void lock(async_lock_op_req req)
+    {
+#ifdef WIN32
+      todo;
+#else
+      struct flock l;
+      switch(req.type)
+      {
+        case async_lock_op_req::Type::read_lock:
+          l.l_type=F_RDLCK;
+          break;
+        case async_lock_op_req::Type::write_lock:
+          l.l_type=F_WRLCK;
+          break;
+        case async_lock_op_req::Type::unlock:
+          l.l_type=F_UNLCK;
+          break;
+      }
+      l.l_whence=SEEK_SET;
+      // We use the last byte for deleting the lock file on last use, so clamp to second last byte
+      l.l_start=(::off_t) std::min(req.offset, (off_t)(std::numeric_limits<decltype(l.l_start)>::max()-2));
+      ::off_t end=(::off_t) std::min(req.offset+req.length, (off_t)(std::numeric_limits<decltype(l.l_len)>::max()-1));
+      l.l_len=end-l.l_start;
+      int retcode;
+      while(-1==(retcode=fcntl(actual->h, F_SETLKW, &l)) && EINTR==errno);
+      BOOST_AFIO_ERRHOS(retcode);
+#endif
+    }
+    ~lock_file()
+    {
+      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      process_lockfile_registry_ptr->handle_to_lockfile.erase(h);
+    }
+  };
+}
+
 
 namespace detail {
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void print_fatal_exception_message_to_stderr(const char *msg)
@@ -342,17 +484,20 @@ namespace detail {
         free(strings);
 #endif
     }
-
+    
     struct async_io_handle_posix : public async_io_handle
     {
         int fd;
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
+        std::unique_ptr<lock_file> lockfile;
 
         async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
         {
             if(fd!=-999)
                 BOOST_AFIO_ERRHOSFN(fd, path);
+            if(!!(flags & file_flags::OSLockable))
+                lockfile=process_lockfile_registry::open(this);
         }
         void int_close()
         {
@@ -1465,6 +1610,18 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     }
     return std::make_pair(std::move(retfutures), std::move(ret));
 }
+// lock specialisation
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_lock_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_lock_op_req))
+{
+    std::vector<async_io_op> ret;
+    ret.reserve(container.size());
+    detail::immediate_async_ops immediates(container.size());
+    for(auto &i: container)
+    {
+        ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i));
+    }
+    return ret;
+}
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_dispatcher_base::adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs)
 {
@@ -2211,6 +2368,16 @@ namespace detail {
             throw;
           }
         }
+        // Called in unknown thread
+        completion_returntype dolock(size_t id, async_io_op op, async_lock_op_req req)
+        {
+            std::shared_ptr<async_io_handle> h(op.get());
+            async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+            if(!p->lockfile)
+              BOOST_AFIO_THROW(std::invalid_argument("This file handle was not opened with OSLockable."));
+            p->lockfile->lock(std::move(req));
+            return std::make_pair(true, h);
+        }
 
     public:
         async_file_io_dispatcher_compat(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask)
@@ -2384,6 +2551,17 @@ namespace detail {
                 BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
 #endif
             return chain_async_ops((int) detail::OpType::statfs, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dostatfs);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: reqs)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dolock);
         }
     };
 }

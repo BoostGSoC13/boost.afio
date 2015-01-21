@@ -357,6 +357,7 @@ struct async_io_op;
 struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
+struct async_lock_op_req;
 
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
 inline BOOST_CONSTEXPR type operator&(type a, type b) \
@@ -409,6 +410,7 @@ enum class file_flags : size_t
 
     OSDirect=(1<<16),   //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
     OSMMap=(1<<17),     //!< Memory map files (for reads only).
+    OSLockable=(1<<18), // Deliberately undocumented
 
     AlwaysSync=(1<<24),     //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
     SyncOnClose=(1<<25),    //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
@@ -473,6 +475,7 @@ namespace detail {
         zero,
         extents,
         statfs,
+        lock,
 
         Last
     };
@@ -495,7 +498,8 @@ namespace detail {
         "adopt",
         "zero",
         "extents",
-        "statfs"
+        "statfs",
+        "lock"
     };
     static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
 }
@@ -891,6 +895,36 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    
+#if 0
+    // Undocumented deliberately
+    enum class change_flags : size_t
+    {
+      created=(1<<0),    // NOTE_EXTEND,                       IN_CREATE, 
+      renamed=(1<<1),    // NOTE_RENAME,       IN_MOVED_FROM/IN_MOVED_TO, 
+      deleted=(1<<2),    // NOTE_DELETE,                       IN_DELETE, 
+      attributes=(1<<3), // NOTE_ATTRIB,                       IN_ATTRIB, 
+      opened=(1<<4),     //           ?,                         IN_OPEN, 
+      closed=(1<<5),     //           ?, IN_CLOSE_WRITE/IN_CLOSE_NOWRITE, 
+      read=(1<<6),       //           ?,                       IN_ACCESS, 
+      written=(1<<7),    //  NOTE_WRITE,                       IN_MODIFY, 
+      extended=(1<<8),   // NOTE_EXTEND,                               ?, 
+      
+      region_locked=(1<<16),
+      region_timedout=(1<<17),
+      region_unlocked=(1<<18)
+    };
+    // Undocumented deliberately
+    struct change_listener : public std::enable_shared_from_this<change_listener>
+    {
+      virtual ~change_listener() { }
+      virtual void operator()(async_io_handle *h, change_flags changed, void *additional)=0;
+    };
+    // Undocumented deliberately
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void listen(const std::vector<std::pair<change_flags>, std::shared_ptr<change_listener>> &listeners) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    // Undocumented deliberately
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlisten(const std::vector<std::pair<change_flags>, std::shared_ptr<change_listener>> &listeners) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+#endif
 };
 
 /*! \struct async_io_op
@@ -1710,6 +1744,9 @@ public:
     */
     inline std::pair<future<statfs_t>, async_io_op> statfs(const async_io_op &op, const fs_metadata_flags &req);
 
+    // Undocumented deliberately
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
     
     If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations
@@ -1767,6 +1804,7 @@ protected:
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret));
     template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_lock_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_lock_op_req));
     template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, async_io_op h, T);
 
     
@@ -2711,6 +2749,35 @@ private:
 #endif
     }
 };
+
+// Undocumented deliberately
+struct async_lock_op_req
+{
+  async_io_op precondition;
+  enum class Type { unknown, read_lock, write_lock, unlock } type;
+  off_t offset, length;
+  //chrono::time_point<chrono::steady_clock> deadline;
+  async_lock_op_req() : type(Type::unknown), offset(0), length(0) { }
+  async_lock_op_req(async_io_op _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
+  async_lock_op_req(async_io_op _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  async_lock_op_req(async_io_op _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  //! Validates contents
+  bool validate() const
+  {
+      if(type==Type::unknown) return false;
+      if(offset+length<offset) return false;
+      return !precondition.id || precondition.validate();
+  }
+private:
+  void _validate() const
+  {
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if(!validate())
+          BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
+  }
+};
+
 
 
 namespace detail {

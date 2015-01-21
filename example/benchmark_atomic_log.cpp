@@ -70,7 +70,7 @@ int main(int argc, const char *argv[])
       PRINT_FIELD(bavail, << " (" << (statfs.f_bavail*statfs.f_bsize / 1024.0 / 1024.0 / 1024.0) << " Gb)");
 #undef PRINT_FIELD
     }
-    if(1)
+    if(0)
     {
       std::cout << "\nBenchmarking a single traditional lock file with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
@@ -130,7 +130,7 @@ int main(int argc, const char *argv[])
       traditional_locks=successes/diff.count();
     }
     
-    if(1)
+    if(0)
     {
       std::cout << "\nBenchmarking eight traditional lock files with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
@@ -221,10 +221,65 @@ int main(int argc, const char *argv[])
       auto diff=chrono::duration_cast<secs_type>(end-begin);
       std::cout << "For " << writers << " concurrent writers, achieved " << (attempts/diff.count()) << " attempts per second with a "
       "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
-      traditional_locks=successes/diff.count();
     }
 
+    // **** WARNING UNSUPPORTED UNDOCUMENTED API DO NOT USE IN YOUR CODE ****
     if(0)
+    {
+      std::cout << "\nBenchmarking a ranged file lock with " << writers << " concurrent writers ...\n";
+      std::vector<thread> threads;
+      atomic<bool> done(true);
+      atomic<size_t> attempts(0), successes(0);
+      for(size_t n=0; n<writers; n++)
+      {
+        threads.push_back(thread([&done, &attempts, &successes, n]{
+          try
+          {
+            // Create a dispatcher
+            auto dispatcher = make_async_file_io_dispatcher();
+            // Schedule opening the log file for writing log entries
+            auto logfile(dispatcher->file(async_path_op_req("testdir/log",
+                file_flags::Create | file_flags::ReadWrite | file_flags::OSLockable)));
+            // Retrieve any errors which occurred
+            logfile.get();
+            // Wait until all threads are ready
+            while(done) { this_thread::yield(); }
+            while(!done)
+            {
+              attempts.fetch_add(1, memory_order_relaxed);
+              // **** WARNING UNSUPPORTED UNDOCUMENTED API DO NOT USE IN YOUR CODE ****
+              dispatcher->lock({logfile}).front().get();
+              std::string logentry("I am log writer "), mythreadid(to_string(n)), logentryend("!\n");
+              // Fetch the size
+              off_t where=logfile->lstat().st_size, entrysize=logentry.size()+mythreadid.size()+logentryend.size();
+              // Schedule extending the log file
+              auto extendlog(dispatcher->truncate(logfile, where+entrysize));
+              // Schedule writing the new entry
+              auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
+              writetolog.get();
+              extendlog.get();
+              successes.fetch_add(1, memory_order_relaxed);
+            }
+          }
+          catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
+          catch(const std::exception &e) { std::cerr << "ERROR: test exits via exception (" << e.what() << ")" << std::endl; abort(); }
+          catch(...) { std::cerr << "ERROR: test exits via unknown exception" << std::endl; abort(); }
+        }));
+      }
+      auto begin=chrono::high_resolution_clock::now();
+      done=false;
+      std::this_thread::sleep_for(std::chrono::seconds(20));
+      done=true;
+      std::cout << "Waiting for threads to exit ..." << std::endl;
+      for(auto &i : threads)
+        i.join();
+      auto end=chrono::high_resolution_clock::now();
+      auto diff=chrono::duration_cast<secs_type>(end-begin);
+      std::cout << "For " << writers << " concurrent writers, achieved " << (attempts/diff.count()) << " attempts per second with a "
+      "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
+    }
+    
+    if(1)
     {
       std::cout << "\nBenchmarking file locks via atomic append with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
