@@ -222,6 +222,29 @@ namespace windows_nt_kernel
         /*_In_*/  PLARGE_INTEGER Timeout
         );
 
+    // From https://msdn.microsoft.com/en-us/library/windows/hardware/ff566474(v=vs.85).aspx
+    typedef NTSTATUS (NTAPI *NtLockFile_t)(
+      /*_In_*/      HANDLE FileHandle,
+      /*_In_opt_*/  HANDLE Event,
+      /*_In_opt_*/  PIO_APC_ROUTINE ApcRoutine,
+      /*_In_opt_*/  PVOID ApcContext,
+      /*_Out_*/     PIO_STATUS_BLOCK IoStatusBlock,
+      /*_In_*/      PLARGE_INTEGER ByteOffset,
+      /*_In_*/      PLARGE_INTEGER Length,
+      /*_In_*/      ULONG Key,
+      /*_In_*/      BOOLEAN FailImmediately,
+      /*_In_*/      BOOLEAN ExclusiveLock
+      );
+
+    // From https://msdn.microsoft.com/en-us/library/windows/hardware/ff567118(v=vs.85).aspx
+    typedef NTSTATUS (NTAPI *NtUnlockFile_t)(
+          /*_In_*/   HANDLE FileHandle,
+          /*_Out_*/  PIO_STATUS_BLOCK IoStatusBlock,
+          /*_In_*/   PLARGE_INTEGER ByteOffset,
+          /*_In_*/   PLARGE_INTEGER Length,
+          /*_In_*/   ULONG Key
+          );
+
     typedef struct _FILE_BASIC_INFORMATION {
       LARGE_INTEGER CreationTime;
       LARGE_INTEGER LastAccessTime;
@@ -362,6 +385,8 @@ namespace windows_nt_kernel
     static NtQueryDirectoryFile_t NtQueryDirectoryFile;
     static NtSetInformationFile_t NtSetInformationFile;
     static NtWaitForSingleObject_t NtWaitForSingleObject;
+    static NtLockFile_t NtLockFile;
+    static NtUnlockFile_t NtUnlockFile;
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -369,33 +394,42 @@ namespace windows_nt_kernel
 #endif
     static inline void doinit()
     {
-        if(!NtQueryInformationFile)
-            if(!(NtQueryInformationFile=(NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
-                abort();
-        if(!NtQueryVolumeInformationFile)
-            if(!(NtQueryVolumeInformationFile=(NtQueryVolumeInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryVolumeInformationFile")))
-                abort();
-        if(!NtOpenDirectoryObject)
-            if(!(NtOpenDirectoryObject=(NtOpenDirectoryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenDirectoryObject")))
-                abort();
-        if(!NtOpenFile)
-            if(!(NtOpenFile=(NtOpenFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenFile")))
-                abort();
-        if(!NtCreateFile)
-            if(!(NtCreateFile=(NtCreateFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtCreateFile")))
-                abort();
-        if(!NtClose)
-            if(!(NtClose=(NtClose_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtClose")))
-                abort();
-        if(!NtQueryDirectoryFile)
-            if(!(NtQueryDirectoryFile=(NtQueryDirectoryFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryDirectoryFile")))
-                abort();
-        if(!NtSetInformationFile)
-            if(!(NtSetInformationFile=(NtSetInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSetInformationFile")))
-                abort();
-        if(!NtWaitForSingleObject)
-            if(!(NtWaitForSingleObject=(NtWaitForSingleObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtWaitForSingleObject")))
-                abort();
+      if(NtUnlockFile)
+        return;
+      if(!NtQueryInformationFile)
+          if(!(NtQueryInformationFile=(NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
+              abort();
+      if(!NtQueryVolumeInformationFile)
+          if(!(NtQueryVolumeInformationFile=(NtQueryVolumeInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryVolumeInformationFile")))
+              abort();
+      if(!NtOpenDirectoryObject)
+          if(!(NtOpenDirectoryObject=(NtOpenDirectoryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenDirectoryObject")))
+              abort();
+      if(!NtOpenFile)
+          if(!(NtOpenFile=(NtOpenFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenFile")))
+              abort();
+      if(!NtCreateFile)
+          if(!(NtCreateFile=(NtCreateFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtCreateFile")))
+              abort();
+      if(!NtClose)
+          if(!(NtClose=(NtClose_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtClose")))
+              abort();
+      if(!NtQueryDirectoryFile)
+          if(!(NtQueryDirectoryFile=(NtQueryDirectoryFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryDirectoryFile")))
+              abort();
+      if(!NtSetInformationFile)
+          if(!(NtSetInformationFile=(NtSetInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSetInformationFile")))
+              abort();
+      if(!NtWaitForSingleObject)
+          if(!(NtWaitForSingleObject=(NtWaitForSingleObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtWaitForSingleObject")))
+              abort();
+      if(!NtLockFile)
+          if(!(NtLockFile=(NtLockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtLockFile")))
+              abort();
+      if(!NtUnlockFile)
+          if(!(NtUnlockFile=(NtUnlockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtUnlockFile")))
+              abort();
+      // MAKE SURE you update the early exit check at the top to whatever the last of these is!
     }
 #ifdef _MSC_VER
 #pragma warning(pop)

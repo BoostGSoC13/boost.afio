@@ -7,6 +7,17 @@ File Created: Mar 2013
 #ifdef WIN32
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 namespace detail {
+    struct win_actual_lock_file;
+    struct win_lock_file : public lock_file<win_actual_lock_file>
+    {
+      asio::windows::object_handle ev;
+      win_lock_file(async_io_handle *_h=nullptr) : lock_file<win_actual_lock_file>(_h), ev(_h->parent()->threadsource()->io_service())
+      {
+        HANDLE evh;
+        BOOST_AFIO_ERRHWIN((evh=CreateEvent(nullptr, true, false, nullptr)));
+        ev.assign(evh);
+      }
+    };
 
     struct async_io_handle_windows : public async_io_handle
     {
@@ -14,6 +25,7 @@ namespace detail {
         void *myid;
         bool has_been_added, SyncOnClose;
         void *mapaddr;
+        std::unique_ptr<win_lock_file> lockfile;
 
         static HANDLE int_checkHandle(HANDLE h, const filesystem::path &path)
         {
@@ -187,7 +199,15 @@ namespace detail {
             return mapaddr;
         }
     };
-    inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h) : async_io_handle(_parent, std::move(_dirh), path, flags), h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h), has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr) { }
+    inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh,
+      const filesystem::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
+      : async_io_handle(_parent, std::move(_dirh), path, flags),
+        h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
+        has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr)
+    {
+      if(!!(flags & file_flags::OSLockable))
+        lockfile=process_lockfile_registry::open<win_lock_file>(this);
+    }
 
     class async_file_io_dispatcher_windows : public async_file_io_dispatcher_base
     {
@@ -220,78 +240,93 @@ namespace detail {
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
+      public:
+        // Helper for dofile()
+        static std::pair<NTSTATUS, HANDLE> ntcreatefile(async_path_op_req req) BOOST_NOEXCEPT
+        {
+          // 2014-11-6 ned: Use of FILE_SHARE_DELETE causes generation of ERROR_DELETE_PENDING errors
+          //                because NT won't let you create a new file with the same name as one which
+          //                has been deleted if that deleted file is still open. This is more annoying
+          //                and harder to detect than accepting the fact NT won't delete open files.
+          DWORD access=FILE_READ_ATTRIBUTES, attribs=FILE_ATTRIBUTE_NORMAL;
+          DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/;
+          DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
+          if(!!(req.flags & file_flags::int_opening_dir))
+          {
+              flags|=0x01/*FILE_DIRECTORY_FILE*/;
+              access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
+              if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
+              if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
+              // Windows doesn't like opening directories without buffering.
+              if(!!(req.flags & file_flags::OSDirect)) req.flags=req.flags & ~file_flags::OSDirect;
+          }
+          else
+          {
+              flags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
+              if(!!(req.flags & file_flags::Append)) access|=FILE_APPEND_DATA|SYNCHRONIZE;
+              else
+              {
+                  if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
+                  if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
+              }
+              if(!!(req.flags & file_flags::WillBeSequentiallyAccessed))
+                  flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
+              else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
+                  flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
+              if(!!(req.flags & file_flags::TemporaryFile))
+                  attribs|=FILE_ATTRIBUTE_TEMPORARY;
+              if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
+              {
+                  fileshare|=FILE_SHARE_DELETE;
+                  flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
+                  access|=DELETE;
+              }
+              if(!!(req.flags & file_flags::int_file_share_delete))
+              {
+                  fileshare|=FILE_SHARE_DELETE;
+                  access|=DELETE;
+              }
+          }
+          if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
+          else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
+          else if(!!(req.flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
+          else creatdisp|=0x00000001/*FILE_OPEN*/;
+          if(!!(req.flags & file_flags::OSDirect)) flags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
+          if(!!(req.flags & file_flags::AlwaysSync)) flags|=0x00000002/*FILE_WRITE_THROUGH*/;
+
+          windows_nt_kernel::init();
+          using namespace windows_nt_kernel;
+          HANDLE h=nullptr;
+          IO_STATUS_BLOCK isb={ 0 };
+          OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+          filesystem::path path(req.path.make_preferred());
+          UNICODE_STRING _path;
+          if(isalpha(path.native()[0]) && path.native()[1]==':')
+          {
+              path=ntpath_from_dospath(path);
+              // If it's a DOS path, ignore case differences
+              oa.Attributes=0x40/*OBJ_CASE_INSENSITIVE*/;
+          }
+          _path.Buffer=const_cast<filesystem::path::value_type *>(path.c_str());
+          _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
+          oa.ObjectName=&_path;
+          // Should I bother with oa.RootDirectory? For now, no.
+          LARGE_INTEGER AllocationSize={0};
+          return std::make_pair(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, fileshare,
+              creatdisp, flags, NULL, 0), h);
+        }
+      private:
         // Called in unknown thread
         completion_returntype dofile(size_t id, async_io_op, async_path_op_req req)
         {
             std::shared_ptr<async_io_handle> dirh;
-            // 2014-11-6 ned: Use of FILE_SHARE_DELETE causes generation of ERROR_DELETE_PENDING errors
-            //                because NT won't let you create a new file with the same name as one which
-            //                has been deleted if that deleted file is still open. This is more annoying
-            //                and harder to detect than accepting the fact NT won't delete open files.
-            DWORD access=FILE_READ_ATTRIBUTES, attribs=FILE_ATTRIBUTE_NORMAL;
-            DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/;
-            DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
+            NTSTATUS status=0;
+            HANDLE h=nullptr;
             req.flags=fileflags(req.flags);
-            if(!!(req.flags & file_flags::int_opening_dir))
-            {
-                flags|=0x01/*FILE_DIRECTORY_FILE*/;
-                access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
-                if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
-                if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
-                // Windows doesn't like opening directories without buffering.
-                if(!!(req.flags & file_flags::OSDirect)) req.flags=req.flags & ~file_flags::OSDirect;
-            }
-            else
-            {
-                flags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
-                if(!!(req.flags & file_flags::Append)) access|=FILE_APPEND_DATA|SYNCHRONIZE;
-                else
-                {
-                    if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
-                    if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
-                }
-                if(!!(req.flags & file_flags::WillBeSequentiallyAccessed))
-                    flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
-                else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
-                    flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
-                if(!!(req.flags & file_flags::TemporaryFile))
-                    attribs|=FILE_ATTRIBUTE_TEMPORARY;
-                if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
-                {
-                    fileshare|=FILE_SHARE_DELETE;
-                    flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
-                    access|=DELETE;
-                }
-            }
-            if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
-            else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
-            else if(!!(req.flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
-            else creatdisp|=0x00000001/*FILE_OPEN*/;
-            if(!!(req.flags & file_flags::OSDirect)) flags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
-            if(!!(req.flags & file_flags::AlwaysSync)) flags|=0x00000002/*FILE_WRITE_THROUGH*/;
             if(!!(req.flags & file_flags::FastDirectoryEnumeration))
                 dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_windows::dofile);
-
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-            HANDLE h=nullptr;
-            IO_STATUS_BLOCK isb={ 0 };
-            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
-            filesystem::path path(req.path.make_preferred());
-            UNICODE_STRING _path;
-            if(isalpha(path.native()[0]) && path.native()[1]==':')
-            {
-                path=ntpath_from_dospath(path);
-                // If it's a DOS path, ignore case differences
-                oa.Attributes=0x40/*OBJ_CASE_INSENSITIVE*/;
-            }
-            _path.Buffer=const_cast<filesystem::path::value_type *>(path.c_str());
-            _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
-            oa.ObjectName=&_path;
-            // Should I bother with oa.RootDirectory? For now, no.
-            LARGE_INTEGER AllocationSize={0};
-            BOOST_AFIO_ERRHNTFN(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, fileshare,
-                creatdisp, flags, NULL, 0), req.path);
+            std::tie(status, h)=ntcreatefile(req);
+            BOOST_AFIO_ERRHNTFN(status, req.path);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, dirh, req.path, req.flags,
                 (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
@@ -1098,6 +1133,16 @@ namespace detail {
             throw;
           }
         }
+        // Called in unknown thread
+        completion_returntype dolock(size_t id, async_io_op op, async_lock_op_req req)
+        {
+          std::shared_ptr<async_io_handle> h(op.get());
+          async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
+          assert(p);
+          if(!p->lockfile)
+            BOOST_AFIO_THROW(std::invalid_argument("This file handle was not opened with OSLockable."));
+          return p->lockfile->lock(id, std::move(op), std::move(req));
+        }
 
     public:
         async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask), pagesize(page_size())
@@ -1273,7 +1318,140 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::statfs, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dostatfs);
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: reqs)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dolock);
+        }
+    };
 
+    struct win_actual_lock_file : public actual_lock_file
+    {
+      HANDLE h;
+      OVERLAPPED ol;
+      static BOOST_CONSTEXPR_OR_CONST off_t magicbyte=(1ULL<<62)-1;
+      static bool win32_lockmagicbyte(HANDLE h, DWORD flags)
+      {
+        OVERLAPPED ol={0};
+        ol.Offset=(DWORD) (magicbyte & 0xffffffff);
+        ol.OffsetHigh=(DWORD) ((magicbyte>>32) & 0xffffffff);
+        DWORD len_low=1, len_high=0;
+        return LockFileEx(h, LOCKFILE_FAIL_IMMEDIATELY|flags, 0, len_low, len_high, &ol)!=0;
+      }
+      static bool win32_unlockmagicbyte(HANDLE h)
+      {
+        OVERLAPPED ol={0};
+        ol.Offset=(DWORD) (magicbyte & 0xffffffff);
+        ol.OffsetHigh=(DWORD) ((magicbyte>>32) & 0xffffffff);
+        DWORD len_low=1, len_high=0;
+        return UnlockFileEx(h, 0, len_low, len_high, &ol)!=0;
+      }
+      win_actual_lock_file(filesystem::path p) : actual_lock_file(std::move(p)), h(nullptr)
+      {
+        memset(&ol, 0, sizeof(ol));
+        bool done=false;
+        do
+        {
+          NTSTATUS status=0;
+          for(size_t n=0; n<10; n++)
+          {
+            std::tie(status, h)=async_file_io_dispatcher_windows::ntcreatefile(async_path_op_req(lockfilepath, file_flags::Create|file_flags::ReadWrite|file_flags::TemporaryFile|file_flags::int_file_share_delete));
+            // This may fail with STATUS_DELETE_PENDING, if so sleep and loop
+            if(!status)
+              break;
+            else if(0xC0000056/*STATUS_DELETE_PENDING*/==status)
+              this_thread::sleep_for(chrono::milliseconds(100));
+            else
+              BOOST_AFIO_ERRHNT(status);
+          }
+          BOOST_AFIO_ERRHNT(status);
+          // We can't use DeleteOnClose for Samba shares because he'll delete on close even if
+          // other processes have a handle open. We hence read lock the same final byte as POSIX considers
+          // it (i.e. 1<<62-1). If it fails then the other has a write lock and is about to delete.
+          if(!(done=win32_lockmagicbyte(h, 0)))
+            CloseHandle(h);
+        } while(!done);
+      }
+      ~win_actual_lock_file()
+      {
+        // Lock POSIX magic byte for write access. Win32 doesn't permit conversion of shared to exclusive locks
+        win32_unlockmagicbyte(h);
+        if(win32_lockmagicbyte(h, LOCKFILE_EXCLUSIVE_LOCK))
+        {
+          // If this lock succeeded then I am potentially the last with this file open
+          // so unlink myself, which will work with my open file handle as I was opened with FILE_SHARE_DELETE.
+          // All further opens will now fail with STATUS_DELETE_PENDING
+          filesystem::path::string_type escapedpath(L"\\\\?\\"+lockfilepath.native());
+          BOOST_AFIO_ERRHWIN(DeleteFile(escapedpath.c_str()));
+        }
+        BOOST_AFIO_ERRHWIN(CloseHandle(h));
+      }
+      async_file_io_dispatcher_base::completion_returntype lock(size_t id, async_io_op op, async_lock_op_req req, void *_thislockfile) override final
+      {
+        windows_nt_kernel::init();
+        using namespace windows_nt_kernel;
+        win_lock_file *thislockfile=(win_lock_file *) _thislockfile;
+        auto completion_handler=[this, id, op, req](const asio::error_code &ec)
+        {
+          std::shared_ptr<async_io_handle> h(op.get());
+          if(ec)
+          {
+            exception_ptr e;
+            // boost::system::system_error makes no attempt to ask windows for what the error code means :(
+            try
+            {
+              BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+            }
+            catch(...)
+            {
+              e=current_exception();
+            }
+            op.parent->complete_async_op(id, h, e);
+          }
+          else
+          {
+            op.parent->complete_async_op(id, h);
+          }
+        };
+        // (1<<62)-1 byte used by POSIX for last use detection
+        static BOOST_CONSTEXPR_OR_CONST off_t magicbyte=(1ULL<<62)-1;
+        if(req.offset==magicbyte)
+          BOOST_AFIO_THROW(std::invalid_argument("offset cannot be (1<<62)-1"));
+        // If we straddle the magic byte then clamp to just under it
+        if(req.offset<magicbyte && req.offset+req.length>magicbyte)
+          req.length=std::min(req.offset+req.length, magicbyte)-req.offset;
+
+        NTSTATUS ntstat=0;
+        LARGE_INTEGER offset; offset.QuadPart=req.offset;
+        LARGE_INTEGER length; length.QuadPart=req.length;
+        if(req.type==async_lock_op_req::Type::unlock)
+        {
+          ntstat=NtUnlockFile(h, (PIO_STATUS_BLOCK) &ol, &offset, &length, 0);
+          //printf("UL %u ntstat=%u\n", id, ntstat);
+        }
+        else
+        {
+          ntstat=NtLockFile(h, thislockfile->ev.native_handle(), nullptr, nullptr, (PIO_STATUS_BLOCK) &ol, &offset, &length, 0,
+            false, req.type==async_lock_op_req::Type::write_lock);
+          //printf("L %u ntstat=%u\n", id, ntstat);
+        }
+        if(STATUS_PENDING!=ntstat)
+        {
+          SetWin32LastErrorFromNtStatus(ntstat);
+          asio::error_code ec(GetLastError(), asio::error::get_system_category());
+          completion_handler(ec);
+        }
+        else
+          thislockfile->ev.async_wait(completion_handler);
+        // Indicate we're not finished yet
+        return std::make_pair(false, std::shared_ptr<async_io_handle>());
+      }
     };
 } // namespace
 BOOST_AFIO_V1_NAMESPACE_END

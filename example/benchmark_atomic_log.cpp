@@ -224,7 +224,7 @@ int main(int argc, const char *argv[])
     }
 
     // **** WARNING UNSUPPORTED UNDOCUMENTED API DO NOT USE IN YOUR CODE ****
-    if(0)
+    if(1)
     {
       std::cout << "\nBenchmarking a ranged file lock with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
@@ -259,6 +259,7 @@ int main(int argc, const char *argv[])
               writetolog.get();
               extendlog.get();
               successes.fetch_add(1, memory_order_relaxed);
+              dispatcher->lock({{logfile, nullptr}}).front().get();
             }
           }
           catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
@@ -516,7 +517,7 @@ int main(int argc, const char *argv[])
       "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
       atomic_log_locks=successes/diff.count();
     }
-    filesystem::remove_all("testdir");
+    //filesystem::remove_all("testdir");
     std::cout << "Traditional locks were " << (traditional_locks/atomic_log_locks) << " times faster." << std::endl;
     return 0;
 }

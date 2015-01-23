@@ -333,40 +333,47 @@ std::shared_ptr<std_thread_pool> process_threadpool()
 namespace detail {
   struct process_lockfile_registry;
   struct actual_lock_file;
-  struct lock_file;
+  template<class T> struct lock_file;
   typedef spinlock<bool> process_lockfile_registry_lock_t;
   static process_lockfile_registry_lock_t process_lockfile_registry_lock;
   static std::unique_ptr<process_lockfile_registry> process_lockfile_registry_ptr;
 
   struct process_lockfile_registry
   {
-    std::unordered_map<async_io_handle *, lock_file *> handle_to_lockfile;
+    std::unordered_map<async_io_handle *, lock_file<actual_lock_file> *> handle_to_lockfile;
     std::unordered_map<filesystem::path, std::weak_ptr<actual_lock_file>, filesystem_hash> path_to_lockfile;
-    static std::unique_ptr<lock_file> open(async_io_handle *h)
+    template<class T> static std::unique_ptr<T> open(async_io_handle *h)
     {
       std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       if(!process_lockfile_registry_ptr)
         process_lockfile_registry_ptr=make_unique<process_lockfile_registry>();
-      auto p=make_unique<lock_file>(h);
-      process_lockfile_registry_ptr->handle_to_lockfile.insert(std::make_pair(h, p.get()));
+      auto p=detail::make_unique<T>(h);
+      process_lockfile_registry_ptr->handle_to_lockfile.insert(std::make_pair(h, (lock_file<actual_lock_file> *) p.get()));
       return p;
     }
   };
   struct actual_lock_file : std::enable_shared_from_this<actual_lock_file>
   {
-#ifdef WIN32
-    typedef void *native_handle_type;
-#else
-    typedef int native_handle_type;
-#endif
-    native_handle_type h;
     filesystem::path path, lockfilepath;
-    actual_lock_file(filesystem::path p) : h(0), path(p), lockfilepath(p)
+  protected:
+    actual_lock_file(filesystem::path p) : path(p), lockfilepath(p)
     {
       lockfilepath+=".afiolockfile";
-#ifdef WIN32
-      todo;
-#else
+    }
+  public:
+    ~actual_lock_file()
+    {
+      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      process_lockfile_registry_ptr->path_to_lockfile.erase(path);
+    }
+    virtual async_file_io_dispatcher_base::completion_returntype lock(size_t id, async_io_op op, async_lock_op_req req, void *)=0;
+  };
+  struct posix_actual_lock_file : public actual_lock_file
+  {
+    int h;
+    posix_actual_lock_file(filesystem::path p) : actual_lock_file(std::move(p)), h(0)
+    {
+#ifndef WIN32
       bool done=false;
       do
       {
@@ -390,11 +397,9 @@ namespace detail {
       } while(!done);
 #endif
     }
-    ~actual_lock_file()
+    ~posix_actual_lock_file()
     {
-#ifdef WIN32
-      todo;
-#else
+#ifndef WIN32
       // Place a write lock on the final byte as a way of detecting when this lock file no longer in use
       struct flock l;
       l.l_type=F_WRLCK;
@@ -406,12 +411,41 @@ namespace detail {
       if(-1!=retcode)
         BOOST_AFIO_ERRHOS(unlink(lockfilepath.c_str()));
       BOOST_AFIO_ERRHOS(close(h));
-#endif
       std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       process_lockfile_registry_ptr->path_to_lockfile.erase(path);
+#endif
+    }
+    virtual async_file_io_dispatcher_base::completion_returntype lock(size_t id, async_io_op op, async_lock_op_req req, void *) override final
+    {
+#ifndef WIN32
+      struct flock l;
+      switch(req.type)
+      {
+        case async_lock_op_req::Type::read_lock:
+          l.l_type=F_RDLCK;
+          break;
+        case async_lock_op_req::Type::write_lock:
+          l.l_type=F_WRLCK;
+          break;
+        case async_lock_op_req::Type::unlock:
+          l.l_type=F_UNLCK;
+          break;
+      }
+      l.l_whence=SEEK_SET;
+      // We use the last byte for deleting the lock file on last use, so clamp to second last byte
+      if(req.offset==(off_t)(std::numeric_limits<decltype(l.l_start)>::max()-1))
+        BOOST_AFIO_THROW(std::invalid_argument("offset cannot be (1<<62)-1"));
+      l.l_start=(::off_t) req.offset;
+      ::off_t end=(::off_t) std::min(req.offset+req.length, (off_t)(std::numeric_limits<decltype(l.l_len)>::max()-1));
+      l.l_len=end-l.l_start;
+      int retcode;
+      while(-1==(retcode=fcntl(actual->h, F_SETLKW, &l)) && EINTR==errno);
+      BOOST_AFIO_ERRHOS(retcode);
+#endif
+      return std::make_pair(true, op.get());
     }
   };
-  struct lock_file
+  template<class T> struct lock_file
   {
     friend struct process_lockfile_registry;
     async_io_handle *h;
@@ -429,38 +463,14 @@ namespace detail {
         {
           if(process_lockfile_registry_ptr->path_to_lockfile.end()!=it)
             process_lockfile_registry_ptr->path_to_lockfile.erase(it);
-          actual=std::make_shared<actual_lock_file>(mypath);
+          actual=std::make_shared<T>(mypath);
           process_lockfile_registry_ptr->path_to_lockfile.insert(std::make_pair(mypath, actual));
         }
       }
     }
-    void lock(async_lock_op_req req)
+    async_file_io_dispatcher_base::completion_returntype lock(size_t id, async_io_op op, async_lock_op_req req)
     {
-#ifdef WIN32
-      todo;
-#else
-      struct flock l;
-      switch(req.type)
-      {
-        case async_lock_op_req::Type::read_lock:
-          l.l_type=F_RDLCK;
-          break;
-        case async_lock_op_req::Type::write_lock:
-          l.l_type=F_WRLCK;
-          break;
-        case async_lock_op_req::Type::unlock:
-          l.l_type=F_UNLCK;
-          break;
-      }
-      l.l_whence=SEEK_SET;
-      // We use the last byte for deleting the lock file on last use, so clamp to second last byte
-      l.l_start=(::off_t) std::min(req.offset, (off_t)(std::numeric_limits<decltype(l.l_start)>::max()-2));
-      ::off_t end=(::off_t) std::min(req.offset+req.length, (off_t)(std::numeric_limits<decltype(l.l_len)>::max()-1));
-      l.l_len=end-l.l_start;
-      int retcode;
-      while(-1==(retcode=fcntl(actual->h, F_SETLKW, &l)) && EINTR==errno);
-      BOOST_AFIO_ERRHOS(retcode);
-#endif
+      return actual->lock(id, std::move(op), std::move(req), this);
     }
     ~lock_file()
     {
@@ -468,6 +478,7 @@ namespace detail {
       process_lockfile_registry_ptr->handle_to_lockfile.erase(h);
     }
   };
+  typedef lock_file<posix_actual_lock_file> posix_lock_file;
 }
 
 
@@ -490,14 +501,14 @@ namespace detail {
         int fd;
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
-        std::unique_ptr<lock_file> lockfile;
+        std::unique_ptr<posix_lock_file> lockfile;
 
         async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
         {
             if(fd!=-999)
                 BOOST_AFIO_ERRHOSFN(fd, path);
             if(!!(flags & file_flags::OSLockable))
-                lockfile=process_lockfile_registry::open(this);
+                lockfile=process_lockfile_registry::open<posix_lock_file>(this);
         }
         void int_close()
         {
@@ -2375,8 +2386,7 @@ namespace detail {
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             if(!p->lockfile)
               BOOST_AFIO_THROW(std::invalid_argument("This file handle was not opened with OSLockable."));
-            p->lockfile->lock(std::move(req));
-            return std::make_pair(true, h);
+            return p->lockfile->lock(id, std::move(op), std::move(req));
         }
 
     public:

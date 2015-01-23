@@ -204,7 +204,7 @@ hard drive outperforms the SSD because it has 512 byte sectors and the SSD has 4
 I suspect that internally Windows memcpy()'s in device native sector sizes, or is actually sending
 data to physical storage despite us marking this file as temporary.
 
-A much better way of solving this problem is to figure out which graphs are common across each
+A much more intelligent way of solving this problem is to figure out which graphs are common across each
 of the transactions currently pending, and to strictly order the transactions in the sequence
 which maximises throughput without updates clashing.
 One way of many distributed writers constructing a shared graph of dependencies is to append messages
@@ -213,18 +213,22 @@ by Suzuki and Kasami, Maekawa and Ricart and Agrawala are the most famous. This 
 to atomically append to the shared file, something guaranteed on all operating systems, but unfortunately
 not guaranteed by NFS nor Samba (though when combined with advisory file locking those do work as
 expected, albeit with poor performance). This means that on an all-Windows setup, or if on POSIX and
-not using NFS nor Samba, the atomic append method is very valuable, especially as the cost of locking
+not using NFS nor Samba, the atomic append method could be valuable, especially as the cost of locking
 multiple actors is pretty much the same as locking a single actor so you get eight graphs locked for
 the same cost as locking one.
 
 [table:atomic_append_performance Atomic append lock performance on various operating systems:
   [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD]]
-  [[1][1][][][1198]]
-  [[2][1][][][1344]]
-  [[4][1][][][1327]]
-  [[8][1][][][1254]]
-  [[16][1][][][1260]]
+  [[1][1][2592][2875][1198]]
+  [[2][1][1284][2565][1344]]
+  [[4][1][1420][2384][1327]]
+  [[8][1][1262][1764][1254]]
+  [[16][1][428][520][1260]]
 ]
+
+Linux once against does a great job of O(1) to waiters complexity, but at the third of the speed of
+a simple lock file. Windows does better than Linux here especially on SSDs, but doesn't scale to waiters
+once they pass CPU core count.
 
 This introduces the final potential solution which is that of the quagmire of advisory file locking.
 This is an area where Windows and POSIX diverge very significantly, and the interactions between
@@ -239,15 +243,17 @@ to implement relatively sane semantics __dash__ is impressive.
 
 [table:advisory_lock_file_performance Advisory lock file performance on various operating systems:
   [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD]]
-  [[1][1][?][?][4627]]
-  [[2][1][?][?][7615]]
-  [[4][1][?][?][15500]]
-  [[8][1][?][?][32827]]
-  [[16][1][?][?][52552]]
+  [[1][1][5799][5166][4627]]
+  [[2][1][5788][6656][7615]]
+  [[4][1][5775][7020][15500]]
+  [[8][1][5773][6738][32827]]
+  [[16][1][5695][5617][52552]]
 ]
 
-All these options raised the question of which locking strategy was the best, and so I wrote this
-benchmarking program using AFIO which illustrates how you might implement the techniques used above:
+This is clearly the fastest option for all platforms, and O(1) or better to waiters scalability.
+
+All these benchmarks came from this benchmarking program I wrote using AFIO which illustrates how
+you might implement the techniques used above:
 
 [benchmark_atomic_log]
 

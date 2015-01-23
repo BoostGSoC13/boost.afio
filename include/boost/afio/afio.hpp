@@ -416,6 +416,7 @@ enum class file_flags : size_t
     SyncOnClose=(1<<25),    //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
     EnforceDependencyWriteOrder=(1<<26), //!< Ensure that data writes to files reach physical storage in the same order as the op dependencies close files. Does NOT enforce ordering of individual data writes, ONLY all file writes accumulated before a file close.
 
+    int_file_share_delete=(1<<28), //!< Internal use only. Don't use.
     int_opening_link=(1<<29), //!< Internal use only. Don't use.
     int_opening_dir=(1<<30) //!< Internal use only. Don't use.
 };
@@ -2759,6 +2760,7 @@ struct async_lock_op_req
   //chrono::time_point<chrono::steady_clock> deadline;
   async_lock_op_req() : type(Type::unknown), offset(0), length(0) { }
   async_lock_op_req(async_io_op _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
+  async_lock_op_req(async_io_op _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t)-1) { _validate(); }
   async_lock_op_req(async_io_op _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
   async_lock_op_req(async_io_op _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
   //! Validates contents
