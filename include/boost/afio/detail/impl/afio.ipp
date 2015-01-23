@@ -439,7 +439,7 @@ namespace detail {
       ::off_t end=(::off_t) std::min(req.offset+req.length, (off_t)(std::numeric_limits<decltype(l.l_len)>::max()-1));
       l.l_len=end-l.l_start;
       int retcode;
-      while(-1==(retcode=fcntl(actual->h, F_SETLKW, &l)) && EINTR==errno);
+      while(-1==(retcode=fcntl(h, F_SETLKW, &l)) && EINTR==errno);
       BOOST_AFIO_ERRHOS(retcode);
 #endif
       return std::make_pair(true, op.get());
