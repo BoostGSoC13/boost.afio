@@ -14,7 +14,7 @@ namespace detail {
       win_lock_file(async_io_handle *_h=nullptr) : lock_file<win_actual_lock_file>(_h), ev(_h->parent()->threadsource()->io_service())
       {
         HANDLE evh;
-        BOOST_AFIO_ERRHWIN((evh=CreateEvent(nullptr, true, false, nullptr)));
+        BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(evh=CreateEvent(nullptr, true, false, nullptr)));
         ev.assign(evh);
       }
     };
@@ -1365,7 +1365,7 @@ namespace detail {
             // This may fail with STATUS_DELETE_PENDING, if so sleep and loop
             if(!status)
               break;
-            else if(0xC0000056/*STATUS_DELETE_PENDING*/==status)
+            else if(((NTSTATUS) 0xC0000056)/*STATUS_DELETE_PENDING*/==status)
               this_thread::sleep_for(chrono::milliseconds(100));
             else
               BOOST_AFIO_ERRHNT(status);
