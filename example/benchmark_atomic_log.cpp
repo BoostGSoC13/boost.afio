@@ -70,7 +70,7 @@ int main(int argc, const char *argv[])
       PRINT_FIELD(bavail, << " (" << (statfs.f_bavail*statfs.f_bsize / 1024.0 / 1024.0 / 1024.0) << " Gb)");
 #undef PRINT_FIELD
     }
-    if(0)
+    if(1)
     {
       std::cout << "\nBenchmarking a single traditional lock file with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
@@ -130,7 +130,7 @@ int main(int argc, const char *argv[])
       traditional_locks=successes/diff.count();
     }
     
-    if(0)
+    if(1)
     {
       std::cout << "\nBenchmarking eight traditional lock files with " << writers << " concurrent writers ...\n";
       std::vector<thread> threads;
@@ -517,7 +517,7 @@ int main(int argc, const char *argv[])
       "success rate of " << (successes/diff.count()) << " writes per second which is a " << (100.0*successes/attempts) << "% success rate." << std::endl;
       atomic_log_locks=successes/diff.count();
     }
-    //filesystem::remove_all("testdir");
+    filesystem::remove_all("testdir");
     std::cout << "Traditional locks were " << (traditional_locks/atomic_log_locks) << " times faster." << std::endl;
     return 0;
 }

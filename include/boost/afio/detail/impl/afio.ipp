@@ -371,6 +371,10 @@ namespace detail {
   struct posix_actual_lock_file : public actual_lock_file
   {
     int h;
+#ifndef WIN32
+    std::vector<struct flock> local_locks;
+#endif
+    std::vector<async_lock_op_req> locks;
     posix_actual_lock_file(filesystem::path p) : actual_lock_file(std::move(p)), h(0)
     {
 #ifndef WIN32
@@ -430,6 +434,8 @@ namespace detail {
         case async_lock_op_req::Type::unlock:
           l.l_type=F_UNLCK;
           break;
+        default:
+          BOOST_AFIO_THROW(std::invalid_argument("Lock type cannot be unknown"));
       }
       l.l_whence=SEEK_SET;
       // We use the last byte for deleting the lock file on last use, so clamp to second last byte
@@ -438,6 +444,7 @@ namespace detail {
       l.l_start=(::off_t) req.offset;
       ::off_t end=(::off_t) std::min(req.offset+req.length, (off_t)(std::numeric_limits<decltype(l.l_len)>::max()-1));
       l.l_len=end-l.l_start;
+      // TODO FIXME: Run through local_locks with some async algorithm before dropping onto fcntl().
       int retcode;
       while(-1==(retcode=fcntl(h, F_SETLKW, &l)) && EINTR==errno);
       BOOST_AFIO_ERRHOS(retcode);

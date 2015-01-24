@@ -1361,6 +1361,7 @@ namespace detail {
           NTSTATUS status=0;
           for(size_t n=0; n<10; n++)
           {
+            // TODO FIXME: Lock file needs to copy exact security descriptor from its original
             std::tie(status, h)=async_file_io_dispatcher_windows::ntcreatefile(async_path_op_req(lockfilepath, file_flags::Create|file_flags::ReadWrite|file_flags::TemporaryFile|file_flags::int_file_share_delete));
             // This may fail with STATUS_DELETE_PENDING, if so sleep and loop
             if(!status)
