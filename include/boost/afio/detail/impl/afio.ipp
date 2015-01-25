@@ -344,7 +344,7 @@ namespace detail {
     std::unordered_map<filesystem::path, std::weak_ptr<actual_lock_file>, filesystem_hash> path_to_lockfile;
     template<class T> static std::unique_ptr<T> open(async_io_handle *h)
     {
-      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       if(!process_lockfile_registry_ptr)
         process_lockfile_registry_ptr=make_unique<process_lockfile_registry>();
       auto p=detail::make_unique<T>(h);
@@ -363,7 +363,7 @@ namespace detail {
   public:
     ~actual_lock_file()
     {
-      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       process_lockfile_registry_ptr->path_to_lockfile.erase(path);
     }
     virtual async_file_io_dispatcher_base::completion_returntype lock(size_t id, async_io_op op, async_lock_op_req req, void *)=0;
@@ -415,7 +415,7 @@ namespace detail {
       if(-1!=retcode)
         BOOST_AFIO_ERRHOS(unlink(lockfilepath.c_str()));
       BOOST_AFIO_ERRHOS(close(h));
-      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       process_lockfile_registry_ptr->path_to_lockfile.erase(path);
 #endif
     }
@@ -481,7 +481,7 @@ namespace detail {
     }
     ~lock_file()
     {
-      std::lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
+      lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       process_lockfile_registry_ptr->handle_to_lockfile.erase(h);
     }
   };
