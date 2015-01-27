@@ -184,25 +184,26 @@ using AFIO to implement the lock file with various numbers of concurrent writers
 flags for telling it about lock files, if not used expect a 40% performance reduction):
 
 [table:lock_file_performance Lock file performance on various operating systems:
-  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD]]
-  [[1][1][2468][2295][3590]]
-  [[2][1][2507][2385][3583]]
-  [[4][1][1966][2161][3664]]
-  [[8][1][1400][1851][3703]]
-  [[16][1][742][602][3833]]
+  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD][FreeBSD 10.1 ZFS SSD]]
+  [[1][1][2468][2295][3590][9922]]
+  [[2][1][2507][2385][3583][9903]]
+  [[4][1][1966][2161][3664][9684]]
+  [[8][1][1400][1851][3703][6537]]
+  [[16][1][742][602][3833][1251]]
   []
-  [[1][8][826][888][1378]]
-  [[2][8][508][637][576]]
-  [[4][8][67][167][417]]
-  [[8][8][37][117][106]]
-  [[16][8][33][77][26]]
+  [[1][8][826][888][1378][2455]]
+  [[2][8][508][637][576][917]]
+  [[4][8][67][167][417][63]]
+  [[8][8][37][117][106][0.55]]
+  [[16][8][33][77][26][0.5]]
 ]
 
-As you can see, Linux does a pretty good job of O(1) to waiters complexity, but performance on Windows
-collapses once you exceed CPU cores. Also, Windows is sensitive to device block size __dash__ the
+As you can see, Linux does a very good job of O(1) to waiters complexity, but performance on Windows
+and FreeBSD collapses once you exceed CPU cores. Also, Windows is sensitive to device block size __dash__ the
 hard drive outperforms the SSD because it has 512 byte sectors and the SSD has 4096 byte sectors.
 I suspect that internally Windows memcpy()'s in device native sector sizes, or is actually sending
-data to physical storage despite us marking this file as temporary.
+data to physical storage despite us marking this file as temporary. One very striking observation is
+how FreeBSD is a full 2.76x the performance of Linux and 4.32x that of Windows.
 
 A much more intelligent way of solving this problem is to figure out which graphs are common across each
 of the transactions currently pending, and to strictly order the transactions in the sequence
@@ -218,17 +219,21 @@ multiple actors is pretty much the same as locking a single actor so you get eig
 the same cost as locking one.
 
 [table:atomic_append_performance Atomic append lock performance on various operating systems:
-  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD]]
-  [[1][1][2592][2875][1198]]
-  [[2][1][1284][2565][1344]]
-  [[4][1][1420][2384][1327]]
-  [[8][1][1262][1764][1254]]
-  [[16][1][428][520][1260]]
+  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD][FreeBSD 10.1 ZFS SSD]]
+  [[1][1][2592][2875][1198][29]]
+  [[2][1][1284][2565][1344][25]]
+  [[4][1][1420][2384][1327][35]]
+  [[8][1][1262][1764][1254][55]]
+  [[16][1][428][520][1260][37]]
 ]
 
 Linux once against does a great job of O(1) to waiters complexity, but at the third of the speed of
 a simple lock file and up to half the speed of Windows. Windows does better than Linux here especially
 on SSDs where it is faster than a simple lock file, but doesn't scale to waiters once they pass CPU core count.
+FreeBSD is two orders of magnitude slower which is because ZFS checksums and copy on writes file changes,
+so every time we append 16 bytes we are forcing a full copy of the 128Kb extent to be issued. It would
+appear that ZFS syncs its internal buffers when a different file descriptor atomic appends to the same file
+__dash__ this has the above pathological performance outcome unfortunately.
 
 This introduces the final potential solution which is that of the quagmire of advisory file locking.
 This is an area where Windows and POSIX diverge very significantly, and the interactions between
@@ -242,17 +247,18 @@ Still, performance with these __dash__ despite the hoop jumping inefficiencies A
 to implement relatively sane semantics __dash__ is impressive.
 
 [table:advisory_lock_file_performance Advisory lock file performance on various operating systems:
-  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD]]
-  [[1][1][5799][5166][3466]]
-  [[2][1][5788][6656][2215]]
-  [[4][1][5775][7020][1073]]
-  [[8][1][5773][6738][518]]
-  [[16][1][5695][5617][360]]
+  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD][FreeBSD 10.1 ZFS SSD]]
+  [[1][1][5799][5166][3466][21536]]
+  [[2][1][5788][6656][2215][11654]]
+  [[4][1][5775][7020][1073][5384]]
+  [[8][1][5773][6738][518][2584]]
+  [[16][1][5695][5617][360][1326]]
 ]
 
-Fascinatingly the tables suddenly switch here: Windows sees O(1) to waiters complexity and really
-superb performance, whilst Linux sees a mostly O(N) to waiters complexity drop in performance. I
-should add here that because POSIX advisory locks are per process, the Linux benchmarks were
+Fascinatingly the tables suddenly switch here: Windows sees O(1) to waiters complexity, whilst
+Linux and FreeBSD sees a mostly O(N) to waiters complexity drop in performance. FreeBSD, as with the
+simple lock file performance, blows all others out of the water again in advisory lock performance too. I
+should add here that because POSIX advisory locks are per process, the Linux and FreeBSD benchmarks were
 generated by running N copies of the benchmark program whereas the NT kernel inherits the really
 excellent and well thought through file byte range locking model of DEC VMS and treats locks as
 effectively reference counted byte ranges, and therefore works as expected from a single process.
@@ -264,6 +270,7 @@ After all of that, we are left with this locking strategy matrix for __triplegit
 [table:best_locking_strategy_matrix Fastest file system locking strategy for various operating systems:
   [[Win8.1 x64 NTFS][Advisory locks fastest, then atomic append locks, finally lock files]]
   [[Linux x64 ext4][Lock files fastest, then advisory locks, finally atomic append locks]]
+  [[FreeBSD 10.1 ZFS][Advisory locks fastest, then lock files, avoid atomic append locks at all costs]]
 ]
 
 I should [*emphasise] once again that the advisory locking code is riddled with bugs and you should

@@ -131,6 +131,9 @@ metaprogramming asks STL like containers if their values are const (e.g. unorder
 it will always generate an asio::const_buffer, which of course means that such STL like containers can
 only be used for writing only and not reading.
 
+* Fixed memory corruption in async_file_io_dispatcher destructor which only occurred when there were extant ops
+during destruction.
+
 
 [/=================]
 [heading Boost 1.57 AFIO v1.22 stable branch]
