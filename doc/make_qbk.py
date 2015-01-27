@@ -24,7 +24,10 @@ if os.path.exists("generated"):
     shutil.rmtree("generated", True)
 if os.path.exists("html/afio"):
     shutil.rmtree("html/afio", True)
+if os.path.exists("doxy/doxygen_output"):
+    shutil.rmtree("doxy/doxygen_output", True)
 os.mkdir("generated")
+os.mkdir("doxy/doxygen_output")
 
 cmd = doxygen_xml2qbk_cmd
 cmd = cmd + " --xml %s"

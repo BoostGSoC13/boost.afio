@@ -1,5 +1,5 @@
 #include "afio_pch.hpp"
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) // Don't bother with VS2010, its result_of can't cope.
+
 //[closure_execution_afio_example
 #include <vector>
 
@@ -59,9 +59,3 @@ int main()
     return 0;
 }
 //]
-#else
-int main()
-{
-    return 0;
-}
-#endif

@@ -1,3 +1,8 @@
-[submodule "boost"]
-	path = boost
-	url = https://github.com/ned14/boost-trunk.git
+[submodule "include/boost.bindlib"]
+	path = include/boost/afio/bindlib
+	url = https://github.com/ned14/Boost.BindLib.git
+        branch = master
+[submodule "include/boost/afio/spinlock"]
+	path = include/boost/afio/spinlock
+	url = https://github.com/ned14/boost.spinlock.git
+        branch = master

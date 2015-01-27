@@ -3,10 +3,8 @@
 BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handling works", 120)
 {
 #ifndef BOOST_AFIO_THREAD_SANITIZING
-    using namespace boost::afio;
-    using namespace std;
-    using boost::afio::future;
-    namespace this_thread = boost::afio::this_thread;
+    using namespace BOOST_AFIO_V1_NAMESPACE;
+    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 
     if(filesystem::exists("testdir/a"))
         filesystem::remove("testdir/a");
@@ -17,7 +15,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_async_file_io_dispatcher();
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-        vector<async_path_op_req> filereqs;
+        std::vector<async_path_op_req> filereqs;
 
         /* There was once a rare race condition in barrier() which took many, many days
          * to discover and solve, some of which involved much painful refactoring (which
@@ -43,16 +41,20 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                 filereqs.clear();
                 filereqs.push_back(async_path_op_req(mkdir, "testdir/a", file_flags::CreateOnlyIfNotExist));
                 filereqs.push_back(async_path_op_req(mkdir, "testdir/a", file_flags::CreateOnlyIfNotExist));
+                // Windows won't let you delete a file still open
                 while(dispatcher->fd_count()>1)
-                    this_thread::yield();
-                if(filesystem::exists("testdir/a"))
+                    this_thread::sleep_for(chrono::milliseconds(1));
+                // Unfortunately Windows does not behave here, and deleting the file if a handle is still
+                // open to it appears to no op
+                for(size_t n=0; filesystem::exists("testdir/a") && n<100; n++)
                 {
                     filesystem::remove("testdir/a");
-                    if(filesystem::exists("testdir/a"))
-                    {
-                        std::cerr << "FATAL: Something weird is happening, I can't delete my test file!" << std::endl;
-                        abort();
-                    }
+                    if(n>10) this_thread::sleep_for(chrono::milliseconds(1));
+                }
+                if(filesystem::exists("testdir/a"))
+                {
+                    std::cerr << "FATAL: Something weird is happening, I can't delete my test file!" << std::endl;
+                    abort();
                 }
                 try
                 {
@@ -69,7 +71,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     BOOST_AFIO_CHECK_NO_THROW(future2.get()); // nothrow variant must never throw
                     BOOST_AFIO_CHECK_THROWS(future2e.get()); // throw variant must always throw
                     hasErrorDirectly = 0;
-                    BOOST_FOREACH (auto &i, manyfilecreates)
+                    for (auto &i : manyfilecreates)
                     {
                         // If we ask for has_exception() before the async thread has exited its packaged_task
                         // this will fail, so no choice but to try { wait(); } catch { success }
@@ -77,6 +79,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                         {
                             i.get();
                         }
+#ifdef WIN32
+                        // Sometimes Windows gets a bit stuck on slower CPUs when deleting files and occasionally
+                        // returns this error. It's rare, but it confounds the test results :(
+                        catch(const std::exception &e)
+                        {
+                            if(!strncmp(e.what(), "A non close operation has been requested of a file object with a delete pending", 79))
+                              throw; // reset and retry
+                            hasErrorDirectly++;                              
+                        }
+#endif
                         catch (...)
                         {
                             hasErrorDirectly++;
@@ -86,9 +98,13 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     {
                         std::cout << "hasErrorDirectly = " << hasErrorDirectly << std::endl;
                         BOOST_CHECK(hasErrorDirectly == 1);
+                        for (auto &i : manyfilecreates)
+                        {
+                            try { i.get(); } catch(const std::runtime_error &e) { std::cerr << "Error was " << e.what() << std::endl; } catch(...) { std::cerr << "Error was unknown type" << std::endl; }
+                        }
                     }
                     hasErrorFromBarrier = 0;
-                    BOOST_FOREACH (auto &i, sync1)
+                    for (auto &i : sync1)
                     {
                         try
                         {
@@ -115,7 +131,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
     }
     catch(...)
     {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
+        std::cerr << "Exception thrown." << std::endl;
         BOOST_CHECK(false);
     }
     if(filesystem::exists("testdir/a"))

@@ -29,5 +29,5 @@ race:boost::detail::shared_count::swap(boost::detail::shared_count&)
 race:boost::detail::shared_count::~shared_count()
 
 # Explicitly known thread unsafe code in test_functions.hpp (false positive)
-race:boost::afio::async_file_io_dispatcher_base::post_op_filter_clear()
-race:boost::afio::async_file_io_dispatcher_base::post_op_filter(std::vector<std::pair<boost::afio::detail::OpType, std::function<void (boost::afio::detail::OpType, boost::afio::async_io_op&)> >, std::allocator<std::pair<boost::afio::detail::OpType, std::function<void (boost::afio::detail::OpType, boost::afio::async_io_op&)> > > >)
+race:boost::afio::v1_std_boost_boost::async_file_io_dispatcher_base::post_op_filter_clear()
+race:boost::afio::v1_std_boost_boost::async_file_io_dispatcher_base::post_op_filter(std::vector<std::pair<boost::afio::v1_std_boost_boost::detail::OpType, std::function<void (boost::afio::v1_std_boost_boost::detail::OpType, boost::afio::v1_std_boost_boost::async_io_op&)> >, std::allocator<std::pair<boost::afio::v1_std_boost_boost::detail::OpType, std::function<void (boost::afio::v1_std_boost_boost::detail::OpType, boost::afio::v1_std_boost_boost::async_io_op&)> > > >)

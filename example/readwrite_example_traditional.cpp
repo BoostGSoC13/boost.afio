@@ -2,7 +2,6 @@
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) || (defined(__GLIBCXX__) && __GLIBCXX__<=20120920 /* <= GCC 4.7 */)
     //[readwrite_example_traditional
         
     try
@@ -32,7 +31,7 @@ int main(void)
             
         // Close the file and delete it
         openfile.close();  /*< closes file >*/
-        std::filesystem::remove("example_file.txt");  /*< deletes file >*/
+        boost::afio::filesystem::remove("example_file.txt");  /*< deletes file >*/
         
         // Convert the read array into a string
         std::string contents(buffer.begin(), buffer.end());
@@ -44,5 +43,4 @@ int main(void)
         throw;
     }
     //]
-#endif
 }

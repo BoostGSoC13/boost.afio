@@ -1,8 +1,3 @@
-// Mingw can't cope with the size of binary header only generates
-#ifdef __MINGW32__
-#define BOOST_AFIO_HEADERS_ONLY 0
-#endif
-
 // Make sure we properly define the main for the test suite
 #define BOOST_AFIO_TEST_ALL            
 

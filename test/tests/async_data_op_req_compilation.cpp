@@ -1,22 +1,172 @@
 #include "test_functions.hpp"
 
+//#define BOOST_AFIO_TEST_ASYNC_DATA_OP_REQ_FAILURE_TO_COMPILE
+
 BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use cases for async_data_op_req compile", 10)
 {
-    using namespace boost::afio;
-    try
+    using namespace BOOST_AFIO_V1_NAMESPACE;
+    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    // Note that this test is mainly for testing metaprogramming compilation, it doesn't really do much
     {
-        // Note that this test is mainly for testing metaprogramming compilation.
-        auto dispatcher=boost::afio::make_async_file_io_dispatcher();
+        auto dispatcher=make_async_file_io_dispatcher();
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-        when_all(mkdir).wait();
+        mkdir.get();
         auto mkfile(dispatcher->file(async_path_op_req(mkdir, "testdir/foo", file_flags::Create|file_flags::ReadWrite)));
-        when_all(mkfile).wait();
+        mkfile.get();
         auto last(dispatcher->truncate(mkfile, 1024));
-        when_all(last).wait();
+        last.get();
         char buffer[256];
         memset(buffer, 0, sizeof(buffer));
         size_t length=sizeof(buffer);
 
+        static_assert(detail::is_container<std::array<char, 2>>::value, "detail::is_container<std::array> isn't detecting a container");
+        static_assert(!std::is_const<detail::is_container<std::array<char, 2>>::type>::value, "detail::is_container<std::array> thinks the container iterator const");
+        static_assert(std::is_const<detail::is_container<const std::array<char, 2>>::type>::value, "detail::is_container<const std::array> thinks the container iterator not const");
+        static_assert(detail::is_container<std::string>::value, "detail::is_container<std::string> isn't detecting a container");
+        static_assert(!std::is_const<detail::is_container<std::string>::type>::value, "detail::is_container<std::string> thinks the container iterator const");
+        static_assert(std::is_const<detail::is_container<const std::string>::type>::value, "detail::is_container<const std::string> thinks the container iterator not const");
+
+        // ***************************** Static ASIO buffers composure checking *******************************
+        // void *
+        {
+          typedef void type;
+          type *buffer=(type *)(size_t)0xdeadbeef;
+          size_t length=78;
+          auto req(make_async_data_op_req(last, buffer, length, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==1);
+          if(!req.buffers.empty())
+          {
+            BOOST_CHECK(asio::buffer_cast<type *>(req.buffers.front())==buffer);
+            BOOST_CHECK(asio::buffer_size(req.buffers.front())==length*1);
+          }
+        }
+        // const double *
+        {
+          typedef const double type;
+          type *buffer=(type *)(size_t)0xdeadbeef;
+          size_t length=78;
+          auto req(make_async_data_op_req(last, buffer, length, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::const_buffer));
+          BOOST_CHECK(req.buffers.size()==1);
+          if(!req.buffers.empty())
+          {
+            BOOST_CHECK(asio::buffer_cast<type *>(req.buffers.front())==buffer);
+            BOOST_CHECK(asio::buffer_size(req.buffers.front())==length*sizeof(type));
+          }
+        }
+        // double[]
+        {
+          typedef double type[78];
+          double buffer[78];
+          auto req(make_async_data_op_req(last, buffer, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<double>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==1);
+          if(!req.buffers.empty())
+          {
+            BOOST_CHECK(asio::buffer_cast<double *>(req.buffers.front())==buffer);
+            BOOST_CHECK(asio::buffer_size(req.buffers.front())==sizeof(buffer));
+          }
+        }
+        // asio::mutable_buffer
+        {
+          typedef asio::mutable_buffer type;
+          type b(buffer, length);
+          auto req(make_async_data_op_req(last, b, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==1);
+          if(!req.buffers.empty())
+          {
+            BOOST_CHECK(asio::buffer_cast<void *>(req.buffers.front())==buffer);
+            BOOST_CHECK(asio::buffer_size(req.buffers.front())==length);
+          }
+        }
+        // vector<asio::mutable_buffer>
+        {
+          typedef std::vector<asio::mutable_buffer> type;
+          type b(4, type::value_type(buffer, length));
+          auto req(make_async_data_op_req(last, b, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==b.size());
+          for(auto &i : req.buffers)
+          {
+            BOOST_CHECK(asio::buffer_cast<void *>(i)==buffer);
+            BOOST_CHECK(asio::buffer_size(i)==length);
+          }
+        }
+        // asio::mutable_buffer[]
+        {
+          typedef asio::mutable_buffer type[2];
+          type b={asio::mutable_buffer(buffer, length), asio::mutable_buffer(buffer, length)};
+          auto req(make_async_data_op_req(last, b, 0));
+          // Sequences of asio buffers are passed through
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<asio::mutable_buffer>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==2);
+          for(auto &i : req.buffers)
+          {
+            BOOST_CHECK(asio::buffer_cast<void *>(i)==buffer);
+            BOOST_CHECK(asio::buffer_size(i)==length);
+          }
+        }
+        // std::list<std::list<std::string>>
+        {
+          typedef std::list<std::list<std::string>> type;
+          type b={
+            { "Niall", "Douglas"},
+            { "was", "here" }
+          };
+          auto req(make_async_data_op_req(last, b, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==4);
+          BOOST_CHECK(asio::buffer_cast<void *>(req.buffers[0])==b.front().front().c_str());
+          BOOST_CHECK(asio::buffer_size(req.buffers[0])==b.front().front().size());
+          BOOST_CHECK(asio::buffer_cast<void *>(req.buffers[1])==b.front().back().c_str());
+          BOOST_CHECK(asio::buffer_size(req.buffers[1])==b.front().back().size());
+          BOOST_CHECK(asio::buffer_cast<void *>(req.buffers[2])==b.back().front().c_str());
+          BOOST_CHECK(asio::buffer_size(req.buffers[2])==b.back().front().size());
+          BOOST_CHECK(asio::buffer_cast<void *>(req.buffers[3])==b.back().back().c_str());
+          BOOST_CHECK(asio::buffer_size(req.buffers[3])==b.back().back().size());
+        }
+        // std::vector<std::vector<unsigned long>>
+        {
+          typedef std::vector<std::vector<unsigned long>> type;
+          type b;
+          b.push_back(std::vector<unsigned long>(5));
+          b.push_back(std::vector<unsigned long>(6));
+          b.push_back(std::vector<unsigned long>(7));
+          b.push_back(std::vector<unsigned long>(8));
+          auto req(make_async_data_op_req(last, b, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::mutable_buffer));
+          BOOST_CHECK(req.buffers.size()==4);
+          for(size_t n=0; n<b.size(); n++)
+          {
+            BOOST_CHECK(asio::buffer_cast<void *>(req.buffers[n])==b[n].data());
+            BOOST_CHECK(asio::buffer_size(req.buffers[n])==b[n].size()*sizeof(unsigned long));
+          }
+        }
+        // std::unordered_set<std::string>
+        {
+          typedef std::unordered_set<std::string> type;
+          type b;
+          b.insert("Niall");
+          auto req(make_async_data_op_req(last, b, 0));
+          // unordered_set only provides const access to its iterators, so this needs to be a const buffer
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<const type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::const_buffer));
+          BOOST_CHECK(req.buffers.size()==1);
+          BOOST_CHECK(asio::buffer_cast<const void *>(req.buffers.front())==b.begin()->data());
+          BOOST_CHECK(asio::buffer_size(req.buffers.front())==b.begin()->size());
+        }
+
+        // ***************************** Buffers into read/write *******************************
         // Base void * specialisation
         {
             typedef void type;
@@ -25,16 +175,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             type *out=buffer;
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
         }
         // char * specialisation
         {
@@ -44,16 +194,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             type *out=buffer;
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, length, 0));
-            when_all(last).wait();
+            last.get();
         }
         // char array specialisation
         {
@@ -63,16 +213,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             auto &out=buffer;
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+            last.get();
         }
         // Arbitrary integral type array specialisation
         {
@@ -83,55 +233,113 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             memset(out, 0, sizeof(out));
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+            last.get();
+        }
+        // string specialisation
+        {
+          typedef std::string type;
+          typedef const type const_type;
+
+          type out(sizeof(buffer)/sizeof(type::value_type), ' ');
+          // works
+          last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
+          last.get();
+          // auto-consts
+          last=dispatcher->write(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // works
+          last=dispatcher->read(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // deduces
+          last=dispatcher->write(make_async_data_op_req(last, out, 0));
+          last.get();
+        }
+        // asio::mutable_buffer specialisation
+        {
+          typedef asio::mutable_buffer type;
+          typedef asio::const_buffer const_type;
+
+          unsigned word=0xdeadbeef;
+          type out(&word, 1);
+          // works
+          last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
+          last.get();
+          // auto-consts
+          last=dispatcher->write(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // works
+          last=dispatcher->read(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // deduces
+          last=dispatcher->write(make_async_data_op_req(last, out, 0));
+          last.get();
         }
         // vector specialisation
         {
             typedef std::vector<char> type;
             typedef const type const_type;
 
-            type out(sizeof(buffer)/sizeof(type::value_type));
+            type out(sizeof(buffer)/sizeof(type::value_type), ' ');
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+            last.get();
         }
-        // vector of boost::asio::mutable_buffer specialisation
+        // vector of asio::mutable_buffer specialisation
         {
-            typedef std::vector<boost::asio::mutable_buffer> type;
-            typedef std::vector<boost::asio::const_buffer> const_type;
+            typedef std::vector<asio::mutable_buffer> type;
+            typedef std::vector<asio::const_buffer> const_type;
 
             unsigned word=0xdeadbeef;
-            type out(1, boost::asio::mutable_buffer(&word, 1));
+            type out(1, asio::mutable_buffer(&word, 1));
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+            last.get();
+        }
+        // vector of string specialisation
+        {
+          typedef std::vector<std::string> type;
+          typedef const type const_type;
+
+          type out(sizeof(buffer)/sizeof(type::value_type), " ");
+          // works
+          last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
+          last.get();
+          // auto-consts
+          last=dispatcher->write(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // works
+          last=dispatcher->read(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // deduces
+          last=dispatcher->write(make_async_data_op_req(last, out, 0));
+          last.get();
         }
         // array specialisation
         {
@@ -142,88 +350,83 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             out.fill(' ');
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+            last.get();
         }
-        // array of boost::asio::mutable_buffer specialisation
+        // array of asio::mutable_buffer specialisation
         {
-            typedef std::array<boost::asio::mutable_buffer, 1> type;
-            typedef std::array<boost::asio::const_buffer, 1> const_type;
+            typedef std::array<asio::mutable_buffer, 1> type;
+            typedef std::array<asio::const_buffer, 1> const_type;
 
             unsigned word=0xdeadbeef;
             type out;
-            out[0]=boost::asio::mutable_buffer(&word, 1);
+            out[0]=asio::mutable_buffer(&word, 1);
             // works
             last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // auto-consts
             last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // works
             last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
+            last.get();
             // deduces
             last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+            last.get();
         }
-        // string specialisation
+        // array of string specialisation
         {
-            typedef std::string type;
-            typedef const type const_type;
+          typedef std::array<std::string, sizeof(buffer)/sizeof(std::string::value_type)> type;
+          typedef const type const_type;
 
-            type out(sizeof(buffer)/sizeof(type::value_type), ' ');
-            // works
-            last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
-            // auto-consts
-            last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
-            // works
-            last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
-            // deduces
-            last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+          type out;
+          out.fill(" ");
+          // works
+          last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
+          last.get();
+          // auto-consts
+          last=dispatcher->write(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // works
+          last=dispatcher->read(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // deduces
+          last=dispatcher->write(make_async_data_op_req(last, out, 0));
+          last.get();
         }
-        // boost::asio::mutable_buffer specialisation
+        // Test read-only container
         {
-            typedef boost::asio::mutable_buffer type;
-            typedef boost::asio::const_buffer const_type;
+          typedef std::unordered_set<char> type;
+          typedef const type const_type;
 
-            unsigned word=0xdeadbeef;
-            type out(&word, 1);
-            // works
-            last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
-            when_all(last).wait();
-            // auto-consts
-            last=dispatcher->write(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
-            // works
-            last=dispatcher->read(async_data_op_req<type>(last, out, 0));
-            when_all(last).wait();
-            // deduces
-            last=dispatcher->write(make_async_data_op_req(last, out, 0));
-            when_all(last).wait();
+          type out; out.insert(32);
+          // works
+          last=dispatcher->write(async_data_op_req<const_type>(last, out, 0));
+          last.get();
+#ifdef BOOST_AFIO_TEST_ASYNC_DATA_OP_REQ_FAILURE_TO_COMPILE
+          // auto-consts
+          last=dispatcher->write(async_data_op_req<type>(last, out, 0));
+          last.get();
+          // works
+          last=dispatcher->read(async_data_op_req<type>(last, out, 0));
+          last.get();
+#endif
+          // deduces
+          last=dispatcher->write(make_async_data_op_req(last, out, 0));
+          last.get();
         }
         last=dispatcher->close(last);
-        when_all(last).wait();
+        last.get();
         auto rmfile(dispatcher->rmfile(async_path_op_req(last, "testdir/foo")));
-        when_all(rmfile).wait();
-        auto rmdir(dispatcher->rmdir(async_path_op_req(rmfile, "testdir")));
-        when_all(rmdir).wait();
-        BOOST_CHECK(true);
+        rmfile.get();
     }
-    catch(...)
-    {
-        std::cerr << boost::current_exception_diagnostic_information(true) << std::endl;
-        BOOST_CHECK(false);
-    }
+    try { filesystem::remove_all("testdir"); } catch(...) {}
 }

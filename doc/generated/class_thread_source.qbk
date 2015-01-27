@@ -15,10 +15,11 @@
 Abstract base class for a source of thread workers. 
 
 [heading Description]
-Note that in Boost 1.54, and possibly later versions, `boost::asio::io\u005fservice` on Windows appears to dislike being destructed during static data deinit, hence why this inherits from `std::enable\u005fshared\u005ffrom\u005fthis<>` in order that it may be reference count deleted before static data deinit occurs. 
+Note that in Boost 1.54, and possibly later versions, [^`asio::io_service`] on Windows appears to dislike being destructed during static data deinit, hence why this inherits from [^`std::enable_shared_from_this<>`] in order that it may be reference count deleted before static data deinit occurs. 
 
 [heading Synopsis]
 ``class thread_source
+      : public std::enable_shared_from_this< thread_source >
 {
   // ...
 };
@@ -27,7 +28,7 @@ Note that in Boost 1.54, and possibly later versions, `boost::asio::io\u005fserv
 [heading Member Function(s)]
 [table
 [[Function] [Description] [Parameters]  [Returns]]
-[[``boost::asio::io_service & io_service()``
+[[``asio::io_service & io_service()``
 
 ] [Returns the underlying io_service. ] [
 

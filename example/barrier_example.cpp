@@ -2,7 +2,6 @@
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) // Don't bother with VS2010, its result_of can't cope.
     //[barrier_example
     // Assume that groups is 10,000 items long with item.first being randomly
     // between 1 and 500. This example is adapted from the barrier() unit test.
@@ -65,5 +64,4 @@ int main(void)
     // next was the last op scheduled, so waiting on it waits on everything
     when_all(next).wait();
     //]
-#endif
 }

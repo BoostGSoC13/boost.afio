@@ -1,11 +1,10 @@
 #include "afio_pch.hpp"
-#include "boost/exception/diagnostic_information.hpp"
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700)
 #include <iostream>
 #include <fstream>
 #include <regex>
 #include <chrono>
-#include "boost/afio/detail/std_filesystem.hpp" // in lieu of <filesystem>
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+#include "boost/filesystem/fstream.hpp"
 #endif
 
 /* My Intel Core i7 3770K running Windows 8 x64 with 7200rpm drive, using
@@ -28,13 +27,15 @@ OpenMP, cold cache:
 The search took 741.131 seconds which was 52.4684 files per second or 7.94029 Mb/sec.
 */
 
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700)
 //[find_in_files_iostreams
 int main(int argc, const char *argv[])
 {
     using namespace std;
-    using filesystem::ifstream;
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    namespace filesystem = boost::afio::filesystem;
+#if BOOST_AFIO_USE_BOOST_FILESYSTEM
+    using boost::filesystem::ifstream;
+#endif
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
     if(argc<2)
     {
         cerr << "ERROR: Specify a regular expression to search all files in the current directory." << endl;
@@ -52,7 +53,12 @@ int main(int argc, const char *argv[])
         vector<filesystem::path> filepaths;
         for(auto it=filesystem::recursive_directory_iterator("."); it!=filesystem::recursive_directory_iterator(); ++it)
         {
-            if(it->status().type()!=filesystem::regular_file)
+            if(it->status().type()!=
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+              filesystem::file_type::regular_file)
+#else
+              filesystem::file_type::regular)
+#endif
                 continue;
             filepaths.push_back(it->path());
         }
@@ -101,6 +107,3 @@ int main(int argc, const char *argv[])
     return 0;
 }
 //]
-#else
-int main(void) { return 0; }
-#endif

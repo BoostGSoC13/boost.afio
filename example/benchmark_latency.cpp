@@ -23,7 +23,7 @@ int main(void)
 {
   using namespace boost::afio;
   auto dispatcher=make_async_file_io_dispatcher();
-  typedef chrono::duration<double, ratio<1>> secs_type;
+  typedef chrono::duration<double, ratio<1, 1>> secs_type;
   {
     size_t total1=0, total2=0, total3=0;
     auto begin=chrono::high_resolution_clock::now();
@@ -113,7 +113,7 @@ int main(void)
 #endif
       ;
       waiter.store(false);
-      BOOST_FOREACH(auto &i, threads)
+      for(auto &i: threads)
         i.join();
       for(size_t c=0; c<=concurrency; c++)
       {

@@ -2,7 +2,6 @@
 
 int main(void)
 {
-#if !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) // Don't bother with VS2010.
     //[enumerate_example
     std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
         boost::afio::make_async_file_io_dispatcher();
@@ -39,9 +38,8 @@ int main(void)
         list=enumeration.first.get();
         for(boost::afio::directory_entry &i : list.first)
         {
-            std::cout << i.name() << " type " << i.st_type() << std::endl;
+            std::cout << i.name() << " type " << static_cast<int>(i.st_type()) << std::endl;
         }
     } while(list.second);
     //]
-#endif
 }

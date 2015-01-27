@@ -8,6 +8,8 @@ File Created: Mar 2013
 #include <Windows.h>
 #include <winioctl.h>
 
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+
 namespace windows_nt_kernel
 {
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/FILE_INFORMATION_CLASS.html
@@ -122,6 +124,14 @@ namespace windows_nt_kernel
       PVOID           SecurityQualityOfService;
     }  OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
 
+    typedef
+      VOID
+      (NTAPI *PIO_APC_ROUTINE) (
+      IN PVOID ApcContext,
+      IN PIO_STATUS_BLOCK IoStatusBlock,
+      IN ULONG Reserved
+      );
+
 
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/NtQueryInformationFile.html
     // and http://msdn.microsoft.com/en-us/library/windows/hardware/ff567052(v=vs.85).aspx
@@ -184,7 +194,7 @@ namespace windows_nt_kernel
     typedef NTSTATUS (NTAPI *NtQueryDirectoryFile_t)(
         /*_In_*/      HANDLE FileHandle,
         /*_In_opt_*/  HANDLE Event,
-        /*_In_opt_*/  void *ApcRoutine,
+        /*_In_opt_*/  PIO_APC_ROUTINE ApcRoutine,
         /*_In_opt_*/  PVOID ApcContext,
         /*_Out_*/     PIO_STATUS_BLOCK IoStatusBlock,
         /*_Out_*/     PVOID FileInformation,
@@ -211,6 +221,29 @@ namespace windows_nt_kernel
         /*_In_*/  BOOLEAN Alertable,
         /*_In_*/  PLARGE_INTEGER Timeout
         );
+
+    // From https://msdn.microsoft.com/en-us/library/windows/hardware/ff566474(v=vs.85).aspx
+    typedef NTSTATUS (NTAPI *NtLockFile_t)(
+      /*_In_*/      HANDLE FileHandle,
+      /*_In_opt_*/  HANDLE Event,
+      /*_In_opt_*/  PIO_APC_ROUTINE ApcRoutine,
+      /*_In_opt_*/  PVOID ApcContext,
+      /*_Out_*/     PIO_STATUS_BLOCK IoStatusBlock,
+      /*_In_*/      PLARGE_INTEGER ByteOffset,
+      /*_In_*/      PLARGE_INTEGER Length,
+      /*_In_*/      ULONG Key,
+      /*_In_*/      BOOLEAN FailImmediately,
+      /*_In_*/      BOOLEAN ExclusiveLock
+      );
+
+    // From https://msdn.microsoft.com/en-us/library/windows/hardware/ff567118(v=vs.85).aspx
+    typedef NTSTATUS (NTAPI *NtUnlockFile_t)(
+          /*_In_*/   HANDLE FileHandle,
+          /*_Out_*/  PIO_STATUS_BLOCK IoStatusBlock,
+          /*_In_*/   PLARGE_INTEGER ByteOffset,
+          /*_In_*/   PLARGE_INTEGER Length,
+          /*_In_*/   ULONG Key
+          );
 
     typedef struct _FILE_BASIC_INFORMATION {
       LARGE_INTEGER CreationTime;
@@ -268,6 +301,26 @@ namespace windows_nt_kernel
       FILE_ALIGNMENT_INFORMATION AlignmentInformation;
       FILE_NAME_INFORMATION      NameInformation;
     } FILE_ALL_INFORMATION, *PFILE_ALL_INFORMATION;
+
+    typedef struct _FILE_FS_ATTRIBUTE_INFORMATION {
+      ULONG FileSystemAttributes;
+      LONG  MaximumComponentNameLength;
+      ULONG FileSystemNameLength;
+      WCHAR FileSystemName[1];
+    } FILE_FS_ATTRIBUTE_INFORMATION, *PFILE_FS_ATTRIBUTE_INFORMATION;
+
+    typedef struct _FILE_FS_FULL_SIZE_INFORMATION {
+      LARGE_INTEGER TotalAllocationUnits;
+      LARGE_INTEGER CallerAvailableAllocationUnits;
+      LARGE_INTEGER ActualAvailableAllocationUnits;
+      ULONG         SectorsPerAllocationUnit;
+      ULONG         BytesPerSector;
+    } FILE_FS_FULL_SIZE_INFORMATION, *PFILE_FS_FULL_SIZE_INFORMATION;
+
+    typedef struct _FILE_FS_OBJECTID_INFORMATION {
+      UCHAR ObjectId[16];
+      UCHAR ExtendedInfo[48];
+    } FILE_FS_OBJECTID_INFORMATION, *PFILE_FS_OBJECTID_INFORMATION;
 
     typedef struct _FILE_FS_SECTOR_SIZE_INFORMATION {
       ULONG LogicalBytesPerSector;
@@ -332,6 +385,8 @@ namespace windows_nt_kernel
     static NtQueryDirectoryFile_t NtQueryDirectoryFile;
     static NtSetInformationFile_t NtSetInformationFile;
     static NtWaitForSingleObject_t NtWaitForSingleObject;
+    static NtLockFile_t NtLockFile;
+    static NtUnlockFile_t NtUnlockFile;
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -339,33 +394,42 @@ namespace windows_nt_kernel
 #endif
     static inline void doinit()
     {
-        if(!NtQueryInformationFile)
-            if(!(NtQueryInformationFile=(NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
-                abort();
-        if(!NtQueryVolumeInformationFile)
-            if(!(NtQueryVolumeInformationFile=(NtQueryVolumeInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryVolumeInformationFile")))
-                abort();
-        if(!NtOpenDirectoryObject)
-            if(!(NtOpenDirectoryObject=(NtOpenDirectoryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenDirectoryObject")))
-                abort();
-        if(!NtOpenFile)
-            if(!(NtOpenFile=(NtOpenFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenFile")))
-                abort();
-        if(!NtCreateFile)
-            if(!(NtCreateFile=(NtCreateFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtCreateFile")))
-                abort();
-        if(!NtClose)
-            if(!(NtClose=(NtClose_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtClose")))
-                abort();
-        if(!NtQueryDirectoryFile)
-            if(!(NtQueryDirectoryFile=(NtQueryDirectoryFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryDirectoryFile")))
-                abort();
-        if(!NtSetInformationFile)
-            if(!(NtSetInformationFile=(NtSetInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSetInformationFile")))
-                abort();
-        if(!NtWaitForSingleObject)
-            if(!(NtWaitForSingleObject=(NtWaitForSingleObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtWaitForSingleObject")))
-                abort();
+      if(NtUnlockFile)
+        return;
+      if(!NtQueryInformationFile)
+          if(!(NtQueryInformationFile=(NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
+              abort();
+      if(!NtQueryVolumeInformationFile)
+          if(!(NtQueryVolumeInformationFile=(NtQueryVolumeInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryVolumeInformationFile")))
+              abort();
+      if(!NtOpenDirectoryObject)
+          if(!(NtOpenDirectoryObject=(NtOpenDirectoryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenDirectoryObject")))
+              abort();
+      if(!NtOpenFile)
+          if(!(NtOpenFile=(NtOpenFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenFile")))
+              abort();
+      if(!NtCreateFile)
+          if(!(NtCreateFile=(NtCreateFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtCreateFile")))
+              abort();
+      if(!NtClose)
+          if(!(NtClose=(NtClose_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtClose")))
+              abort();
+      if(!NtQueryDirectoryFile)
+          if(!(NtQueryDirectoryFile=(NtQueryDirectoryFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryDirectoryFile")))
+              abort();
+      if(!NtSetInformationFile)
+          if(!(NtSetInformationFile=(NtSetInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSetInformationFile")))
+              abort();
+      if(!NtWaitForSingleObject)
+          if(!(NtWaitForSingleObject=(NtWaitForSingleObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtWaitForSingleObject")))
+              abort();
+      if(!NtLockFile)
+          if(!(NtLockFile=(NtLockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtLockFile")))
+              abort();
+      if(!NtUnlockFile)
+          if(!(NtUnlockFile=(NtUnlockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtUnlockFile")))
+              abort();
+      // MAKE SURE you update the early exit check at the top to whatever the last of these is!
     }
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -380,44 +444,63 @@ namespace windows_nt_kernel
         }
     }
 
-    static inline std::filesystem::path ntpath_from_dospath(std::filesystem::path p)
+    static inline filesystem::path ntpath_from_dospath(filesystem::path p)
     {
         // This is pretty easy thanks to a convenient symlink in the NT kernel root directory ...
-        std::filesystem::path base("\\??");
+        filesystem::path base("\\??");
         base/=p;
         return base;
     }
 
-    static inline std::filesystem::path dospath_from_ntpath(std::filesystem::path p)
+    static inline filesystem::path dospath_from_ntpath(filesystem::path p)
     {
-        auto first=++p.begin();
-        if(*first=="??")
-            p=std::filesystem::path(p.native().begin()+4, p.native().end());
+        auto &_p = p.native();
+        if(_p[1]=='?' && _p[2]=='?')
+            p=filesystem::path(_p.begin()+4, _p.end());
         return p;
     }
 
-    static inline std::filesystem::file_type to_st_type(ULONG FileAttributes)
+    static inline filesystem::file_type to_st_type(ULONG FileAttributes)
     {
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
         if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
-            return std::filesystem::file_type::symlink_file;
-            //return std::filesystem::file_type::reparse_file;
+            return filesystem::file_type::symlink_file;
+            //return filesystem::file_type::reparse_file;
         else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)
-            return std::filesystem::file_type::directory_file;
+            return filesystem::file_type::directory_file;
         else
-            return std::filesystem::file_type::regular_file;
+            return filesystem::file_type::regular_file;
+#else
+        if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
+            return filesystem::file_type::symlink;
+            //return filesystem::file_type::reparse_file;
+        else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)
+            return filesystem::file_type::directory;
+        else
+            return filesystem::file_type::regular;
+#endif
     }
 
-    static inline boost::afio::chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6326) // comparison of constants
+#endif
+    static inline chrono::system_clock::time_point to_timepoint(LARGE_INTEGER time)
     {
         // We make the big assumption that the STL's system_clock is based on the time_t epoch 1st Jan 1970.
         static BOOST_CONSTEXPR_OR_CONST unsigned long long FILETIME_OFFSET_TO_1970=((27111902ULL << 32U) + 3577643008ULL);
         // Need to have this self-adapt to the STL being used
-        static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) boost::afio::chrono::system_clock::period::den/boost::afio::chrono::system_clock::period::num;
+        static BOOST_CONSTEXPR_OR_CONST unsigned long long STL_TICKS_PER_SEC=(unsigned long long) chrono::system_clock::period::den/chrono::system_clock::period::num;
+        static BOOST_CONSTEXPR_OR_CONST unsigned long long multiplier=STL_TICKS_PER_SEC>=10000000ULL ? STL_TICKS_PER_SEC/10000000ULL : 1;
+        static BOOST_CONSTEXPR_OR_CONST unsigned long long divider=STL_TICKS_PER_SEC>=10000000ULL ? 1 : 10000000ULL/STL_TICKS_PER_SEC;
 
         unsigned long long ticks_since_1970=(time.QuadPart - FILETIME_OFFSET_TO_1970); // In 100ns increments
-        boost::afio::chrono::system_clock::duration duration(ticks_since_1970/(10000000ULL/STL_TICKS_PER_SEC));
-        return boost::afio::chrono::system_clock::time_point(duration);
+        chrono::system_clock::duration duration(ticks_since_1970*multiplier/divider);
+        return chrono::system_clock::time_point(duration);
     }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
     // Adapted from http://www.cprogramming.com/snippets/source-code/convert-ntstatus-win32-error
     // Could use RtlNtStatusToDosError() instead
@@ -444,7 +527,7 @@ namespace windows_nt_kernel
 
 // WinVista and later have the SetFileInformationByHandle() function, but for WinXP
 // compatibility we use the kernel syscall directly
-static inline bool wintruncate(HANDLE h, boost::afio::off_t newsize)
+static inline bool wintruncate(HANDLE h, off_t newsize)
 {
     windows_nt_kernel::init();
     using namespace windows_nt_kernel;
@@ -452,7 +535,7 @@ static inline bool wintruncate(HANDLE h, boost::afio::off_t newsize)
     BOOST_AFIO_ERRHNT(NtSetInformationFile(h, &isb, &newsize, sizeof(newsize), FileEndOfFileInformation));
     return true;
 }
-static inline int winftruncate(int fd, boost::afio::off_t _newsize)
+static inline int winftruncate(int fd, off_t _newsize)
 {
 #if 1
     return wintruncate((HANDLE) _get_osfhandle(fd), _newsize) ? 0 : -1;
@@ -470,7 +553,7 @@ static inline int winftruncate(int fd, boost::afio::off_t _newsize)
     }
 #endif
 }
-static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, boost::afio::metadata_flags wanted)
+static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, metadata_flags wanted)
 {
     using namespace boost::afio;
 #ifndef WIN32
@@ -492,5 +575,7 @@ static inline void fill_stat_t(boost::afio::stat_t &stat, BOOST_AFIO_POSIX_STAT_
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=chrono::system_clock::from_time_t(s.st_ctime); }
     if(!!(wanted&metadata_flags::size)) { stat.st_size=s.st_size; }
 }
+
+BOOST_AFIO_V1_NAMESPACE_END
 
 #endif

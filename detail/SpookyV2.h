@@ -1,3 +1,6 @@
+#ifndef SPOOKY_HASH_H
+#define SPOOKY_HASH_H
+
 //
 // SpookyHash: a 128-bit noncryptographic hash function
 // By Bob Jenkins, public domain
@@ -296,3 +299,4 @@ private:
 };
 
 
+#endif

@@ -1,10 +1,11 @@
 #include "test_functions.hpp"
 
-using namespace boost::afio;
+using namespace BOOST_AFIO_V1_NAMESPACE;
+namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 
-struct test_handle : boost::afio::async_io_handle
+struct test_handle : async_io_handle
 {
-    test_handle(async_file_io_dispatcher_base *parent) : boost::afio::async_io_handle(parent, std::shared_ptr<async_io_handle>(),
+    test_handle(async_file_io_dispatcher_base *parent) : async_io_handle(parent, std::shared_ptr<async_io_handle>(),
         "foo", file_flags::None) {}
     virtual void close()
     {
@@ -18,9 +19,9 @@ struct test_handle : boost::afio::async_io_handle
     {
         return directory_entry();
     }
-    virtual std::filesystem::path target() const
+    virtual filesystem::path target() const
     {
-        return std::filesystem::path();
+        return filesystem::path();
     }
     virtual void *try_mapfile()
     {
@@ -30,9 +31,9 @@ struct test_handle : boost::afio::async_io_handle
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_adopt, "Tests foreign fd adoption", 5)
 {
-    auto dispatcher = boost::afio::make_async_file_io_dispatcher(boost::afio::process_threadpool());
+    auto dispatcher = make_async_file_io_dispatcher(process_threadpool());
     std::cout << "\n\nTesting foreign fd adoption:\n";
     auto h=std::make_shared<test_handle>(dispatcher.get());
     auto adopted=dispatcher->adopt(h);
-    BOOST_CHECK_NO_THROW(when_all(adopted).wait());
+    BOOST_CHECK_NO_THROW(when_all(adopted).get());
 }

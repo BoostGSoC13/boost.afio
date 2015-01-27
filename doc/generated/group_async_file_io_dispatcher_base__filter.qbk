@@ -39,7 +39,7 @@ Clears the post op and readwrite filters. Not threadsafe.
 Install op filters for non-buffer taking ops. Not threadsafe. 
 
 [heading Description]
-`std::function<async\u005ffile\u005fio\u005fdispatcher\u005fbase::filter\u005ft>` will be called after every op of type `detail::OpType` completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type and op output.
+[^`std::function<``async_file_io_dispatcher_base::filter_t``>`] will be called after every op of type [^`detail::OpType`] completes ([^`detail::OpType::Unknown`] means call this filter for all ops) with the op type and op output.
 
 Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done for every op completed. The filter is called straight after an op's future is set and before any completions are issued. Any exceptions thrown by the filter are thrown away.
 
@@ -50,7 +50,7 @@ Note that filters are currently implemented as a linear scan, so a full iteratio
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>>] [] [filters] [A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`]]
+[[std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>>] [] [filters] [A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_t`]]]
 ]
 
 
@@ -69,7 +69,7 @@ Note that filters are currently implemented as a linear scan, so a full iteratio
 Install read/write op filters, useful for tight ASIO integration. Not threadsafe. 
 
 [heading Description]
-`std::function<async\u005ffile\u005fio\u005fdispatcher\u005fbase::filter\u005fbuffers\u005ft>` will be called after every op of type `detail::OpType` completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type, file handle, op input, file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write() will be ignored, for those use post\u005fop\u005ffilter().
+[^`std::function<async_file_io_dispatcher_base::filter_buffers_t>`] will be called after every op of type [^`detail::OpType`] completes ([^`detail::OpType::Unknown`] means call this filter for all ops) with the op type, file handle, op input, file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write() will be ignored, for those use post\u005fop\u005ffilter().
 
 Note that buffer filters are currently implemented as a linear scan, so a full iteration of all buffer filters is done for every read/write op completed. The filter is called straight after a read or write operation has completed, and BEFORE any checks that it transferred the data it was supposed to. Any exceptions thrown by the filter are reported as if the read/write operation threw them, and filter processing stops at the filter which threw.
 
@@ -80,7 +80,7 @@ Note that buffer filters are currently implemented as a linear scan, so a full i
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>>] [] [filters] [A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`]]
+[[std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>>] [] [filters] [A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_buffers_t`]]]
 ]
 
 

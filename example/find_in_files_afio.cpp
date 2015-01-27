@@ -1,5 +1,4 @@
 #include "afio_pch.hpp"
-#if !(defined(BOOST_MSVC) && BOOST_MSVC <= 1700)
 #include <deque>
 #include <regex>
 #include <chrono>
@@ -8,7 +7,6 @@
 #include <initializer_list>
 #include "boost/exception/diagnostic_information.hpp"
 #include "boost/afio/detail/Aligned_Allocator.hpp"
-#endif
 
 /* My Intel Core i7 3770K running Windows 8 x64 with 7200rpm drive, using
 Sysinternals RAMMap to clear disc cache (http://technet.microsoft.com/en-us/sysinternals/ff700229.aspx)
@@ -32,7 +30,6 @@ The search took 242.76 seconds which was 150.033 files per second or 24 Mb/sec.
 
 #define USE_MMAPS
 
-#if !defined(BOOST_NO_CXX11_HDR_INITIALIZER_LIST) && !(defined(BOOST_MSVC) && BOOST_MSVC < 1700) && !(defined(__GLIBCXX__) && __GLIBCXX__<=20120920 /* <= GCC 4.7 */)
 //[find_in_files_afio
 using namespace boost::afio;
 
@@ -46,7 +43,7 @@ public:
     recursive_mutex opslock;
     std::deque<async_io_op> ops; // For exception gathering
     std::atomic<size_t> bytesread, filesread, filesmatched, scheduled, completed;
-    std::vector<std::pair<std::filesystem::path, size_t>> filepaths;
+    std::vector<std::pair<boost::afio::filesystem::path, size_t>> filepaths;
 
     // Signals finish once all scheduled ops have completed
     void docompleted(size_t inc)
@@ -170,7 +167,12 @@ public:
                 std::placeholders::_1, std::placeholders::_2));
             for(auto &entry : entries)
             {
-                if(entry.st_type()==std::filesystem::file_type::directory_file)
+                if(entry.st_type()==
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+                  boost::afio::filesystem::file_type::directory_file)
+#else
+                  boost::afio::filesystem::file_type::directory)
+#endif
                 {
                     auto dir_open=dispatcher->dir(async_path_op_req(lastdir, h->path()/entry.name()));
                     auto dir_opened=dispatcher->completion(dir_open, dir_openedf);
@@ -213,7 +215,12 @@ public:
         {
             for(auto &entry : entries)
             {
-                if(entry.st_type()==std::filesystem::file_type::regular_file)
+                if(entry.st_type()==
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+                  boost::afio::filesystem::file_type::regular_file)
+#else
+                  boost::afio::filesystem::file_type::regular)
+#endif
                 {
                     size_t length=(size_t)entry.st_size();
                     if(length)
@@ -312,7 +319,7 @@ int main(int argc, const char *argv[])
 {
     using std::placeholders::_1; using std::placeholders::_2;
     using namespace boost::afio;
-    typedef chrono::duration<double, ratio<1>> secs_type;
+    typedef chrono::duration<double, ratio<1, 1>> secs_type;
     if(argc<2)
     {
         std::cerr << "ERROR: Specify a regular expression to search all files in the current directory." << std::endl;
@@ -340,6 +347,3 @@ int main(int argc, const char *argv[])
     return 0;
 }
 //]
-#else
-int main(void) { return 0; }
-#endif

@@ -8,11 +8,11 @@
 
 [library Boost.AFIO
     [quickbook 1.7]
-    [version 1.22]
+    [version 1.30]
     [id afio]
     [category afio]
     [authors [Douglas, Niall], [Kirth, Paul]]
-    [copyright 2013-2014 Niall Douglas and Paul Kirth]
+    [copyright 2013-2015 Niall Douglas and Paul Kirth]
     [purpose A portable asynchronous file i/o library extending Boost.ASIO]
     [license
         Distributed under the Boost Software License, Version 1.0.
@@ -24,6 +24,7 @@
 
 [def __boost__ Boost]
 [def __boost_afio__ Boost.AFIO]
+[def __boost_bindlib__ Boost.BindLib]
 [def __triplegit__ TripleGit]
 [def __dash__ \u2014]
 [def __tick__ [role aligncenter [role green \u2714]]]
@@ -34,6 +35,8 @@
 [def __boost_thread__ [@http://www.boost.org/libs/thread/ Boost.Thread]]
 [def __boost_filesystem__ [@http://www.boost.org/libs/filesystem/ Boost.Filesystem]]
 [def __boost_iostreams__ [@http://www.boost.org/libs/iostreams/ Boost.Iostreams]]
+[def __boost_test__ [@http://www.boost.org/libs/iostreams/ Boost.Test]]
+[def __catch__ [@https://github.com/philsquared/Catch]]
 [def __WG21_N3562__ [@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3731.pdf WG21 N3731 (Executors and schedulers v2)]]
 [def __WG21_N3634__ [@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3721.pdf WG21 N3721 (Improvements to std::future<T> and Related APIs)]]
 [def ___WG21_N3634__ WG21 N3721 (Improvements to std::future<T> and Related APIs)]
@@ -45,19 +48,22 @@
 [def __afio_dispatcher__ [link afio.reference.classes.async_file_io_dispatcher_base `async_file_io_dispatcher_base`]]
 [def __afio_enumerate__ [link afio.reference.classes.async_file_io_dispatcher_base.enumerate_1_batch `async_file_io_dispatcher_base::enumerate()`]]
 [def __afio_truncate__ [link afio.reference.classes.async_file_io_dispatcher_base.truncate_2_batch `async_file_io_dispatcher_base::truncate()`]]
+[def __afio_zero__ [link afio.reference.classes.async_file_io_dispatcher_base.zero_2_batch `async_file_io_dispatcher_base::zero()`]]
+[def __afio_extents__ [link afio.reference.classes.async_file_io_dispatcher_base.extents_1_batch `async_file_io_dispatcher_base::extents()`]]
 [def __afio_op__ [link afio.reference.structs.async_io_op `struct async_io_op`]]
 [def __afio_handle__ [link afio.reference.classes.async_io_handle `class async_io_handle`]]
 [def __afio_when_all__ [link afio.reference.functions.when_all_ops `when_all()`]]
 
 [import ../example/adopt_example.cpp]
 [import ../example/barrier_example.cpp]
+[import ../example/benchmark_atomic_log.cpp]
 [import ../example/call_example.cpp]
 [import ../example/closure_execution_afio_io_example.cpp]
 [import ../example/closure_execution_traditional_io_example.cpp]
 [import ../example/completion_example1.cpp]
 [import ../example/completion_example2.cpp]
-[import ../example/current_exception_hack.cpp]
 [import ../example/enumerate_example.cpp]
+[import ../test/tests/atomic_log_append_test.cpp]
 [import ../example/filecopy_example.cpp]
 [import ../example/filedir_example.cpp]
 [import ../example/filter_example.cpp]
@@ -66,18 +72,32 @@
 [import ../example/readallof_example.cpp]
 [import ../example/readwrite_example.cpp]
 [import ../example/readwrite_example_traditional.cpp]
+[import ../example/statfs_example.cpp]
 
 [section:introduction Introduction]
-__boost_afio__ is a C++ library which lets you schedule a dependency graph of synchronous
-input/output operations to be executed asynchronously to the maximum capacity of your hardware. Its
-execution engine is lock free and wait free[footnote Its dependency Boost.ASIO may lock and wait.]
-and scales linearly with CPU cores[footnote Tested up to a four core eight thread CPU.]. In addition
-to a pure portable POSIX file i/o backend, specialised file i/o backends making use of host OS asynchronous
-file i/o facilities are provided for:
+__boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file
+input/output operations to be executed asynchronously to the maximum capacity of your hardware. If you want
+to do portable asynchronous file i/o in C++, especially if you need to easily order issues of reads and writes,
+this is the correct library to be looking at.
+
+__boost_afio__ is a __boost_bindlib__ based Boost library, and therefore is capable of any combination of
+the following build configurations:
+
+* Uses either Boost OR the C++ 11 STL for atomic, thread, future, chrono etc.
+* Uses either Boost OR the C++ 1y STL for Fileystem. At the time of writing, only VS2015 provides Filesystem
+in its STL.
+* Uses either Boost OR standalone ASIO for the i/o engine.
+
+You may note that as a result AFIO can be used as a completely standalone header-only library totally independent from
+any dependencies on Boost which can be dropped into any existing build system as a simple single header include. This,
+incidentally, also extends to its unit test suite which can use either __boost_test__ OR __catch__.
+
+__boost_afio__ provides a pure portable POSIX file i/o backend and specialised file i/o backends
+making use of host OS asynchronous file i/o facilities are provided for:
 
 * Windows NT IOCP (since v1.0)
-* Linux KAIO (planned for v1.3)
-* POSIX AIO, suitable for BSD only (planned for v1.4)
+* Linux KAIO (planned for v1.x)
+* POSIX AIO, suitable for BSD only (planned for v1.x)
 
 __boost_afio__ extends __boost_asio__ and provides an alternative way of programming with ASIO.
 Implementation of this first version has been kept as simple as possible (~ 1000 active
@@ -88,34 +108,28 @@ afio.FAQ.closure_latency about 10,000 CPU cycles to get notified
 of the completion of an operation]. This library was brought to __boost__ as part of Google
 Summer of Code 2013.
 
-Note that __boost_afio__ was originally written purely in C++11 and backported later to older compilers.
-It requires, as an absolute minimum, a compiler with rvalue reference support. Some popular
-compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ our Jenkins CI bot] include:
+Note that __boost_afio__ is a C++ 11 only library, and it requires, as an absolute minimum, a compiler with:
 
-* Microsoft Visual Studio 2010, released in 2010.
-* GNU Compiler Collection v4.6, released in 2011, but may work with as early as GCC v4.3.
+* Rvalue reference support.
+* Variadic templates.
+* Template aliasing.
+
+Some popular compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ our Jenkins CI bot] include:
+
+* Microsoft Visual Studio 2013, released in 2013. Before v1.3 of the engine VS2010 was supported.
+* GNU Compiler Collection v4.7, released in 2012. Before v1.3 of the engine GCC 4.6 was known to work.
 * clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
 
 The Jenkins CI bot runs a full set of unit tests for all supported compilers on all supported
 platforms for every single commit to master branch and every single pull request. Additionally,
 the Travis CI bot runs a full set of code coverage for the unit tests, plus a pass of the
 clang 3.4 Thread Sanitizer over all the unit tests, also for every single commit and pull
-request. As of AFIO v1.2, it is rare to see anything except all green on the CI dashboard
-(apart from VS2010, on which changes to AFIO easily trigger internal compiler errors).
+request. As of AFIO v1.2, it is rare to see anything except all green on the CI dashboard.
 [link unit_test_dashboard You can view the build and unit test CI dashboard for all compilers and platforms here].
 
-Note that just because a compiler will compile the code does not mean performance will be good:
-in particular, your compiler needs to be able to choose move construction where a copy
-constructor is also available (known as rvalue references v2.1) and auto-generate implicit
-move constructors when all member data types have move constructors (known as rvalue references
-v3.0). You may find the list of C++11 features in popular compilers at
-[@http://wiki.apache.org/stdcxx/C++0xCompilerSupport] useful. Similarly, just because a compiler
-will compile the code does not mean that programming using that compiler and __boost_afio__
-isn't a waste of your time. In particular, you should [*avoid VS2010 and Mingw32 (not Mingw-w64
-which is fine) if at all possible], but if you can't, [link afio.advanced_topics.vs2010_notes we have written a guide especially for VS2010 and Mingw32]. Try to use as new a compiler as possible with AFIO as
-the quality of code generated significantly improves with each major release. As an example, AFIO
-compiled with a rvalue reference v3 capable compiler is up to 60-100% faster. [link 
-afio.FAQ.closure_performance You can see some raw empirical benchmarks here].
+Note that just because a compiler will compile the code does not mean performance will be good!
+All Visual Studios, including 2015, have problems optimising AFIO to a good extent, indeed 2015
+current produces slightly slower code than 2013.
 
 [important Note that Boost.AFIO has not passed Boost peer review, and therefore is not a part of the Boost C++ libraries]
 
@@ -133,3 +147,8 @@ As a very quick example of minimal usage:
 [include release_notes.qbk]
 [include acknowledgments.qbk]
 
+[section:index Index]
+'''
+<index/>
+'''
+[endsect] [/index]

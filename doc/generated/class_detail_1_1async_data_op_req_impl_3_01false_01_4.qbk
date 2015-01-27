@@ -17,9 +17,9 @@
 [heading Synopsis]
 ``class detail::async_data_op_req_impl< false >
 {
-  async_io_op precondition;                            // An optional precondition for this operation. 
-  std::vector< boost::asio::mutable_buffer > buffers;  // A sequence of mutable Boost.ASIO buffers to read into. 
-  off_t where;                                         // The offset from which to read. 
+  async_io_op precondition;                     // An optional precondition for this operation. 
+  std::vector< asio::mutable_buffer > buffers;  // A sequence of mutable Boost.ASIO buffers to read into. 
+  off_t where;                                  // The offset from which to read. 
 };
 ``
 
@@ -78,11 +78,11 @@
 
 
 ]]
-[[`` async_data_op_req_impl(async_io_op _precondition, std::vector< boost::asio::mutable_buffer > _buffers, off_t _where)``
+[[`` async_data_op_req_impl(async_io_op _precondition, std::vector< asio::mutable_buffer > _buffers, off_t _where)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
 
-[* std::vector< boost::asio::mutable_buffer >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
+[* std::vector< asio::mutable_buffer >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 
@@ -91,11 +91,11 @@
 
 ]]
 [[``template<size_t N>
- async_data_op_req_impl(async_io_op _precondition, std::array< boost::asio::mutable_buffer, N > _buffers, off_t _where)``
+ async_data_op_req_impl(async_io_op _precondition, std::array< asio::mutable_buffer, N > _buffers, off_t _where)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
 
-[* std::array< boost::asio::mutable_buffer, N >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
+[* std::array< asio::mutable_buffer, N >]: ['_buffers]:  A sequence of mutable/const Boost.ASIO buffers to read into/write from 
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 
@@ -103,11 +103,11 @@
 
 
 ]]
-[[`` async_data_op_req_impl(async_io_op _precondition, boost::asio::mutable_buffer _buffer, off_t _where)``
+[[`` async_data_op_req_impl(async_io_op _precondition, asio::mutable_buffer _buffer, off_t _where)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation 
 
-[* boost::asio::mutable_buffer]: ['_buffer]:  A mutable/const Boost.ASIO buffer to read into/write from 
+[* asio::mutable_buffer]: ['_buffer]:  A mutable/const Boost.ASIO buffer to read into/write from 
 
 [* off_t]: ['_where]:  The offset at which to transfer 
 

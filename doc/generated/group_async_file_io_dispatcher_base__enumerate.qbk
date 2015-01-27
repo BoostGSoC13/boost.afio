@@ -12,7 +12,7 @@
 [section:enumerate_1_batch enumerate (batch)]
 
 '''<indexterm><primary>enumerate</primary></indexterm>'''
-Schedule a batch of asynchronous directory enumerations after a preceding operations. 
+Schedule a batch of asynchronous directory enumerations after preceding operations. 
 
 [heading Description]
 By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same handle, and therefore enumerating not all of the entries at once is a race condition. The solution is to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single shot, or to open a separate directory handle using the file\u005fflags::UniqueDirectoryHandle flag.

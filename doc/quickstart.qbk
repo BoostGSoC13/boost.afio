@@ -124,7 +124,7 @@ there is a `when_all(std::nothrow_t(), ...)` overload available.
 
 [endsect] [/hello_world]
 
-[section:file_concat A less toy example]
+[section:file_concat A less toy example: Concatenating files]
 
 The Hello World example didn't really demonstrate why using AFIO is any better than using
 STL iostreams. The next example after this one will give a ["real world] and unfortunately
@@ -152,11 +152,137 @@ The chances are that this file copying implementation would be little faster tha
 implementation however (unless the source files are on different physical devices, in which
 case you'd see maximum performance). Some might also argue that firing a consumer producer thread per source
 file would be just as easy, albeit that output file position management across threads
-might be slightly tricky. Let us now look at an example where the AFIO implementation blows
-away a naive multithreaded example: finding which files in a directory tree contain a regular
-expression.
+might be slightly tricky.
+
+Let us now look at two examples where the AFIO implementation blows
+away a naive multithreaded example: a multiprocess safe log file and
+finding which files in a directory tree contain a regular expression.
 
 [endsect] [/file_concat]
+
+[section:atomic_logging Achieving atomicity on the filing system]
+
+__triplegit__, the forthcoming reliable graph database store, ideally needs to allow multiple processes to
+concurrently read and write the graph store without mutual exclusion where possible. Each collection of hashes which form
+the tree which makes up some given version of the graph is itself a hashed object in the content
+addressable store, and you can have multiple named graphs in the graph store which may or may not
+share nodes. One problem as with all databases is how to efficiently issue an atomic transaction
+which updates multiple graphs simultaneously and atomically when there is the potential of concurrent
+writers also trying to issue write transactions which may, or may not, cause conflict with other
+transactions.
+
+The really naive solution is to keep a single lock file which is created using O_EXCL i.e. fail
+if you didn't create the file for the entire graph store. This serialises
+all transactions, and therefore eliminates any problems with updates clashing. This is usefully
+well supported by all operating systems, and by NFS and Samba.
+
+A less naive solution is to keep one lock file per graph, and to
+use a multiple lock and backoff strategy to lock the requisite number of graphs for some given
+transaction. The big problem with this approach is that you are unfairly penalised for especially large multi-graph transactions over others
+with smaller transactions as lock complexity is worse than linear. Nevertheless performance is actually not bad: these are results for my 3.9Ghz i7-3770K workstation
+using AFIO to implement the lock file with various numbers of concurrent writers (note that Windows provides magic
+flags for telling it about lock files, if not used expect a 40% performance reduction):
+
+[table:lock_file_performance Lock file performance on various operating systems:
+  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD][FreeBSD 10.1 ZFS SSD]]
+  [[1][1][2468][2295][3590][9922]]
+  [[2][1][2507][2385][3583][9903]]
+  [[4][1][1966][2161][3664][9684]]
+  [[8][1][1400][1851][3703][6537]]
+  [[16][1][742][602][3833][1251]]
+  []
+  [[1][8][826][888][1378][2455]]
+  [[2][8][508][637][576][917]]
+  [[4][8][67][167][417][63]]
+  [[8][8][37][117][106][0.55]]
+  [[16][8][33][77][26][0.5]]
+]
+
+As you can see, Linux does a very good job of O(1) to waiters complexity, but performance on Windows
+and FreeBSD collapses once you exceed CPU cores. Also, Windows is sensitive to device block size __dash__ the
+hard drive outperforms the SSD because it has 512 byte sectors and the SSD has 4096 byte sectors.
+I suspect that internally Windows memcpy()'s in device native sector sizes, or is actually sending
+data to physical storage despite us marking this file as temporary. One very striking observation is
+how FreeBSD is a full 2.76x the performance of Linux and 4.32x that of Windows.
+
+A much more intelligent way of solving this problem is to figure out which graphs are common across each
+of the transactions currently pending, and to strictly order the transactions in the sequence
+which maximises throughput without updates clashing.
+One way of many distributed writers constructing a shared graph of dependencies is to append messages
+into a shared file, and then one can deploy a distributed mutual exclusion algorithm of which those
+by Suzuki and Kasami, Maekawa and Ricart and Agrawala are the most famous. This requires the ability
+to atomically append to the shared file, something guaranteed on all operating systems, but unfortunately
+not guaranteed by NFS nor Samba (though when combined with advisory file locking those do work as
+expected, albeit with poor performance). This means that on an all-Windows setup, or if on POSIX and
+not using NFS nor Samba, the atomic append method could be valuable, especially as the cost of locking
+multiple actors is pretty much the same as locking a single actor so you get eight graphs locked for
+the same cost as locking one.
+
+[table:atomic_append_performance Atomic append lock performance on various operating systems:
+  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD][FreeBSD 10.1 ZFS SSD]]
+  [[1][1][2592][2875][1198][29]]
+  [[2][1][1284][2565][1344][25]]
+  [[4][1][1420][2384][1327][35]]
+  [[8][1][1262][1764][1254][55]]
+  [[16][1][428][520][1260][37]]
+]
+
+Linux once against does a great job of O(1) to waiters complexity, but at the third of the speed of
+a simple lock file and up to half the speed of Windows. Windows does better than Linux here especially
+on SSDs where it is faster than a simple lock file, but doesn't scale to waiters once they pass CPU core count.
+FreeBSD is two orders of magnitude slower which is because ZFS checksums and copy on writes file changes,
+so every time we append 16 bytes we are forcing a full copy of the 128Kb extent to be issued. It would
+appear that ZFS syncs its internal buffers when a different file descriptor atomic appends to the same file
+__dash__ this has the above pathological performance outcome unfortunately.
+
+This introduces the final potential solution which is that of the quagmire of advisory file locking.
+This is an area where Windows and POSIX diverge very significantly, and the interactions between
+Windows and POSIX when Windows locks regions in a file on a Samba share on a POSIX machine or when
+POSIX does byte range locking at all (there is a very fun stanza in the POSIX standard which basically
+releases all your locks on first file descriptor close) are full of quirks, races and other nasties.
+For this reason you should avoid the very temporary and experimental code currently in AFIO which
+implements Samba and NFS safe file range locking where theoretically both Windows and POSIX code
+can safely lock ranges in files concurrently, those APIs are not documented for good reason!
+Still, performance with these __dash__ despite the hoop jumping inefficiencies AFIO leaps through
+to implement relatively sane semantics __dash__ is impressive.
+
+[table:advisory_lock_file_performance Advisory lock file performance on various operating systems:
+  [[writers][lock files][Win8.1 x64 NTFS HD][Win8.1 x64 NTFS SSD][Linux x64 ext4 SSD][FreeBSD 10.1 ZFS SSD]]
+  [[1][1][5799][5166][3466][21536]]
+  [[2][1][5788][6656][2215][11654]]
+  [[4][1][5775][7020][1073][5384]]
+  [[8][1][5773][6738][518][2584]]
+  [[16][1][5695][5617][360][1326]]
+]
+
+Fascinatingly the tables suddenly switch here: Windows sees O(1) to waiters complexity, whilst
+Linux and FreeBSD sees a mostly O(N) to waiters complexity drop in performance. FreeBSD, as with the
+simple lock file performance, blows all others out of the water again in advisory lock performance too. I
+should add here that because POSIX advisory locks are per process, the Linux and FreeBSD benchmarks were
+generated by running N copies of the benchmark program whereas the NT kernel inherits the really
+excellent and well thought through file byte range locking model of DEC VMS and treats locks as
+effectively reference counted byte ranges, and therefore works as expected from a single process.
+I have yet to add process-local byte range locking to simulate sane range locking for POSIX, so
+expect the numbers above to worsen.
+
+After all of that, we are left with this locking strategy matrix for __triplegit__:
+
+[table:best_locking_strategy_matrix Fastest file system locking strategy for various operating systems:
+  [[Win8.1 x64 NTFS][Advisory locks fastest, then atomic append locks, finally lock files]]
+  [[Linux x64 ext4][Lock files fastest, then advisory locks, finally atomic append locks]]
+  [[FreeBSD 10.1 ZFS][Advisory locks fastest, then lock files, avoid atomic append locks at all costs]]
+]
+
+I should [*emphasise] once again that the advisory locking code is riddled with bugs and you should
+not use it in your code at this time. Once I have a CI testing all possible combinations of locking
+and nothing is erroring out I'll release that code for production use.
+
+All these benchmarks came from this benchmarking program I wrote using AFIO which illustrates how
+you might implement the techniques used above:
+
+[benchmark_atomic_log]
+
+[endsect] [/atomic_logging]
 
 [section:so_what What benefit does asynchronous file i/o bring me? A demonstration of AFIO's power]
 
