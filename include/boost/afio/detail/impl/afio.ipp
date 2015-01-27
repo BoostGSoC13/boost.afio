@@ -957,12 +957,12 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::async_file_i
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
 {
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
-    engine_unordered_map_t<const shared_future<std::shared_ptr<async_io_handle>> *, std::pair<size_t, future_status>> reallyoutstanding;
+    engine_unordered_map_t<const detail::async_file_io_dispatcher_op *, std::pair<size_t, future_status>> reallyoutstanding;
     for(;;)
     {
-        std::vector<std::pair<size_t, const shared_future<std::shared_ptr<async_io_handle>> *>> outstanding;
+        std::vector<std::pair<const size_t, std::shared_ptr<detail::async_file_io_dispatcher_op>>> outstanding;
         {
-            lock_guard<decltype(p->opslock)> g(p->opslock);
+            lock_guard<decltype(p->opslock)> g(p->opslock); // may have no effect under concurrent_unordered_map
             if(!p->ops.empty())
             {
                 outstanding.reserve(p->ops.size());
@@ -970,7 +970,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                 {
                     if(op.second->h().valid())
                     {
-                        auto it=reallyoutstanding.find(&op.second->h());
+                        auto it=reallyoutstanding.find(op.second.get());
                         if(reallyoutstanding.end()!=it)
                         {
                             if(it->second.first>=5)
@@ -1019,7 +1019,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
 #endif
                             }
                         }
-                        outstanding.push_back(std::make_pair(op.first, &op.second->h()));
+                        outstanding.push_back(op);
                     }
                 }
             }
@@ -1028,18 +1028,18 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
         size_t mincount=(size_t)-1;
         for(auto &op: outstanding)
         {
-            future_status status=op.second->wait_for(chrono::duration<int, ratio<1, 10>>(1));
+            future_status status=op.second->h().wait_for(chrono::duration<int, ratio<1, 10>>(1));
             switch(status)
             {
             case future_status::ready:
-                reallyoutstanding.erase(op.second);
+                reallyoutstanding.erase(op.second.get());
                 break;
             case future_status::deferred:
                 // Probably pending on others, but log
             case future_status::timeout:
-                auto it=reallyoutstanding.find(op.second);
+                auto it=reallyoutstanding.find(op.second.get());
                 if(reallyoutstanding.end()==it)
-                    it=reallyoutstanding.insert(std::make_pair(op.second, std::make_pair(0, status))).first;
+                    it=reallyoutstanding.insert(std::make_pair(op.second.get(), std::make_pair(0, status))).first;
                 it->second.first++;
                 if(it->second.first<mincount) mincount=it->second.first;
                 break;
