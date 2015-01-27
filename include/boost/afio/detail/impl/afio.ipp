@@ -2357,10 +2357,10 @@ namespace detail {
               out.f_flags.rdonly     =!!(s.f_flags & MNT_RDONLY);
               out.f_flags.noexec     =!!(s.f_flags & MNT_NOEXEC);
               out.f_flags.nosuid     =!!(s.f_flags & MNT_NOSUID);
-              out.f_flags.acls       =!!(s.f_flags & MNT_ACLS);
-              out.f_flags.xattr      =1; // UFS and ZFS support xattr. TODO FIXME actually calculate this.
+              out.f_flags.acls       =!!(s.f_flags & (MNT_ACLS|MNT_NFS4ACLS));
+              out.f_flags.xattr      =1; // UFS and ZFS support xattr. TODO FIXME actually calculate this, zfs get xattr <f_mntfromname> would do it.
               out.f_flags.compression=!strcmp(s.f_fstypename, "zfs");
-              out.f_flags.extents    =1; // UFS and ZFS support extents. TODO FIXME actually calculate this.
+              out.f_flags.extents    =!strcmp(s.f_fstypename, "ufs") || !strcmp(s.f_fstypename, "zfs");
             }
             if(!!(req&fs_metadata_flags::bsize))       out.f_bsize      =s.f_bsize;
             if(!!(req&fs_metadata_flags::iosize))      out.f_iosize     =s.f_iosize;
