@@ -37,7 +37,7 @@ int main(void)
         buffers.push_back(boost::asio::const_buffer("d\n", 2));
         // Schedule the write gather to offset zero
         boost::afio::async_io_op written(dispatcher->write(
-            boost::afio::make_async_data_op_req(resizedfile, std::move(buffers), 0))); /*< schedules write after resize file completes >*/
+            boost::afio::make_async_data_op_req(resizedfile, buffers, 0))); /*< schedules write after resize file completes >*/
         
         // Schedule making sure the previous batch has definitely reached physical storage
         // This won't complete until the write is on disc
