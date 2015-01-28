@@ -21,7 +21,7 @@ File Created: Mar 2013
 
 // This always compiles in input validation for this file only (the header file
 // disables at the point of instance validation in release builds)
-#ifndef BOOST_AFIO_NEVER_VALIDATE_INPUTS
+#if !defined(BOOST_AFIO_NEVER_VALIDATE_INPUTS) && !defined(BOOST_AFIO_COMPILING_FOR_GCOV)
 #define BOOST_AFIO_VALIDATE_INPUTS 1
 #endif
 
@@ -329,6 +329,7 @@ std::shared_ptr<std_thread_pool> process_threadpool()
     return ret;
 }
 
+#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
 // Experimental file region locking
 namespace detail {
   struct process_lockfile_registry;
@@ -487,6 +488,7 @@ namespace detail {
   };
   typedef lock_file<posix_actual_lock_file> posix_lock_file;
 }
+#endif
 
 
 namespace detail {
@@ -508,14 +510,18 @@ namespace detail {
         int fd;
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
+#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
         std::unique_ptr<posix_lock_file> lockfile;
+#endif
 
         async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
         {
             if(fd!=-999)
                 BOOST_AFIO_ERRHOSFN(fd, path);
+#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
             if(!!(flags & file_flags::OSLockable))
                 lockfile=process_lockfile_registry::open<posix_lock_file>(this);
+#endif
         }
         void int_close()
         {
@@ -1881,6 +1887,7 @@ namespace detail {
               }
             }
 #endif
+#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
             // Fall back onto a write of zeros
             if(!done)
             {
@@ -1906,6 +1913,7 @@ namespace detail {
                 } 
               }
             }
+#endif
             return std::make_pair(true, h);
         }
 #ifdef _MSC_VER
@@ -2310,6 +2318,7 @@ namespace detail {
                     mountentries.push_back(std::make_pair(mountentry(m.mnt_fsname, m.mnt_dir, m.mnt_type, m.mnt_opts), temp));
                 }
               }
+#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
               if(mountentries.empty())
                 BOOST_AFIO_THROW("The filing system of this handle does not appear in /etc/mtab!");
               // Choose the mount entry with the most closely matching statfs. You can't choose
@@ -2331,6 +2340,7 @@ namespace detail {
                 mountentries.clear();
                 mountentries.push_back(std::move(temp));
               }
+#endif
               if(!!(req&fs_metadata_flags::flags))
               {
                 out.f_flags.rdonly     =!!(s.f_flags & MS_RDONLY);
@@ -2389,11 +2399,13 @@ namespace detail {
         // Called in unknown thread
         completion_returntype dolock(size_t id, async_io_op op, async_lock_op_req req)
         {
+#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             if(!p->lockfile)
               BOOST_AFIO_THROW(std::invalid_argument("This file handle was not opened with OSLockable."));
             return p->lockfile->lock(id, std::move(op), std::move(req));
+#endif
         }
 
     public:
