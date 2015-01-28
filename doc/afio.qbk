@@ -96,8 +96,9 @@ __boost_afio__ provides a pure portable POSIX file i/o backend and specialised f
 making use of host OS asynchronous file i/o facilities are provided for:
 
 * Windows NT IOCP (since v1.0)
-* Linux KAIO (planned for v1.x)
-* POSIX AIO, suitable for BSD only (planned for v1.x)
+* Linux KAIO (planned, would reduce thread pool blocking for read() and write() only)
+* POSIX AIO, suitable for BSD only (planned, would reduce thread pool blocking for sync(), read() and write() only)
+* WinRT (if there is demand, currently WinRT is not supported at all)
 
 __boost_afio__ extends __boost_asio__ and provides an alternative way of programming with ASIO.
 Implementation of this first version has been kept as simple as possible (~ 1000 active
@@ -129,7 +130,7 @@ request. As of AFIO v1.2, it is rare to see anything except all green on the CI 
 
 Note that just because a compiler will compile the code does not mean performance will be good!
 All Visual Studios, including 2015, have problems optimising AFIO to a good extent, indeed 2015
-current produces slightly slower code than 2013.
+currently produces slightly slower code than 2013.
 
 [important Note that Boost.AFIO has not passed Boost peer review, and therefore is not a part of the Boost C++ libraries]
 

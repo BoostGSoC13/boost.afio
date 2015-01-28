@@ -135,6 +135,22 @@ only be used for writing only and not reading.
 during destruction.
 
 
+TODO BEFORE RELEASE
+
+3. Add unit test targets for Android 5.0 which now supports C++ 11. Fix
+any failures. Add standalone build targets too.
+
+4. Add more tests to improve line coverage as I know it's dipped below
+90%.
+
+5. Run compilation time benchmarks on all platforms. Fix any regressions.
+You might think this easy, but AFIO has about twenty different build
+configurations now.
+
+6. Run performance benchmarks on all platforms. Fix any regressions.
+
+
+
 [/=================]
 [heading Boost 1.57 AFIO v1.22 stable branch]
 [/=================]
