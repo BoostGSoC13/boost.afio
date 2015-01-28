@@ -1,41 +1,7 @@
-# This is a Travis CI build script for the proposed Boost library Boost.AFIO
-# (C) 2013-2014 Niall Douglas and Paul Kirth.
-#
-# NOTE THAT TESTS ARE DISABLED BECAUSE CI TESTING HAS MOSTLY MOVED ONTO
-# JENKINS CI at https://ci.nedprod.com. IF YOU REMOVED THE COMMENTING OUT
-# THEY WORK PERFECTLY.
-#
-# Some quick notes on how it works:
-#
-# * The compiler section specifies the compilers to be tested.
-#
-# * The env.matrix specifies the tests to be executed per compiler.
-#   Note that we set the front env variable '_' to the name of the test,
-#   this makes results output in Travis much easier to read.
-#
-# * matrix.exclude specifies which combinations of env.matrix and
-#   compiler to NOT build. For example, below we disable tsan with
-#   clang because the Ubuntu clang doesn't ship with libtsan currently.
-#
-# * before_install is shell script setting up the environment e.g.
-#   installing newer compilers, downloading Boost, tools like valgrind etc.
-#   The difference from script is that if this fails, the test is aborted.
-#
-# * script is shell script executing the test. The logic is complex because
-#   I've compacted all the variations into the one script. A saner approach
-#   would be to store the script for each test in the source, and simply
-#   dispatch to one of those.
-#
-# * after_success is a good example of dispatching logic into a source
-#   controlled script: update_coveralls.sh is sufficiently complex it
-#   needs to stand alone as it invokes several subscripts, and python
-#   do mangle the GCOV output into something suitable for coveralls.io's
-#   RESTful HTTP API. Feel free to leech from that config too.
+# Travis CI script to invoke coveralls.io coverage reporting
+# (C) 2015 Niall Douglas
 
 language: cpp
-compiler:
-  - gcc
-  - clang
 notifications:
   email:
 #    recipients:
@@ -48,96 +14,24 @@ env:
   # Coveralls.io API key
   secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
   matrix:
-    #- _="Build test" VALGRIND=0 UNIT_TESTS=0 DEBUG=0 GCCVER="" GCOV=0
-    #- _="Unit/functional tests" VALGRIND=0 UNIT_TESTS="" DEBUG=0 GCCVER="" GCOV=0
-    - _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
-    #- _="Memory error and leak tests" VALGRIND=memcheck UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
-    #- _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
-
-matrix:
-  exclude:
-    - compiler: clang
-      env: _="GCC 4.8 + Unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
-
-    #- compiler: gcc
-    #  env: _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
-
-
-#  allow_failures:
-#    - compiler: clang
-#      env: _="Race detection tests" VALGRIND=0 SANITIZE=1 UNIT_TESTS=1 DEBUG=2 GCCVER="" GCOV=0
-
-
+    - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
 
 before_install:
  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
- - if [ $CXX = "clang++" ]; then sudo add-apt-repository -y ppa:h-rayflood/llvm; fi
  - sudo apt-get update -qq
- - if [ $CXX = "clang++" ]; then sudo apt-get install -qq libstdc++-4.8-dev clang-3.4; fi
  - if [ $GCCVER != "" ]; then sudo apt-get install -qq g++$GCCVER; fi
- - if [ $VALGRIND != "0" ]; then sudo apt-get install -qq valgrind; fi
  - git submodule update --init --recursive
-# - wget https://github.com/ned14/boost-trunk/archive/release/Boost_1_54_0.tar.gz
-# - tar zxf Boost_1_54_0.tar.gz
-# - mv boost-trunk-release-Boost_1_54_0 $HOME/boost-trunk
-# - wget http://sourceforge.net/projects/boost/files/boost/1.55.0/boost_1_55_0.tar.bz2/download
- - wget https://github.com/ned14/boost-release/archive/master.tar.gz
- - tar xf master.tar.gz
- - mv boost-release-master $HOME/boost-local
- - BOOST="$HOME/boost-local"
- - PROJECTPATH="$HOME/build/BoostGSoC13/boost.afio"
-
-#create symbolic links for afio
- - ln -s $PROJECTPATH $BOOST/libs/afio
-
-#HOME should be defined per the travis-ci docs as /home/travis
- - cd $BOOST
- - ./bootstrap.sh
- - ./b2 headers
+ - sudo apt-get install -qq libboost-all-dev
 
 script:
-# set debug/release & proper path for debug/release builds
- - if [ $DEBUG -eq 0 ]; then PREFIXPATH="$TESTPREFIX*/release/threading-multi"; DEBUGBUILD=release; fi
- - if [ $DEBUG -eq 1 ]; then PREFIXPATH="$TESTPREFIX*/debug/threading-multi"; DEBUGBUILD=debug; fi
- - if [ $DEBUG -eq 2 ]; then PREFIXPATH="$TESTPREFIX*/debug/optimization-space/threading-multi"; DEBUGBUILD="debug optimization=space"; fi
-
-#try to link gcov appropriately
+ - CFLAGS="$CFLAGS -g -O2 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -lboost_filesystem -lboost_system -lpthread"
  - if [ $GCOV -eq 1 ]; then LINKFLAGS="$LINKFLAGS -lgcov"; fi
-
-#try to pass compiler flags appropriately
- - if [ "$CCFLAGS" != "" ]; then FLAGS="cxxflags=\"$CCFLAGS\" linkflags=\"$LINKFLAGS\""; else FLAGS=""; fi
- - if [ $GCOV -eq 1 ]; then FLAGS="$FLAGS --test-all"; fi
- - if [ $SANITIZE -eq 1 ]; then FLAGS="$FLAGS --sanitize --running-in-ci"; fi
-
-### I dont think suppressing these warnings is actually doing anything, and they are not actually suppressed
-#try to suppress some clang warnings
-# - if [ $CC = "clang" ]; then FLAGS="$FLAGS cxxflags="-Wno-mismatched-tags""; fi
-
-#try to suppress some gcc warnings
-# - if [ $CC = "gcc" ]; then FLAGS="$FLAGS cxxflags="-Wno-unused-local-typedefs""; fi
-
-
-#valgrind setup
- - if [ $VALGRIND = "memcheck" ]; then PREFIXTEST="--tool=memcheck --suppressions=libs/afio/test/memcheck.supp --track-origins=yes --track-fds=yes --leak-check=full --show-reachable=yes --error-exitcode=1"; fi
- - if [ $VALGRIND = "drd" ]; then PREFIXTEST="--tool=drd --suppressions=libs/afio/test/drd.supp --error-exitcode=1"; fi
- - if [ $VALGRIND = "0" ]; then PREFIXTEST=""; fi
-
- - if [ $GCOV -eq 1 ]; then TEST_TYPE="--test-all"; else TEST_TYPE="--test-each"; fi
-
-#Build and run tests
- - if [ $UNIT_TESTS -eq 0 ]; then TEST_TYPE="--link-test"; fi
- - if [ $UNIT_TESTS -eq 2 ]; then TEST_TYPE="--test=test_all.cpp"; fi
- - if [ $VALGRIND != "0" ]; then TEST_TYPE="--valgrind="$PREFIXTEST"" ; fi
- #- if [ "$UNIT_TESTS" != "0" ]; then $PREFIXTEST $PREFIXPATH/boost_afio_test -s $UNIT_TESTS; fi
-# Not sure if we can pass the valgrind flags into the unit tests, but so far it hasnt crashed :)
- - cd $BOOST
  - if [ $GCOV -eq 1 ]; then set -x; fi
- - eval "./b2 libs/afio/test $DEBUGBUILD link=shared toolset=$CC$GCCVER $TEST_TYPE $FLAGS"
-
-#if we want to use the built in bjam test runner we can get test output this way
-# - cat bin.v2/libs/afio/test/main.test/*/*/main.output #may need to specify path better on valgrind tests
-
-
+ - cd test
+ - bash ./test_file_glob.sh
+ - cd ..
+ - g++$GCCVER -o test_all_gcov $CFLAGS $LINKFLAGS
+ - ./test_all_gcov
 
 after_success:
- - if [ $GCOV -eq 1 ]; then bash -x libs/afio/test/update_coveralls.sh `pwd`; fi
+ - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi

@@ -2,12 +2,12 @@
 # Adapted from https://github.com/purpleKarrot/Karrot/blob/develop/test/coveralls.in
 # which itself was adapted from https://github.com/berenm/cmake-extra/blob/master/coveralls-upload.in
 
-if [ 0 -eq $(find -iname *.gcda | wc -l) ]
+if [ 0 -eq $(find -iname "*.gcda" | wc -l) ]
 then
   exit 0
 fi
 
-gcov-4.8 --source-prefix $1 --preserve-paths --relative-only $(find -iname *.gcda) 1>/dev/null || exit 0
+gcov-4.8 --source-prefix $1 --preserve-paths --relative-only $(find -iname "*.gcda") 1>/dev/null || exit 0
 
 cat >coverage.json <<EOF
 {
@@ -17,12 +17,14 @@ cat >coverage.json <<EOF
   "source_files": [
 EOF
 
-for file in $(find * -iname '*.gcov' -print | egrep 'boost#afio|libs#afio#detail|libs#afio#src' | egrep -v 'valgrind|SpookyV2')
+for file in $(find * -iname '*.gcov' -print | egrep '.*' | egrep -v 'valgrind|SpookyV2|bindlib|test')
 do
+  FILEPATH=$(echo ${file} | sed -re 's%#%\/%g; s%.gcov$%%')
+  echo Reporting coverage for $FILEPATH ...
   cat >>coverage.json <<EOF
     {
-      "name": "$(echo ${file} | sed -re 's%#%\/%g; s%.gcov$%%')",
-      "source": $(tail -n +3 ${file} | cut -d ':' -f 3- | python libs/afio/test/json_encode.py),
+      "name": "$FILEPATH",
+      "source": $(cat $FILEPATH | python test/json_encode.py),
       "coverage": [$(tail -n +3 ${file} | cut -d ':' -f 1 | sed -re 's%^ +%%g; s%-%null%g; s%^[#=]+$%0%;' | tr $'\n' ',' | sed -re 's%,$%%')]
     },
 EOF
