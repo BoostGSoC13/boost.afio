@@ -371,10 +371,12 @@ int main(int argc, const char *argv[])
                     }
                     // Find if he is locked or unlocked
                     if(lockid.second==(off_t) -1)
+                    {
                       if(buffers[n].code==message_code_t::unlock)
                         lockid=std::make_pair(false, buffers[n].uniqueid);
                       else if(buffers[n].code==message_code_t::havelock)
                         lockid=std::make_pair(true, buffers[n].uniqueid);
+                    }
                     // Am I searching for my interest?
                     if(myuniqueid==(off_t)-1)
                     {

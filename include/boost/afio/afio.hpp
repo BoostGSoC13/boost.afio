@@ -2319,23 +2319,37 @@ namespace detail
     {
       template<class U> std::vector<R> operator()(U &v) const
       {
-        std::vector<R> ret(std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
+        std::vector<R> ret(v.begin(), v.end());
         return ret;
+      }
+    };
+    template<bool is_const> struct to_asio_buffers_helper<is_const, asio::mutable_buffer, std::vector<asio::mutable_buffer>, false, true>
+    {
+      template<class U> std::vector<asio::mutable_buffer> operator()(U &v) const
+      {
+        return v;
       }
     };
     template<bool is_const, class R> struct to_asio_buffers_helper<is_const, R, std::vector<asio::const_buffer>, false, true>
     {
       template<class U> std::vector<R> operator()(U &v) const
       {
-        std::vector<R> ret(std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
+        std::vector<R> ret(v.begin(), v.end());
         return ret;
+      }
+    };
+    template<bool is_const> struct to_asio_buffers_helper<is_const, asio::const_buffer, std::vector<asio::const_buffer>, false, true>
+    {
+      template<class U> std::vector<asio::const_buffer> operator()(U &v) const
+      {
+        return v;
       }
     };
     template<bool is_const, size_t N, class R> struct to_asio_buffers_helper<is_const, R, std::array<asio::mutable_buffer, N>, false, true>
     {
       template<class U> std::vector<R> operator()(U &v) const
       {
-        std::vector<R> ret(std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
+        std::vector<R> ret(v.begin(), v.end());
         return ret;
       }
     };
@@ -2343,7 +2357,7 @@ namespace detail
     {
       template<class U> std::vector<R> operator()(U &v) const
       {
-        std::vector<R> ret(std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
+        std::vector<R> ret(v.begin(), v.end());
         return ret;
       }
     };
