@@ -2624,7 +2624,8 @@ namespace detail
   // If T is a container and that container's value_type is const, make sure we only create an asio::const_buffer
   template<class T> struct make_async_data_op_req<T, true>
   {
-    static BOOST_CONSTEXPR_OR_CONST bool is_container_contents_const=std::is_const<typename detail::is_container<T>::type>::value;
+    typedef typename detail::is_container<T>::type container_value_type;
+    static BOOST_CONSTEXPR_OR_CONST bool is_container_contents_const=std::is_const<container_value_type>::value || std::is_base_of<asio::const_buffer, container_value_type>::value;
     typedef typename std::remove_pointer<typename std::decay<T>::type>::type __T;
     typedef typename std::conditional<is_container_contents_const, typename std::add_const<__T>::type, __T>::type _T;
     typedef async_data_op_req<_T> type;

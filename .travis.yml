@@ -25,12 +25,12 @@ before_install:
  - git submodule update --init --recursive
 
 script:
- - CFLAGS="$CFLAGS -g -O2 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -lboost_filesystem -lboost_system -lpthread"
+ - CCFLAGS="$CCFLAGS -g -O2 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -lboost_filesystem -lboost_system -lpthread"
  - if [ $GCOV -eq 1 ]; then LINKFLAGS="$LINKFLAGS -lgcov"; fi
  - cd test
  - bash ./test_file_glob.sh
  - cd ..
- - g++$GCCVER -o test_all_gcov $CFLAGS $LINKFLAGS
+ - g++$GCCVER -o test_all_gcov $CCFLAGS $LINKFLAGS
  - ./test_all_gcov
 
 after_success:
