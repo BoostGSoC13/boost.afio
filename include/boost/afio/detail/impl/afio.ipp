@@ -1887,7 +1887,6 @@ namespace detail {
               }
             }
 #endif
-#ifndef BOOST_AFIO_COMPILING_FOR_GCOV
             // Fall back onto a write of zeros
             if(!done)
             {
@@ -1913,7 +1912,6 @@ namespace detail {
                 } 
               }
             }
-#endif
             return std::make_pair(true, h);
         }
 #ifdef _MSC_VER
