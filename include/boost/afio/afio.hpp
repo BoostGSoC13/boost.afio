@@ -2286,7 +2286,7 @@ namespace detail
       }
     };
     // Container specialisations where we know we can skip scatter gather
-    template<class R, class C, class T, class A, class _C, bool is_const> struct container_to_asio_buffers_helper<R, std::basic_string<C, T, A>, _C, is_const, true>
+    template<class R, class C, class T, class A, class _Ct, bool is_const> struct container_to_asio_buffers_helper<R, std::basic_string<C, T, A>, _Ct, is_const, true>
     {
       template<class U> std::vector<R> operator()(U &v) const
       {
