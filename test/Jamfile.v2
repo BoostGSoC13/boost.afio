@@ -104,7 +104,6 @@ project boost/afio/test
       <toolset>msvc:<define>_WINDOWS
       <toolset>msvc:<define>UNICODE
       <toolset>msvc:<define>_UNICODE
-      <target-os>android:<cxxflags>"-D_BSD_SOURCE=1"
       <target-os>linux:<linkflags>"-lpthread -ldl -lrt"
       <target-os>freebsd:<linkflags>"-lpthread"
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1
