@@ -17,7 +17,6 @@ project boost/afio
       <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE -Wno-missing-braces"
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fasynchronous-unwind-tables"
-      <toolset>clang:<linkflags>"-latomic"
       <toolset>msvc:<cxxflags>"/GF /Gy /D_VARIADIC_MAX=8"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32 
