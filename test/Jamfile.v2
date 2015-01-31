@@ -97,15 +97,16 @@ project boost/afio/test
       <toolset>gcc-mingw:<library>/boost/afio//boost_afio
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>gcc:<linkflags>"-lgomp"
-      <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
+      <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
+      <toolset>clang:<linkflags>"-latomic"
       <toolset>msvc:<cxxflags>"/openmp /GF /Gy /bigobj /wd4456"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32
       <toolset>msvc:<define>_WINDOWS
       <toolset>msvc:<define>UNICODE
       <toolset>msvc:<define>_UNICODE
-      <target-os>android:<cxxflags>"_BSD_SOURCE=1"
-      <target-os>linux:<linkflags>"-lpthread -ldl -lrt -latomic"
+      <target-os>android:<cxxflags>"-D_BSD_SOURCE=1"
+      <target-os>linux:<linkflags>"-lpthread -ldl -lrt"
       <target-os>freebsd:<linkflags>"-lpthread"
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1
       <library>../../system/build//boost_system
