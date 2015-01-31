@@ -102,10 +102,10 @@ making use of host OS asynchronous file i/o facilities are provided for:
 
 __boost_afio__ is regularly compiled and per-commit unit tested on these platforms:
 
-* Android 5.0 (clang toolchain only).
+* Android (libc++ STL toolchain only).
 * FreeBSD 10.1 (should also work on 10.0).
 * Linux kernels 2.6.32 to 3.13.
-* Microsoft Windows 8.1 (should still work on XP however).
+* Microsoft Windows 8.1 (should still work on XP using mingw-w64 however).
 
 __boost_afio__ extends __boost_asio__ and provides an alternative way of programming with ASIO.
 Implementation of this first version has been kept as simple as possible (~ 1000 active
