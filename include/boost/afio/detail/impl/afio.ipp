@@ -289,6 +289,33 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset
     return (ssize_t)(at-offset);
 }
 BOOST_AFIO_V1_NAMESPACE_END
+
+#elif !defined(IOV_MAX)  // Android lacks preadv() and pwritev()
+#define IOV_MAX 1024
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+struct iovec {
+    void  *iov_base;    /* Starting address */
+    size_t iov_len;     /* Number of bytes to transfer */
+};
+typedef ptrdiff_t ssize_t;
+inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset)
+{
+    off_t at=offset;
+    ssize_t transferred;
+    for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
+        if(-1==(transferred=pread(fd, iov->iov_base, (unsigned) iov->iov_len, at))) return -1;
+    return (ssize_t)(at-offset);
+}
+inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset)
+{
+    off_t at=offset;
+    ssize_t transferred;
+    for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
+        if(-1==(transferred=pwrite(fd, iov->iov_base, (unsigned) iov->iov_len, at))) return -1;
+    return (ssize_t)(at-offset);
+}
+BOOST_AFIO_V1_NAMESPACE_END
+
 #endif
 
 
