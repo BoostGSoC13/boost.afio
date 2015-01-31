@@ -2215,34 +2215,64 @@ template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v)
 template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v);
 template<class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buffers(T (&v)[N]);
 template<class T, size_t N> inline std::vector<asio::const_buffer> to_asio_buffers(const T (&v)[N]);
-//! \ingroup to_asio_buffers
+/*! \brief Passing through asio::mutable_buffer
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, asio mutable_buffer}
+*/
 inline std::vector<asio::mutable_buffer> to_asio_buffers(asio::mutable_buffer &v)
 {
   return std::vector<asio::mutable_buffer>(1, v);
 }
-//! \ingroup to_asio_buffers
+/*! \brief Passing through asio::const_buffer
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, asio const_buffer}
+*/
 inline std::vector<asio::const_buffer> to_asio_buffers(asio::const_buffer &v)
 {
   return std::vector<asio::const_buffer>(1, v);
 }
-//! \ingroup to_asio_buffers
+/*! \brief A buffer at v sized length*sizeof(T)
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, buffer of T}
+*/
 template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T *v, size_t length)
 {
   static_assert(std::is_trivial<T>::value, "to_asio_buffers<T> has not been specialised for this non-trivial type, which suggests you are trying to read or write a complex C++ type! Either add a custom specialisation, or directly instantiate an async_data_op_req with a void * and size_t length to some serialised representation.");
   return std::vector<asio::mutable_buffer>(1, asio::mutable_buffer((void *) v, length*sizeof(T)));
 }
-//! \ingroup to_asio_buffers
+/*! \brief A buffer at v sized length*sizeof(T)
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, const buffer of T}
+*/
 template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T *v, size_t length)
 {
   static_assert(std::is_trivial<T>::value, "to_asio_buffers<T> has not been specialised for this non-trivial type, which suggests you are trying to read or write a complex C++ type! Either add a custom specialisation, or directly instantiate an async_data_op_req with a void * and size_t length to some serialised representation.");
   return std::vector<asio::const_buffer>(1, asio::const_buffer((void *) v, length*sizeof(T)));
 }
-//! \ingroup to_asio_buffers
+/*! \brief A buffer at v sized length
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, buffer}
+*/
 inline std::vector<asio::mutable_buffer> to_asio_buffers(void *v, size_t length)
 {
   return std::vector<asio::mutable_buffer>(1, asio::mutable_buffer(v, length));
 }
-//! \ingroup to_asio_buffers
+/*! \brief A buffer at v sized length
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, const buffer of T}
+*/
 inline std::vector<asio::const_buffer> to_asio_buffers(const void *v, size_t length)
 {
   return std::vector<asio::const_buffer>(1, asio::const_buffer(v, length));
@@ -2362,22 +2392,52 @@ namespace detail
       }
     };
 }
-//! \ingroup to_asio_buffers
+/*! \brief Any trivial type T or STL container.
+
+Trivial types turn into a buffer of &v sized sizeof(T).
+Container types have their value type deduced and to_asio_buffers() called on that value_type.
+Additional specialisations are provided for string, vector and array to collapse the scatter
+gather buffers into a single one for contiguous storage.
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, trivial and container types}
+*/
 template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v)
 {
   return detail::to_asio_buffers_helper<false, asio::mutable_buffer, T>()(v);
 }
-//! \ingroup to_asio_buffers
+/*! \brief Any trivial type T or STL container.
+
+Trivial types turn into a buffer of &v sized sizeof(T).
+Container types have their value type deduced and to_asio_buffers() called on that value_type.
+Additional specialisations are provided for string, vector and array to collapse the scatter
+gather buffers into a single one for contiguous storage.
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, const trivial and container types}
+*/
 template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v)
 {
   return detail::to_asio_buffers_helper<true, asio::const_buffer, T>()(v);
 }
-//! \ingroup to_asio_buffers
+/*! \brief A buffer at v sized N*sizeof(T)
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, C arrays}
+*/
 template<class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buffers(T (&v)[N])
 {
   return to_asio_buffers(reinterpret_cast<std::array<T, N> &>(v));
 }
-//! \ingroup to_asio_buffers
+/*! \brief A buffer at v sized N*sizeof(T)
+
+\return A vector of ASIO buffers
+\ingroup to_asio_buffers
+\qbk{distinguish, const C arrays}
+*/
 template<class T, size_t N> inline std::vector<asio::const_buffer> to_asio_buffers(const T (&v)[N])
 {
   return to_asio_buffers(reinterpret_cast<const std::array<T, N> &>(v));
@@ -2493,7 +2553,7 @@ namespace detail
 
 /*! \struct async_data_op_req
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
-\tparam T Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
+\tparam "class T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
 template<class T> struct async_data_op_req : public detail::async_data_op_req_impl<false>
@@ -2525,7 +2585,7 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
-\tparam "const T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
+\tparam "class T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
 template<class T> struct async_data_op_req<const T> : public detail::async_data_op_req_impl<true>
