@@ -16,7 +16,7 @@ Convenience instantiator of a async\u005fdata\u005fop\u005freq, letting the comp
 
 [heading Synopsis]
 ``template<class T>
-async_data_op_req<typename std::remove_pointer<typename std::decay<T>::type>::type> make_async_data_op_req(async_io_op _precondition, T && v, off_t _where)``
+auto make_async_data_op_req(async_io_op _precondition, T && v, off_t _where)``
 
 [heading Parameters]
 
@@ -41,6 +41,38 @@ An async\u005fdata\u005fop\u005freq matching the supplied parameter type. Constr
 
 [endsect]
 
+[section:make_async_data_op_req_3_length_deducing make_async_data_op_req (length deducing)]
+
+'''<indexterm><primary>make_async_data_op_req</primary></indexterm>'''
+Convenience instantiator of a async\u005fdata\u005fop\u005freq, letting the compiler deduce the template specialisation to use. 
+
+[heading Synopsis]
+``template<class T>
+async_data_op_req<const std::initializer_list<T> > make_async_data_op_req(async_io_op _precondition, const std::initializer_list< T > & v, off_t _where)``
+
+[heading Parameters]
+
+[table
+[[Type] [Concept] [Name] [Description] ]
+[[class T] [] [ - ] [Must be specified]]
+[[async_io_op] [] [_precondition] [An optional precondition for this operation ]]
+[[const std::initializer_list< T > &] [] [v] [A pointer to memory or reference to object into which to read or write ]]
+[[off_t] [] [_where] [The offset at which to transfer]]
+]
+
+
+[heading Returns]
+An async\u005fdata\u005fop\u005freq matching the supplied parameter type. Constructs an instance. 
+
+[heading Header]
+`#include <boost/afio/afio.hpp>`
+
+[heading Example]
+[readwrite_example]
+
+
+[endsect]
+
 [section:make_async_data_op_req_4_length_specifying make_async_data_op_req (length specifying)]
 
 '''<indexterm><primary>make_async_data_op_req</primary></indexterm>'''
@@ -48,7 +80,7 @@ Convenience instantiator of a async\u005fdata\u005fop\u005freq, letting the comp
 
 [heading Synopsis]
 ``template<class T>
-async_data_op_req<typename std::remove_pointer<typename std::decay<T>::type>::type> make_async_data_op_req(async_io_op _precondition, T && v, size_t _length, off_t _where)``
+auto make_async_data_op_req(async_io_op _precondition, T && v, size_t _length, off_t _where)``
 
 [heading Parameters]
 

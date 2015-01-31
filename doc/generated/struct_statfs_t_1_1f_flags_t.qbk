@@ -18,8 +18,8 @@
 ``struct statfs_t::f_flags_t
 {
   uint32_t rdonly;           // Filing system is read only (Windows, POSIX) 
-  uint32_t noexec;           // Filing system cannot execute programs (POSIX only) 
-  uint32_t nosuid;           // Filing system cannot superuser (POSIX only) 
+  uint32_t noexec;           // Filing system cannot execute programs (POSIX) 
+  uint32_t nosuid;           // Filing system cannot superuser (POSIX) 
   uint32_t acls;             // Filing system provides ACLs (Windows, POSIX) 
   uint32_t xattr;            // Filing system provides extended attributes (Windows, POSIX) 
   uint32_t compression;      // Filing system provides whole volume compression (Windows, POSIX) 

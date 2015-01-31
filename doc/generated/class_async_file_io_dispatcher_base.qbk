@@ -548,6 +548,14 @@ A future volume metadatas.
 
 
 ]]
+[[``std::vector< async_io_op > lock(const std::vector< async_lock_op_req > & req)``
+
+] [] [[* const std::vector< async_lock_op_req > &]: ['req]:  
+
+
+
+
+]]
 [[``std::vector< async_io_op > barrier(const std::vector< async_io_op > & ops)``
 
 ] [Schedule an asynchronous synchronisation of preceding operations. ] [[* const std::vector< async_io_op > &]: ['ops]:  A batch of op handles.

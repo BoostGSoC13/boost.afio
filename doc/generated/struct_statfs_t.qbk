@@ -17,7 +17,7 @@ Metadata about a filing system. Unsupported entries are -1.
 [heading Synopsis]
 ``struct statfs_t
 {
-  struct boost::afio::statfs_t::f_flags_t f_flags;  // copy of mount exported flags (POSIX) 
+  struct boost::afio::statfs_t::f_flags_t f_flags;  // copy of mount exported flags (Windows, POSIX) 
   uint64_t f_bsize;                                 // fundamental filesystem block size (Windows, POSIX) 
   uint64_t f_iosize;                                // optimal transfer block size (Windows, POSIX) 
   uint64_t f_blocks;                                // total data blocks in filesystem (Windows, POSIX) 

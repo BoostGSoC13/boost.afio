@@ -2520,12 +2520,12 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
     async_data_op_req(async_io_op _precondition, T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
     //! \async_data_op_req1
     template<class U> async_data_op_req(async_io_op _precondition, U &v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
-    //! \async_data_op_req1 \param N The number of items in the array
+    //! \async_data_op_req1 \tparam N The number of items in the array
     template<class U, size_t N> async_data_op_req(async_io_op _precondition, U (&v)[N], off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
-\tparam T Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
+\tparam "const T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
 template<class T> struct async_data_op_req<const T> : public detail::async_data_op_req_impl<true>
@@ -2556,12 +2556,11 @@ template<class T> struct async_data_op_req<const T> : public detail::async_data_
     async_data_op_req(async_io_op _precondition, const T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
     //! \async_data_op_req1
     template<class U> async_data_op_req(async_io_op _precondition, const U &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
-    //! \async_data_op_req1 \param N The number of items in the array
+    //! \async_data_op_req1 \tparam N The number of items in the array
     template<class U, size_t N> async_data_op_req(async_io_op _precondition, const U (&v)[N], off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
-\tparam T Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
 template<> struct async_data_op_req<void> : public detail::async_data_op_req_impl<false>
@@ -2589,7 +2588,6 @@ template<> struct async_data_op_req<void> : public detail::async_data_op_req_imp
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
-\tparam T Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
 template<> struct async_data_op_req<const void> : public detail::async_data_op_req_impl<true>

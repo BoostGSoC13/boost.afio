@@ -14,6 +14,9 @@
 '''<indexterm><primary>async_io_handle</primary></indexterm>'''
 The abstract base class encapsulating a platform-specific file handle. 
 
+[heading Description]
+Note that failure to explicitly schedule closing a file handle in the dispatcher means it will be synchronously closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled. 
+
 [heading Synopsis]
 ``class async_io_handle
       : public std::enable_shared_from_this< async_io_handle >

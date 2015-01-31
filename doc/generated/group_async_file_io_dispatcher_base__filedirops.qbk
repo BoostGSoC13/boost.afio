@@ -506,6 +506,9 @@ An op handle.
 '''<indexterm><primary>close</primary></indexterm>'''
 Schedule a batch of asynchronous file or directory handle closes after preceding operations. 
 
+[heading Description]
+Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
+
 [heading Synopsis]
 ``virtual std::vector<async_io_op> async_file_io_dispatcher_base::close(const std::vector< async_io_op > & ops)``
 
@@ -534,6 +537,9 @@ A batch of op handles.
 
 '''<indexterm><primary>close</primary></indexterm>'''
 Schedule an asynchronous file or directory handle close after a preceding operation. 
+
+[heading Description]
+Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
 ``async_io_op async_file_io_dispatcher_base::close(const async_io_op & req)``
