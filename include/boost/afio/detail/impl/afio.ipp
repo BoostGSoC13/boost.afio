@@ -236,9 +236,15 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
     if(!!(wanted&metadata_flags::uid)) { stat.st_uid=s.st_uid; }
     if(!!(wanted&metadata_flags::gid)) { stat.st_gid=s.st_gid; }
     if(!!(wanted&metadata_flags::rdev)) { stat.st_rdev=s.st_rdev; }
+#ifdef __ANDROID__
+    if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(*((struct timespec *)&s.st_atime)); }
+    if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(*((struct timespec *)&s.st_mtime)); }
+    if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(*((struct timespec *)&s.st_ctime)); }
+#else
     if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(s.st_atim); }
     if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(s.st_mtim); }
     if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(s.st_ctim); }
+#endif
     if(!!(wanted&metadata_flags::size)) { stat.st_size=s.st_size; }
     if(!!(wanted&metadata_flags::allocated)) { stat.st_allocated=(off_t) s.st_blocks*512; }
     if(!!(wanted&metadata_flags::blocks)) { stat.st_blocks=s.st_blocks; }

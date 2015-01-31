@@ -2,7 +2,7 @@
 if [ -z "$CXX" ]; then
   CXX=g++
 fi
-if [ "$CXX" != "${CXX#clang++}" ]; then
+if [ "$CXX" != "${CXX#clang++}" ] && [ "$NODE_NAME" = "linux-gcc-clang" ]; then
   LIBATOMIC=-latomic
 fi
 if [ ! -d asio ]; then
