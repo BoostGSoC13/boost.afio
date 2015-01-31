@@ -6,7 +6,7 @@ if [ "$CXX" != "${CXX#clang++}" ] && [ "$NODE_NAME" = "linux-gcc-clang" ]; then
   LIBATOMIC=-latomic
 fi
 if [ "$NODE_NAME" = "freebsd10-clang3.3" ]; then
-  LIBATOMIC=-L/usr/local/include
+  LIBATOMIC="-I/usr/local/include -L/usr/local/lib"
 fi
 if [ ! -d asio ]; then
   sh -c "git clone https://github.com/chriskohlhoff/asio.git"
