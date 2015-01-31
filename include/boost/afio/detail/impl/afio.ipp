@@ -60,13 +60,19 @@ File Created: Mar 2013
 #endif
 
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-# include <dlfcn.h>
-# if defined(__linux__) && !defined(__ANDROID__)
-#  include <execinfo.h>
-# else
-#  define UNW_LOCAL_ONLY
-#  include <libunwind.h>
-# endif
+#include <dlfcn.h>
+// Set to 1 to use libunwind instead of glibc's stack backtracer
+#if 0
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#else
+#ifndef __linux__
+#undef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+#endif
+#endif
+#endif
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <execinfo.h>
 #endif
 
 #include "../../afio.hpp"
@@ -489,7 +495,7 @@ namespace detail {
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void print_fatal_exception_message_to_stderr(const char *msg)
     {
         std::cerr << "FATAL EXCEPTION: " << msg << std::endl;
-#if !defined(BOOST_AFIO_COMPILING_FOR_GCOV) && defined(__linux__)
+#if !defined(BOOST_AFIO_COMPILING_FOR_GCOV) && defined(__linux__) && !defined(__ANDROID__)
         void *array[20];
         size_t size=backtrace(array, 20);
         char **strings=backtrace_symbols(array, size);
