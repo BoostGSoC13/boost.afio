@@ -60,19 +60,13 @@ File Created: Mar 2013
 #endif
 
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-#include <dlfcn.h>
-// Set to 1 to use libunwind instead of glibc's stack backtracer
-#if 0
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
-#else
-#ifndef __linux__
-#undef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-#endif
-#endif
-#endif
-#ifdef __linux__
-#include <execinfo.h>
+# include <dlfcn.h>
+# if defined(__linux__) && !defined(__ANDROID__)
+#  include <execinfo.h>
+# else
+#  define UNW_LOCAL_ONLY
+#  include <libunwind.h>
+# endif
 #endif
 
 #include "../../afio.hpp"
