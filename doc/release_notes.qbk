@@ -137,8 +137,7 @@ during destruction.
 
 TODO BEFORE RELEASE
 
-3. Add unit test targets for Android 5.0 which now supports C++ 11. Fix
-any failures. Add standalone build targets too.
+4. clang-reformat everything.
 
 5. Run compilation time benchmarks on all platforms. Fix any regressions.
 You might think this easy, but AFIO has about twenty different build

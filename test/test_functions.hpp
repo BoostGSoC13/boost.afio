@@ -648,10 +648,10 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
             while(!failures.empty())
             {
                 std::pair<const Op *, size_t> &failedop=failures.front();
-                size_t bytes=0;
+                size_t _bytes=0;
                 for(auto &b: failedop.first->req.buffers)
-                    bytes+=asio::buffer_size(b);
-                std::cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << bytes << std::endl;
+                    _bytes+=asio::buffer_size(b);
+                std::cerr << "   " << (failedop.first->write ? "Write to" : "Read from") << " " << to_string(failedop.first->req.where) << " at offset " << failedop.second << " into bytes " << _bytes << std::endl;
                 failures.pop_front();
             }
     }
