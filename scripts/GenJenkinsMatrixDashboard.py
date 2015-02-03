@@ -77,12 +77,12 @@ for line, items in inputs:
   for cppstd in cppstds:
     for cxx in cxxs:
       for linktype in linktypes:
-        print('  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%%20Build/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/"><img src="https://ci.nedprod.com/job/Boost.AFIO%%20Build/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/badge/icon"></a></div>' % (cppstd, cxx, linktype, label, cppstd, cxx, linktype, label))
+        print('  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%%20Build/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/"><img src="https://ci.nedprod.com/job/Boost.AFIO%%20Build/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/badge/icon" /></a></div>' % (cppstd, cxx, linktype, label, cppstd, cxx, linktype, label))
   print('</td><td>')
   for cppstd in cppstds:
     for cxx in cxxs:
       for linktype in linktypes:
-        print('  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%%20Test/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/"><img src="https://ci.nedprod.com/job/Boost.AFIO%%20Test/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/badge/icon"></a></div>' % (cppstd, cxx, linktype, label, cppstd, cxx, linktype, label))
+        print('  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%%20Test/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/"><img src="https://ci.nedprod.com/job/Boost.AFIO%%20Test/CPPSTD=%s,CXX=%s,LINKTYPE=%s,label=%s/badge/icon" /></a></div>' % (cppstd, cxx, linktype, label, cppstd, cxx, linktype, label))
   print('</td></tr>')
   
 print('''</table>
