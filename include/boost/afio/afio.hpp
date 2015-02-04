@@ -40,6 +40,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "config.hpp"
 
+// clang-format off
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
 #undef BOOST_AFIO_V1_NAMESPACE
 #undef BOOST_AFIO_V1_NAMESPACE_BEGIN
@@ -53,6 +54,7 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
 #define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC virtual
 #endif
+// clang-format on
 
 #ifdef BOOST_AFIO_NEED_DEFINE
 
