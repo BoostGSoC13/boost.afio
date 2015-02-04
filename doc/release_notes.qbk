@@ -28,14 +28,21 @@ min 10k cycles).
 * The v1.4 engine will finally make use of the API support for alternative async_io_dispatcher
 implementations, adding at least one for temp file support with special temp
 file semantics, and maybe others with transparent hashing and bit flip healing
-(see below).
+(see below). The temp file support will allow anonymous and named temp files
+which can be device volume matched to some path, thus allowing file move to be
+done without copying. Anonymous temp files can use Linux specific facilities
+for those.
 
 * Finally, making good use of the new coroutine support the v1.4 engine should
 have an async fast batch hash engine which provides transparent hashing of all
 async reads and writes. Chances are good one can also choose to generate SECDED
 Error Correcting Codes as I have a test implementation here which can process
 ~500Mb/sec for an enormous (32784, 32768) Hamming code which lets you heal one
-bit flip per 4Kb page, ideal for working with very long lived storage.
+bit flip per 4Kb page, ideal for working with non-ECC RAM systems where bit flips
+between storage and RAM are frighteningly common (1e-12 flips/bit/hour or so
+potentially, that's 3.3 bits flipped in a 16Gb RAM system per 24 hours). See
+Schroeder, Pinheiro and Weber (2009) 'DRAM Errors in the Wild: A Large-Scale
+Field Study'.
 
 
 [h5 In some later version, in order:]
@@ -43,8 +50,11 @@ bit flip per 4Kb page, ideal for working with very long lived storage.
 * Individual file change monitoring. This would be very useful for implementing
 distributed mutual exclusion algorithms to avoid spinning on file updates.
 
-* Portable fast file locking which works across network shares, but can still
-utilise shared memory when possible.
+* Related to the preceding item, formal async lock file support with deadline
+timeouts.
+
+* Portable fast file byte range advisory locking which works across network shares,
+but can still utilise shared memory when possible.
 
 * Extended attributes support. TripleGit could use this to avoid a second file
 handle open of metadata per graph object read. Unsure if NTFS is any faster
@@ -94,6 +104,9 @@ which is only barely summarised here:
 * symlink() now can create file symbolic links on Windows (it'll probably error out due to lack of
 privileges held by the user, but it can now at least try).
 
+* Added the TemporaryFile and DeleteOnClose file_flags. These improve lock file performance on Windows
+by about 60%.
+
 * Added sparse file support. AFIO now always creates sparse file where possible, and converts any
 files it opens for writing into a sparse file where possible. You can disable that behaviour using
 the NoSparse flag.
@@ -138,6 +151,9 @@ during destruction.
 TODO BEFORE RELEASE
 
 4. clang-reformat everything.
+
+4a. Restore FILE_SHARE_DELETE on Windows, and for delete have it rename to
+random and then delete to match POSIX unlink semantics.
 
 5. Run compilation time benchmarks on all platforms. Fix any regressions.
 You might think this easy, but AFIO has about twenty different build
