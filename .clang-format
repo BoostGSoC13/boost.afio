@@ -19,7 +19,7 @@ BinPackParameters: true
 ColumnLimit:     320
 CommentPragmas:  '^!<'
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
-ContinuationIndentWidth: 4
+ContinuationIndentWidth: 0
 Cpp11BracedListStyle: true
 DerivePointerAlignment: false
 DisableFormat:   false
