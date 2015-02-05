@@ -17,7 +17,7 @@ BreakBeforeTernaryOperators: false
 BreakConstructorInitializersBeforeComma: false
 BinPackParameters: true
 ColumnLimit:     320
-CommentPragmas:  '^ IWYU pragma:'
+CommentPragmas:  '^!<'
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ContinuationIndentWidth: 4
 Cpp11BracedListStyle: true
