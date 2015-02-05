@@ -43,7 +43,7 @@ PenaltyReturnTypeOnItsOwnLine: 60
 PointerAlignment: Right
 Standard:        Cpp11
 SpaceAfterCStyleCast: true
-SpaceBeforeAssignmentOperators: false
+SpaceBeforeAssignmentOperators: true
 SpaceBeforeParens: Never
 SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 2
