@@ -147,13 +147,13 @@ only be used for writing only and not reading.
 * Fixed memory corruption in async_file_io_dispatcher destructor which only occurred when there were extant ops
 during destruction.
 
+* Use rename to random name before deletion pattern in rmfile() to work around Windows refusing new file
+creation with the same name as a recently deleted file.
+
 
 TODO BEFORE RELEASE
 
 4. clang-reformat everything.
-
-4a. Restore FILE_SHARE_DELETE on Windows, and for delete have it rename to
-random and then delete to match POSIX unlink semantics.
 
 5. Run compilation time benchmarks on all platforms. Fix any regressions.
 You might think this easy, but AFIO has about twenty different build
@@ -540,5 +540,26 @@ asynchronously fetch that metadata for you, returning it in the future `director
 returned by `enumerate()`.
 
 [endsect] [/async_metadata]
+
+[section:deleting_open_files I thought on Windows it is impossible to delete a file which
+is still open for use. How does AFIO achieve this?]
+
+On POSIX you are allowed to call `unlink()` on a file which is open for use __dash__ indeed
+this is a very convenient way of creating an anonymous private temporary file whose storage will be
+deallocated on the last file handle close. Ordinarily Windows does not permit deletion or renaming of
+files still in use, but if all open handles to that file were opened with `FILE_SHARE_DELETE` then
+it does permit renames and deletions, BUT with an enormous caveat: creation of files with the
+same name as a recently deleted file will be refused where ["recently] is a random period dependant
+on the filing system's present mood. This turns out to be a major source on unexpected and random
+errors for even AFIO's unit tests where the same file name tends to be reused across tests.
+
+AFIO solves this by taking a dual step to deleting files. Firstly, it renames the file to a 128
+bit cryptographically strong random name, and only then does it delete the file. As AFIO always
+opens files with `FILE_SHARE_DELETE` permission enabled, with that flag Windows permits renaming
+and deletion, and because the name was changed to a very random name before deletion, you don't
+see those unexpected and random errors when creating files with the same name as a recently deleted
+file as you do anywhere else on Windows. Handy eh?
+
+[endsect] [/deleting_open_files]
 
 [endsect] [/FAQ]

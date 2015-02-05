@@ -406,7 +406,7 @@ enum class file_flags : size_t
     FastDirectoryEnumeration=(1<<10), //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration.
     UniqueDirectoryHandle=(1<<11),    //!< Return a unique directory handle rather than a shared directory handle
     TemporaryFile=(1<<12),   //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
-    DeleteOnClose=(1<<13),   //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit.
+    DeleteOnClose=(1<<13),   //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
 
     OSDirect=(1<<16),   //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
     OSMMap=(1<<17),     //!< Memory map files (for reads only).
@@ -1376,6 +1376,10 @@ public:
     inline async_io_op file(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file deletions after optional preconditions.
     
+    Note that you can delete files before they are closed on Windows just as with POSIX if and only
+    if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+    this). The actual file data will be deleted when the last handle is closed on the system.
+    
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1386,6 +1390,10 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file deletion after an optional precondition.
+    
+    Note that you can delete files before they are closed on Windows just as with POSIX if and only
+    if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+    this). The actual file data will be deleted when the last handle is closed on the system.
     
     \return An op handle.
     \param req An `async_path_op_req` structure.

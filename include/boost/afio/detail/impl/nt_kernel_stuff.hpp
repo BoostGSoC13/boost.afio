@@ -244,6 +244,11 @@ namespace windows_nt_kernel
           /*_In_*/   PLARGE_INTEGER Length,
           /*_In_*/   ULONG Key
           );
+          
+    typedef BOOLEAN (NTAPI *RtlGenRandom_t)(
+          /*_Out_*/  PVOID RandomBuffer,
+          /*_In_*/   ULONG RandomBufferLength
+          );
 
     typedef struct _FILE_BASIC_INFORMATION {
       LARGE_INTEGER CreationTime;
@@ -387,6 +392,7 @@ namespace windows_nt_kernel
     static NtWaitForSingleObject_t NtWaitForSingleObject;
     static NtLockFile_t NtLockFile;
     static NtUnlockFile_t NtUnlockFile;
+    static RtlGenRandom_t RtlGenRandom;
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -394,7 +400,7 @@ namespace windows_nt_kernel
 #endif
     static inline void doinit()
     {
-      if(NtUnlockFile)
+      if(RtlGenRandom)
         return;
       if(!NtQueryInformationFile)
           if(!(NtQueryInformationFile=(NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
@@ -428,6 +434,9 @@ namespace windows_nt_kernel
               abort();
       if(!NtUnlockFile)
           if(!(NtUnlockFile=(NtUnlockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtUnlockFile")))
+              abort();
+      if(!RtlGenRandom)
+          if(!(RtlGenRandom=(RtlGenRandom_t) GetProcAddress(LoadLibraryA("ADVAPI32.DLL"), "SystemFunction036")))
               abort();
       // MAKE SURE you update the early exit check at the top to whatever the last of these is!
     }
