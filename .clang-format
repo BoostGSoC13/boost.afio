@@ -11,7 +11,7 @@ AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Inline
 AlwaysBreakTemplateDeclarations: false
 AlwaysBreakBeforeMultilineStrings: false
-BreakBeforeBinaryOperators: false
+BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Allman
 BreakBeforeTernaryOperators: false
 BreakConstructorInitializersBeforeComma: false
@@ -43,7 +43,6 @@ PenaltyReturnTypeOnItsOwnLine: 60
 PointerAlignment: Right
 Standard:        Cpp11
 SpaceAfterCStyleCast: true
-SpaceAfterAssignmentOperators: false
 SpaceBeforeAssignmentOperators: false
 SpaceBeforeParens: Never
 SpaceInEmptyParentheses: false
