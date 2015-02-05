@@ -244,12 +244,8 @@ namespace detail {
         // Helper for dofile()
         static std::pair<NTSTATUS, HANDLE> ntcreatefile(async_path_op_req req) BOOST_NOEXCEPT
         {
-          // 2014-11-6 ned: Use of FILE_SHARE_DELETE causes generation of ERROR_DELETE_PENDING errors
-          //                because NT won't let you create a new file with the same name as one which
-          //                has been deleted if that deleted file is still open. This is more annoying
-          //                and harder to detect than accepting the fact NT won't delete open files.
           DWORD access=FILE_READ_ATTRIBUTES, attribs=FILE_ATTRIBUTE_NORMAL;
-          DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE/*|FILE_SHARE_DELETE*/;
+          DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
           DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
           if(!!(req.flags & file_flags::int_opening_dir))
           {
@@ -277,15 +273,11 @@ namespace detail {
                   attribs|=FILE_ATTRIBUTE_TEMPORARY;
               if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
               {
-                  fileshare|=FILE_SHARE_DELETE;
                   flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
                   access|=DELETE;
               }
               if(!!(req.flags & file_flags::int_file_share_delete))
-              {
-                  fileshare|=FILE_SHARE_DELETE;
                   access|=DELETE;
-              }
           }
           if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
           else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
@@ -359,12 +351,39 @@ namespace detail {
             }
             return std::make_pair(true, ret);
         }
+        // Generates a 32 character long crypto strong random name
+        static filesystem::path::string_type make_randomname()
+        {
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            static const filesystem::path::string_type::value_type table[]=L"0123456789abcdef";
+            filesystem::path::string_type ret;
+            char buffer[16];
+            BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, sizeof(buffer))); // crypto secure
+            ret.reserve(2*sizeof(buffer));
+            for(size_t n=0; n<sizeof(buffer); n++)
+            {
+              ret.push_back(table[buffer[n]&0xf]);
+              ret.push_back(table[(buffer[n]>>4)&0xf]);
+            }
+            return ret;
+        }
         // Called in unknown thread
         completion_returntype dormfile(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native());
-            BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), req.path);
+            // To emulate POSIX unlink semantics, we first rename the file to something random
+            // before we delete it.
+            filesystem::path randompath(req.path.parent_path()/make_randomname());
+            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native()), escapedrandompath(L"\\\\?\\"+randompath.native());
+            if(MoveFile(escapedpath.c_str(), escapedrandompath.c_str()))
+            {
+              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedrandompath.c_str()), req.path);
+            }
+            else
+            {
+              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), req.path);
+            }
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
