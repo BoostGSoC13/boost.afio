@@ -64,7 +64,7 @@ DEALINGS IN THE SOFTWARE.
 #include <type_traits>
 #include <exception>
 #include <iostream>
-#include <algorithm>  // Boost.ASIO needs std::min and std::max
+#include <algorithm> // Boost.ASIO needs std::min and std::max
 
 /*! \brief Validate inputs at the point of instantiation.
 
@@ -84,7 +84,7 @@ for dispatch. This, being very useful for debugging, defaults to 1 except when
 
 #ifdef BOOST_MSVC
 #pragma warning(push)
-#pragma warning(disable : 4251)  // type needs to have dll-interface to be used by clients of class
+#pragma warning(disable: 4251) // type needs to have dll-interface to be used by clients of class
 #endif
 
 /*! \file afio.hpp
@@ -111,74 +111,65 @@ typedef unsigned long long off_t;
 //! \brief The namespace containing Boost.ASIO internal details
 namespace detail
 {
-  template <class R> class enqueued_task_impl
-  {
-  protected:
-    struct Private
+    template<class R> class enqueued_task_impl
     {
-      std::function<R()> task;
-      promise<R> r;
-      shared_future<R> f;
-      bool autoset;
-      atomic<int> done;
-      Private(std::function<R()> _task) : task(std::move(_task)), f(r.get_future().share()), autoset(true), done(0) {}
+    protected:
+        struct Private
+        {
+            std::function<R()> task;
+            promise<R> r;
+            shared_future<R> f;
+            bool autoset;
+            atomic<int> done;
+            Private(std::function<R()> _task) : task(std::move(_task)), f(r.get_future().share()), autoset(true), done(0) { }
+        };
+        std::shared_ptr<Private> p;
+        void validate() const { assert(p); /*if(!p) abort();*/ }
+    public:
+        //! Default constructor
+        enqueued_task_impl(std::function<R()> _task=std::function<R()>()) : p(std::make_shared<Private>(std::move(_task))) { }
+        //! Returns true if valid
+        bool valid() const BOOST_NOEXCEPT_OR_NOTHROW{ return p.get()!=nullptr; }
+        //! Swaps contents with another instance
+        void swap(enqueued_task_impl &o) BOOST_NOEXCEPT_OR_NOTHROW{ p.swap(o.p); }
+        //! Resets the contents
+        void reset() { p.reset(); }
+        //! Sets the task
+        void set_task(std::function<R()> _task) { p->task=std::move(_task); }
+        //! Returns the shared future corresponding to the future return value of the task
+        const shared_future<R> &get_future() const { validate(); return p->f; }
+        //! Sets the shared future corresponding to the future return value of the task.
+        template<class T> void set_future_value(T v)
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_value(std::move(v));
+        }
+        void set_future_value()
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_value();
+        }
+        //! Sets the shared future corresponding to the future return value of the task.
+        void set_future_exception(exception_ptr e)
+        {
+            int _=0;
+            validate();
+            if(!p->done.compare_exchange_strong(_, 1))
+                return;
+            p->r.set_exception(e);
+        }
+        //! Disables the task setting the shared future return value.
+        void disable_auto_set_future(bool v=true) { validate(); p->autoset=!v; }
     };
-    std::shared_ptr<Private> p;
-    void validate() const { assert(p); /*if(!p) abort();*/ }
-
-  public:
-    //! Default constructor
-    enqueued_task_impl(std::function<R()> _task = std::function<R()>()) : p(std::make_shared<Private>(std::move(_task))) {}
-    //! Returns true if valid
-    bool valid() const BOOST_NOEXCEPT_OR_NOTHROW { return p.get() != nullptr; }
-    //! Swaps contents with another instance
-    void swap(enqueued_task_impl &o) BOOST_NOEXCEPT_OR_NOTHROW { p.swap(o.p); }
-    //! Resets the contents
-    void reset() { p.reset(); }
-    //! Sets the task
-    void set_task(std::function<R()> _task) { p->task = std::move(_task); }
-    //! Returns the shared future corresponding to the future return value of the task
-    const shared_future<R> &get_future() const
-    {
-      validate();
-      return p->f;
-    }
-    //! Sets the shared future corresponding to the future return value of the task.
-    template <class T> void set_future_value(T v)
-    {
-      int _ = 0;
-      validate();
-      if(!p->done.compare_exchange_strong(_, 1))
-        return;
-      p->r.set_value(std::move(v));
-    }
-    void set_future_value()
-    {
-      int _ = 0;
-      validate();
-      if(!p->done.compare_exchange_strong(_, 1))
-        return;
-      p->r.set_value();
-    }
-    //! Sets the shared future corresponding to the future return value of the task.
-    void set_future_exception(exception_ptr e)
-    {
-      int _ = 0;
-      validate();
-      if(!p->done.compare_exchange_strong(_, 1))
-        return;
-      p->r.set_exception(e);
-    }
-    //! Disables the task setting the shared future return value.
-    void disable_auto_set_future(bool v = true)
-    {
-      validate();
-      p->autoset = !v;
-    }
-  };
 }
 
-template <class R> class enqueued_task;
+template<class R> class enqueued_task;
 /*! \class enqueued_task<R()>
 \brief Effectively our own custom std::packaged_task<>, with copy semantics and letting us early set value to significantly improve performance
 
@@ -190,79 +181,73 @@ state - if you set the future value early and then an exception is later thrown,
 \tparam "class R" The return type of the callable which must be without parameters.
 */
 // Can't have args in callable type as that segfaults VS2010
-template <class R> class enqueued_task<R()> : public detail::enqueued_task_impl<R>
+template<class R> class enqueued_task<R()> : public detail::enqueued_task_impl<R>
 {
-  typedef detail::enqueued_task_impl<R> Base;
-
+    typedef detail::enqueued_task_impl<R> Base;
 public:
-  //! Default constructor
-  enqueued_task(std::function<R()> _task = std::function<R()>()) : Base(std::move(_task)) {}
-  //! Invokes the callable, setting the shared future to the value it returns
-  void operator()()
-  {
-    auto _p(Base::p);
-    Base::validate();
-    if(!_p->task)
-      abort();
-    try
+    //! Default constructor
+    enqueued_task(std::function<R()> _task=std::function<R()>()) : Base(std::move(_task)) { }
+    //! Invokes the callable, setting the shared future to the value it returns
+    void operator()()
     {
-      auto v(_p->task());
-      if(_p->autoset && !_p->done)
-        Base::set_future_value(v);
+        auto _p(Base::p);
+        Base::validate();
+        if(!_p->task) abort();
+        try
+        {
+            auto v(_p->task());
+            if(_p->autoset && !_p->done) Base::set_future_value(v);
+        }
+        catch(...)
+        {
+            if(_p->done)
+            {
+              std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after future set." << std::endl;
+              BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after future set."));
+            }
+            if(_p->autoset && !_p->done) 
+            {
+                auto e(current_exception());
+                Base::set_future_exception(e);
+            }
+        }
+        // Free any bound parameters in task to save memory
+        _p->task=std::function<R()>();
     }
-    catch(...)
-    {
-      if(_p->done)
-      {
-        std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after future set." << std::endl;
-        BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after future set."));
-      }
-      if(_p->autoset && !_p->done)
-      {
-        auto e(current_exception());
-        Base::set_future_exception(e);
-      }
-    }
-    // Free any bound parameters in task to save memory
-    _p->task = std::function<R()>();
-  }
 };
-template <> class enqueued_task<void()> : public detail::enqueued_task_impl<void>
+template<> class enqueued_task<void()> : public detail::enqueued_task_impl<void>
 {
-  typedef detail::enqueued_task_impl<void> Base;
-
+    typedef detail::enqueued_task_impl<void> Base;
 public:
-  //! Default constructor
-  enqueued_task(std::function<void()> _task = std::function<void()>()) : Base(std::move(_task)) {}
-  //! Invokes the callable, setting the future to the value it returns
-  void operator()()
-  {
-    auto _p(Base::p);
-    Base::validate();
-    if(!_p->task)
-      abort();
-    try
+    //! Default constructor
+    enqueued_task(std::function<void()> _task=std::function<void()>()) : Base(std::move(_task)) { }
+    //! Invokes the callable, setting the future to the value it returns
+    void operator()()
     {
-      _p->task();
-      if(_p->autoset && !_p->done)
-        Base::set_future_value();
+        auto _p(Base::p);
+        Base::validate();
+        if(!_p->task) abort();
+        try
+        {
+            _p->task();
+            if(_p->autoset && !_p->done) Base::set_future_value();
+        }
+        catch(...)
+        {
+            if(_p->done)
+            {
+              std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after future set." << std::endl;
+              BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after future set."));
+            }
+            if(_p->autoset && !_p->done)
+            {
+                auto e(current_exception());
+                Base::set_future_exception(e);
+            }
+        }
+        // Free any bound parameters in task to save memory
+        _p->task=std::function<void()>();
     }
-    catch(...)
-    {
-      if(_p->done)
-      {
-        std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after future set." << std::endl;
-        BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after future set."));
-      }
-      if(_p->autoset && !_p->done)
-      {
-        auto e(current_exception());
-        Base::set_future_exception(e);
-      }
-    }
-    // Free any bound parameters in task to save memory
-    _p->task = std::function<void()>();
-  }
 };
 /*! \class thread_source
 \brief Abstract base class for a source of thread workers
@@ -274,25 +259,27 @@ may be reference count deleted before static data deinit occurs.
 class thread_source : public std::enable_shared_from_this<thread_source>
 {
 protected:
-  asio::io_service &service;
-  thread_source(asio::io_service &_service) : service(_service) {}
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~thread_source() {}
-  thread_source &operator=(const thread_source &) = delete;
-
+    asio::io_service &service;
+    thread_source(asio::io_service &_service) : service(_service) { }
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~thread_source() { }
+    thread_source &operator=(const thread_source &) = delete;
 public:
-  //! Returns the underlying io_service
-  asio::io_service &io_service() { return service; }
-  //! Sends a task to the thread pool for execution \tparam "class R" The return type of the enqueued task
-  template <class R> void enqueue(enqueued_task<R> task) { service.post(task); }
-  //! Sends some callable entity to the thread pool for execution \return An enqueued task for the enqueued callable \tparam "class F" Any callable type with signature R(void) \param f Any instance of a callable type
-  template <class F> shared_future<typename std::result_of<F()>::type> enqueue(F f)
-  {
-    typedef typename std::result_of<F()>::type R;
-    enqueued_task<R()> out(std::move(f));
-    auto ret(out.get_future());
-    service.post(out);
-    return std::move(ret);
-  }
+    //! Returns the underlying io_service
+    asio::io_service &io_service() { return service; }
+    //! Sends a task to the thread pool for execution \tparam "class R" The return type of the enqueued task
+    template<class R> void enqueue(enqueued_task<R> task)
+    {
+        service.post(task);
+    }
+    //! Sends some callable entity to the thread pool for execution \return An enqueued task for the enqueued callable \tparam "class F" Any callable type with signature R(void) \param f Any instance of a callable type
+    template<class F> shared_future<typename std::result_of<F()>::type> enqueue(F f)
+    {
+        typedef typename std::result_of<F()>::type R;
+        enqueued_task<R()> out(std::move(f));
+        auto ret(out.get_future());
+        service.post(out);
+        return std::move(ret);
+    }
 };
 
 /*! \class std_thread_pool
@@ -300,65 +287,65 @@ public:
 
 This instantiates a `asio::io_service` and a latchable `asio::io_service::work` to keep any threads working until the instance is destructed.
 */
-class std_thread_pool : public thread_source
-{
-  class worker
-  {
-    std_thread_pool *pool;
-
-  public:
-    explicit worker(std_thread_pool *p) : pool(p) {}
-    void operator()()
+class std_thread_pool : public thread_source {
+    class worker
     {
-      detail::set_threadname("boost::afio::std_thread_pool worker");
-      try
-      {
-        pool->service.run();
-      }
-      catch(...)
-      {
-        std::cerr << "WARNING: ASIO exits via " << detail::output_exception_info << " which shouldn't happen." << std::endl;
-      }
-    }
-  };
-  friend class worker;
+        std_thread_pool *pool;
+    public:
+        explicit worker(std_thread_pool *p) : pool(p) { }
+        void operator()()
+        {
+            detail::set_threadname("boost::afio::std_thread_pool worker");
+            try
+            {
+                pool->service.run();
+            }
+            catch(...)
+            {
+                std::cerr << "WARNING: ASIO exits via " << detail::output_exception_info << " which shouldn't happen." << std::endl;
+            }
+        }
+    };
+    friend class worker;
 
-  asio::io_service service;
-  std::unique_ptr<asio::io_service::work> working;
-  std::vector<std::unique_ptr<thread>> workers;
-
+    asio::io_service service;
+    std::unique_ptr<asio::io_service::work> working;
+    std::vector< std::unique_ptr<thread> > workers;
 public:
-  /*! \brief Constructs a thread pool of \em no workers
-  \param no The number of worker threads to create
-  */
-  explicit std_thread_pool(size_t no) : thread_source(service), working(detail::make_unique<asio::io_service::work>(service)) { add_workers(no); }
-  //! Adds more workers to the thread pool \param no The number of worker threads to add
-  void add_workers(size_t no)
-  {
-    workers.reserve(workers.size() + no);
-    for(size_t n = 0; n < no; n++)
-      workers.push_back(detail::make_unique<thread>(worker(this)));
-  }
-  //! Destroys the thread pool, waiting for worker threads to exit beforehand.
-  void destroy()
-  {
-    if(!service.stopped())
+    /*! \brief Constructs a thread pool of \em no workers
+    \param no The number of worker threads to create
+    */
+    explicit std_thread_pool(size_t no) : thread_source(service), working(detail::make_unique<asio::io_service::work>(service))
     {
-      // Tell the threads there is no more work to do
-      working.reset();
-      for(auto &i : workers)
-      {
-        i->join();
-      }
-      workers.clear();
-      // For some reason ASIO occasionally thinks there is still more work to do
-      if(!service.stopped())
-        service.run();
-      service.stop();
-      service.reset();
+        add_workers(no);
     }
-  }
-  ~std_thread_pool() { destroy(); }
+    //! Adds more workers to the thread pool \param no The number of worker threads to add
+    void add_workers(size_t no)
+    {
+        workers.reserve(workers.size()+no);
+        for(size_t n=0; n<no; n++)
+            workers.push_back(detail::make_unique<thread>(worker(this)));
+    }
+    //! Destroys the thread pool, waiting for worker threads to exit beforehand.
+    void destroy()
+    {
+        if(!service.stopped())
+        {
+            // Tell the threads there is no more work to do
+            working.reset();
+            for(auto &i: workers) { i->join(); }
+            workers.clear();
+            // For some reason ASIO occasionally thinks there is still more work to do
+            if(!service.stopped())
+                service.run();
+            service.stop();
+            service.reset();
+        }
+    }
+    ~std_thread_pool()
+    {
+        destroy();
+    }
 };
 /*! \brief Returns the process threadpool
 
@@ -370,15 +357,28 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threa
 class async_file_io_dispatcher_base;
 struct async_io_op;
 struct async_path_op_req;
-template <class T> struct async_data_op_req;
+template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 struct async_lock_op_req;
 
-#define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type)                                                                                                                                                                                                                                                                        \
-  inline BOOST_CONSTEXPR type operator&(type a, type b) { return static_cast<type>(static_cast<size_t>(a) & static_cast<size_t>(b)); }                                                                                                                                                                                         \
-  inline BOOST_CONSTEXPR type operator|(type a, type b) { return static_cast<type>(static_cast<size_t>(a) | static_cast<size_t>(b)); }                                                                                                                                                                                         \
-  inline BOOST_CONSTEXPR type operator~(type a) { return static_cast<type>(~static_cast<size_t>(a)); }                                                                                                                                                                                                                         \
-  inline BOOST_CONSTEXPR bool operator!(type a) { return 0 == static_cast<size_t>(a); }
+#define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
+inline BOOST_CONSTEXPR type operator&(type a, type b) \
+{ \
+    return static_cast<type>(static_cast<size_t>(a) & static_cast<size_t>(b)); \
+} \
+inline BOOST_CONSTEXPR type operator|(type a, type b) \
+{ \
+    return static_cast<type>(static_cast<size_t>(a) | static_cast<size_t>(b)); \
+} \
+inline BOOST_CONSTEXPR type operator~(type a) \
+{ \
+    return static_cast<type>(~static_cast<size_t>(a)); \
+} \
+inline BOOST_CONSTEXPR bool operator!(type a) \
+{ \
+    return 0==static_cast<size_t>(a); \
+}
+
 
 
 /*! \enum file_flags
@@ -391,37 +391,36 @@ enum file_flags
 enum class file_flags : size_t
 #endif
 {
-  None = 0,                   //!< No flags set
-  Read = 1,                   //!< Read access
-  Write = 2,                  //!< Write access
-  ReadWrite = 3,              //!< Read and write access
-  Append = 4,                 //!< Append only
-  Truncate = 8,               //!< Truncate existing file to zero
-  Create = 16,                //!< Open and create if doesn't exist. Always creates sparse files if possible.
-  CreateOnlyIfNotExist = 32,  //!< Create and open only if doesn't exist
-  CreateCompressed = 64,      //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
+    None=0,             //!< No flags set
+    Read=1,             //!< Read access
+    Write=2,            //!< Write access
+    ReadWrite=3,        //!< Read and write access
+    Append=4,           //!< Append only
+    Truncate=8,         //!< Truncate existing file to zero
+    Create=16,          //!< Open and create if doesn't exist. Always creates sparse files if possible.
+    CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
+    CreateCompressed=64,     //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
-  WillBeSequentiallyAccessed = 128,  //!< Will be exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
-  WillBeRandomlyAccessed = 256,      //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
-  NoSparse = 512,                    //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
+    WillBeSequentiallyAccessed=128, //!< Will be exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
+    WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
+    NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
-  FastDirectoryEnumeration = (1 << 10),  //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration.
-  UniqueDirectoryHandle = (1 << 11),     //!< Return a unique directory handle rather than a shared directory handle
-  TemporaryFile = (1 << 12),             //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
-  DeleteOnClose = (1 << 13),  //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO,
-                              //whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
+    FastDirectoryEnumeration=(1<<10), //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration.
+    UniqueDirectoryHandle=(1<<11),    //!< Return a unique directory handle rather than a shared directory handle
+    TemporaryFile=(1<<12),   //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
+    DeleteOnClose=(1<<13),   //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
 
-  OSDirect = (1 << 16),    //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
-  OSMMap = (1 << 17),      //!< Memory map files (for reads only).
-  OSLockable = (1 << 18),  // Deliberately undocumented
+    OSDirect=(1<<16),   //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
+    OSMMap=(1<<17),     //!< Memory map files (for reads only).
+    OSLockable=(1<<18), // Deliberately undocumented
 
-  AlwaysSync = (1 << 24),                   //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
-  SyncOnClose = (1 << 25),                  //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
-  EnforceDependencyWriteOrder = (1 << 26),  //!< Ensure that data writes to files reach physical storage in the same order as the op dependencies close files. Does NOT enforce ordering of individual data writes, ONLY all file writes accumulated before a file close.
+    AlwaysSync=(1<<24),     //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
+    SyncOnClose=(1<<25),    //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
+    EnforceDependencyWriteOrder=(1<<26), //!< Ensure that data writes to files reach physical storage in the same order as the op dependencies close files. Does NOT enforce ordering of individual data writes, ONLY all file writes accumulated before a file close.
 
-  int_file_share_delete = (1 << 28),  //!< Internal use only. Don't use.
-  int_opening_link = (1 << 29),       //!< Internal use only. Don't use.
-  int_opening_dir = (1 << 30)         //!< Internal use only. Don't use.
+    int_file_share_delete=(1<<28), //!< Internal use only. Don't use.
+    int_opening_link=(1<<29), //!< Internal use only. Don't use.
+    int_opening_dir=(1<<30) //!< Internal use only. Don't use.
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 
@@ -435,57 +434,77 @@ enum async_op_flags
 enum class async_op_flags : size_t
 #endif
 {
-  none = 0,      //!< No flags set
-  immediate = 1  //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
+    none=0,                 //!< No flags set
+    immediate=1             //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 
-namespace detail
-{
-  struct async_io_handle_posix;
-  struct async_io_handle_windows;
-  struct async_file_io_dispatcher_base_p;
-  class async_file_io_dispatcher_compat;
-  class async_file_io_dispatcher_windows;
-  class async_file_io_dispatcher_linux;
-  class async_file_io_dispatcher_qnx;
-  struct immediate_async_ops;
-  template <bool for_writing> class async_data_op_req_impl;
+namespace detail {
+    struct async_io_handle_posix;
+    struct async_io_handle_windows;
+    struct async_file_io_dispatcher_base_p;
+    class async_file_io_dispatcher_compat;
+    class async_file_io_dispatcher_windows;
+    class async_file_io_dispatcher_linux;
+    class async_file_io_dispatcher_qnx;
+    struct immediate_async_ops;
+    template<bool for_writing> class async_data_op_req_impl;
 
-/*! \enum OpType
-\brief The type of operation
-*/
+    /*! \enum OpType
+    \brief The type of operation
+    */
 #ifdef DOXYGEN_NO_CLASS_ENUMS
-  enum OpType
+    enum OpType
 #else
-  enum class OpType
+    enum class OpType
 #endif
-  {
-    Unknown,
-    UserCompletion,
-    dir,
-    rmdir,
-    file,
-    rmfile,
-    symlink,
-    rmsymlink,
-    sync,
-    close,
-    read,
-    write,
-    truncate,
-    barrier,
-    enumerate,
-    adopt,
-    zero,
-    extents,
-    statfs,
-    lock,
+    {
+        Unknown,
+        UserCompletion,
+        dir,
+        rmdir,
+        file,
+        rmfile,
+        symlink,
+        rmsymlink,
+        sync,
+        close,
+        read,
+        write,
+        truncate,
+        barrier,
+        enumerate,
+        adopt,
+        zero,
+        extents,
+        statfs,
+        lock,
 
-    Last
-  };
-  static const char *optypes[] = {"unknown", "UserCompletion", "dir", "rmdir", "file", "rmfile", "symlink", "rmsymlink", "sync", "close", "read", "write", "truncate", "barrier", "enumerate", "adopt", "zero", "extents", "statfs", "lock"};
-  static_assert(static_cast<size_t>(OpType::Last) == sizeof(optypes) / sizeof(*optypes), "You forgot to fix up the strings matching OpType");
+        Last
+    };
+    static const char *optypes[]={
+        "unknown",
+        "UserCompletion",
+        "dir",
+        "rmdir",
+        "file",
+        "rmfile",
+        "symlink",
+        "rmsymlink",
+        "sync",
+        "close",
+        "read",
+        "write",
+        "truncate",
+        "barrier",
+        "enumerate",
+        "adopt",
+        "zero",
+        "extents",
+        "statfs",
+        "lock"
+    };
+    static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
 }
 
 class async_io_handle;
@@ -500,28 +519,28 @@ enum metadata_flags
 enum class metadata_flags : size_t
 #endif
 {
-  None = 0,
-  dev = 1 << 0,
-  ino = 1 << 1,
-  type = 1 << 2,
-  perms = 1 << 3,
-  nlink = 1 << 4,
-  uid = 1 << 5,
-  gid = 1 << 6,
-  rdev = 1 << 7,
-  atim = 1 << 8,
-  mtim = 1 << 9,
-  ctim = 1 << 10,
-  size = 1 << 11,
-  allocated = 1 << 12,
-  blocks = 1 << 13,
-  blksize = 1 << 14,
-  flags = 1 << 15,
-  gen = 1 << 16,
-  birthtim = 1 << 17,
-  sparse = 1 << 24,
-  compressed = 1 << 25,
-  All = (size_t) -1  //!< Return the maximum possible metadata.
+    None=0,
+    dev=1<<0,
+    ino=1<<1,
+    type=1<<2,
+    perms=1<<3,
+    nlink=1<<4,
+    uid=1<<5,
+    gid=1<<6,
+    rdev=1<<7,
+    atim=1<<8,
+    mtim=1<<9,
+    ctim=1<<10,
+    size=1<<11,
+    allocated=1<<12,
+    blocks=1<<13,
+    blksize=1<<14,
+    flags=1<<15,
+    gen=1<<16,
+    birthtim=1<<17,
+    sparse=1<<24,
+    compressed=1<<25,
+    All=(size_t)-1       //!< Return the maximum possible metadata.
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 /*! \struct stat_t
@@ -546,42 +565,41 @@ with compression enabled (e.g. ZFS with ZLE compression which elides runs of zer
 struct stat_t
 {
 #ifndef WIN32
-  uint64_t st_dev; /*!< inode of device containing file (POSIX only) */
+    uint64_t        st_dev;                       /*!< inode of device containing file (POSIX only) */
 #endif
-  uint64_t st_ino;               /*!< inode of file                   (Windows, POSIX) */
-  filesystem::file_type st_type; /*!< type of file                    (Windows, POSIX) */
+    uint64_t        st_ino;                       /*!< inode of file                   (Windows, POSIX) */
+    filesystem::file_type st_type;                /*!< type of file                    (Windows, POSIX) */
 #ifndef WIN32
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-  uint16_t st_perms;
+    uint16_t        st_perms;
 #else
-  filesystem::perms st_perms; /*!< uint16_t bitfield perms of file (POSIX only) */
+    filesystem::perms st_perms;                   /*!< uint16_t bitfield perms of file (POSIX only) */
 #endif
 #endif
-  int16_t st_nlink; /*!< number of hard links            (Windows, POSIX) */
+    int16_t         st_nlink;                     /*!< number of hard links            (Windows, POSIX) */
 #ifndef WIN32
-  int16_t st_uid; /*!< user ID of the file             (POSIX only) */
-  int16_t st_gid; /*!< group ID of the file            (POSIX only) */
-  dev_t st_rdev;  /*!< id of file if special           (POSIX only) */
+    int16_t         st_uid;                       /*!< user ID of the file             (POSIX only) */
+    int16_t         st_gid;                       /*!< group ID of the file            (POSIX only) */
+    dev_t           st_rdev;                      /*!< id of file if special           (POSIX only) */
 #endif
-  chrono::system_clock::time_point st_atim;     /*!< time of last access             (Windows, POSIX) */
-  chrono::system_clock::time_point st_mtim;     /*!< time of last data modification  (Windows, POSIX) */
-  chrono::system_clock::time_point st_ctim;     /*!< time of last status change      (Windows, POSIX) */
-  off_t st_size;                                /*!< file size, in bytes             (Windows, POSIX) */
-  off_t st_allocated;                           /*!< bytes allocated for file        (Windows, POSIX) */
-  off_t st_blocks;                              /*!< number of blocks allocated      (Windows, POSIX) */
-  uint16_t st_blksize;                          /*!< block size used by this device  (Windows, POSIX) */
-  uint32_t st_flags;                            /*!< user defined flags for file     (FreeBSD, OS X, zero otherwise) */
-  uint32_t st_gen;                              /*!< file generation number          (FreeBSD, OS X, zero otherwise)*/
-  chrono::system_clock::time_point st_birthtim; /*!< time of file creation           (Windows, FreeBSD, OS X, zero otherwise) */
+    chrono::system_clock::time_point st_atim;     /*!< time of last access             (Windows, POSIX) */
+    chrono::system_clock::time_point st_mtim;     /*!< time of last data modification  (Windows, POSIX) */
+    chrono::system_clock::time_point st_ctim;     /*!< time of last status change      (Windows, POSIX) */
+    off_t           st_size;                      /*!< file size, in bytes             (Windows, POSIX) */
+    off_t           st_allocated;                 /*!< bytes allocated for file        (Windows, POSIX) */
+    off_t           st_blocks;                    /*!< number of blocks allocated      (Windows, POSIX) */
+    uint16_t        st_blksize;                   /*!< block size used by this device  (Windows, POSIX) */
+    uint32_t        st_flags;                     /*!< user defined flags for file     (FreeBSD, OS X, zero otherwise) */
+    uint32_t        st_gen;                       /*!< file generation number          (FreeBSD, OS X, zero otherwise)*/
+    chrono::system_clock::time_point st_birthtim; /*!< time of file creation           (Windows, FreeBSD, OS X, zero otherwise) */
 
-  unsigned st_sparse : 1;     /*!< if this file is sparse, or this directory capable of sparse files (Windows, POSIX) */
-  unsigned st_compressed : 1; /*!< if this file is compressed, or this directory capable of compressed files (Windows) */
-
-  //! Constructs a UNINITIALIZED instance i.e. full of random garbage
-  stat_t() {}
-  //! Constructs a zeroed instance
-  stat_t(std::nullptr_t)
-      :
+    unsigned        st_sparse : 1;                /*!< if this file is sparse, or this directory capable of sparse files (Windows, POSIX) */
+    unsigned        st_compressed : 1;            /*!< if this file is compressed, or this directory capable of compressed files (Windows) */
+    
+    //! Constructs a UNINITIALIZED instance i.e. full of random garbage
+    stat_t() { }
+    //! Constructs a zeroed instance
+    stat_t(std::nullptr_t) :
 #ifndef WIN32
         st_dev(0),
 #endif
@@ -598,9 +616,7 @@ struct stat_t
 #ifndef WIN32
         st_uid(0), st_gid(0), st_rdev(0),
 #endif
-        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0), st_sparse(0), st_compressed(0)
-  {
-  }
+        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0), st_sparse(0), st_compressed(0) { }
 };
 
 /*! \enum fs_metadata_flags
@@ -613,22 +629,22 @@ enum fs_metadata_flags
 enum class fs_metadata_flags : size_t
 #endif
 {
-  None = 0,
-  flags = 1 << 1,
-  bsize = 1 << 2,
-  iosize = 1 << 3,
-  blocks = 1 << 4,
-  bfree = 1 << 5,
-  bavail = 1 << 6,
-  files = 1 << 7,
-  ffree = 1 << 8,
-  namemax = 1 << 9,
-  owner = 1 << 10,
-  fsid = 1 << 11,
-  fstypename = 1 << 12,
-  mntfromname = 1 << 13,
-  mntonname = 1 << 14,
-  All = (size_t) -1  //!< Return the maximum possible metadata.
+    None=0,
+    flags=1<<1,
+    bsize=1<<2,
+    iosize=1<<3,
+    blocks=1<<4,
+    bfree=1<<5,
+    bavail=1<<6,
+    files=1<<7,
+    ffree=1<<8,
+    namemax=1<<9,
+    owner=1<<10,
+    fsid=1<<11,
+    fstypename=1<<12,
+    mntfromname=1<<13,
+    mntonname=1<<14,
+    All=(size_t)-1       //!< Return the maximum possible metadata.
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(fs_metadata_flags)
 /*! \struct statfs_t
@@ -640,38 +656,38 @@ BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(fs_metadata_flags)
 */
 struct statfs_t
 {
-  struct f_flags_t
-  {
-    uint32_t rdonly : 1;           //!< Filing system is read only                                      (Windows, POSIX)
-    uint32_t noexec : 1;           //!< Filing system cannot execute programs                           (POSIX)
-    uint32_t nosuid : 1;           //!< Filing system cannot superuser                                  (POSIX)
-    uint32_t acls : 1;             //!< Filing system provides ACLs                                     (Windows, POSIX)
-    uint32_t xattr : 1;            //!< Filing system provides extended attributes                      (Windows, POSIX)
-    uint32_t compression : 1;      //!< Filing system provides whole volume compression                 (Windows, POSIX)
-    uint32_t extents : 1;          //!< Filing system provides extent based file storage (sparse files) (Windows, POSIX)
-    uint32_t filecompression : 1;  //!< Filing system provides per-file selectable compression          (Windows)
-  } f_flags;                       /*!< copy of mount exported flags       (Windows, POSIX) */
-  uint64_t f_bsize;                /*!< fundamental filesystem block size  (Windows, POSIX) */
-  uint64_t f_iosize;               /*!< optimal transfer block size        (Windows, POSIX) */
-  uint64_t f_blocks;               /*!< total data blocks in filesystem    (Windows, POSIX) */
-  uint64_t f_bfree;                /*!< free blocks in filesystem          (Windows, POSIX) */
-  uint64_t f_bavail;               /*!< free blocks avail to non-superuser (Windows, POSIX) */
-  uint64_t f_files;                /*!< total file nodes in filesystem     (POSIX) */
-  uint64_t f_ffree;                /*!< free nodes avail to non-superuser  (POSIX) */
-  uint32_t f_namemax;              /*!< maximum filename length            (Windows, POSIX) */
+     struct f_flags_t
+     {
+        uint32_t rdonly : 1;          //!< Filing system is read only                                      (Windows, POSIX)
+        uint32_t noexec : 1;          //!< Filing system cannot execute programs                           (POSIX)
+        uint32_t nosuid : 1;          //!< Filing system cannot superuser                                  (POSIX)
+        uint32_t acls : 1;            //!< Filing system provides ACLs                                     (Windows, POSIX)
+        uint32_t xattr : 1;           //!< Filing system provides extended attributes                      (Windows, POSIX)
+        uint32_t compression : 1;     //!< Filing system provides whole volume compression                 (Windows, POSIX)
+        uint32_t extents : 1;         //!< Filing system provides extent based file storage (sparse files) (Windows, POSIX)
+        uint32_t filecompression : 1; //!< Filing system provides per-file selectable compression          (Windows)
+     } f_flags;                           /*!< copy of mount exported flags       (Windows, POSIX) */
+     uint64_t f_bsize;                    /*!< fundamental filesystem block size  (Windows, POSIX) */
+     uint64_t f_iosize;                   /*!< optimal transfer block size        (Windows, POSIX) */
+     uint64_t f_blocks;                   /*!< total data blocks in filesystem    (Windows, POSIX) */
+     uint64_t f_bfree;                    /*!< free blocks in filesystem          (Windows, POSIX) */
+     uint64_t f_bavail;                   /*!< free blocks avail to non-superuser (Windows, POSIX) */
+     uint64_t f_files;                    /*!< total file nodes in filesystem     (POSIX) */
+     uint64_t f_ffree;                    /*!< free nodes avail to non-superuser  (POSIX) */
+     uint32_t f_namemax;                  /*!< maximum filename length            (Windows, POSIX) */
 #ifndef WIN32
-  int16_t f_owner; /*!< user that mounted the filesystem   (BSD, OS X) */
+     int16_t  f_owner;                    /*!< user that mounted the filesystem   (BSD, OS X) */
 #endif
-  uint64_t f_fsid[2];           /*!< filesystem id                      (Windows, POSIX) */
-  std::string f_fstypename;     /*!< filesystem type name               (Windows, POSIX) */
-  std::string f_mntfromname;    /*!< mounted filesystem                 (POSIX) */
-  filesystem::path f_mntonname; /*!< directory on which mounted         (POSIX) */
-  statfs_t()
-  {
-    size_t frontbytes = ((char *) &f_fstypename) - ((char *) this);
-    memset(this, 0xff, frontbytes);
-    memset(this, 0, sizeof(f_flags));
-  }
+     uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) */
+     std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) */
+     std::string f_mntfromname;           /*!< mounted filesystem                 (POSIX) */
+     filesystem::path f_mntonname;        /*!< directory on which mounted         (POSIX) */
+     statfs_t()
+     {
+       size_t frontbytes=((char *) &f_fstypename)-((char *) this);
+       memset(this, 0xff, frontbytes);
+       memset(this, 0, sizeof(f_flags));
+     }
 };
 
 /*! \brief The abstract base class for an entry in a directory with lazily filled metadata.
@@ -681,144 +697,121 @@ is defined for you so you ought to be able to use directory_entry directly in an
 */
 class BOOST_AFIO_DECL directory_entry
 {
-  friend class detail::async_file_io_dispatcher_compat;
-  friend class detail::async_file_io_dispatcher_windows;
-  friend class detail::async_file_io_dispatcher_linux;
-  friend class detail::async_file_io_dispatcher_qnx;
+    friend class detail::async_file_io_dispatcher_compat;
+    friend class detail::async_file_io_dispatcher_windows;
+    friend class detail::async_file_io_dispatcher_linux;
+    friend class detail::async_file_io_dispatcher_qnx;
 
-  filesystem::path leafname;
-  stat_t stat;
-  metadata_flags have_metadata;
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void _int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
-
+    filesystem::path leafname;
+    stat_t stat;
+    metadata_flags have_metadata;
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void _int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
 public:
-  //! \constr
-  directory_entry() : stat(nullptr), have_metadata(metadata_flags::None) {}
-  //! \constr
-  directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) {}
-  directory_entry(const directory_entry &) = default;
-  directory_entry &operator=(const directory_entry &) = default;
-  directory_entry(directory_entry &&o) : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) {}
-  directory_entry &operator=(directory_entry &&o)
-  {
-    leafname = std::move(o.leafname);
-    stat = std::move(o.stat);
-    have_metadata = std::move(o.have_metadata);
-    return *this;
-  }
+    //! \constr
+    directory_entry() : stat(nullptr), have_metadata(metadata_flags::None) { }
+    //! \constr
+    directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
+    directory_entry(const directory_entry &) = default;
+    directory_entry &operator=(const directory_entry &) = default;
+    directory_entry(directory_entry &&o) : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
+    directory_entry &operator=(directory_entry &&o)
+    {
+        leafname=std::move(o.leafname);
+        stat=std::move(o.stat);
+        have_metadata=std::move(o.have_metadata);
+        return *this;
+    }
 
-  bool operator==(const directory_entry &rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname == rhs.leafname; }
-  bool operator!=(const directory_entry &rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname != rhs.leafname; }
-  bool operator<(const directory_entry &rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname < rhs.leafname; }
-  bool operator<=(const directory_entry &rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname <= rhs.leafname; }
-  bool operator>(const directory_entry &rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname > rhs.leafname; }
-  bool operator>=(const directory_entry &rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname >= rhs.leafname; }
-  //! \return The name of the directory entry
-  filesystem::path name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
-  //! \return A bitfield of what metadata is ready right now
-  metadata_flags metadata_ready() const BOOST_NOEXCEPT_OR_NOTHROW { return have_metadata; }
-  /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
-  \return The metadata now available in this directory entry.
-  \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
-  \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
-  */
-  metadata_flags fetch_metadata(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted)
-  {
-    metadata_flags tofetch;
-    wanted = wanted & metadata_supported();
-    tofetch = wanted & ~have_metadata;
-    if(!!tofetch)
-      _int_fetch(tofetch, dirh);
-    return have_metadata;
-  }
-  /*! \brief Returns a copy of the internal `stat_t` structure. This is a blocking call if wanted metadata is not yet ready.
-  \return A copy of the internal `stat_t` structure.
-  \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
-  \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
-  */
-  stat_t fetch_lstat(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted = directory_entry::metadata_fastpath())
-  {
-    fetch_metadata(dirh, wanted);
-    return stat;
-  }
+    bool operator==(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname == rhs.leafname; }
+    bool operator!=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname != rhs.leafname; }
+    bool operator< (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname < rhs.leafname; }
+    bool operator<=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname <= rhs.leafname; }
+    bool operator> (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname > rhs.leafname; }
+    bool operator>=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname >= rhs.leafname; }
+    //! \return The name of the directory entry
+    filesystem::path name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
+    //! \return A bitfield of what metadata is ready right now
+    metadata_flags metadata_ready() const BOOST_NOEXCEPT_OR_NOTHROW { return have_metadata; }
+    /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
+    \return The metadata now available in this directory entry.
+    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
+    \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
+    */
+    metadata_flags fetch_metadata(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted)
+    {
+        metadata_flags tofetch;
+        wanted=wanted&metadata_supported();
+        tofetch=wanted&~have_metadata;
+        if(!!tofetch) _int_fetch(tofetch, dirh);
+        return have_metadata;
+    }
+    /*! \brief Returns a copy of the internal `stat_t` structure. This is a blocking call if wanted metadata is not yet ready.
+    \return A copy of the internal `stat_t` structure.
+    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
+    \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
+    */
+    stat_t fetch_lstat(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted=directory_entry::metadata_fastpath())
+    {
+        fetch_metadata(dirh, wanted);
+        return stat;
+    }
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-#define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field)                                                                                                                                                                                                                                                                        \
-  decltype(stat_t().st_##field) st_##field() const                                                                                                                                                                                                                                                                             \
-  {                                                                                                                                                                                                                                                                                                                            \
-    if(!(have_metadata & metadata_flags::field))                                                                                                                                                                                                                                                                               \
-    {                                                                                                                                                                                                                                                                                                                          \
-      BOOST_AFIO_THROW(std::runtime_error("Field st_" #field " not present."));                                                                                                                                                                                                                                                \
-    }                                                                                                                                                                                                                                                                                                                          \
-    return stat.st_##field;                                                                                                                                                                                                                                                                                                    \
-  }                                                                                                                                                                                                                                                                                                                            \
-  decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh)                                                                                                                                                                                                                                              \
-  {                                                                                                                                                                                                                                                                                                                            \
-    if(!(have_metadata & metadata_flags::field))                                                                                                                                                                                                                                                                               \
-    {                                                                                                                                                                                                                                                                                                                          \
-      _int_fetch(metadata_flags::field, dirh);                                                                                                                                                                                                                                                                                 \
-    }                                                                                                                                                                                                                                                                                                                          \
-    return stat.st_##field;                                                                                                                                                                                                                                                                                                    \
-  }
+#define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
+decltype(stat_t().st_##field) st_##field() const { if(!(have_metadata&metadata_flags::field)) { BOOST_AFIO_THROW(std::runtime_error("Field st_" #field " not present.")); } return stat.st_##field; } \
+decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #else
-#define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field)                                                                                                                                                                                                                                                                        \
-  fieldtype st_##field(std::shared_ptr<async_io_handle> dirh = std::shared_ptr<async_io_handle>())                                                                                                                                                                                                                             \
-  {                                                                                                                                                                                                                                                                                                                            \
-    if(!(have_metadata & metadata_flags::field))                                                                                                                                                                                                                                                                               \
-    {                                                                                                                                                                                                                                                                                                                          \
-      _int_fetch(metadata_flags::field, dirh);                                                                                                                                                                                                                                                                                 \
-    }                                                                                                                                                                                                                                                                                                                          \
-    return stat.st_##field;                                                                                                                                                                                                                                                                                                    \
-  }
+#define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
+fieldtype st_##field(std::shared_ptr<async_io_handle> dirh=std::shared_ptr<async_io_handle>()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #endif
 #ifndef WIN32
-  //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(dev)
+    //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(dev)
 #endif
-  //! Returns st_ino \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ino)
-  //! Returns st_type \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(type)
+    //! Returns st_ino \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ino)
+    //! Returns st_type \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(type)
 #ifndef WIN32
-  //! Returns st_perms \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(perms)
+    //! Returns st_perms \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(perms)
 #endif
-  //! Returns st_nlink \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(nlink)
+    //! Returns st_nlink \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(nlink)
 #ifndef WIN32
-  //! Returns st_uid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(uid)
-  //! Returns st_gid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gid)
-  //! Returns st_rdev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(rdev)
+    //! Returns st_uid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(uid)
+    //! Returns st_gid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gid)
+    //! Returns st_rdev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(rdev)
 #endif
-  //! Returns st_atim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(atim)
-  //! Returns st_mtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(mtim)
-  //! Returns st_ctim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ctim)
-  //! Returns st_size \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(size)
-  //! Returns st_allocated \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(allocated)
-  //! Returns st_blocks \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(blocks)
-  //! Returns st_blksize \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(blksize)
-  //! Returns st_flags \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(flags)
-  //! Returns st_gen \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gen)
-  //! Returns st_birthtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
-  BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(birthtim)
+    //! Returns st_atim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(atim)
+    //! Returns st_mtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(mtim)
+    //! Returns st_ctim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ctim)
+    //! Returns st_size \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(size)
+    //! Returns st_allocated \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(allocated)
+    //! Returns st_blocks \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(blocks)
+    //! Returns st_blksize \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(blksize)
+    //! Returns st_flags \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(flags)
+    //! Returns st_gen \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gen)
+    //! Returns st_birthtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(birthtim)
 
-  //! A bitfield of what metadata is available on this platform. This doesn't mean all is available for every filing system.
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW;
-  //! A bitfield of what metadata is fast on this platform. This doesn't mean all is available for every filing system.
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW;
-  //! The maximum number of entries which is "usual" to fetch at once i.e. what your libc does.
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW;
+    //! A bitfield of what metadata is available on this platform. This doesn't mean all is available for every filing system.
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW;
+    //! A bitfield of what metadata is fast on this platform. This doesn't mean all is available for every filing system.
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW;
+    //! The maximum number of entries which is "usual" to fetch at once i.e. what your libc does.
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW;
 };
 
 /*! \brief A hasher for directory_entry, hashing inode and birth time (if available on this platform).
@@ -828,16 +821,16 @@ struct directory_entry_hash
 public:
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 4310)  // cast truncates constant value
+#pragma warning(disable: 4310) // cast truncates constant value
 #endif
-  size_t operator()(const directory_entry &p) const
-  {
-    size_t seed = (size_t) 0x9ddfea08eb382d69ULL;
-    detail::hash_combine(seed, p.st_ino());
-    if(!!(directory_entry::metadata_supported() & metadata_flags::birthtim))
-      detail::hash_combine(seed, p.st_birthtim().time_since_epoch().count());
-    return seed;
-  }
+    size_t operator()(const directory_entry &p) const
+    {
+        size_t seed = (size_t) 0x9ddfea08eb382d69ULL;
+        detail::hash_combine(seed, p.st_ino());
+        if(!!(directory_entry::metadata_supported() & metadata_flags::birthtim))
+            detail::hash_combine(seed, p.st_birthtim().time_since_epoch().count());
+        return seed;
+    }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -850,64 +843,62 @@ by async_io_handle. This can consume considerable time, especially if SyncOnClos
 */
 class async_io_handle : public std::enable_shared_from_this<async_io_handle>
 {
-  friend class async_file_io_dispatcher_base;
-  friend struct detail::async_io_handle_posix;
-  friend struct detail::async_io_handle_windows;
-  friend class detail::async_file_io_dispatcher_compat;
-  friend class detail::async_file_io_dispatcher_windows;
-  friend class detail::async_file_io_dispatcher_linux;
-  friend class detail::async_file_io_dispatcher_qnx;
+    friend class async_file_io_dispatcher_base;
+    friend struct detail::async_io_handle_posix;
+    friend struct detail::async_io_handle_windows;
+    friend class detail::async_file_io_dispatcher_compat;
+    friend class detail::async_file_io_dispatcher_windows;
+    friend class detail::async_file_io_dispatcher_linux;
+    friend class detail::async_file_io_dispatcher_qnx;
 
-  async_file_io_dispatcher_base *_parent;
-  std::shared_ptr<async_io_handle> dirh;
-  chrono::system_clock::time_point _opened;
-  filesystem::path _path;  // guaranteed canonical
-  file_flags _flags;
-
+    async_file_io_dispatcher_base *_parent;
+    std::shared_ptr<async_io_handle> dirh;
+    chrono::system_clock::time_point _opened;
+    filesystem::path _path; // guaranteed canonical
+    file_flags _flags;
 protected:
-  atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
-  async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _path(path), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) {}
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC public : BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() {}
-  //! Returns the parent of this io handle
-  async_file_io_dispatcher_base *parent() const { return _parent; }
-  //! Returns a handle to the directory containing this handle. Only works if `file_flags::FastDirectoryEnumeration` was specified when this handle was opened.
-  std::shared_ptr<async_io_handle> container() const { return dirh; }
-  //! Returns the native handle of this io handle. On POSIX, you can cast this to a fd using `(int)(size_t) native_handle()`. On Windows it's a simple `(HANDLE) native_handle()`.
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      //! Returns when this handle was opened
-      const chrono::system_clock::time_point &opened() const
-  {
-    return _opened;
-  }
-  //! Returns the path of this io handle
-  const filesystem::path &path() const { return _path; }
-  //! Returns the final flags used when this handle was opened
-  file_flags flags() const { return _flags; }
-  //! True if this handle was opened as a file
-  bool opened_as_file() const { return !(_flags & file_flags::int_opening_dir) && !(_flags & file_flags::int_opening_link); }
-  //! True if this handle was opened as a directory
-  bool opened_as_dir() const { return !!(_flags & file_flags::int_opening_dir); }
-  //! True if this handle was opened as a symlink
-  bool opened_as_symlink() const { return !!(_flags & file_flags::int_opening_link); }
-  //! Returns how many bytes have been read since this handle was opened.
-  off_t read_count() const { return bytesread; }
-  //! Returns how many bytes have been written since this handle was opened.
-  off_t write_count() const { return byteswritten; }
-  //! Returns how many bytes have been written since this handle was last fsynced.
-  off_t write_count_since_fsync() const { return byteswritten - byteswrittenatlastfsync; }
-  //! Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted = directory_entry::metadata_fastpath()) const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
-      stat_t lstat(metadata_flags wanted = directory_entry::metadata_fastpath()) const
-  {
-    directory_entry de(direntry(wanted));
-    return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
-  }
-  //! Returns the target path of this handle if it is a symbolic link
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      //! Tries to map the file into memory. Currently only works if handle is read-only.
-      BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-
+    atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
+    async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _path(path), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+public:
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
+    //! Returns the parent of this io handle
+    async_file_io_dispatcher_base *parent() const { return _parent; }
+    //! Returns a handle to the directory containing this handle. Only works if `file_flags::FastDirectoryEnumeration` was specified when this handle was opened.
+    std::shared_ptr<async_io_handle> container() const { return dirh; }
+    //! Returns the native handle of this io handle. On POSIX, you can cast this to a fd using `(int)(size_t) native_handle()`. On Windows it's a simple `(HANDLE) native_handle()`.
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    //! Returns when this handle was opened
+    const chrono::system_clock::time_point &opened() const { return _opened; }
+    //! Returns the path of this io handle
+    const filesystem::path &path() const { return _path; }
+    //! Returns the final flags used when this handle was opened
+    file_flags flags() const { return _flags; }
+    //! True if this handle was opened as a file
+    bool opened_as_file() const { return !(_flags&file_flags::int_opening_dir) && !(_flags&file_flags::int_opening_link); }
+    //! True if this handle was opened as a directory
+    bool opened_as_dir() const { return !!(_flags&file_flags::int_opening_dir); }
+    //! True if this handle was opened as a symlink
+    bool opened_as_symlink() const { return !!(_flags&file_flags::int_opening_link); }
+    //! Returns how many bytes have been read since this handle was opened.
+    off_t read_count() const { return bytesread; }
+    //! Returns how many bytes have been written since this handle was opened.
+    off_t write_count() const { return byteswritten; }
+    //! Returns how many bytes have been written since this handle was last fsynced.
+    off_t write_count_since_fsync() const { return byteswritten-byteswrittenatlastfsync; }
+    //! Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
+    stat_t lstat(metadata_flags wanted=directory_entry::metadata_fastpath()) const
+    {
+        directory_entry de(direntry(wanted));
+        return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
+    }
+    //! Returns the target path of this handle if it is a symbolic link
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    //! Tries to map the file into memory. Currently only works if handle is read-only.
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    
 #if 0
     // Undocumented deliberately
     enum class change_flags : size_t
@@ -946,95 +937,77 @@ The id field is always valid (and non-zero) if this reference is valid.
 */
 struct async_io_op
 {
-  async_file_io_dispatcher_base *parent;              //!< The parent dispatcher
-  size_t id;                                          //!< A unique id for this operation
-  shared_future<std::shared_ptr<async_io_handle>> h;  //!< A future handle to the item being operated upon
+    async_file_io_dispatcher_base *parent;              //!< The parent dispatcher
+    size_t id;                                          //!< A unique id for this operation
+    shared_future<std::shared_ptr<async_io_handle>> h;  //!< A future handle to the item being operated upon
 
-  //! \constr
-  async_io_op() : parent(nullptr), id(0), h(shared_future<std::shared_ptr<async_io_handle>>()) {}
-//! \cconstr
-#if 0  // used to find where std::move() isn't being used, and should be
+    //! \constr
+    async_io_op() : parent(nullptr), id(0), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
+    //! \cconstr
+#if 0 // used to find where std::move() isn't being used, and should be
     //async_io_op(const async_io_op &o);
 #else
-  async_io_op(const async_io_op &o) : parent(o.parent), id(o.id), h(o.h) {}
+    async_io_op(const async_io_op &o) : parent(o.parent), id(o.id), h(o.h) { }
 #endif
-  //! \mconstr
-  async_io_op(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) {}
-  /*! Constructs an instance.
-  \param _parent The dispatcher this op belongs to.
-  \param _id The unique non-zero id of this op.
-  \param _handle A shared_ptr to shared state between all instances of this reference.
-  \param check_handle Whether to have validation additionally check if a handle is not null
-  \param validate Whether to check the inputs and shared state for valid (and not errored) values
-  */
-  async_io_op(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle = true, bool validate = true) : parent(_parent), id(_id), h(std::move(_handle))
-  {
-    if(validate)
-      _validate(check_handle);
-  }
-  /*! Constructs an instance.
-  \param _parent The dispatcher this op belongs to.
-  \param _id The unique non-zero id of this op.
-  */
-  async_io_op(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(shared_future<std::shared_ptr<async_io_handle>>()) {}
-  //! \cassign
-  async_io_op &operator=(const async_io_op &o)
-  {
-    parent = o.parent;
-    id = o.id;
-    h = o.h;
-    return *this;
-  }
-  //! \massign
-  async_io_op &operator=(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW
-  {
-    parent = std::move(o.parent);
-    id = std::move(o.id);
-    h = std::move(o.h);
-    return *this;
-  }
-  //! Retrieves the handle or exception from the shared state. Same as h.get().
-  std::shared_ptr<async_io_handle> get(bool return_null_if_errored = false) const
-  {
-    if(!parent && !id)
-      return std::shared_ptr<async_io_handle>();
-    // std::shared_future in older libstdc++ does not have a const get().
-    if(!return_null_if_errored)
-      return const_cast<async_io_op *>(this)->h.get();
-    auto e = get_exception_ptr(h);
-    return e ? std::shared_ptr<async_io_handle>() : const_cast<async_io_op *>(this)->h.get();
-  }
-  //! Dereferences the handle from the shared state. Same as *h.get().
-  const async_io_handle &operator*() const { return *get(); }
-  //! Dereferences the handle from the shared state. Same as *h.get().
-  async_io_handle &operator*() { return *get(); }
-  //! Dereferences the handle from the shared state. Same as h.get()->get().
-  const async_io_handle *operator->() const { return get().get(); }
-  //! Dereferences the handle from the shared state. Same as h.get()->get().
-  async_io_handle *operator->() { return get().get(); }
-  //! Validates contents
-  bool validate(bool check_handle = true) const
-  {
-    if(!parent || !id)
-      return false;
-    // If h is valid and ready and contains an exception, throw it now
-    if(h.valid() && is_ready(h))
+    //! \mconstr
+    async_io_op(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
+    /*! Constructs an instance.
+    \param _parent The dispatcher this op belongs to.
+    \param _id The unique non-zero id of this op.
+    \param _handle A shared_ptr to shared state between all instances of this reference.
+    \param check_handle Whether to have validation additionally check if a handle is not null
+    \param validate Whether to check the inputs and shared state for valid (and not errored) values
+    */
+    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
+    /*! Constructs an instance.
+    \param _parent The dispatcher this op belongs to.
+    \param _id The unique non-zero id of this op.
+    */
+    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
+    //! \cassign
+    async_io_op &operator=(const async_io_op &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
+    //! \massign
+    async_io_op &operator=(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
+    //! Retrieves the handle or exception from the shared state. Same as h.get().
+    std::shared_ptr<async_io_handle> get(bool return_null_if_errored=false) const
     {
-      if(check_handle)
-        if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(h).get().get())
-          return false;
+        if(!parent && !id)
+            return std::shared_ptr<async_io_handle>();
+        // std::shared_future in older libstdc++ does not have a const get().
+        if(!return_null_if_errored)
+            return const_cast<async_io_op *>(this)->h.get();
+        auto e=get_exception_ptr(h);
+        return e ? std::shared_ptr<async_io_handle>() : const_cast<async_io_op *>(this)->h.get();
     }
-    return true;
-  }
-
+    //! Dereferences the handle from the shared state. Same as *h.get().
+    const async_io_handle &operator *() const { return *get(); }
+    //! Dereferences the handle from the shared state. Same as *h.get().
+    async_io_handle &operator *() { return *get(); }
+    //! Dereferences the handle from the shared state. Same as h.get()->get().
+    const async_io_handle *operator->() const { return get().get(); }
+    //! Dereferences the handle from the shared state. Same as h.get()->get().
+    async_io_handle *operator->() { return get().get(); }
+    //! Validates contents
+    bool validate(bool check_handle=true) const
+    {
+        if(!parent || !id) return false;
+        // If h is valid and ready and contains an exception, throw it now
+        if(h.valid() && is_ready(h))
+        {
+            if(check_handle)
+                if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(h).get().get())
+                    return false;
+        }
+        return true;
+    }
 private:
-  void _validate(bool check_handle = true) const
-  {
+    void _validate(bool check_handle=true) const
+    {
 #if BOOST_AFIO_VALIDATE_INPUTS
-    if(!validate(check_handle))
-      BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+        if(!validate(check_handle))
+            BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-  }
+    }
 };
 
 // This is a result_of filter to work around the weird mix of brittle decltype(), SFINAE incapable
@@ -1060,18 +1033,18 @@ namespace detail
         typedef typename std::result_of<R (T::*const)(Args...) const>::type type;
     };
 #else
-  /*
-  call(const std::vector<async_io_op> &ops             , const std::vector<std::function<R()>> &callables              );
-  call(const std::vector<std::function<R()>> &callables                                                                );
-  call(const async_io_op &req                          , std::function<R()> callback                                   );
-  call(const async_io_op &req                          , C callback                                      , Args... args);
-  */
-  template <class C, class... Args> struct vs2013_variadic_overload_resolution_workaround
-  {
-    typedef typename std::result_of<C(Args...)>::type type;
-  };
-  // Disable C being a const std::vector<std::function<R()>> &callables
-  template <class T, class... Args> struct vs2013_variadic_overload_resolution_workaround<std::vector<T>, Args...>;
+    /*
+    call(const std::vector<async_io_op> &ops             , const std::vector<std::function<R()>> &callables              );
+    call(const std::vector<std::function<R()>> &callables                                                                );
+    call(const async_io_op &req                          , std::function<R()> callback                                   );
+    call(const async_io_op &req                          , C callback                                      , Args... args);
+    */
+    template<class C, class... Args> struct vs2013_variadic_overload_resolution_workaround
+    {
+        typedef typename std::result_of<C(Args...)>::type type;
+    };
+    // Disable C being a const std::vector<std::function<R()>> &callables
+    template<class T, class... Args> struct vs2013_variadic_overload_resolution_workaround<std::vector<T>, Args...>;
 #endif
 }
 
@@ -1096,763 +1069,758 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 */
 class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_from_this<async_file_io_dispatcher_base>
 {
-  // friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
-  friend struct detail::async_io_handle_posix;
-  friend struct detail::async_io_handle_windows;
-  friend class detail::async_file_io_dispatcher_compat;
-  friend class detail::async_file_io_dispatcher_windows;
-  friend class detail::async_file_io_dispatcher_linux;
-  friend class detail::async_file_io_dispatcher_qnx;
+    //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
+    friend struct detail::async_io_handle_posix;
+    friend struct detail::async_io_handle_windows;
+    friend class detail::async_file_io_dispatcher_compat;
+    friend class detail::async_file_io_dispatcher_windows;
+    friend class detail::async_file_io_dispatcher_linux;
+    friend class detail::async_file_io_dispatcher_qnx;
 
-  detail::async_file_io_dispatcher_base_p *p;
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
-
+    detail::async_file_io_dispatcher_base_p *p;
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
 protected:
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
-  std::pair<bool, std::shared_ptr<async_io_handle>> doadopt(size_t, async_io_op, std::shared_ptr<async_io_handle> h) { return std::make_pair(true, h); }
-
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
+    std::pair<bool, std::shared_ptr<async_io_handle>> doadopt(size_t, async_io_op, std::shared_ptr<async_io_handle> h)
+    {
+        return std::make_pair(true, h);
+    }
 public:
-  //! Destroys the dispatcher, blocking inefficiently if any ops are still in flight.
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_file_io_dispatcher_base();
+    //! Destroys the dispatcher, blocking inefficiently if any ops are still in flight.
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_file_io_dispatcher_base();
 
-  //! Returns the thread source used by this dispatcher
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<thread_source> threadsource() const;
-  //! Returns file flags as would be used after forcing and masking bits passed during construction
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC file_flags fileflags(file_flags flags) const;
-  //! Returns the current wait queue depth of this dispatcher
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t wait_queue_depth() const;
-  //! Returns the number of open items in this dispatcher
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t fd_count() const;
-  /*! \brief Returns an op ref for a given \b currently scheduled op id, throwing an exception if id not scheduled at the point of call.
-  Can be used to retrieve exception state from some op id, or one's own shared future.
+    //! Returns the thread source used by this dispatcher
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<thread_source> threadsource() const;
+    //! Returns file flags as would be used after forcing and masking bits passed during construction
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC file_flags fileflags(file_flags flags) const;
+    //! Returns the current wait queue depth of this dispatcher
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t wait_queue_depth() const;
+    //! Returns the number of open items in this dispatcher
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t fd_count() const;
+    /*! \brief Returns an op ref for a given \b currently scheduled op id, throwing an exception if id not scheduled at the point of call.
+    Can be used to retrieve exception state from some op id, or one's own shared future.
+    
+    \return An async_io_op with the same shared future as all op refs with this id.
+    \param id The unique integer id for the op.
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op op_from_scheduled_id(size_t id) const;
 
-  \return An async_io_op with the same shared future as all op refs with this id.
-  \param id The unique integer id for the op.
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op op_from_scheduled_id(size_t id) const;
+    //! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
+    typedef void filter_t(detail::OpType, async_io_op &);
+    //! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
+    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
+    /*! \brief Clears the post op and readwrite filters. Not threadsafe.
 
-  //! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
-  typedef void filter_t(detail::OpType, async_io_op &);
-  //! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
-  typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
-  /*! \brief Clears the post op and readwrite filters. Not threadsafe.
+    \ingroup async_file_io_dispatcher_base__filter
+    \complexity{O(1).}
+    \qexample{filter_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter_clear();
+    /*! \brief Install op filters for non-buffer taking ops. Not threadsafe.
 
-  \ingroup async_file_io_dispatcher_base__filter
-  \complexity{O(1).}
-  \qexample{filter_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter_clear();
-  /*! \brief Install op filters for non-buffer taking ops. Not threadsafe.
+    `std::function<async_file_io_dispatcher_base::filter_t>` will be called after every op of type `detail::OpType`
+    completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type and op output.
 
-  `std::function<async_file_io_dispatcher_base::filter_t>` will be called after every op of type `detail::OpType`
-  completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type and op output.
+    Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done
+    for every op completed. The filter is called straight after an op's future is set and before any completions
+    are issued. Any exceptions thrown by the filter are thrown away.
 
-  Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done
-  for every op completed. The filter is called straight after an op's future is set and before any completions
-  are issued. Any exceptions thrown by the filter are thrown away.
+    \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`
+    \ingroup async_file_io_dispatcher_base__filter
+    \complexity{O(N) where N is the total number of filters currently configured.}
+    \qexample{filter_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters);
+    /*! \brief Install read/write op filters, useful for tight ASIO integration. Not threadsafe.
 
-  \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`
-  \ingroup async_file_io_dispatcher_base__filter
-  \complexity{O(N) where N is the total number of filters currently configured.}
-  \qexample{filter_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters);
-  /*! \brief Install read/write op filters, useful for tight ASIO integration. Not threadsafe.
+    `std::function<async_file_io_dispatcher_base::filter_buffers_t>` will be called after every op of type `detail::OpType`
+    completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type, file handle, op input, 
+    file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write()
+    will be ignored, for those use post_op_filter().
 
-  `std::function<async_file_io_dispatcher_base::filter_buffers_t>` will be called after every op of type `detail::OpType`
-  completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type, file handle, op input,
-  file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write()
-  will be ignored, for those use post_op_filter().
+    Note that buffer filters are currently implemented as a linear scan, so a full iteration of all buffer filters is done
+    for every read/write op completed. The filter is called straight after a read or write operation has completed, and
+    BEFORE any checks that it transferred the data it was supposed to. Any exceptions thrown by the filter are reported
+    as if the read/write operation threw them, and filter processing stops at the filter which threw.
 
-  Note that buffer filters are currently implemented as a linear scan, so a full iteration of all buffer filters is done
-  for every read/write op completed. The filter is called straight after a read or write operation has completed, and
-  BEFORE any checks that it transferred the data it was supposed to. Any exceptions thrown by the filter are reported
-  as if the read/write operation threw them, and filter processing stops at the filter which threw.
+    \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`
+    \ingroup async_file_io_dispatcher_base__filter
+    \complexity{O(N) where N is the total number of filters currently configured.}
+    \qexample{filter_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters);
 
-  \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`
-  \ingroup async_file_io_dispatcher_base__filter
-  \complexity{O(N) where N is the total number of filters currently configured.}
-  \qexample{filter_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters);
-
-  //! The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
-  typedef std::pair<bool, std::shared_ptr<async_io_handle>> completion_returntype;
-  //! The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
-  typedef completion_returntype completion_t(size_t, async_io_op);
+    //! The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
+    typedef std::pair<bool, std::shared_ptr<async_io_handle>> completion_returntype;
+    //! The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
+    typedef completion_returntype completion_t(size_t, async_io_op);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-#if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) || BOOST_AFIO_HEADERS_ONLY == 0  // Only really used for benchmarking
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> &callbacks);
-  inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback);
+#if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) || BOOST_AFIO_HEADERS_ONLY==0 // Only really used for benchmarking
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> &callbacks);
+    inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback);
 #endif
 #endif
-  /*! \brief Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete.
+    /*! \brief Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete.
+    
+    \return A batch of op handles
+    \param ops A batch of precondition op handles.
+    \param callbacks A batch of pairs of op flags and bound completion handler functions of type `completion_t`
+    \ingroup async_file_io_dispatcher_base__completion
+    \qbk{distinguish, batch bound functions}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
+    \exceptionmodelstd
+    \qexample{completion_example1}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks);
+    /*! \brief Schedule the asynchronous invocation of the specified single function when the supplied single operation completes.
+    
+    \return An op handle
+    \param req A precondition op handle
+    \param callback A pair of op flag and bound completion handler function of type `completion_t`
+    \ingroup async_file_io_dispatcher_base__completion
+    \qbk{distinguish, single bound function}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
+    \exceptionmodelstd
+    \qexample{completion_example1}
+    */
+    inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback);
 
-  \return A batch of op handles
-  \param ops A batch of precondition op handles.
-  \param callbacks A batch of pairs of op flags and bound completion handler functions of type `completion_t`
-  \ingroup async_file_io_dispatcher_base__completion
-  \qbk{distinguish, batch bound functions}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
-  \exceptionmodelstd
-  \qexample{completion_example1}
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks);
-  /*! \brief Schedule the asynchronous invocation of the specified single function when the supplied single operation completes.
+    /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
+    
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
+    handler specification and calls the specified arbitrary callable, always returning completion on exit.
+    
+    \return A pair with a batch of futures returning the result of each of the callables and a batch of op handles.
+    \tparam "class R" A compiler deduced return type of the bound functions.
+    \param ops A batch of precondition op handles. If default constructed, a precondition is null.
+    \param callables A batch of bound functions to call, returning R.
+    \ingroup async_file_io_dispatcher_base__call
+    \qbk{distinguish, batch bound functions}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
+    \exceptionmodelstd
+    \qexample{call_example}
+    */
+    template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables);
+    /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
 
-  \return An op handle
-  \param req A precondition op handle
-  \param callback A pair of op flag and bound completion handler function of type `completion_t`
-  \ingroup async_file_io_dispatcher_base__completion
-  \qbk{distinguish, single bound function}
-  \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
-  \exceptionmodelstd
-  \qexample{completion_example1}
-  */
-  inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback);
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
+    handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
+    are seeing performance issues, using `completion()` directly will have much less overhead.
+    
+    \return A pair with a batch of futures returning the result of each of the callables and a batch of op handles.
+    \tparam "class R" A compiler deduced return type of the bound functions.
+    \param callables A batch of bound functions to call, returning R.
+    \ingroup async_file_io_dispatcher_base__call
+    \qbk{distinguish, batch bound functions without preconditions}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
+    \exceptionmodelstd
+    \qexample{call_example}
+    */
+    template<class R> std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> call(const std::vector<std::function<R()>> &callables) { return call(std::vector<async_io_op>(), callables); }
+    /*! \brief Schedule an asynchronous invocation of the specified bound function when its supplied precondition completes.
 
-  /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
+    handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
+    are seeing performance issues, using `completion()` directly will have much less overhead.
+    
+    \return A pair with a future returning the result of the callable and an op handle.
+    \tparam "class R" A compiler deduced return type of the bound functions.
+    \param req A precondition op handle. If default constructed, the precondition is null.
+    \param callback A bound functions to call, returning R.
+    \ingroup async_file_io_dispatcher__call
+    \qbk{distinguish, single bound function}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
+    \exceptionmodelstd
+    \qexample{call_example}
+    */
+    template<class R> inline std::pair<shared_future<R>, async_io_op> call(const async_io_op &req, std::function<R()> callback);
 
-  This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
-  handler specification and calls the specified arbitrary callable, always returning completion on exit.
+    
+    
+         
+    /*! \brief Schedule an asynchronous invocation of the specified unbound callable when its supplied precondition completes.
+    Note that this function essentially calls `std::bind()` on the callable and the args and passes it to the other call() overload taking a `std::function<>`.
+    You should therefore use `std::ref()` etc. as appropriate.
 
-  \return A pair with a batch of futures returning the result of each of the callables and a batch of op handles.
-  \tparam "class R" A compiler deduced return type of the bound functions.
-  \param ops A batch of precondition op handles. If default constructed, a precondition is null.
-  \param callables A batch of bound functions to call, returning R.
-  \ingroup async_file_io_dispatcher_base__call
-  \qbk{distinguish, batch bound functions}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
-  \exceptionmodelstd
-  \qexample{call_example}
-  */
-  template <class R> inline std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables);
-  /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
-
-  This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
-  handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
-  are seeing performance issues, using `completion()` directly will have much less overhead.
-
-  \return A pair with a batch of futures returning the result of each of the callables and a batch of op handles.
-  \tparam "class R" A compiler deduced return type of the bound functions.
-  \param callables A batch of bound functions to call, returning R.
-  \ingroup async_file_io_dispatcher_base__call
-  \qbk{distinguish, batch bound functions without preconditions}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
-  \exceptionmodelstd
-  \qexample{call_example}
-  */
-  template <class R> std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> call(const std::vector<std::function<R()>> &callables) { return call(std::vector<async_io_op>(), callables); }
-  /*! \brief Schedule an asynchronous invocation of the specified bound function when its supplied precondition completes.
-
-  This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
-  handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
-  are seeing performance issues, using `completion()` directly will have much less overhead.
-
-  \return A pair with a future returning the result of the callable and an op handle.
-  \tparam "class R" A compiler deduced return type of the bound functions.
-  \param req A precondition op handle. If default constructed, the precondition is null.
-  \param callback A bound functions to call, returning R.
-  \ingroup async_file_io_dispatcher__call
-  \qbk{distinguish, single bound function}
-  \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
-  \exceptionmodelstd
-  \qexample{call_example}
-  */
-  template <class R> inline std::pair<shared_future<R>, async_io_op> call(const async_io_op &req, std::function<R()> callback);
-
-
-/*! \brief Schedule an asynchronous invocation of the specified unbound callable when its supplied precondition completes.
-Note that this function essentially calls `std::bind()` on the callable and the args and passes it to the other call() overload taking a `std::function<>`.
-You should therefore use `std::ref()` etc. as appropriate.
-
-This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
-handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
-are seeing performance issues, using `completion()` directly will have much less overhead.
-
-\return A pair with a future returning the result of the callable and an op handle.
-\tparam "class C" Any callable type.
-\tparam Args Any sequence of argument types.
-\param req A precondition op handle. If default constructed, the precondition is null.
-\param callback An unbound callable to call.
-\param args An arbitrary sequence of arguments to bind to the callable.
-\ingroup async_file_io_dispatcher_base__call
-\qbk{distinguish, single unbound callable}
-\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
-\exceptionmodelstd
-\qexample{call_example}
-*/
+    This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
+    handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
+    are seeing performance issues, using `completion()` directly will have much less overhead.
+    
+    \return A pair with a future returning the result of the callable and an op handle.
+    \tparam "class C" Any callable type.
+    \tparam Args Any sequence of argument types.
+    \param req A precondition op handle. If default constructed, the precondition is null.
+    \param callback An unbound callable to call.
+    \param args An arbitrary sequence of arguments to bind to the callable.
+    \ingroup async_file_io_dispatcher_base__call
+    \qbk{distinguish, single unbound callable}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
+    \exceptionmodelstd
+    \qexample{call_example}
+    */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-  template <class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> call(const async_io_op &req, C callback, Args... args);
+    template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> call(const async_io_op &req, C callback, Args... args);
 #else
-  template <class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, async_io_op> call(const async_io_op &req, C callback, Args... args);
+    template<class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, async_io_op> call(const async_io_op &req, C callback, Args... args);
 #endif
 
 
-  /*! \brief Schedule a batch of third party handle adoptions.
 
-  This function enables you to adopt third party custom async_io_handle derivatives
-  as ops into the scheduler. Think of it as if you were calling file(), except the
-  op returns the supplied handle and otherwise does nothing.
+    /*! \brief Schedule a batch of third party handle adoptions.
 
-  \return A batch of op handles.
-  \param hs A batch of handles to adopt.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
-  \exceptionmodelstd
-  \qexample{adopt_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
-  /*! \brief Schedule an adoption of a third party handle.
+    This function enables you to adopt third party custom async_io_handle derivatives
+    as ops into the scheduler. Think of it as if you were calling file(), except the
+    op returns the supplied handle and otherwise does nothing.
 
-  This function enables you to adopt third party custom async_io_handle derivatives
-  as ops into the scheduler. Think of it as if you were calling file(), except the
-  op returns the supplied handle and otherwise does nothing.
+    \return A batch of op handles.
+    \param hs A batch of handles to adopt.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
+    \exceptionmodelstd
+    \qexample{adopt_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
+    /*! \brief Schedule an adoption of a third party handle.
 
-  \return An op handle.
-  \param h A handle to adopt.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, single}
-  \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-  \exceptionmodelstd
-  \qexample{adopt_example}
-  */
-  inline async_io_op adopt(std::shared_ptr<async_io_handle> h);
-  /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
+    This function enables you to adopt third party custom async_io_handle derivatives
+    as ops into the scheduler. Think of it as if you were calling file(), except the
+    op returns the supplied handle and otherwise does nothing.
 
-  Note that if there is already a handle open to the directory requested, that will be returned instead of
-  a new handle unless file_flags::UniqueDirectoryHandle is specified.
+    \return An op handle.
+    \param h A handle to adopt.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+    \exceptionmodelstd
+    \qexample{adopt_example}
+    */
+    inline async_io_op adopt(std::shared_ptr<async_io_handle> h);
+    /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
-  \return A batch of op handles.
-  \param reqs A batch of `async_path_op_req` structures.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory creation is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous directory creation and open after an optional precondition.
+    Note that if there is already a handle open to the directory requested, that will be returned instead of
+    a new handle unless file_flags::UniqueDirectoryHandle is specified.
 
-      Note that if there is already a handle open to the directory requested, that will be returned instead of
-      a new handle unless file_flags::UniqueDirectoryHandle is specified.
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous directory creation and open after an optional precondition.
 
-      \return An op handle.
-      \param req An `async_path_op_req` structure.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op dir(const async_path_op_req &req);
-  /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
+    Note that if there is already a handle open to the directory requested, that will be returned instead of
+    a new handle unless file_flags::UniqueDirectoryHandle is specified.
 
-  \return A batch of op handles.
-  \param reqs A batch of `async_path_op_req` structures.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory deletion is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op dir(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
+    
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory deletion is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
+    
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op rmdir(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
+    
+    Be aware that any files created are by default sparse if supported on the local filing system. Use
+    file_flags::NoSparse to prevent this on those filing systems which permit it.
+    
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
+    
+    Be aware that any files created are by default sparse if supported on the local filing system. Use
+    file_flags::NoSparse to prevent this on those filing systems which permit it.
+    
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op file(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous file deletions after optional preconditions.
+    
+    Note that you can delete files before they are closed on Windows just as with POSIX if and only
+    if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+    this). The actual file data will be deleted when the last handle is closed on the system.
+    
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file deletion is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous file deletion after an optional precondition.
+    
+    Note that you can delete files before they are closed on Windows just as with POSIX if and only
+    if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+    this). The actual file data will be deleted when the last handle is closed on the system.
+    
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op rmfile(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous symlink creations and opens after a precondition.
 
-      \return An op handle.
-      \param req An `async_path_op_req` structure.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op rmdir(const async_path_op_req &req);
-  /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
+    Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
+    point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
+    users.
 
-  Be aware that any files created are by default sparse if supported on the local filing system. Use
-  file_flags::NoSparse to prevent this on those filing systems which permit it.
+    Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
 
-  \return A batch of op handles.
-  \param reqs A batch of `async_path_op_req` structures.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file creation is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if symlink creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous symlink creation and open after a precondition.
 
-      Be aware that any files created are by default sparse if supported on the local filing system. Use
-      file_flags::NoSparse to prevent this on those filing systems which permit it.
+    Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
+    point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
+    users.
 
-      \return An op handle.
-      \param req An `async_path_op_req` structure.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op file(const async_path_op_req &req);
-  /*! \brief Schedule a batch of asynchronous file deletions after optional preconditions.
+    Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
 
-  Note that you can delete files before they are closed on Windows just as with POSIX if and only
-  if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
-  this). The actual file data will be deleted when the last handle is closed on the system.
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if symlink creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op symlink(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
+    
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if symlink deletion is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous symlink deletion after an optional precondition.
+    
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if symlink deletion is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op rmsymlink(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous content synchronisations with physical storage after preceding operations.
+    
+    \return A batch of op handles.
+    \param ops A batch of op handles.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if content synchronisation is constant time (which is extremely unlikely).}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> sync(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous content synchronisation with physical storage after a preceding operation.
+    
+    \return An op handle.
+    \param req An op handle.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if content synchronisation is constant time (which is extremely unlikely).}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
+    inline async_io_op sync(const async_io_op &req);
+    /*! \brief Schedule a batch of asynchronous zeroing and deallocations of physical storage ("hole punching") after preceding operations.
+    
+    Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
+    and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading
+    those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros
+    for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
+    sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
+    on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
+    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically
+    detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API
+    that we are aware of, and so zeros are simply written.
+    
+    \return A batch of op handles.
+    \param ops A batch of op handles.
+    \param ranges A batch of vectors of extents to zero and deallocate.
+    \ingroup async_file_io_dispatcher_base__extents
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if deallocation is constant time.}
+    \exceptionmodelstd
+    \qexample{extents_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation.
+    
+    Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
+    and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading
+    those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros
+    for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
+    sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
+    on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
+    if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically
+    detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API
+    that we are aware of, and so zeros are simply written.
+    
+    \return An op handle.
+    \param req An op handle.
+    \param ranges A vector of extents to zero and deallocate.
+    \ingroup async_file_io_dispatcher_base__extents
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
+    \exceptionmodelstd
+    \qexample{extents_example}
+    */
+    inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
+    /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
+    
+    Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
+    by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
-  \return A batch of op handles.
-  \param reqs A batch of `async_path_op_req` structures.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file deletion is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous file deletion after an optional precondition.
+    \return A batch of op handles.
+    \param ops A batch of op handles.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if closing handles is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous file or directory handle close after a preceding operation.
+    
+    Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
+    by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
-      Note that you can delete files before they are closed on Windows just as with POSIX if and only
-      if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
-      this). The actual file data will be deleted when the last handle is closed on the system.
+    \return An op handle.
+    \param req An op handle.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if closing handles is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op close(const async_io_op &req);
 
-      \return An op handle.
-      \param req An `async_path_op_req` structure.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op rmfile(const async_path_op_req &req);
-  /*! \brief Schedule a batch of asynchronous symlink creations and opens after a precondition.
+    /*! \brief Schedule a batch of asynchronous data reads after preceding operations, where
+    offset and total data read must not exceed the present file size.
 
-  Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
-  point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
-  users.
-
-  Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
-
-  \return A batch of op handles.
-  \param reqs A batch of `async_path_op_req` structures.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if symlink creation is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous symlink creation and open after a precondition.
-
-      Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
-      point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
-      users.
-
-      Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
-
-      \return An op handle.
-      \param req An `async_path_op_req` structure.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if symlink creation is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op symlink(const async_path_op_req &req);
-  /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
-
-  \return A batch of op handles.
-  \param reqs A batch of `async_path_op_req` structures.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if symlink deletion is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous symlink deletion after an optional precondition.
-
-      \return An op handle.
-      \param req An `async_path_op_req` structure.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if symlink deletion is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op rmsymlink(const async_path_op_req &req);
-  /*! \brief Schedule a batch of asynchronous content synchronisations with physical storage after preceding operations.
-
-  \return A batch of op handles.
-  \param ops A batch of op handles.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if content synchronisation is constant time (which is extremely unlikely).}
-  \exceptionmodelstd
-  \qexample{readwrite_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> sync(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous content synchronisation with physical storage after a preceding operation.
-
-      \return An op handle.
-      \param req An op handle.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if content synchronisation is constant time (which is extremely unlikely).}
-      \exceptionmodelstd
-      \qexample{readwrite_example}
-      */
-      inline async_io_op sync(const async_io_op &req);
-  /*! \brief Schedule a batch of asynchronous zeroing and deallocations of physical storage ("hole punching") after preceding operations.
-
-  Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
-  and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading
-  those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros
-  for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
-  sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
-  on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
-  if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically
-  detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API
-  that we are aware of, and so zeros are simply written.
-
-  \return A batch of op handles.
-  \param ops A batch of op handles.
-  \param ranges A batch of vectors of extents to zero and deallocate.
-  \ingroup async_file_io_dispatcher_base__extents
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if deallocation is constant time.}
-  \exceptionmodelstd
-  \qexample{extents_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation.
-
-      Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
-      and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading
-      those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros
-      for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates
-      sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is
-      on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE which
-      if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically
-      detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API
-      that we are aware of, and so zeros are simply written.
-
-      \return An op handle.
-      \param req An op handle.
-      \param ranges A vector of extents to zero and deallocate.
-      \ingroup async_file_io_dispatcher_base__extents
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
-      \exceptionmodelstd
-      \qexample{extents_example}
-      */
-      inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
-  /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
-
-  Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
-  by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
-
-  \return A batch of op handles.
-  \param ops A batch of op handles.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if closing handles is constant time.}
-  \exceptionmodelstd
-  \qexample{filedir_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous file or directory handle close after a preceding operation.
-
-      Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
-      by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
-
-      \return An op handle.
-      \param req An op handle.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if closing handles is constant time.}
-      \exceptionmodelstd
-      \qexample{filedir_example}
-      */
-      inline async_io_op close(const async_io_op &req);
-
-/*! \brief Schedule a batch of asynchronous data reads after preceding operations, where
-offset and total data read must not exceed the present file size.
-
-\direct_io_note
-\return A batch of op handles.
-\tparam "class T" Any type.
-\param ops A batch of async_data_op_req<T> structures.
-\ingroup async_file_io_dispatcher_base__filedirops
-\qbk{distinguish, batch}
-\complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if reading data is constant time.}
-\exceptionmodelstd
-\qexample{readwrite_example}
-*/
+    \direct_io_note
+    \return A batch of op handles.
+    \tparam "class T" Any type.
+    \param ops A batch of async_data_op_req<T> structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if reading data is constant time.}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC template <class T> inline std::vector<async_io_op> read(const std::vector<async_data_op_req<T>> &ops);
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> inline std::vector<async_io_op> read(const std::vector<async_data_op_req<T>> &ops);
 #else
-  template <class T>
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<async_data_op_req<T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<async_data_op_req<T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 #endif
-/*! \brief Schedule an asynchronous data read after a preceding operation, where
-offset and total data read must not exceed the present file size.
+    /*! \brief Schedule an asynchronous data read after a preceding operation, where
+    offset and total data read must not exceed the present file size.
 
-\direct_io_note
-\return An op handle.
-\tparam "class T" Any type.
-\param req An async_data_op_req<T> structure.
-\ingroup async_file_io_dispatcher_base__filedirops
-\qbk{distinguish, single}
-\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if reading data is constant time.}
-\exceptionmodelstd
-\qexample{readwrite_example}
-*/
+    \direct_io_note
+    \return An op handle.
+    \tparam "class T" Any type.
+    \param req An async_data_op_req<T> structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if reading data is constant time.}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-  inline async_io_op read(const detail::async_data_op_req_impl<false> &req);
+    inline async_io_op read(const detail::async_data_op_req_impl<false> &req);
 #else
-      template <class T>
-      inline async_io_op read(const async_data_op_req<T> &req);
+    template<class T> inline async_io_op read(const async_data_op_req<T> &req);
 #endif
-/*! \brief Schedule a batch of asynchronous data writes after preceding operations, where
-offset and total data written must not exceed the present file size.
+    /*! \brief Schedule a batch of asynchronous data writes after preceding operations, where
+    offset and total data written must not exceed the present file size.
 
-\direct_io_note
-\return A batch of op handles.
-\tparam "class T" Any type.
-\param ops A batch of async_data_op_req<const T> structures.
-\ingroup async_file_io_dispatcher_base__filedirops
-\qbk{distinguish, batch}
-\complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if writing data is constant time.}
-\exceptionmodelstd
-\qexample{readwrite_example}
-*/
+    \direct_io_note
+    \return A batch of op handles.
+    \tparam "class T" Any type.
+    \param ops A batch of async_data_op_req<const T> structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if writing data is constant time.}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC template <class T> inline std::vector<async_io_op> write(const std::vector<async_data_op_req<T>> &ops);
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> inline std::vector<async_io_op> write(const std::vector<async_data_op_req<T>> &ops);
 #else
-  template <class T>
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<async_data_op_req<const T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<async_data_op_req<const T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 #endif
-/*! \brief Schedule an asynchronous data write after a preceding operation, where
-offset and total data written must not exceed the present file size.
+    /*! \brief Schedule an asynchronous data write after a preceding operation, where
+    offset and total data written must not exceed the present file size.
 
-\direct_io_note
-\return An op handle.
-\tparam "class T" Any type.
-\param req An async_data_op_req<const T> structure.
-\ingroup async_file_io_dispatcher_base__filedirops
-\qbk{distinguish, single}
-\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if writing data is constant time.}
-\exceptionmodelstd
-\qexample{readwrite_example}
-*/
+    \direct_io_note
+    \return An op handle.
+    \tparam "class T" Any type.
+    \param req An async_data_op_req<const T> structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if writing data is constant time.}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-  inline async_io_op write(const detail::async_data_op_req_impl<true> &req);
+    inline async_io_op write(const detail::async_data_op_req_impl<true> &req);
 #else
-      template <class T>
-      inline async_io_op write(const async_data_op_req<const T> &req);
+    template<class T> inline async_io_op write(const async_data_op_req<const T> &req);
 #endif
 
-  /*! \brief Schedule a batch of asynchronous file length truncations after preceding operations.
+    /*! \brief Schedule a batch of asynchronous file length truncations after preceding operations.
+    
+    \return A batch of op handles.
+    \param ops A batch of op handles.
+    \param sizes A batch of new lengths.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if truncating file lengths is constant time.}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous file length truncation after a preceding operation.
+    
+    \return An op handle.
+    \param op An op handle.
+    \param newsize The new size for the file.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if truncating file lengths is constant time.}
+    \exceptionmodelstd
+    \qexample{readwrite_example}
+    */
+    inline async_io_op truncate(const async_io_op &op, off_t newsize);
+    /*! \brief Schedule a batch of asynchronous directory enumerations after preceding operations.
 
-  \return A batch of op handles.
-  \param ops A batch of op handles.
-  \param sizes A batch of new lengths.
-  \ingroup async_file_io_dispatcher_base__filedirops
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if truncating file lengths is constant time.}
-  \exceptionmodelstd
-  \qexample{readwrite_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous file length truncation after a preceding operation.
+    By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
+    handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
+    to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single
+    shot, or to open a separate directory handle using the file_flags::UniqueDirectoryHandle flag.
 
-      \return An op handle.
-      \param op An op handle.
-      \param newsize The new size for the file.
-      \ingroup async_file_io_dispatcher_base__filedirops
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if truncating file lengths is constant time.}
-      \exceptionmodelstd
-      \qexample{readwrite_example}
-      */
-      inline async_io_op truncate(const async_io_op &op, off_t newsize);
-  /*! \brief Schedule a batch of asynchronous directory enumerations after preceding operations.
+    Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall
+    with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of
+    the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will
+    give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
-  By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
-  handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
-  to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single
-  shot, or to open a separate directory handle using the file_flags::UniqueDirectoryHandle flag.
+    \return A batch of future vectors of directory entries with boolean returning false if done.
+    \param reqs A batch of enumeration requests.
+    \ingroup async_file_io_dispatcher_base__enumerate
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
+    \exceptionmodelstd
+    \qexample{enumerate_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous directory enumeration after a preceding operation.
 
-  Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall
-  with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of
-  the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will
-  give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
+    By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
+    handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
+    to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single
+    shot, or to open a separate directory handle using the file_flags::UniqueDirectoryHandle flag.
 
-  \return A batch of future vectors of directory entries with boolean returning false if done.
-  \param reqs A batch of enumeration requests.
-  \ingroup async_file_io_dispatcher_base__enumerate
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
-  \exceptionmodelstd
-  \qexample{enumerate_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous directory enumeration after a preceding operation.
+    Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall
+    with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of
+    the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will
+    give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
+    
+    \return A future vector of directory entries with a boolean returning false if done.
+    \param req An enumeration request.
+    \ingroup async_file_io_dispatcher_base__enumerate
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of entries in each directory.}
+    \exceptionmodelstd
+    \qexample{enumerate_example}
+    */
+    inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> enumerate(const async_enumerate_op_req &req);
+    /*! \brief Schedule a batch of asynchronous extent enumerations after preceding operations.
 
-      By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
-      handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
-      to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single
-      shot, or to open a separate directory handle using the file_flags::UniqueDirectoryHandle flag.
+    In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
+    call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date
+    with respect to one another) when other threads or processes are concurrently calling zero() or write() - this
+    is a host OS API limitation.
 
-      Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall
-      with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of
-      the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will
-      give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
+    \return A batch of future vectors of extents.
+    \param ops A batch of op handles.
+    \ingroup async_file_io_dispatcher_base__extents
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of extents in each file.}
+    \exceptionmodelstd
+    \qexample{extents_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous extent enumeration after a preceding operation.
 
-      \return A future vector of directory entries with a boolean returning false if done.
-      \param req An enumeration request.
-      \ingroup async_file_io_dispatcher_base__enumerate
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of entries in each directory.}
-      \exceptionmodelstd
-      \qexample{enumerate_example}
-      */
-      inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> enumerate(const async_enumerate_op_req &req);
-  /*! \brief Schedule a batch of asynchronous extent enumerations after preceding operations.
+    In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
+    call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date
+    with respect to one another) when other threads or processes are concurrently calling zero() or write() - this
+    is a host OS API limitation.
 
-  In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
-  call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date
-  with respect to one another) when other threads or processes are concurrently calling zero() or write() - this
-  is a host OS API limitation.
+    \return A future vector of extents.
+    \param op An op handle.
+    \ingroup async_file_io_dispatcher_base__extents
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of extents in each file.}
+    \exceptionmodelstd
+    \qexample{extents_example}
+    */
+    inline std::pair<future<std::vector<std::pair<off_t, off_t>>>, async_io_op> extents(const async_io_op &op);
+    /*! \brief Schedule a batch of asynchronous volume enumerations after preceding operations.
 
-  \return A batch of future vectors of extents.
-  \param ops A batch of op handles.
-  \ingroup async_file_io_dispatcher_base__extents
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of extents in each file.}
-  \exceptionmodelstd
-  \qexample{extents_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous extent enumeration after a preceding operation.
+    \return A batch of future volume metadatas.
+    \param ops A batch of op handles.
+    \param reqs A batch of metadata requests.
+    \ingroup async_file_io_dispatcher_base__statfs
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
+    \exceptionmodelstd
+    \qexample{statfs_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous volume enumeration after a preceding operation.
 
-      In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
-      call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date
-      with respect to one another) when other threads or processes are concurrently calling zero() or write() - this
-      is a host OS API limitation.
+    \return A future volume metadatas.
+    \param op An op handle.
+    \param req A metadata request.
+    \ingroup async_file_io_dispatcher_base__statfs
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
+    \exceptionmodelstd
+    \qexample{statfs_example}
+    */
+    inline std::pair<future<statfs_t>, async_io_op> statfs(const async_io_op &op, const fs_metadata_flags &req);
 
-      \return A future vector of extents.
-      \param op An op handle.
-      \ingroup async_file_io_dispatcher_base__extents
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of extents in each file.}
-      \exceptionmodelstd
-      \qexample{extents_example}
-      */
-      inline std::pair<future<std::vector<std::pair<off_t, off_t>>>, async_io_op> extents(const async_io_op &op);
-  /*! \brief Schedule a batch of asynchronous volume enumerations after preceding operations.
+    // Undocumented deliberately
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
-  \return A batch of future volume metadatas.
-  \param ops A batch of op handles.
-  \param reqs A batch of metadata requests.
-  \ingroup async_file_io_dispatcher_base__statfs
-  \qbk{distinguish, batch}
-  \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
-  \exceptionmodelstd
-  \qexample{statfs_example}
-  */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-      /*! \brief Schedule an asynchronous volume enumeration after a preceding operation.
+    /*! \brief Schedule an asynchronous synchronisation of preceding operations.
+    
+    If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations
+    to occur only after \b all of those operations have completed, this is the correct function to use. The returned
+    batch of ops exactly match the input batch of ops (including their exception states), but they will only
+    complete when the last of the input batch of ops completes.
+    
+    \note If an input op is in an exceptioned state at the point of entry into this function, this function
+    will propagate the exception there and then. \em Only error states which occur \em after this function
+    has been scheduled are propagated into the output set of ops.
+    
+    \return A batch of op handles.
+    \param ops A batch of op handles.
+    \ingroup async_file_io_dispatcher_base__barrier
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N) to complete.}
+    \exceptionmodel{See detailed description above.}
+    \qexample{barrier_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> barrier(const std::vector<async_io_op> &ops);
 
-      \return A future volume metadatas.
-      \param op An op handle.
-      \param req A metadata request.
-      \ingroup async_file_io_dispatcher_base__statfs
-      \qbk{distinguish, single}
-      \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
-      \exceptionmodelstd
-      \qexample{statfs_example}
-      */
-      inline std::pair<future<statfs_t>, async_io_op> statfs(const async_io_op &op, const fs_metadata_flags &req);
+    /*! \brief Returns the page size of this architecture which is useful for calculating direct i/o multiples.
+    
+    \return The page size of this architecture.
+    \ingroup async_file_io_dispatcher_base__misc
+    \complexity{Whatever the system API takes (one would hope constant time).}
+    \exceptionmodel{Never throws any exception.}
+    */
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t page_size() BOOST_NOEXCEPT_OR_NOTHROW;
 
-  // Undocumented deliberately
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
 
-      /*! \brief Schedule an asynchronous synchronisation of preceding operations.
+    \ingroup async_file_io_dispatcher_base__misc
+    \qbk{distinguish, normal}
+    \complexity{O(N) where N is the number of completions dependent on this op.}
+    \exceptionmodel{Should not throw any exception except for out of memory.}
+    */
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, std::shared_ptr<async_io_handle> h, exception_ptr e=exception_ptr());
+    /*! \brief Completes an operation with an error, usually used when an operation was previously deferred.
 
-      If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations
-      to occur only after \b all of those operations have completed, this is the correct function to use. The returned
-      batch of ops exactly match the input batch of ops (including their exception states), but they will only
-      complete when the last of the input batch of ops completes.
-
-      \note If an input op is in an exceptioned state at the point of entry into this function, this function
-      will propagate the exception there and then. \em Only error states which occur \em after this function
-      has been scheduled are propagated into the output set of ops.
-
-      \return A batch of op handles.
-      \param ops A batch of op handles.
-      \ingroup async_file_io_dispatcher_base__barrier
-      \qbk{distinguish, batch}
-      \complexity{Amortised O(N) to dispatch. Amortised O(N) to complete.}
-      \exceptionmodel{See detailed description above.}
-      \qexample{barrier_example}
-      */
-      BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> barrier(const std::vector<async_io_op> &ops);
-
-  /*! \brief Returns the page size of this architecture which is useful for calculating direct i/o multiples.
-
-  \return The page size of this architecture.
-  \ingroup async_file_io_dispatcher_base__misc
-  \complexity{Whatever the system API takes (one would hope constant time).}
-  \exceptionmodel{Never throws any exception.}
-  */
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t page_size() BOOST_NOEXCEPT_OR_NOTHROW;
-
-  /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
-
-  \ingroup async_file_io_dispatcher_base__misc
-  \qbk{distinguish, normal}
-  \complexity{O(N) where N is the number of completions dependent on this op.}
-  \exceptionmodel{Should not throw any exception except for out of memory.}
-  */
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, std::shared_ptr<async_io_handle> h, exception_ptr e = exception_ptr());
-  /*! \brief Completes an operation with an error, usually used when an operation was previously deferred.
-
-  \ingroup async_file_io_dispatcher_base__misc
-  \qbk{distinguish, errored}
-  \complexity{O(N) where N is the number of completions dependent on this op.}
-  \exceptionmodel{Should not throw any exception except for out of memory.}
-  */
-  void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, std::shared_ptr<async_io_handle>(), e); }
-
+    \ingroup async_file_io_dispatcher_base__misc
+    \qbk{distinguish, errored}
+    \complexity{O(N) where N is the number of completions dependent on this op.}
+    \exceptionmodel{Should not throw any exception except for out of memory.}
+    */
+    void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, std::shared_ptr<async_io_handle>(), e); }
 protected:
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, async_io_op h, completion_t *callback);
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, async_io_op h, std::function<completion_t> callback);
-  template <class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_io_op> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, T));
-  template <class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, T));
-  template <class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, async_io_op));
-  template <class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_path_op_req> &container, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, async_path_op_req));
-  template <class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<detail::async_data_op_req_impl<iswrite>> &container, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, detail::async_data_op_req_impl<iswrite>));
-  template <class F>
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags,
-                                                                                                                                                               completion_returntype (F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
-  template <class F>
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags,
-                                                                                                                                                      completion_returntype (F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret));
-  template <class F>
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags,
-                                                                                                                          completion_returntype (F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
-  template <class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_lock_op_req> &container, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, async_lock_op_req));
-  template <class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, async_io_op h, T);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, async_io_op h, completion_t *callback);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, async_io_op h, std::function<completion_t> callback);
+    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_io_op> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, T));
+    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, T));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_io_op));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_path_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_path_op_req));
+    template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<detail::async_data_op_req_impl<iswrite>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, detail::async_data_op_req_impl<iswrite>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_lock_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_lock_op_req));
+    template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, async_io_op h, T);
 
-
-  template <class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> invoke_async_op_completions(size_t id, async_io_op h, completion_returntype (F::*f)(size_t, async_io_op, Args...), Args... args);
-  template <class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op chain_async_op(detail::immediate_async_ops &immediates, int optype, const async_io_op &precondition, async_op_flags flags, completion_returntype (F::*f)(size_t, async_io_op, Args...), Args... args);
+    
+    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> invoke_async_op_completions(size_t id, async_io_op h, completion_returntype(F::*f)(size_t, async_io_op, Args...), Args... args);
+    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op chain_async_op(detail::immediate_async_ops &immediates, int optype, const async_io_op &precondition, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, Args...), Args... args);
 };
 /*! \brief Instatiates the best available async_file_io_dispatcher implementation for this system.
 
@@ -1870,147 +1838,141 @@ For slow hard drives, or worse, SANs, a queue depth of 64 or higher might delive
 [call_example]
 }
 */
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> make_async_file_io_dispatcher(std::shared_ptr<thread_source> threadpool = process_threadpool(), file_flags flagsforce = file_flags::None, file_flags flagsmask = file_flags::None);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> make_async_file_io_dispatcher(std::shared_ptr<thread_source> threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
 
 namespace detail
 {
-  struct when_all_state : std::enable_shared_from_this<when_all_state>
-  {
-    promise<std::vector<std::shared_ptr<async_io_handle>>> out;
-    std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
-  };
-  template <bool rethrow> inline void when_all_ops_do(std::shared_ptr<when_all_state> state)
-  {
-// If we're on Boost.Thread, coalesce all wait ops into a single
+    struct when_all_state : std::enable_shared_from_this<when_all_state>
+    {
+        promise<std::vector<std::shared_ptr<async_io_handle>>> out;
+        std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
+    };
+    template<bool rethrow> inline void when_all_ops_do(std::shared_ptr<when_all_state> state)
+    {
+        // If we're on Boost.Thread, coalesce all wait ops into a single
 #if BOOST_AFIO_USE_BOOST_THREAD
-    boost::wait_for_all(state->in.begin(), state->in.end());
+        boost::wait_for_all(state->in.begin(), state->in.end());
 #endif
-    std::vector<std::shared_ptr<async_io_handle>> ret;
-    ret.reserve(state->in.size());
-    for(auto &i : state->in)
-    {
-      auto e(get_exception_ptr(i));
-      if(e)
-      {
-        if(rethrow)
+        std::vector<std::shared_ptr<async_io_handle>> ret;
+        ret.reserve(state->in.size());
+        for(auto &i: state->in)
         {
-          state->out.set_exception(e);
-          return;
+            auto e(get_exception_ptr(i));
+            if(e)
+            {
+                if(rethrow)
+                {
+                    state->out.set_exception(e);
+                    return;
+                }
+                ret.push_back(std::shared_ptr<async_io_handle>());
+            }
+            else
+                ret.push_back(i.get());
         }
-        ret.push_back(std::shared_ptr<async_io_handle>());
-      }
-      else
-        ret.push_back(i.get());
+        state->out.set_value(ret);
     }
-    state->out.set_value(ret);
-  }
-  template <bool rethrow, class Iterator> inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all_ops(Iterator first, Iterator last)
-  {
-    auto state = std::make_shared<when_all_state>();
-    state->in.reserve(std::distance(first, last));
-    for(; first != last; ++first)
-      state->in.push_back(first->h);
-    auto ret = state->out.get_future();
-    process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)]
-                                  {
-                                    when_all_ops_do<rethrow>(std::move(state));
-                                  });
-    return std::move(ret);
-  }
-  struct when_any_state : std::enable_shared_from_this<when_any_state>
-  {
-    atomic<size_t> count;
-    promise<std::shared_ptr<async_io_handle>> out;
-    std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
-    when_any_state() : count(0) {}
-  };
-#if BOOST_AFIO_USE_BOOST_THREAD
-  // Boost.Thread has wait_for_any() which lets us be more efficient here and wait directly on the futures
-  template <bool rethrow> inline void when_any_ops_do(std::shared_ptr<when_any_state> state)
-  {
-    auto &i = *boost::wait_for_any(state->in.begin(), state->in.end());
-    auto e(get_exception_ptr(i));
-    if(e)
+    template<bool rethrow, class Iterator> inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all_ops(Iterator first, Iterator last)
     {
-      if(rethrow)
-      {
-        state->out.set_exception(e);
-        return;
-      }
-      state->out.set_value(std::shared_ptr<async_io_handle>());
+        auto state=std::make_shared<when_all_state>();
+        state->in.reserve(std::distance(first, last));
+        for(; first!=last; ++first)
+            state->in.push_back(first->h);
+        auto ret=state->out.get_future();
+        process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)] { when_all_ops_do<rethrow>(std::move(state)); });
+        return std::move(ret);
     }
-    else
-      state->out.set_value(i.get());
-  }
-  template <bool rethrow, class Iterator> inline future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
-  {
-    auto state = std::make_shared<when_any_state>();
-    state->in.reserve(std::distance(first, last));
-    for(; first != last; ++first)
-      state->in.push_back(first->h);
-    auto ret = state->out.get_future();
-    process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)]
-                                  {
-                                    when_any_ops_do<rethrow>(std::move(state));
-                                  });
-    return std::move(ret);
-  }
+    struct when_any_state : std::enable_shared_from_this<when_any_state>
+    {
+        atomic<size_t> count;
+        promise<std::shared_ptr<async_io_handle>> out;
+        std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
+        when_any_state() : count(0) { }
+    };
+#if BOOST_AFIO_USE_BOOST_THREAD
+    // Boost.Thread has wait_for_any() which lets us be more efficient here and wait directly on the futures
+    template<bool rethrow> inline void when_any_ops_do(std::shared_ptr<when_any_state> state)
+    {
+        auto &i=*boost::wait_for_any(state->in.begin(), state->in.end());
+        auto e(get_exception_ptr(i));
+        if(e)
+        {
+            if(rethrow)
+            {
+                state->out.set_exception(e);
+                return;
+            }
+            state->out.set_value(std::shared_ptr<async_io_handle>());
+        }
+        else
+            state->out.set_value(i.get());
+    }
+    template<bool rethrow, class Iterator> inline future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
+    {
+        auto state=std::make_shared<when_any_state>();
+        state->in.reserve(std::distance(first, last));
+        for(; first!=last; ++first)
+            state->in.push_back(first->h);
+        auto ret=state->out.get_future();
+        process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)]{ when_any_ops_do<rethrow>(std::move(state)); });
+        return std::move(ret);
+    }
 #else
-  // Without wait_for_any, schedule a completion onto every op and the first to fire wins
-  template <bool rethrow> inline std::pair<bool, std::shared_ptr<async_io_handle>> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, async_io_op h)
-  {
-    auto &i = state->in[idx];
-    if(0 == state->count.fetch_add(1, memory_order_relaxed))  // Will be zero exactly once
+    // Without wait_for_any, schedule a completion onto every op and the first to fire wins
+    template<bool rethrow> inline std::pair<bool, std::shared_ptr<async_io_handle>> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, async_io_op h)
     {
-      auto e(get_exception_ptr(i));
-      if(e)
-      {
-        if(rethrow)
+        auto &i=state->in[idx];
+        if(0==state->count.fetch_add(1, memory_order_relaxed))  // Will be zero exactly once
         {
-          state->out.set_exception(e);
-          return std::make_pair(true, std::shared_ptr<async_io_handle>());
+            auto e(get_exception_ptr(i));
+            if(e)
+            {
+                if(rethrow)
+                {
+                    state->out.set_exception(e);
+                    return std::make_pair(true, std::shared_ptr<async_io_handle>());
+                }
+                state->out.set_value(std::shared_ptr<async_io_handle>());
+            }
+            else
+                state->out.set_value(i.get());
         }
-        state->out.set_value(std::shared_ptr<async_io_handle>());
-      }
-      else
-        state->out.set_value(i.get());
+        return std::make_pair(true, std::shared_ptr<async_io_handle>());
     }
-    return std::make_pair(true, std::shared_ptr<async_io_handle>());
-  }
-  template <bool rethrow, class Iterator> inline future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
-  {
-    auto state = std::make_shared<when_any_state>();
-    auto dispatcher = first->parent;
-    std::vector<async_io_op> ops(first, last);
-    state->in.reserve(ops.size());
-    for(auto &op : ops)
-      state->in.push_back(op.h);
-    auto ret = state->out.get_future();
-    typedef std::function<typename async_file_io_dispatcher_base::completion_t> ft;
-    std::vector<std::pair<async_op_flags, ft>> completions;
-    completions.reserve(ops.size());
-    for(size_t n = 0; n < ops.size(); n++)
-      completions.push_back(std::make_pair(async_op_flags::immediate, std::bind(&when_any_ops_do<rethrow>, state, n, std::placeholders::_1, std::placeholders::_2)));
-    dispatcher->completion(ops, completions);
-    return std::move(ret);
-  }
+    template<bool rethrow, class Iterator> inline future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
+    {
+        auto state=std::make_shared<when_any_state>();
+        auto dispatcher=first->parent;
+        std::vector<async_io_op> ops(first, last);
+        state->in.reserve(ops.size());
+        for(auto &op : ops)
+            state->in.push_back(op.h);
+        auto ret=state->out.get_future();
+        typedef std::function<typename async_file_io_dispatcher_base::completion_t> ft;
+        std::vector<std::pair<async_op_flags, ft>> completions;
+        completions.reserve(ops.size());
+        for(size_t n=0; n<ops.size(); n++)
+          completions.push_back(std::make_pair(async_op_flags::immediate, std::bind(&when_any_ops_do<rethrow>, state, n, std::placeholders::_1, std::placeholders::_2)));
+        dispatcher->completion(ops, completions);
+        return std::move(ret);
+    }
 #endif
-  template <bool is_all> struct select_when_ops_return_type
-  {
-    typedef future<std::vector<std::shared_ptr<async_io_handle>>> type;  // when_all()
-  };
-  template <> struct select_when_ops_return_type<false>
-  {
-    typedef future<std::shared_ptr<async_io_handle>> type;  // when_any()
-  };
-  template <bool is_all, class T> struct enable_if_async_op
-  {
-    // static_assert(std::is_same<T, T>::value, "Not an iterator of async_io_op");
-  };
-  template <bool is_all> struct enable_if_async_op<is_all, async_io_op>
-  {
-    typedef typename select_when_ops_return_type<is_all>::type type;
-  };
+    template<bool is_all> struct select_when_ops_return_type
+    {
+        typedef future<std::vector<std::shared_ptr<async_io_handle>>> type; // when_all()
+    };
+    template<> struct select_when_ops_return_type<false>
+    {
+        typedef future<std::shared_ptr<async_io_handle>> type; // when_any()
+    };
+    template<bool is_all, class T> struct enable_if_async_op
+    {
+        //static_assert(std::is_same<T, T>::value, "Not an iterator of async_io_op");
+    };
+    template<bool is_all> struct enable_if_async_op<is_all, async_io_op>
+    {
+        typedef typename select_when_ops_return_type<is_all>::type type;
+    };
 }
 
 /*! \brief Returns a result when all the supplied ops complete. Does not propagate exception states.
@@ -2025,11 +1987,11 @@ namespace detail
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-template <class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(std::nothrow_t _, Iterator first, Iterator last)
+template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(std::nothrow_t _, Iterator first, Iterator last)
 {
-  if(first == last)
-    return future<std::vector<std::shared_ptr<async_io_handle>>>();
-  return detail::when_all_ops<false>(first, last);
+    if(first==last)
+        return future<std::vector<std::shared_ptr<async_io_handle>>>();
+    return detail::when_all_ops<false>(first, last);
 }
 /*! \brief Returns a result when any the supplied ops complete. Does not propagate exception states.
 
@@ -2043,11 +2005,11 @@ template <class Iterator> inline typename detail::enable_if_async_op<true, typen
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-template <class Iterator> inline typename detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(std::nothrow_t _, Iterator first, Iterator last)
+template<class Iterator> inline typename detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(std::nothrow_t _, Iterator first, Iterator last)
 {
-  if(first == last)
-    return future<std::shared_ptr<async_io_handle>>();
-  return detail::when_any_ops<false>(first, last);
+    if(first==last)
+        return future<std::shared_ptr<async_io_handle>>();
+    return detail::when_any_ops<false>(first, last);
 }
 /*! \brief Returns a result when all the supplied ops complete. Does not propagate exception states.
 
@@ -2061,9 +2023,9 @@ template <class Iterator> inline typename detail::enable_if_async_op<false, type
 */
 inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, std::vector<async_io_op> ops)
 {
-  if(ops.empty())
-    return future<std::vector<std::shared_ptr<async_io_handle>>>();
-  return detail::when_all_ops<false>(ops.begin(), ops.end());
+    if(ops.empty())
+        return future<std::vector<std::shared_ptr<async_io_handle>>>();
+    return detail::when_all_ops<false>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when any the supplied ops complete. Does not propagate exception states.
 
@@ -2077,9 +2039,9 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothr
 */
 inline future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::vector<async_io_op> ops)
 {
-  if(ops.empty())
-    return future<std::shared_ptr<async_io_handle>>();
-  return detail::when_any_ops<false>(ops.begin(), ops.end());
+    if(ops.empty())
+        return future<std::shared_ptr<async_io_handle>>();
+    return detail::when_any_ops<false>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when all the supplied ops complete. Propagates exception states.
 
@@ -2092,11 +2054,11 @@ inline future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template <class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(Iterator first, Iterator last)
+template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(Iterator first, Iterator last)
 {
-  if(first == last)
-    return future<std::vector<std::shared_ptr<async_io_handle>>>();
-  return detail::when_all_ops<true>(first, last);
+    if(first==last)
+        return future<std::vector<std::shared_ptr<async_io_handle>>>();
+    return detail::when_all_ops<true>(first, last);
 }
 /*! \brief Returns a result when any the supplied ops complete. Propagates exception states.
 
@@ -2109,11 +2071,11 @@ template <class Iterator> inline typename detail::enable_if_async_op<true, typen
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template <class Iterator> inline typename detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(Iterator first, Iterator last)
+template<class Iterator> inline typename detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(Iterator first, Iterator last)
 {
-  if(first == last)
-    return future<std::shared_ptr<async_io_handle>>();
-  return detail::when_any_ops<true>(first, last);
+    if(first==last)
+        return future<std::shared_ptr<async_io_handle>>();
+    return detail::when_any_ops<true>(first, last);
 }
 /*! \brief Returns a result when all the supplied ops complete. Propagates exception states.
 
@@ -2126,9 +2088,9 @@ template <class Iterator> inline typename detail::enable_if_async_op<false, type
 */
 inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::vector<async_io_op> ops)
 {
-  if(ops.empty())
-    return future<std::vector<std::shared_ptr<async_io_handle>>>();
-  return detail::when_all_ops<true>(ops.begin(), ops.end());
+    if(ops.empty())
+        return future<std::vector<std::shared_ptr<async_io_handle>>>();
+    return detail::when_all_ops<true>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when any the supplied ops complete. Propagates exception states.
 
@@ -2141,9 +2103,9 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::vecto
 */
 inline future<std::shared_ptr<async_io_handle>> when_any(std::vector<async_io_op> ops)
 {
-  if(ops.empty())
-    return future<std::shared_ptr<async_io_handle>>();
-  return detail::when_any_ops<true>(ops.begin(), ops.end());
+    if(ops.empty())
+        return future<std::shared_ptr<async_io_handle>>();
+    return detail::when_any_ops<true>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when the supplied op completes. Does not propagate exception states.
 
@@ -2157,8 +2119,8 @@ inline future<std::shared_ptr<async_io_handle>> when_any(std::vector<async_io_op
 */
 inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, async_io_op op)
 {
-  std::vector<async_io_op> ops(1, op);
-  return when_all(_, ops);
+    std::vector<async_io_op> ops(1, op);
+    return when_all(_, ops);
 }
 /*! \brief Returns a result when the supplied op completes. Propagates exception states.
 
@@ -2171,8 +2133,8 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothr
 */
 inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_op op)
 {
-  std::vector<async_io_op> ops(1, op);
-  return when_all(ops);
+    std::vector<async_io_op> ops(1, op);
+    return when_all(ops);
 }
 
 /*! \struct async_path_op_req
@@ -2180,75 +2142,64 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_o
 */
 struct async_path_op_req
 {
-  filesystem::path path;     //!< The filing system path to be used for this operation
-  file_flags flags;          //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
-  async_io_op precondition;  //!< An optional precondition for this operation
-  //! \constr
-  async_path_op_req() : flags(file_flags::None) {}
-  /*! \brief Constructs an instance.
-
-  Note that this will fail if path is not absolute.
-
-  \param _path The filing system path to be used. Must be absolute.
-  \param _flags The flags to be used.
-  */
-  async_path_op_req(filesystem::path _path, file_flags _flags = file_flags::None) : path(_path), flags(_flags)
-  {
-    if(!path.is_absolute())
-      BOOST_AFIO_THROW(std::runtime_error("Non-absolute path"));
-  }
-  /*! \brief Constructs an instance.
-
-  Note that this will fail if path is not absolute.
-
-  \param _precondition The precondition for this operation.
-  \param _path The filing system path to be used. Must be absolute.
-  \param _flags The flags to be used.
-  */
-  async_path_op_req(async_io_op _precondition, filesystem::path _path, file_flags _flags = file_flags::None) : path(_path), flags(_flags), precondition(std::move(_precondition))
-  {
-    _validate();
-    if(!path.is_absolute())
-      BOOST_AFIO_THROW(std::runtime_error("Non-absolute path"));
-  }
-  /*! \brief Constructs an instance.
-  \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-  \param _flags The flags to be used.
-  */
-  async_path_op_req(std::string _path, file_flags _flags = file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
-  /*! \brief Constructs an instance.
-  \param _precondition The precondition for this operation.
-  \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-  \param _flags The flags to be used.
-  */
-  async_path_op_req(async_io_op _precondition, std::string _path, file_flags _flags = file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
-  /*! \brief Constructs an instance.
-  \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-  \param _flags The flags to be used.
-  */
-  async_path_op_req(const char *_path, file_flags _flags = file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
-  /*! \brief Constructs an instance.
-  \param _precondition The precondition for this operation.
-  \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-  \param _flags The flags to be used.
-  */
-  async_path_op_req(async_io_op _precondition, const char *_path, file_flags _flags = file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
-  //! Validates contents
-  bool validate() const
-  {
-    if(path.empty())
-      return false;
-    return !precondition.id || precondition.validate();
-  }
-
+    filesystem::path path; //!< The filing system path to be used for this operation
+    file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
+    async_io_op precondition;   //!< An optional precondition for this operation
+    //! \constr
+    async_path_op_req() : flags(file_flags::None) { }
+    /*! \brief Constructs an instance.
+    
+    Note that this will fail if path is not absolute.
+    
+    \param _path The filing system path to be used. Must be absolute.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags) { if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
+    /*! \brief Constructs an instance.
+    
+    Note that this will fail if path is not absolute.
+    
+    \param _precondition The precondition for this operation.
+    \param _path The filing system path to be used. Must be absolute.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(async_io_op _precondition, filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags), precondition(std::move(_precondition)) { _validate(); if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
+    /*! \brief Constructs an instance.
+    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(std::string _path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
+    /*! \brief Constructs an instance.
+    \param _precondition The precondition for this operation.
+    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(async_io_op _precondition, std::string _path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    /*! \brief Constructs an instance.
+    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(const char *_path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
+    /*! \brief Constructs an instance.
+    \param _precondition The precondition for this operation.
+    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(async_io_op _precondition, const char *_path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    //! Validates contents
+    bool validate() const
+    {
+        if(path.empty()) return false;
+        return !precondition.id || precondition.validate();
+    }
 private:
-  void _validate() const
-  {
+    void _validate() const
+    {
 #if BOOST_AFIO_VALIDATE_INPUTS
-    if(!validate())
-      BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+        if(!validate())
+            BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-  }
+    }
 };
 
 /*! \defgroup to_asio_buffers Overloadable free functions converting the types passed to async_data_op_req<> into an asio buffer sequence for read() and write().
@@ -2270,10 +2221,10 @@ Default overloads provided are as follows:
    so if the container iterator returns a const reference (e.g. std::basic_string) then you cannot gather read into
    that container, and instead should receive a compile time error.
 */
-template <class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v);
-template <class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v);
-template <class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buffers(T(&v)[N]);
-template <class T, size_t N> inline std::vector<asio::const_buffer> to_asio_buffers(const T(&v)[N]);
+template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v);
+template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v);
+template<class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buffers(T (&v)[N]);
+template<class T, size_t N> inline std::vector<asio::const_buffer> to_asio_buffers(const T (&v)[N]);
 /*! \brief Passing through asio::mutable_buffer
 
 \return A vector of ASIO buffers
@@ -2300,11 +2251,10 @@ inline std::vector<asio::const_buffer> to_asio_buffers(asio::const_buffer &v)
 \ingroup to_asio_buffers
 \qbk{distinguish, buffer of T}
 */
-template <class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T *v, size_t length)
+template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T *v, size_t length)
 {
-  static_assert(std::is_trivial<T>::value,
-                "to_asio_buffers<T> has not been specialised for this non-trivial type, which suggests you are trying to read or write a complex C++ type! Either add a custom specialisation, or directly instantiate an async_data_op_req with a void * and size_t length to some serialised representation.");
-  return std::vector<asio::mutable_buffer>(1, asio::mutable_buffer((void *) v, length * sizeof(T)));
+  static_assert(std::is_trivial<T>::value, "to_asio_buffers<T> has not been specialised for this non-trivial type, which suggests you are trying to read or write a complex C++ type! Either add a custom specialisation, or directly instantiate an async_data_op_req with a void * and size_t length to some serialised representation.");
+  return std::vector<asio::mutable_buffer>(1, asio::mutable_buffer((void *) v, length*sizeof(T)));
 }
 /*! \brief A buffer at v sized length*sizeof(T)
 
@@ -2312,11 +2262,10 @@ template <class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T *v
 \ingroup to_asio_buffers
 \qbk{distinguish, const buffer of T}
 */
-template <class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T *v, size_t length)
+template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T *v, size_t length)
 {
-  static_assert(std::is_trivial<T>::value,
-                "to_asio_buffers<T> has not been specialised for this non-trivial type, which suggests you are trying to read or write a complex C++ type! Either add a custom specialisation, or directly instantiate an async_data_op_req with a void * and size_t length to some serialised representation.");
-  return std::vector<asio::const_buffer>(1, asio::const_buffer((void *) v, length * sizeof(T)));
+  static_assert(std::is_trivial<T>::value, "to_asio_buffers<T> has not been specialised for this non-trivial type, which suggests you are trying to read or write a complex C++ type! Either add a custom specialisation, or directly instantiate an async_data_op_req with a void * and size_t length to some serialised representation.");
+  return std::vector<asio::const_buffer>(1, asio::const_buffer((void *) v, length*sizeof(T)));
 }
 /*! \brief A buffer at v sized length
 
@@ -2340,112 +2289,118 @@ inline std::vector<asio::const_buffer> to_asio_buffers(const void *v, size_t len
 }
 namespace detail
 {
-  // Length deducing asio buffer conversions
-  template <bool is_const, class R, class T, bool is_trivial = std::is_trivial<T>::value, bool is_container = is_container<T>::value> struct to_asio_buffers_helper
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+    // Length deducing asio buffer conversions
+    template<bool is_const, class R, class T, bool is_trivial=std::is_trivial<T>::value, bool is_container=is_container<T>::value> struct to_asio_buffers_helper
     {
-      static_assert(!std::is_same<T, T>::value, "to_asio_buffers(T) called with type T which is neither trivial nor a container. Did you mean to call async_data_op_req with a void * and a byte length, or do you need to overload to_asio_buffers()?");
-      static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This type is const, so you cannot generate an asio::mutable_buffer from it.");
-      return std::vector<R>();
-    }
-  };
-  // Trivial types get sent as is
-  template <bool is_const, class R, class T> struct to_asio_buffers_helper<is_const, R, T, true, false>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
-    {
-      static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This type is const, so you cannot generate an asio::mutable_buffer from it.");
-      return std::vector<R>(1, R(&v, sizeof(v)));
-    }
-  };
-
-  // Container types build a scatter gather list of their contents
-  template <class R, class C, class T, bool is_const = std::is_const<T>::value, bool is_trivial = std::is_trivial<T>::value> struct container_to_asio_buffers_helper
-  {
-    template <class U> std::vector<R> operator()(U &v) const
-    {
-      static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
-      std::vector<R> ret;
-      for(auto &i : v)
+      template<class U> std::vector<R> operator()(U &v) const
       {
-        std::vector<R> item(to_asio_buffers(i));
-        ret.reserve(ret.size() + item.size());
-        ret.insert(ret.end(), std::make_move_iterator(item.begin()), std::make_move_iterator(item.end()));
+        static_assert(!std::is_same<T, T>::value, "to_asio_buffers(T) called with type T which is neither trivial nor a container. Did you mean to call async_data_op_req with a void * and a byte length, or do you need to overload to_asio_buffers()?");
+        static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This type is const, so you cannot generate an asio::mutable_buffer from it.");
+        return std::vector<R>();
       }
-      return ret;
-    }
-  };
-  // Container specialisations where we know we can skip scatter gather
-  template <class R, class C, class T, class A, class _Ct, bool is_const> struct container_to_asio_buffers_helper<R, std::basic_string<C, T, A>, _Ct, is_const, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+    };
+    // Trivial types get sent as is
+    template<bool is_const, class R, class T> struct to_asio_buffers_helper<is_const, R, T, true, false>
     {
-      static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
-      return std::vector<R>(1, R(&v.front(), v.size() * sizeof(C)));
-    }
-  };
-  template <class R, class T, class A, class _T, bool is_const> struct container_to_asio_buffers_helper<R, std::vector<T, A>, _T, is_const, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This type is const, so you cannot generate an asio::mutable_buffer from it.");
+        return std::vector<R>(1, R(&v, sizeof(v)));
+      }
+    };
+
+    // Container types build a scatter gather list of their contents
+    template<class R, class C, class T, bool is_const=std::is_const<T>::value, bool is_trivial=std::is_trivial<T>::value> struct container_to_asio_buffers_helper
     {
-      static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
-      return std::vector<R>(1, R(v.data(), v.size() * sizeof(T)));
-    }
-  };
-  template <class R, class T, size_t N, class _T, bool is_const> struct container_to_asio_buffers_helper<R, std::array<T, N>, _T, is_const, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
+        std::vector<R> ret;
+        for(auto &i : v)
+        {
+          std::vector<R> item(to_asio_buffers(i));
+          ret.reserve(ret.size()+item.size());
+          ret.insert(ret.end(), std::make_move_iterator(item.begin()), std::make_move_iterator(item.end()));
+        }
+        return ret;
+      }
+    };
+    // Container specialisations where we know we can skip scatter gather
+    template<class R, class C, class T, class A, class _Ct, bool is_const> struct container_to_asio_buffers_helper<R, std::basic_string<C, T, A>, _Ct, is_const, true>
     {
-      static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
-      std::vector<R> ret(1, R(v.data(), v.size() * sizeof(T)));
-      return ret;
-    }
-  };
-  template <bool is_const, class R, class T, bool is_trivial> struct to_asio_buffers_helper<is_const, R, T, is_trivial, true> : container_to_asio_buffers_helper<R, T, typename is_container<T>::type>
-  {
-  };
-  // Pass through vectors and arrays of asio buffers
-  template <bool is_const, class R> struct to_asio_buffers_helper<is_const, R, std::vector<asio::mutable_buffer>, false, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
+        return std::vector<R>(1, R(&v.front(), v.size()*sizeof(C)));
+      }
+    };
+    template<class R, class T, class A, class _T, bool is_const> struct container_to_asio_buffers_helper<R, std::vector<T, A>, _T, is_const, true>
     {
-      std::vector<R> ret(v.begin(), v.end());
-      return ret;
-    }
-  };
-  template <bool is_const> struct to_asio_buffers_helper<is_const, asio::mutable_buffer, std::vector<asio::mutable_buffer>, false, true>
-  {
-    template <class U> std::vector<asio::mutable_buffer> operator()(U &v) const { return v; }
-  };
-  template <bool is_const, class R> struct to_asio_buffers_helper<is_const, R, std::vector<asio::const_buffer>, false, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
+        return std::vector<R>(1, R(v.data(), v.size()*sizeof(T)));
+      }
+    };
+    template<class R, class T, size_t N, class _T, bool is_const> struct container_to_asio_buffers_helper<R, std::array<T, N>, _T, is_const, true>
     {
-      std::vector<R> ret(v.begin(), v.end());
-      return ret;
-    }
-  };
-  template <bool is_const> struct to_asio_buffers_helper<is_const, asio::const_buffer, std::vector<asio::const_buffer>, false, true>
-  {
-    template <class U> std::vector<asio::const_buffer> operator()(U &v) const { return v; }
-  };
-  template <bool is_const, size_t N, class R> struct to_asio_buffers_helper<is_const, R, std::array<asio::mutable_buffer, N>, false, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        static_assert(!std::is_same<asio::mutable_buffer, R>::value || !is_const, "This container only permits const access to its iterators, so you cannot generate an asio::mutable_buffer from it.");
+        std::vector<R> ret(1, R(v.data(), v.size()*sizeof(T)));
+        return ret;
+      }
+    };
+    template<bool is_const, class R, class T, bool is_trivial> struct to_asio_buffers_helper<is_const, R, T, is_trivial, true> : container_to_asio_buffers_helper<R, T, typename is_container<T>::type>
     {
-      std::vector<R> ret(v.begin(), v.end());
-      return ret;
-    }
-  };
-  template <bool is_const, size_t N, class R> struct to_asio_buffers_helper<is_const, R, std::array<asio::const_buffer, N>, false, true>
-  {
-    template <class U> std::vector<R> operator()(U &v) const
+    };
+    // Pass through vectors and arrays of asio buffers
+    template<bool is_const, class R> struct to_asio_buffers_helper<is_const, R, std::vector<asio::mutable_buffer>, false, true>
     {
-      std::vector<R> ret(v.begin(), v.end());
-      return ret;
-    }
-  };
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        std::vector<R> ret(v.begin(), v.end());
+        return ret;
+      }
+    };
+    template<bool is_const> struct to_asio_buffers_helper<is_const, asio::mutable_buffer, std::vector<asio::mutable_buffer>, false, true>
+    {
+      template<class U> std::vector<asio::mutable_buffer> operator()(U &v) const
+      {
+        return v;
+      }
+    };
+    template<bool is_const, class R> struct to_asio_buffers_helper<is_const, R, std::vector<asio::const_buffer>, false, true>
+    {
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        std::vector<R> ret(v.begin(), v.end());
+        return ret;
+      }
+    };
+    template<bool is_const> struct to_asio_buffers_helper<is_const, asio::const_buffer, std::vector<asio::const_buffer>, false, true>
+    {
+      template<class U> std::vector<asio::const_buffer> operator()(U &v) const
+      {
+        return v;
+      }
+    };
+    template<bool is_const, size_t N, class R> struct to_asio_buffers_helper<is_const, R, std::array<asio::mutable_buffer, N>, false, true>
+    {
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        std::vector<R> ret(v.begin(), v.end());
+        return ret;
+      }
+    };
+    template<bool is_const, size_t N, class R> struct to_asio_buffers_helper<is_const, R, std::array<asio::const_buffer, N>, false, true>
+    {
+      template<class U> std::vector<R> operator()(U &v) const
+      {
+        std::vector<R> ret(v.begin(), v.end());
+        return ret;
+      }
+    };
 }
 /*! \brief Any trivial type T or STL container.
 
@@ -2458,7 +2413,7 @@ gather buffers into a single one for contiguous storage.
 \ingroup to_asio_buffers
 \qbk{distinguish, trivial and container types}
 */
-template <class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v)
+template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v)
 {
   return detail::to_asio_buffers_helper<false, asio::mutable_buffer, T>()(v);
 }
@@ -2473,7 +2428,7 @@ gather buffers into a single one for contiguous storage.
 \ingroup to_asio_buffers
 \qbk{distinguish, const trivial and container types}
 */
-template <class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v)
+template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v)
 {
   return detail::to_asio_buffers_helper<true, asio::const_buffer, T>()(v);
 }
@@ -2483,7 +2438,7 @@ template <class T> inline std::vector<asio::const_buffer> to_asio_buffers(const 
 \ingroup to_asio_buffers
 \qbk{distinguish, C arrays}
 */
-template <class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buffers(T(&v)[N])
+template<class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buffers(T (&v)[N])
 {
   return to_asio_buffers(reinterpret_cast<std::array<T, N> &>(v));
 }
@@ -2493,165 +2448,117 @@ template <class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_bu
 \ingroup to_asio_buffers
 \qbk{distinguish, const C arrays}
 */
-template <class T, size_t N> inline std::vector<asio::const_buffer> to_asio_buffers(const T(&v)[N])
+template<class T, size_t N> inline std::vector<asio::const_buffer> to_asio_buffers(const T (&v)[N])
 {
   return to_asio_buffers(reinterpret_cast<const std::array<T, N> &>(v));
 }
 
 namespace detail
 {
-  //! \brief The implementation of all async_data_op_req specialisations. \tparam for_writing Whether this implementation is for writing data. \ingroup async_data_op_req
-  template <bool for_writing> class async_data_op_req_impl;
-  template <> class async_data_op_req_impl<false>
-  {
-  public:
-    //! An optional precondition for this operation
-    async_io_op precondition;
-    //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<asio::mutable_buffer> buffers;
-    //! The offset from which to read
-    off_t where;
-    //! \constr
-    async_data_op_req_impl() {}
-    //! \cconstr
-    async_data_op_req_impl(const async_data_op_req_impl &o) : precondition(o.precondition), buffers(o.buffers), where(o.where) {}
-    //! \mconstr
-    async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) {}
-    //! \cassign
-    async_data_op_req_impl &operator=(const async_data_op_req_impl &o)
+    //! \brief The implementation of all async_data_op_req specialisations. \tparam for_writing Whether this implementation is for writing data. \ingroup async_data_op_req
+    template<bool for_writing> class async_data_op_req_impl;
+    template<> class async_data_op_req_impl<false>
     {
-      precondition = o.precondition;
-      buffers = o.buffers;
-      where = o.where;
-      return *this;
-    }
-    //! \massign
-    async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW
-    {
-      precondition = std::move(o.precondition);
-      buffers = std::move(o.buffers);
-      where = std::move(o.where);
-      return *this;
-    }
-    //! \async_data_op_req2
-    async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
-    //! Validates contents for correctness \return True if contents are correct
-    bool validate() const
-    {
-      if(!precondition.validate())
-        return false;
-      if(buffers.empty())
-        return false;
-      for(auto &b : buffers)
-      {
-        if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b))
-          return false;
-        if(!!(precondition.parent->fileflags(file_flags::None) & file_flags::OSDirect))
+    public:
+        //! An optional precondition for this operation
+        async_io_op precondition;
+        //! A sequence of mutable Boost.ASIO buffers to read into
+        std::vector<asio::mutable_buffer> buffers;
+        //! The offset from which to read
+        off_t where;
+        //! \constr
+        async_data_op_req_impl() { }
+        //! \cconstr
+        async_data_op_req_impl(const async_data_op_req_impl &o) : precondition(o.precondition), buffers(o.buffers), where(o.where) { }
+        //! \mconstr
+        async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
+        //! \cassign
+        async_data_op_req_impl &operator=(const async_data_op_req_impl &o) { precondition=o.precondition; buffers=o.buffers; where=o.where; return *this; }
+        //! \massign
+        async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
+        //! \async_data_op_req2
+        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
+        //! Validates contents for correctness \return True if contents are correct
+        bool validate() const
         {
-          if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095))
-            return false;
+            if(!precondition.validate()) return false;
+            if(buffers.empty()) return false;
+            for(auto &b: buffers)
+            {
+                if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
+                if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
+                {
+                    if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
+                }
+            }
+            return true;
         }
-      }
-      return true;
-    }
-
-  private:
-    void _validate() const
-    {
-#if BOOST_AFIO_VALIDATE_INPUTS
-      if(!validate())
-        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
-#endif
-    }
-  };
-  template <> class async_data_op_req_impl<true>
-  {
-  public:
-    //! An optional precondition for this operation
-    async_io_op precondition;
-    //! A sequence of mutable Boost.ASIO buffers to read into
-    std::vector<asio::const_buffer> buffers;
-    //! The offset from which to read
-    off_t where;
-    //! \constr
-    async_data_op_req_impl() {}
-    //! \cconstr
-    async_data_op_req_impl(const async_data_op_req_impl &o) : precondition(o.precondition), buffers(o.buffers), where(o.where) {}
-    //! \mconstr
-    async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) {}
-    //! \cconstr
-    async_data_op_req_impl(const async_data_op_req_impl<false> &o) : precondition(o.precondition), where(o.where)
-    {
-      buffers.reserve(o.buffers.capacity());
-      for(auto &i : o.buffers)
-      {
-        buffers.push_back(i);
-      }
-    }
-    //! \mconstr
-    async_data_op_req_impl(async_data_op_req_impl<false> &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), where(std::move(o.where))
-    {
-      buffers.reserve(o.buffers.capacity());
-      for(auto &&i : o.buffers)
-      {
-        buffers.push_back(std::move(i));
-      }
-    }
-    //! \cassign
-    async_data_op_req_impl &operator=(const async_data_op_req_impl &o)
-    {
-      precondition = o.precondition;
-      buffers = o.buffers;
-      where = o.where;
-      return *this;
-    }
-    //! \massign
-    async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW
-    {
-      precondition = std::move(o.precondition);
-      buffers = std::move(o.buffers);
-      where = std::move(o.where);
-      return *this;
-    }
-    //! \async_data_op_req2
-    async_data_op_req_impl(async_io_op _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
-    //! \async_data_op_req2
-    async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
-    {
-      buffers.reserve(_buffers.capacity());
-      for(auto &&i : _buffers)
-        buffers.push_back(std::move(i));
-      _validate();
-    }
-    //! Validates contents for correctness \return True if contents are correct
-    bool validate() const
-    {
-      if(!precondition.validate())
-        return false;
-      if(buffers.empty())
-        return false;
-      for(auto &b : buffers)
-      {
-        if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b))
-          return false;
-        if(!!(precondition.parent->fileflags(file_flags::None) & file_flags::OSDirect))
+    private:
+        void _validate() const
         {
-          if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095))
-            return false;
-        }
-      }
-      return true;
-    }
-
-  private:
-    void _validate() const
-    {
 #if BOOST_AFIO_VALIDATE_INPUTS
-      if(!validate())
-        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+            if(!validate())
+                BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-    }
-  };
+        }
+    };
+    template<> class async_data_op_req_impl<true>
+    {
+    public:
+        //! An optional precondition for this operation
+        async_io_op precondition;
+        //! A sequence of mutable Boost.ASIO buffers to read into
+        std::vector<asio::const_buffer> buffers;
+        //! The offset from which to read
+        off_t where;
+        //! \constr
+        async_data_op_req_impl() { }
+        //! \cconstr
+        async_data_op_req_impl(const async_data_op_req_impl &o) : precondition(o.precondition), buffers(o.buffers), where(o.where) { }
+        //! \mconstr
+        async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
+        //! \cconstr
+        async_data_op_req_impl(const async_data_op_req_impl<false> &o) : precondition(o.precondition), where(o.where) { buffers.reserve(o.buffers.capacity()); for(auto &i: o.buffers){ buffers.push_back(i); } }
+        //! \mconstr
+        async_data_op_req_impl(async_data_op_req_impl<false> &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), where(std::move(o.where)) { buffers.reserve(o.buffers.capacity()); for(auto &&i: o.buffers){ buffers.push_back(std::move(i)); } }
+        //! \cassign
+        async_data_op_req_impl &operator=(const async_data_op_req_impl &o) { precondition=o.precondition; buffers=o.buffers; where=o.where; return *this; }
+        //! \massign
+        async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
+        //! \async_data_op_req2
+        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
+        //! \async_data_op_req2
+        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
+        {
+            buffers.reserve(_buffers.capacity());
+            for(auto &&i: _buffers)
+                buffers.push_back(std::move(i));
+            _validate();
+        }
+        //! Validates contents for correctness \return True if contents are correct
+        bool validate() const
+        {
+            if(!precondition.validate()) return false;
+            if(buffers.empty()) return false;
+            for(auto &b: buffers)
+            {
+                if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
+                if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
+                {
+                    if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
+                }
+            }
+            return true;
+        }
+    private:
+        void _validate() const
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            if(!validate())
+                BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
+        }
+    };
 }
 
 /*! \struct async_data_op_req
@@ -2659,90 +2566,74 @@ namespace detail
 \tparam "class T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
-template <class T> struct async_data_op_req : public detail::async_data_op_req_impl<false>
+template<class T> struct async_data_op_req : public detail::async_data_op_req_impl<false>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
-  //! A precondition containing an open file handle for this operation
-  async_io_op precondition;
-  //! A sequence of mutable Boost.ASIO buffers to read into
-  std::vector<asio::mutable_buffer> buffers;
-  //! The offset from which to read
-  off_t where;
+    //! A precondition containing an open file handle for this operation
+    async_io_op precondition;
+    //! A sequence of mutable Boost.ASIO buffers to read into
+    std::vector<asio::mutable_buffer> buffers;
+    //! The offset from which to read
+    off_t where;
 #endif
-  //! \constr
-  async_data_op_req() {}
-  //! \cconstr
-  async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<false>(o) {}
-  //! \mconstr
-  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<false>(std::move(o)) {}
-  //! \cassign
-  async_data_op_req &operator=(const async_data_op_req &o)
-  {
-    static_cast<detail::async_data_op_req_impl<false>>(*this) = o;
-    return *this;
-  }
-  //! \massign
-  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW
-  {
-    static_cast<detail::async_data_op_req_impl<false>>(*this) = std::move(o);
-    return *this;
-  }
-  //! \async_data_op_req1 \param _length The number of items to transfer
-  async_data_op_req(async_io_op _precondition, T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) {}
-  //! \async_data_op_req1
-  template <class U> async_data_op_req(async_io_op _precondition, U &v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) {}
-  //! \async_data_op_req1 \tparam N The number of items in the array
-  template <class U, size_t N> async_data_op_req(async_io_op _precondition, U(&v)[N], off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) {}
+    //! \constr
+    async_data_op_req() { }
+    //! \cconstr
+    async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<false>(o) { }
+    //! \mconstr
+    async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<false>(std::move(o)) { }
+    //! \cassign
+    async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<false>>(*this)=o; return *this; }
+    //! \massign
+    async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
+    //! \async_data_op_req1 \param _length The number of items to transfer
+    async_data_op_req(async_io_op _precondition, T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
+    //! \async_data_op_req1
+    template<class U> async_data_op_req(async_io_op _precondition, U &v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
+    //! \async_data_op_req1 \tparam N The number of items in the array
+    template<class U, size_t N> async_data_op_req(async_io_op _precondition, U (&v)[N], off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
 \tparam "class T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
-template <class T> struct async_data_op_req<const T> : public detail::async_data_op_req_impl<true>
+template<class T> struct async_data_op_req<const T> : public detail::async_data_op_req_impl<true>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
-  //! A precondition containing an open file handle for this operation
-  async_io_op precondition;
-  //! A sequence of const Boost.ASIO buffers to write from
-  std::vector<asio::const_buffer> buffers;
-  //! The offset at which to write
-  off_t where;
+    //! A precondition containing an open file handle for this operation
+    async_io_op precondition;
+    //! A sequence of const Boost.ASIO buffers to write from
+    std::vector<asio::const_buffer> buffers;
+    //! The offset at which to write
+    off_t where;
 #endif
-  //! \constr
-  async_data_op_req() {}
-  //! \cconstr
-  async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) {}
-  //! \mconstr
-  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) {}
-  //! \cconstr
-  async_data_op_req(const async_data_op_req<T> &o) : detail::async_data_op_req_impl<true>(o) {}
-  //! \mconstr
-  async_data_op_req(async_data_op_req<T> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) {}
-  //! \cassign
-  async_data_op_req &operator=(const async_data_op_req &o)
-  {
-    static_cast<detail::async_data_op_req_impl<true>>(*this) = o;
-    return *this;
-  }
-  //! \massign
-  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW
-  {
-    static_cast<detail::async_data_op_req_impl<true>>(*this) = std::move(o);
-    return *this;
-  }
-  //! \async_data_op_req1 \param _length The number of items to transfer
-  async_data_op_req(async_io_op _precondition, const T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) {}
-  //! \async_data_op_req1
-  template <class U> async_data_op_req(async_io_op _precondition, const U &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) {}
-  //! \async_data_op_req1 \tparam N The number of items in the array
-  template <class U, size_t N> async_data_op_req(async_io_op _precondition, const U(&v)[N], off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) {}
+    //! \constr
+    async_data_op_req() { }
+    //! \cconstr
+    async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) { }
+    //! \mconstr
+    async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    //! \cconstr
+    async_data_op_req(const async_data_op_req<T> &o) : detail::async_data_op_req_impl<true>(o) { }
+    //! \mconstr
+    async_data_op_req(async_data_op_req<T> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    //! \cassign
+    async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
+    //! \massign
+    async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
+    //! \async_data_op_req1 \param _length The number of items to transfer
+    async_data_op_req(async_io_op _precondition, const T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
+    //! \async_data_op_req1
+    template<class U> async_data_op_req(async_io_op _precondition, const U &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
+    //! \async_data_op_req1 \tparam N The number of items in the array
+    template<class U, size_t N> async_data_op_req(async_io_op _precondition, const U (&v)[N], off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
 \ingroup async_data_op_req
 */
-template <> struct async_data_op_req<void> : public detail::async_data_op_req_impl<false>
+template<> struct async_data_op_req<void> : public detail::async_data_op_req_impl<false>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
   //! A precondition containing an open file handle for this operation
@@ -2753,31 +2644,23 @@ template <> struct async_data_op_req<void> : public detail::async_data_op_req_im
   off_t where;
 #endif
   //! \constr
-  async_data_op_req() {}
+  async_data_op_req() { }
   //! \cconstr
-  async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<false>(o) {}
+  async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<false>(o) { }
   //! \mconstr
-  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<false>(std::move(o)) {}
+  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<false>(std::move(o)) { }
   //! \cassign
-  async_data_op_req &operator=(const async_data_op_req &o)
-  {
-    static_cast<detail::async_data_op_req_impl<false>>(*this) = o;
-    return *this;
-  }
+  async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<false>>(*this)=o; return *this; }
   //! \massign
-  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW
-  {
-    static_cast<detail::async_data_op_req_impl<false>>(*this) = std::move(o);
-    return *this;
-  }
+  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
   //! \async_data_op_req1 \param _length The number of items to transfer
-  async_data_op_req(async_io_op _precondition, void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) {}
+  async_data_op_req(async_io_op _precondition, void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
 \ingroup async_data_op_req
 */
-template <> struct async_data_op_req<const void> : public detail::async_data_op_req_impl<true>
+template<> struct async_data_op_req<const void> : public detail::async_data_op_req_impl<true>
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
   //! A precondition containing an open file handle for this operation
@@ -2788,50 +2671,54 @@ template <> struct async_data_op_req<const void> : public detail::async_data_op_
   off_t where;
 #endif
   //! \constr
-  async_data_op_req() {}
+  async_data_op_req() { }
   //! \cconstr
-  async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) {}
+  async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) { }
   //! \mconstr
-  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) {}
+  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
   //! \cconstr
-  async_data_op_req(const async_data_op_req<void> &o) : detail::async_data_op_req_impl<true>(o) {}
+  async_data_op_req(const async_data_op_req<void> &o) : detail::async_data_op_req_impl<true>(o) { }
   //! \mconstr
-  async_data_op_req(async_data_op_req<void> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) {}
+  async_data_op_req(async_data_op_req<void> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
   //! \cassign
-  async_data_op_req &operator=(const async_data_op_req &o)
-  {
-    static_cast<detail::async_data_op_req_impl<true>>(*this) = o;
-    return *this;
-  }
+  async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
   //! \massign
-  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW
-  {
-    static_cast<detail::async_data_op_req_impl<true>>(*this) = std::move(o);
-    return *this;
-  }
+  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
   //! \async_data_op_req1 \param _length The number of items to transfer
-  async_data_op_req(async_io_op _precondition, const void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) {}
+  async_data_op_req(async_io_op _precondition, const void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
 };
 
 namespace detail
 {
-  template <class T, bool is_container = detail::is_container<T>::value> struct make_async_data_op_req
+  template<class T, bool is_container=detail::is_container<T>::value> struct make_async_data_op_req
   {
     typedef typename std::remove_pointer<typename std::decay<T>::type>::type _T;
     typedef async_data_op_req<_T> type;
-    template <class U> type operator()(async_io_op _precondition, U &&v, off_t _where) const { return type(std::move(_precondition), std::forward<U>(v), _where); }
-    template <class U> type operator()(async_io_op _precondition, U &&v, size_t _length, off_t _where) const { return type(std::move(_precondition), std::forward<U>(v), _length, _where); }
+    template<class U> type operator()(async_io_op _precondition, U &&v, off_t _where) const
+    {
+      return type(std::move(_precondition), std::forward<U>(v), _where);
+    }
+    template<class U> type operator()(async_io_op _precondition, U &&v, size_t _length, off_t _where) const
+    {
+      return type(std::move(_precondition), std::forward<U>(v), _length, _where);
+    }
   };
   // If T is a container and that container's value_type is const, make sure we only create an asio::const_buffer
-  template <class T> struct make_async_data_op_req<T, true>
+  template<class T> struct make_async_data_op_req<T, true>
   {
     typedef typename detail::is_container<T>::type container_value_type;
-    static BOOST_CONSTEXPR_OR_CONST bool is_container_contents_const = std::is_const<container_value_type>::value || std::is_base_of<asio::const_buffer, container_value_type>::value;
+    static BOOST_CONSTEXPR_OR_CONST bool is_container_contents_const=std::is_const<container_value_type>::value || std::is_base_of<asio::const_buffer, container_value_type>::value;
     typedef typename std::remove_pointer<typename std::decay<T>::type>::type __T;
     typedef typename std::conditional<is_container_contents_const, typename std::add_const<__T>::type, __T>::type _T;
     typedef async_data_op_req<_T> type;
-    template <class U> type operator()(async_io_op _precondition, U &&v, off_t _where) const { return type(std::move(_precondition), std::forward<U>(v), _where); }
-    template <class U> type operator()(async_io_op _precondition, U &&v, size_t _length, off_t _where) const { return type(std::move(_precondition), std::forward<U>(v), _length, _where); }
+    template<class U> type operator()(async_io_op _precondition, U &&v, off_t _where) const
+    {
+      return type(std::move(_precondition), std::forward<U>(v), _where);
+    }
+    template<class U> type operator()(async_io_op _precondition, U &&v, size_t _length, off_t _where) const
+    {
+      return type(std::move(_precondition), std::forward<U>(v), _length, _where);
+    }
   };
 }
 /*! \brief Convenience instantiator of a async_data_op_req, letting the compiler deduce the template specialisation to use.
@@ -2845,7 +2732,7 @@ namespace detail
 [readwrite_example]
 }
 */
-template <class T> inline auto make_async_data_op_req(async_io_op _precondition, T &&v, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _where))
+template<class T> inline auto make_async_data_op_req(async_io_op _precondition, T &&v, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _where))
 {
   return detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _where);
 }
@@ -2860,7 +2747,7 @@ template <class T> inline auto make_async_data_op_req(async_io_op _precondition,
 [readwrite_example]
 }
 */
-template <class T> inline async_data_op_req<const std::initializer_list<T>> make_async_data_op_req(async_io_op _precondition, const std::initializer_list<T> &v, off_t _where)
+template<class T> inline async_data_op_req<const std::initializer_list<T>> make_async_data_op_req(async_io_op _precondition, const std::initializer_list<T> &v, off_t _where)
 {
   return async_data_op_req<const std::initializer_list<T>>(std::move(_precondition), v, _where);
 }
@@ -2876,7 +2763,7 @@ template <class T> inline async_data_op_req<const std::initializer_list<T>> make
 [readwrite_example]
 }
 */
-template <class T> inline auto make_async_data_op_req(async_io_op _precondition, T &&v, size_t _length, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _length, _where))
+template<class T> inline auto make_async_data_op_req(async_io_op _precondition, T &&v, size_t _length, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _length, _where))
 {
   return detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _length, _where);
 }
@@ -2897,305 +2784,287 @@ characters. Here a \\ is the wildcard escape character.
 */
 struct async_enumerate_op_req
 {
-  async_io_op precondition;  //!< A precondition for this operation.
-  size_t maxitems;           //!< The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
-  bool restart;              //!< Restarts the enumeration for this open directory handle.
-  filesystem::path glob;     //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
-  metadata_flags metadata;   //!< The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
-  //! \constr
-  async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None) {}
-  /*! \brief Constructs an instance.
-
-  \param _precondition The precondition for this operation.
-  \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
-  \param _restart Restarts the enumeration for this open directory handle.
-  \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
-  \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
-  */
-  async_enumerate_op_req(async_io_op _precondition, size_t _maxitems = 2, bool _restart = true, filesystem::path _glob = filesystem::path(), metadata_flags _metadata = metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata)
-  {
-    _validate();
-  }
-  /*! \brief Constructs an instance.
-
-  \param _precondition The precondition for this operation.
-  \param _glob A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
-  \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
-  \param _restart Restarts the enumeration for this open directory handle.
-  \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
-  */
-  async_enumerate_op_req(async_io_op _precondition, filesystem::path _glob, size_t _maxitems = 2, bool _restart = true, metadata_flags _metadata = metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
-  /*! \brief Constructs an instance.
-
-  \param _precondition The precondition for this operation.
-  \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
-  \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
-  \param _restart Restarts the enumeration for this open directory handle.
-  \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
-  */
-  async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems = 2, bool _restart = true, filesystem::path _glob = filesystem::path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
-  //! Validates contents
-  bool validate() const
-  {
-    if(!maxitems)
-      return false;
-    return !precondition.id || precondition.validate();
-  }
-
+    async_io_op precondition;    //!< A precondition for this operation.
+    size_t maxitems;             //!< The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
+    bool restart;                //!< Restarts the enumeration for this open directory handle.
+    filesystem::path glob;  //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    metadata_flags metadata;     //!< The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    //! \constr
+    async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None) { }
+    /*! \brief Constructs an instance.
+    
+    \param _precondition The precondition for this operation.
+    \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
+    \param _restart Restarts the enumeration for this open directory handle.
+    \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    */
+    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, filesystem::path _glob=filesystem::path(), metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    /*! \brief Constructs an instance.
+    
+    \param _precondition The precondition for this operation.
+    \param _glob A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
+    \param _restart Restarts the enumeration for this open directory handle.
+    \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    */
+    async_enumerate_op_req(async_io_op _precondition, filesystem::path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    /*! \brief Constructs an instance.
+    
+    \param _precondition The precondition for this operation.
+    \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
+    \param _restart Restarts the enumeration for this open directory handle.
+    \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    */
+    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, filesystem::path _glob=filesystem::path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    //! Validates contents
+    bool validate() const
+    {
+        if(!maxitems) return false;
+        return !precondition.id || precondition.validate();
+    }
 private:
-  void _validate() const
-  {
+    void _validate() const
+    {
 #if BOOST_AFIO_VALIDATE_INPUTS
-    if(!validate())
-      BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+        if(!validate())
+            BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-  }
+    }
 };
 
 // Undocumented deliberately
 struct async_lock_op_req
 {
   async_io_op precondition;
-  enum class Type
-  {
-    unknown,
-    read_lock,
-    write_lock,
-    unlock
-  } type;
+  enum class Type { unknown, read_lock, write_lock, unlock } type;
   off_t offset, length;
-  // chrono::time_point<chrono::steady_clock> deadline;
-  async_lock_op_req() : type(Type::unknown), offset(0), length(0) {}
-  async_lock_op_req(async_io_op _precondition, Type _type = Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t) -1) { _validate(); }
-  async_lock_op_req(async_io_op _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t) -1) { _validate(); }
+  //chrono::time_point<chrono::steady_clock> deadline;
+  async_lock_op_req() : type(Type::unknown), offset(0), length(0) { }
+  async_lock_op_req(async_io_op _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
+  async_lock_op_req(async_io_op _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t)-1) { _validate(); }
   async_lock_op_req(async_io_op _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
-  async_lock_op_req(async_io_op _precondition, off_t _offset, off_t _length, Type _type = Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  async_lock_op_req(async_io_op _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
   //! Validates contents
   bool validate() const
   {
-    if(type == Type::unknown)
-      return false;
-    if(offset + length < offset)
-      return false;
-    return !precondition.id || precondition.validate();
+      if(type==Type::unknown) return false;
+      if(offset+length<offset) return false;
+      return !precondition.id || precondition.validate();
   }
-
 private:
   void _validate() const
   {
 #if BOOST_AFIO_VALIDATE_INPUTS
-    if(!validate())
-      BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+      if(!validate())
+          BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
   }
 };
 
 
-namespace detail
-{
-  template <bool iswrite, class T> struct async_file_io_dispatcher_rwconverter
-  {
-    typedef detail::async_data_op_req_impl<iswrite> return_type;
-    const std::vector<return_type> &operator()(const std::vector<async_data_op_req<T>> &ops) const
+
+namespace detail {
+    template<bool iswrite, class T> struct async_file_io_dispatcher_rwconverter
     {
-      typedef async_data_op_req<T> reqT;
-      static_assert(std::is_convertible<reqT, return_type>::value, "async_data_op_req<T> is not convertible to detail::async_data_op_req_impl<constness>");
-      static_assert(sizeof(return_type) == sizeof(reqT), "async_data_op_req<T> does not have the same size as detail::async_data_op_req_impl<constness>");
-      return reinterpret_cast<const std::vector<return_type> &>(ops);
-    }
-  };
+        typedef detail::async_data_op_req_impl<iswrite> return_type;
+        const std::vector<return_type> &operator()(const std::vector<async_data_op_req<T>> &ops) const
+        {
+            typedef async_data_op_req<T> reqT;
+            static_assert(std::is_convertible<reqT, return_type>::value, "async_data_op_req<T> is not convertible to detail::async_data_op_req_impl<constness>");
+            static_assert(sizeof(return_type)==sizeof(reqT), "async_data_op_req<T> does not have the same size as detail::async_data_op_req_impl<constness>");
+            return reinterpret_cast<const std::vector<return_type> &>(ops);
+        }
+    };
 }
 
-#if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION)  // Only really used for benchmarking
+#if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) // Only really used for benchmarking
 inline async_io_op async_file_io_dispatcher_base::completion(const async_io_op &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback)
 {
-  std::vector<async_io_op> r;
-  std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> i;
-  r.reserve(1);
-  i.reserve(1);
-  r.push_back(req);
-  i.push_back(callback);
-  return std::move(completion(r, i).front());
+    std::vector<async_io_op> r;
+    std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> i;
+    r.reserve(1); i.reserve(1);
+    r.push_back(req);
+    i.push_back(callback);
+    return std::move(completion(r, i).front());
 }
 #endif
 inline async_io_op async_file_io_dispatcher_base::completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback)
 {
-  std::vector<async_io_op> r;
-  std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
-  r.reserve(1);
-  i.reserve(1);
-  r.push_back(req);
-  i.push_back(callback);
-  return std::move(completion(r, i).front());
+    std::vector<async_io_op> r;
+    std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
+    r.reserve(1); i.reserve(1);
+    r.push_back(req);
+    i.push_back(callback);
+    return std::move(completion(r, i).front());
 }
-namespace detail
-{
-  template <class tasktype> std::pair<bool, std::shared_ptr<async_io_handle>> doCall(size_t, async_io_op _, std::shared_ptr<tasktype> c)
-  {
-    (*c)();
-    return std::make_pair(true, _.get(true));
-  }
+namespace detail {
+    template<class tasktype> std::pair<bool, std::shared_ptr<async_io_handle>> doCall(size_t, async_io_op _, std::shared_ptr<tasktype> c)
+    {
+        (*c)();
+        return std::make_pair(true, _.get(true));
+    }
 }
-template <class R> inline std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> async_file_io_dispatcher_base::call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables)
+template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> async_file_io_dispatcher_base::call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables)
 {
-  typedef enqueued_task<R()> tasktype;
-  std::vector<shared_future<R>> retfutures;
-  std::vector<std::pair<async_op_flags, std::function<completion_t>>> callbacks;
-  retfutures.reserve(callables.size());
-  callbacks.reserve(callables.size());
-
-  for(auto &t : callables)
-  {
-    std::shared_ptr<tasktype> c(std::make_shared<tasktype>(std::function<R()>(t)));
-    retfutures.push_back(c->get_future());
-    callbacks.push_back(std::make_pair(async_op_flags::none, std::bind(&detail::doCall<tasktype>, std::placeholders::_1, std::placeholders::_2, std::move(c))));
-  }
-  return std::make_pair(std::move(retfutures), completion(ops, callbacks));
+    typedef enqueued_task<R()> tasktype;
+    std::vector<shared_future<R>> retfutures;
+    std::vector<std::pair<async_op_flags, std::function<completion_t>>> callbacks;
+    retfutures.reserve(callables.size());
+    callbacks.reserve(callables.size());
+    
+    for(auto &t: callables)
+    {
+        std::shared_ptr<tasktype> c(std::make_shared<tasktype>(std::function<R()>(t)));
+        retfutures.push_back(c->get_future());
+        callbacks.push_back(std::make_pair(async_op_flags::none, std::bind(&detail::doCall<tasktype>, std::placeholders::_1, std::placeholders::_2, std::move(c))));
+    }
+    return std::make_pair(std::move(retfutures), completion(ops, callbacks));
 }
-template <class R> inline std::pair<shared_future<R>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, std::function<R()> callback)
+template<class R> inline std::pair<shared_future<R>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, std::function<R()> callback)
 {
-  std::vector<async_io_op> i;
-  std::vector<std::function<R()>> c;
-  i.reserve(1);
-  c.reserve(1);
-  i.push_back(req);
-  c.push_back(std::move(callback));
-  std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> ret(call(i, c));
-  return std::make_pair(std::move(ret.first.front()), ret.second.front());
+    std::vector<async_io_op> i;
+    std::vector<std::function<R()>> c;
+    i.reserve(1); c.reserve(1);
+    i.push_back(req);
+    c.push_back(std::move(callback));
+    std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> ret(call(i, c));
+    return std::make_pair(std::move(ret.first.front()), ret.second.front());
 }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-template <class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
+template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
 #else
-template <class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
+template<class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
 #endif
 {
-  typedef typename std::result_of<C(Args...)>::type rettype;
-  return call(req, std::function<rettype()>(std::bind<rettype>(callback, args...)));
+    typedef typename std::result_of<C(Args...)>::type rettype;
+    return call(req, std::function<rettype()>(std::bind<rettype>(callback, args...)));
 }
 
 inline async_io_op async_file_io_dispatcher_base::adopt(std::shared_ptr<async_io_handle> h)
 {
-  std::vector<std::shared_ptr<async_io_handle>> i;
-  i.reserve(1);
-  i.push_back(std::move(h));
-  return std::move(adopt(i).front());
+    std::vector<std::shared_ptr<async_io_handle>> i;
+    i.reserve(1);
+    i.push_back(std::move(h));
+    return std::move(adopt(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::dir(const async_path_op_req &req)
 {
-  std::vector<async_path_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(dir(i).front());
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(dir(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::rmdir(const async_path_op_req &req)
 {
-  std::vector<async_path_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(rmdir(i).front());
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(rmdir(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::file(const async_path_op_req &req)
 {
-  std::vector<async_path_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(file(i).front());
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(file(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::rmfile(const async_path_op_req &req)
 {
-  std::vector<async_path_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(rmfile(i).front());
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(rmfile(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::symlink(const async_path_op_req &req)
 {
-  std::vector<async_path_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(symlink(i).front());
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(symlink(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::rmsymlink(const async_path_op_req &req)
 {
-  std::vector<async_path_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(rmsymlink(i).front());
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(rmsymlink(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::sync(const async_io_op &req)
 {
-  std::vector<async_io_op> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(sync(i).front());
+    std::vector<async_io_op> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(sync(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges)
 {
-  std::vector<async_io_op> i;
-  std::vector<std::vector<std::pair<off_t, off_t>>> r;
-  i.reserve(1);
-  i.push_back(req);
-  r.reserve(1);
-  r.push_back(ranges);
-  return std::move(zero(i, r).front());
+    std::vector<async_io_op> i;
+    std::vector<std::vector<std::pair<off_t, off_t>>> r;
+    i.reserve(1);
+    i.push_back(req);
+    r.reserve(1);
+    r.push_back(ranges);
+    return std::move(zero(i, r).front());
 }
 inline async_io_op async_file_io_dispatcher_base::close(const async_io_op &req)
 {
-  std::vector<async_io_op> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(close(i).front());
+    std::vector<async_io_op> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(close(i).front());
 }
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 inline async_io_op async_file_io_dispatcher_base::read(const detail::async_data_op_req_impl<false> &req)
 {
-  std::vector<detail::async_data_op_req_impl<false>> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(read(i).front());
+    std::vector<detail::async_data_op_req_impl<false>> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(read(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::write(const detail::async_data_op_req_impl<true> &req)
 {
-  std::vector<detail::async_data_op_req_impl<true>> i;
-  i.reserve(1);
-  i.push_back(req);
-  return std::move(write(i).front());
+    std::vector<detail::async_data_op_req_impl<true>> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(write(i).front());
 }
 #endif
-template <class T> inline std::vector<async_io_op> async_file_io_dispatcher_base::read(const std::vector<async_data_op_req<T>> &ops)
+template<class T> inline std::vector<async_io_op> async_file_io_dispatcher_base::read(const std::vector<async_data_op_req<T>> &ops)
 {
-  return read(detail::async_file_io_dispatcher_rwconverter<false, T>()(ops));
+    return read(detail::async_file_io_dispatcher_rwconverter<false, T>()(ops));
 }
-template <class T> inline std::vector<async_io_op> async_file_io_dispatcher_base::write(const std::vector<async_data_op_req<T>> &ops)
+template<class T> inline std::vector<async_io_op> async_file_io_dispatcher_base::write(const std::vector<async_data_op_req<T>> &ops)
 {
-  return write(detail::async_file_io_dispatcher_rwconverter<true, T>()(ops));
+    return write(detail::async_file_io_dispatcher_rwconverter<true, T>()(ops));
 }
 inline async_io_op async_file_io_dispatcher_base::truncate(const async_io_op &op, off_t newsize)
 {
-  std::vector<async_io_op> o;
-  std::vector<off_t> i;
-  o.reserve(1);
-  o.push_back(op);
-  i.reserve(1);
-  i.push_back(newsize);
-  return std::move(truncate(o, i).front());
+    std::vector<async_io_op> o;
+    std::vector<off_t> i;
+    o.reserve(1);
+    o.push_back(op);
+    i.reserve(1);
+    i.push_back(newsize);
+    return std::move(truncate(o, i).front());
 }
 inline std::pair<future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> async_file_io_dispatcher_base::enumerate(const async_enumerate_op_req &req)
 {
-  std::vector<async_enumerate_op_req> i;
-  i.reserve(1);
-  i.push_back(req);
-  auto ret = enumerate(i);
-  return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
+    std::vector<async_enumerate_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    auto ret=enumerate(i);
+    return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
 inline std::pair<future<std::vector<std::pair<off_t, off_t>>>, async_io_op> async_file_io_dispatcher_base::extents(const async_io_op &op)
 {
-  std::vector<async_io_op> o;
-  o.reserve(1);
-  o.push_back(op);
-  auto ret = extents(o);
-  return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
+    std::vector<async_io_op> o;
+    o.reserve(1);
+    o.push_back(op);
+    auto ret=extents(o);
+    return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
 inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::statfs(const async_io_op &op, const fs_metadata_flags &req)
 {
@@ -3217,13 +3086,16 @@ BOOST_AFIO_V1_NAMESPACE_END
 #include <functional>
 namespace std
 {
-  template <> struct hash<BOOST_AFIO_V1_NAMESPACE::directory_entry>
-  {
-  public:
-    size_t operator()(const BOOST_AFIO_V1_NAMESPACE::directory_entry &p) const { return BOOST_AFIO_V1_NAMESPACE::directory_entry_hash()(p); }
-  };
+    template<> struct hash<BOOST_AFIO_V1_NAMESPACE::directory_entry>
+    {
+    public:
+        size_t operator()(const BOOST_AFIO_V1_NAMESPACE::directory_entry &p) const
+        {
+            return BOOST_AFIO_V1_NAMESPACE::directory_entry_hash()(p);
+        }
+    };
 
-}  // namesapce std
+}//namesapce std
 #endif
 
 #ifdef BOOST_MSVC
@@ -3231,7 +3103,7 @@ namespace std
 #endif
 
 #if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
-#undef BOOST_AFIO_VALIDATE_INPUTS  // Let BOOST_AFIO_NEVER_VALIDATE_INPUTS take over
+#undef BOOST_AFIO_VALIDATE_INPUTS // Let BOOST_AFIO_NEVER_VALIDATE_INPUTS take over
 #define BOOST_AFIO_HEADER_INCLUDED 1
 #include "detail/impl/afio.ipp"
 #undef BOOST_AFIO_HEADER_INCLUDED
