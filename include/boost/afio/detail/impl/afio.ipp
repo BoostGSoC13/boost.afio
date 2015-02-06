@@ -180,6 +180,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct __stat64
 #define BOOST_AFIO_POSIX_STAT _wstat64
 #define BOOST_AFIO_POSIX_LSTAT _wstat64
+#define BOOST_AFIO_POSIX_FSTAT _fstat64
 #define BOOST_AFIO_POSIX_OPEN _wopen
 #define BOOST_AFIO_POSIX_CLOSE _close
 #define BOOST_AFIO_POSIX_UNLINK _wunlink
@@ -205,6 +206,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct stat 
 #define BOOST_AFIO_POSIX_STAT stat
 #define BOOST_AFIO_POSIX_LSTAT ::lstat
+#define BOOST_AFIO_POSIX_FSTAT ::fstat
 #define BOOST_AFIO_POSIX_OPEN open
 #define BOOST_AFIO_POSIX_SYMLINK ::symlink
 #define BOOST_AFIO_POSIX_CLOSE ::close
@@ -604,9 +606,9 @@ namespace detail {
         {
             stat_t stat(nullptr);
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), path());
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &s), path());
             fill_stat_t(stat, s, wanted);
-            return directory_entry(path()
+            return directory_entry((-1==BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s)) ? filesystem::path() : path()
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
               .leaf()
 #else

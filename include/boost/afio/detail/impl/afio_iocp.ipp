@@ -92,7 +92,7 @@ namespace detail {
             FILE_FS_SECTOR_SIZE_INFORMATION ffssi={0};
             bool needInternal=!!(wanted&metadata_flags::ino);
             bool needBasic=(!!(wanted&metadata_flags::type) || !!(wanted&metadata_flags::atim) || !!(wanted&metadata_flags::mtim) || !!(wanted&metadata_flags::ctim) || !!(wanted&metadata_flags::birthtim) || !!(wanted&metadata_flags::sparse) || !!(wanted&metadata_flags::compressed));
-            bool needStandard=(!!(wanted&metadata_flags::nlink) || !!(wanted&metadata_flags::size) || !!(wanted&metadata_flags::allocated) || !!(wanted&metadata_flags::blocks));
+            bool needStandard=true;  // needed for DeletePending
             // It's not widely known that the NT kernel supplies a stat() equivalent i.e. get me everything in a single syscall
             // However fetching FileAlignmentInformation which comes with FILE_ALL_INFORMATION is slow as it touches the device driver,
             // so only use if we need more than one item
@@ -153,7 +153,7 @@ namespace detail {
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(fai.BasicInformation.CreationTime); }
             if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE); }
             if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
-            return directory_entry(path()
+            return directory_entry(fai.StandardInformation.DeletePending ? filesystem::path() : path()
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
               .leaf()
 #else
@@ -374,10 +374,11 @@ namespace detail {
             req.flags=fileflags(req.flags);
             // To emulate POSIX unlink semantics, we first rename the file to something random
             // before we delete it.
-            filesystem::path randompath(req.path.parent_path()/make_randomname());
+            filesystem::path randompath(req.path.parent_path()/(L".afio"+make_randomname()));
             filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native()), escapedrandompath(L"\\\\?\\"+randompath.native());
             if(MoveFile(escapedpath.c_str(), escapedrandompath.c_str()))
             {
+              // TODO: Also mark with hidden attributes? If you do, instead of MoveFile open the file and use rename + attribs on it.
               BOOST_AFIO_ERRHWINFN(DeleteFile(escapedrandompath.c_str()), req.path);
             }
             else
@@ -823,7 +824,7 @@ namespace detail {
         typedef std::shared_ptr<enumerate_state> enumerate_state_t;
         void boost_asio_enumerate_completion_handler(enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
         {
-            using windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION;
+            using namespace windows_nt_kernel;
             size_t id=state->id;
             std::shared_ptr<async_io_handle> h(state->op.get());
             std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=state->ret;
@@ -873,14 +874,52 @@ namespace detail {
                 bool done=false;
                 for(FILE_ID_FULL_DIR_INFORMATION *ffdi=buffer.get(); !done; ffdi=(FILE_ID_FULL_DIR_INFORMATION *)((size_t) ffdi + ffdi->NextEntryOffset))
                 {
+                    if(!ffdi->NextEntryOffset) done=true;
                     size_t length=ffdi->FileNameLength/sizeof(filesystem::path::value_type);
                     if(length<=2 && '.'==ffdi->FileName[0])
                         if(1==length || '.'==ffdi->FileName[1])
+                            continue;
+                    filesystem::path::string_type leafname(ffdi->FileName, length);
+                    if(leafname.size()==37 && !leafname.compare(0, 5, L".afio"))
+                    {
+                      // Could be one of our "deleted" files, is he ".afio" + all hex?
+                      bool isHex=true;
+                      for(size_t n=5; n<37; n++)
+                      {
+                        auto c=leafname[n];
+                        if(!((c>='1' && c<='9') || (c>='a' && c<='f')))
                         {
-                            if(!ffdi->NextEntryOffset) done=true;
+                          isHex=false;
+                          break;
+                        }
+                      }
+                      // If all hex and 37 chars long, going to have to open the file and ask
+                      if(isHex)
+                      {
+                        NTSTATUS ntstat;
+                        HANDLE temph;
+                        // Ask to open with no rights at all, this should succeed even if perms deny any access
+                        std::tie(ntstat, temph)=ntcreatefile(async_path_op_req(h->path()/leafname, file_flags::None));
+                        if(ntstat)
+                        {
+                          if(0xC000000F/*STATUS_NO_SUCH_FILE*/==ntstat || 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==ntstat)
+                            continue;
+                          // Otherwise allow the directory entry
+                        }
+                        else
+                        {
+                          IO_STATUS_BLOCK isb={ 0 };
+                          BOOST_AFIO_TYPEALIGNMENT(8) FILE_ALL_INFORMATION fai;
+                          ntstat=NtQueryInformationFile(temph, &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
+                          if(STATUS_PENDING==ntstat)
+                            ntstat=NtWaitForSingleObject(temph, FALSE, NULL);
+                          CloseHandle(temph);
+                          // If the query succeeded and delete is pending, filter out this entry
+                          if(!ntstat && fai.StandardInformation.DeletePending)
                             continue;
                         }
-                    filesystem::path::string_type leafname(ffdi->FileName, length);
+                      }
+                    }
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
                     item.stat.st_type=to_st_type(ffdi->FileAttributes);
@@ -893,7 +932,6 @@ namespace detail {
                     item.stat.st_sparse=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE);
                     item.stat.st_compressed=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_COMPRESSED);
                     _ret.push_back(std::move(item));
-                    if(!ffdi->NextEntryOffset) done=true;
                 }
                 if(needmoremetadata)
                 {

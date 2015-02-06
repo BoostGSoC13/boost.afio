@@ -726,11 +726,12 @@ public:
     bool operator<=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname <= rhs.leafname; }
     bool operator> (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname > rhs.leafname; }
     bool operator>=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname >= rhs.leafname; }
-    //! \return The name of the directory entry
+    //! \return The name of the directory entry. May be empty if the file is deleted.
     filesystem::path name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
     //! \return A bitfield of what metadata is ready right now
     metadata_flags metadata_ready() const BOOST_NOEXCEPT_OR_NOTHROW { return have_metadata; }
     /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
+    Note that if the call blocks and the leafname no longer exists or the directory handle is null, an exception is thrown.
     \return The metadata now available in this directory entry.
     \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
     \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
@@ -744,6 +745,7 @@ public:
         return have_metadata;
     }
     /*! \brief Returns a copy of the internal `stat_t` structure. This is a blocking call if wanted metadata is not yet ready.
+    Note that if the call blocks and the leafname no longer exists or the directory handle is null, an exception is thrown.
     \return A copy of the internal `stat_t` structure.
     \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
     \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
@@ -868,7 +870,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns when this handle was opened
     const chrono::system_clock::time_point &opened() const { return _opened; }
-    //! Returns the path of this io handle
+    //! Returns the path of this i/o handle as when opened. Use direntry() to discover if the file is now deleted.
     const filesystem::path &path() const { return _path; }
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
