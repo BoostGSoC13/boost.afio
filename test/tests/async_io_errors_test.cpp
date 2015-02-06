@@ -10,7 +10,6 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
         filesystem::remove("testdir/a");
     if(filesystem::exists("testdir"))
         filesystem::remove("testdir");
-    try
     {
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_async_file_io_dispatcher();
@@ -48,7 +47,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                 // open to it appears to no op
                 for(size_t n=0; filesystem::exists("testdir/a") && n<100; n++)
                 {
-                    filesystem::remove("testdir/a");
+                    try { filesystem::remove("testdir/a"); } catch(...) { }
                     if(n>10) this_thread::sleep_for(chrono::milliseconds(1));
                 }
                 if(filesystem::exists("testdir/a"))
@@ -128,11 +127,6 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                 }
             } while(false);
         }
-    }
-    catch(...)
-    {
-        std::cerr << "Exception thrown." << std::endl;
-        BOOST_CHECK(false);
     }
     if(filesystem::exists("testdir/a"))
         filesystem::remove("testdir/a");
