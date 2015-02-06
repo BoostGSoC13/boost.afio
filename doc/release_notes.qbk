@@ -56,6 +56,10 @@ timeouts.
 * Portable fast file byte range advisory locking which works across network shares,
 but can still utilise shared memory when possible.
 
+* Related to locking files, the ability to copy files (unwritten destination locked until
+complete) using a variety of algorithms with progress notification via the file
+change monitoring. Extend rename file and delete file with lock file options.
+
 * Extended attributes support. TripleGit could use this to avoid a second file
 handle open of metadata per graph object read. Unsure if NTFS is any faster
 opening EA though, need to test.
@@ -148,13 +152,19 @@ only be used for writing only and not reading.
 during destruction.
 
 * Use rename to random name before deletion pattern in rmfile() to work around Windows refusing new file
-creation with the same name as a recently deleted file.
+creation with the same name as a recently deleted file. enumerate() now filters out such zombied pending
+delete files automatically.
 
 * Fixed bug where direntry() was using lstat() instead of fstat() on POSIX and therefore failing if the
 file handle had been deleted.
 
 
 TODO BEFORE RELEASE
+
+2. Add ability to look up the current full path of an open file handle, and add use of this ability to
+delete and rename.
+
+3. Provide option for \\?\ prefixing of filesystem paths returned by AFIO on Windows.
 
 4. clang-reformat everything.
 
