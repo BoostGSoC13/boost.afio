@@ -902,7 +902,7 @@ namespace detail {
                         std::tie(ntstat, temph)=ntcreatefile(async_path_op_req(h->path()/leafname, file_flags::None));
                         if(ntstat)
                         {
-                          if(0xC000000F/*STATUS_NO_SUCH_FILE*/==ntstat || 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==ntstat)
+                          if((NTSTATUS) 0xC000000F/*STATUS_NO_SUCH_FILE*/==ntstat || (NTSTATUS) 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==ntstat)
                             continue;
                           // Otherwise allow the directory entry
                         }
