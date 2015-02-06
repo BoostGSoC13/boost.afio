@@ -6,7 +6,7 @@
 #define SPINLOCK_STANDALONE 1
 
 #define STRINGIZE2(a) #a
-#define STRINGIZE(a, b) STRINGIZE2(a##b)
+#define STRINGIZE(a, b) STRINGIZE2(a ## b)
 
 // Make unit test names be different
 #define BOOST_CATCH_AUTO_TEST_CASE_NAME(name) STRINGIZE(1_, name)
