@@ -65,7 +65,7 @@ Note that failure to explicitly schedule closing a file handle in the dispatcher
 ]]
 [[``const filesystem::path & path()``
 
-] [Returns the path of this io handle. ] [
+] [Returns the path of this i/o handle as when opened. Use direntry() to discover if the file is now deleted. ] [
 
 
 ]]

@@ -158,6 +158,9 @@ delete files automatically.
 * Fixed bug where direntry() was using lstat() instead of fstat() on POSIX and therefore failing if the
 file handle had been deleted.
 
+* symlink() no longer opens target file on POSIX, and instead returns a closed handle. The previous
+behaviour was throwing exceptions when the symlink was broken.
+
 
 TODO BEFORE RELEASE
 

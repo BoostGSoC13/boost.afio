@@ -542,7 +542,7 @@ namespace detail {
     
     struct async_io_handle_posix : public async_io_handle
     {
-        int fd;
+        int fd;  // -999 is closed handle
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
@@ -606,15 +606,30 @@ namespace detail {
         {
             stat_t stat(nullptr);
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &s), path());
-            fill_stat_t(stat, s, wanted);
-            return directory_entry((-1==BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s)) ? filesystem::path() : path()
+            if(opened_as_symlink())
+            {
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), path());
+              fill_stat_t(stat, s, wanted);
+              return directory_entry(path()
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-              .leaf()
+                .leaf()
 #else
-              .filename()
+                .filename()
 #endif
-            , stat, wanted);
+              , stat, wanted);
+            }
+            else
+            {
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &s), path());
+              fill_stat_t(stat, s, wanted);
+              return directory_entry((-1==BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s)) ? filesystem::path() : path()
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+                .leaf()
+#else
+                .filename()
+#endif
+              , stat, wanted);
+            }
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const override final
         {
@@ -1878,12 +1893,8 @@ namespace detail {
 #else
             req.flags=fileflags(req.flags)|file_flags::int_opening_link;
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_SYMLINK(h->path().c_str(), req.path.c_str()), req.path);
-            BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-            BOOST_AFIO_ERRHOS(BOOST_AFIO_POSIX_STAT(req.path.c_str(), &s));
-            if(S_IFDIR!=(s.st_mode&S_IFDIR))
-                return dofile(id, op, req);
-            else
-                return dodir(id, op, req);
+            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
+            return std::make_pair(true, ret);
 #endif
         }
         // Called in unknown thread

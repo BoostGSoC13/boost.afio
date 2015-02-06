@@ -1410,9 +1410,8 @@ public:
 
     Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
     point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
-    users.
-
-    Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
+    users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX you cannot do this and
+    an invalid handle is output.
 
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
@@ -1427,9 +1426,8 @@ public:
 
     Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
     point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
-    users.
-
-    Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
+    users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX you cannot do this and
+    an invalid handle is output.
 
     \return An op handle.
     \param req An `async_path_op_req` structure.
