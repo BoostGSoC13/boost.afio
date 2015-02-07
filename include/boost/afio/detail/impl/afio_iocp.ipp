@@ -146,7 +146,7 @@ namespace detail {
         bool has_been_added, SyncOnClose;
         void *mapaddr;
         typedef spinlock<bool> pathlock_t;
-        pathlock_t pathlock; filesystem::path _path;
+        mutable pathlock_t pathlock; filesystem::path _path;
         std::unique_ptr<win_lock_file> lockfile;
 
         static HANDLE int_checkHandle(HANDLE h, const filesystem::path &path)
@@ -185,7 +185,6 @@ namespace detail {
             int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return myid; }
-        using async_io_handle::path;
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) override final
         {
           if(refresh)
@@ -196,7 +195,6 @@ namespace detail {
               _path.clear();
               return _path;
             }
-#if 1
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
             HANDLE h=myid;
@@ -217,23 +215,12 @@ namespace detail {
             lock_guard<pathlock_t> g(pathlock);
             _path=filesystem::path::string_type(volumepath->Buffer, volumepath->Length)+filesystem::path::string_type(fni->FileName, fni->FileNameLength);
             return _path;
-#else
-            // Unfortunately this code fails if file size is zero e.g. directories :(
-            HANDLE sectionh;
-            BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(sectionh=CreateFileMapping(myid, NULL, PAGE_READONLY, 0, 1, nullptr)));
-            auto unsectionh=detail::Undoer([&sectionh]{ CloseHandle(sectionh); });
-            auto addr=MapViewOfFile(sectionh, FILE_MAP_READ, 0, 0, 1);
-            BOOST_AFIO_ERRHWIN(addr!=0);
-            auto unaddr=detail::Undoer([&addr]{ UnmapViewOfFile(addr); });
-            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[32769];
-            buffer[0]=0;
-            DWORD length;
-            BOOST_AFIO_ERRHWIN((length=GetMappedFileName(GetCurrentProcess(), addr, buffer, sizeof(buffer)/sizeof(filesystem::path::value_type))));
-            lock_guard<pathlock_t> g(pathlock);
-            _path=filesystem::path::string_type(buffer, length);
-            return _path;
-#endif
           }
+          lock_guard<pathlock_t> g(pathlock);
+          return _path;
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC const filesystem::path &path() const override final
+        {
           lock_guard<pathlock_t> g(pathlock);
           return _path;
         }

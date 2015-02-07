@@ -20,6 +20,10 @@ struct test_handle : async_io_handle
     {
       return "foo";
     }
+    virtual const filesystem::path &path() const
+    {
+      return "foo";
+    }
     virtual directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) const
     {
         return directory_entry();

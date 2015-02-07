@@ -877,7 +877,7 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
-    filesystem::path path() const { return const_cast<async_io_handle *>(this)->path(false); }
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC const filesystem::path &path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
     //! True if this handle was opened as a file

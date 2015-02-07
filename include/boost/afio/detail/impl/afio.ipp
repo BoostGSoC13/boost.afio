@@ -546,7 +546,7 @@ namespace detail {
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
         typedef spinlock<bool> pathlock_t;
-        pathlock_t pathlock; filesystem::path _path;
+        mutable pathlock_t pathlock; filesystem::path _path;
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
         std::unique_ptr<posix_lock_file> lockfile;
 #endif
@@ -590,7 +590,6 @@ namespace detail {
             int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
-        using async_io_handle::path;
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) override final
         {
           if(refresh)
@@ -617,6 +616,11 @@ namespace detail {
 #error Unknown system
 #endif
           }
+          lock_guard<pathlock_t> g(pathlock);
+          return _path;
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC const filesystem::path &path() const override final
+        {
           lock_guard<pathlock_t> g(pathlock);
           return _path;
         }
