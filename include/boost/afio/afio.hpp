@@ -679,7 +679,7 @@ struct statfs_t
      uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) */
      std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) */
      std::string f_mntfromname;           /*!< mounted filesystem                 (POSIX) */
-     filesystem::path f_mntonname;        /*!< directory on which mounted         (POSIX) */
+     filesystem::path f_mntonname;        /*!< directory on which mounted         (Windows, POSIX) */
      statfs_t()
      {
        size_t frontbytes=((char *) &f_fstypename)-((char *) this);
@@ -854,11 +854,10 @@ class async_io_handle : public std::enable_shared_from_this<async_io_handle>
     async_file_io_dispatcher_base *_parent;
     std::shared_ptr<async_io_handle> dirh;
     chrono::system_clock::time_point _opened;
-    filesystem::path _path; // guaranteed canonical
     file_flags _flags;
 protected:
     atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
-    async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _path(path), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
@@ -870,8 +869,15 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns when this handle was opened
     const chrono::system_clock::time_point &opened() const { return _opened; }
-    //! Returns the path of this i/o handle as when opened. Use direntry() to discover if the file is now deleted.
-    const filesystem::path &path() const { return _path; }
+    /*! Returns the path of this i/o handle right now if \em refresh is true, else last known good. May be null if the file has been deleted.
+    
+    Note the refreshed path completely dereferences any symbolic links to return a truly absolute canonical path, and therefore may look quite different to before.
+    
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
+    filesystem::path path() const { return const_cast<async_io_handle *>(this)->path(false); }
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
     //! True if this handle was opened as a file
@@ -1302,6 +1308,8 @@ public:
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
     a new handle unless file_flags::UniqueDirectoryHandle is specified.
+    
+    \ntkernelnamespacenote
 
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
@@ -1317,6 +1325,8 @@ public:
     Note that if there is already a handle open to the directory requested, that will be returned instead of
     a new handle unless file_flags::UniqueDirectoryHandle is specified.
 
+    \ntkernelnamespacenote
+
     \return An op handle.
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1327,6 +1337,8 @@ public:
     */
     inline async_io_op dir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
+
+    \ntkernelnamespacenote
     
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
@@ -1338,6 +1350,8 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
+
+    \ntkernelnamespacenote
     
     \return An op handle.
     \param req An `async_path_op_req` structure.
@@ -1352,6 +1366,8 @@ public:
     
     Be aware that any files created are by default sparse if supported on the local filing system. Use
     file_flags::NoSparse to prevent this on those filing systems which permit it.
+
+    \ntkernelnamespacenote
     
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
@@ -1366,6 +1382,8 @@ public:
     
     Be aware that any files created are by default sparse if supported on the local filing system. Use
     file_flags::NoSparse to prevent this on those filing systems which permit it.
+
+    \ntkernelnamespacenote
     
     \return An op handle.
     \param req An `async_path_op_req` structure.
@@ -1382,6 +1400,8 @@ public:
     if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
     this). The actual file data will be deleted when the last handle is closed on the system.
     
+    \ntkernelnamespacenote
+
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1397,6 +1417,8 @@ public:
     if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
     this). The actual file data will be deleted when the last handle is closed on the system.
     
+    \ntkernelnamespacenote
+
     \return An op handle.
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1413,6 +1435,8 @@ public:
     users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX you cannot do this and
     an invalid handle is output.
 
+    \ntkernelnamespacenote
+
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
@@ -1428,6 +1452,8 @@ public:
     point instead of a symlink due to the default lack of the <tt>SeCreateSymbolicLinkPrivilege</tt> for non-Administrative
     users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX you cannot do this and
     an invalid handle is output.
+
+    \ntkernelnamespacenote
 
     \return An op handle.
     \param req An `async_path_op_req` structure.
@@ -1451,6 +1477,8 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous symlink deletion after an optional precondition.
     
+    \ntkernelnamespacenote
+
     \return An op handle.
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops

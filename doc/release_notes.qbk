@@ -57,8 +57,9 @@ timeouts.
 but can still utilise shared memory when possible.
 
 * Related to locking files, the ability to copy files (unwritten destination locked until
-complete) using a variety of algorithms with progress notification via the file
-change monitoring. Extend rename file and delete file with lock file options.
+complete) using a variety of algorithms (including cheap copies on btrfs [cp --reflink=auto])
+with progress notification via the file change monitoring. Extend rename file and delete file
+with lock file options.
 
 * Extended attributes support. TripleGit could use this to avoid a second file
 handle open of metadata per graph object read. Unsure if NTFS is any faster
@@ -153,7 +154,7 @@ during destruction.
 
 * Use rename to random name before deletion pattern in rmfile() to work around Windows refusing new file
 creation with the same name as a recently deleted file. enumerate() now filters out such zombied pending
-delete files automatically.
+delete files automatically. This makes AFIO rmfile() work on Windows with POSIX semantics.
 
 * Fixed bug where direntry() was using lstat() instead of fstat() on POSIX and therefore failing if the
 file handle had been deleted.
@@ -161,13 +162,18 @@ file handle had been deleted.
 * symlink() no longer opens target file on POSIX, and instead returns a closed handle. The previous
 behaviour was throwing exceptions when the symlink was broken.
 
+* Made async_io_handle::path() virtual and now capable of asking for the current path of the file handle
+even after the file has been renamed or deleted.
+
 
 TODO BEFORE RELEASE
 
 2. Add ability to look up the current full path of an open file handle, and add use of this ability to
 delete and rename.
 
-3. Provide option for \\?\ prefixing of filesystem paths returned by AFIO on Windows.
+2a. Audit all uses of path() for correctness.
+
+2b. Add unit test making sure that file renaming and deletion works as expected.
 
 4. clang-reformat everything.
 

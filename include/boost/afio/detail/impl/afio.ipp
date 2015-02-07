@@ -545,11 +545,13 @@ namespace detail {
         int fd;  // -999 is closed handle
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
+        typedef spinlock<bool> pathlock_t;
+        pathlock_t pathlock; filesystem::path _path;
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
         std::unique_ptr<posix_lock_file> lockfile;
 #endif
 
-        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), path, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0)
+        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0), _path(path)
         {
             if(fd!=-999)
                 BOOST_AFIO_ERRHOSFN(fd, path);
@@ -588,6 +590,36 @@ namespace detail {
             int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
+        using async_io_handle::path;
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) override final
+        {
+          if(refresh)
+          {
+#if defined(WIN32)
+            BOOST_AFIO_THROW(std::runtime_error("Reading the current path of a file handle via MSVCRT is not supported on Windows."));
+#elif defined(__linux__)
+            // Linux keeps a symlink at /proc/self/fd/n
+            char buffer[PATH_MAX+1];
+            sprintf(buffer, "/proc/self/fd/%d", fd);
+            ssize_t len;
+            if((len = readlink(buffer, buffer, sizeof(buffer)-1)) == -1)
+                BOOST_AFIO_ERRGOS(-1);
+            lock_guard<pathlock_t> g(pathlock);
+            _path=filesystem::path::string_type(buffer, len);
+            return _path;
+#elif defined(__FreeBSD__)
+            char buffer[PATH_MAX+1];
+            BOOST_AFIO_ERRGOS(fcntl(fd, F_GETPATH, buffer));
+            lock_guard<pathlock_t> g(pathlock);
+            _path=filesystem::path::string_type(buffer);
+            return _path;
+#else
+#error Unknown system
+#endif
+          }
+          lock_guard<pathlock_t> g(pathlock);
+          return _path;
+        }
 
         // You can't use shared_from_this() in a constructor so ...
         void do_add_io_handle_to_parent()

@@ -85,6 +85,13 @@ namespace windows_nt_kernel
       FileFsVolumeFlagsInformation  = 10,
       FileFsSectorSizeInformation   = 11
     } FS_INFORMATION_CLASS;
+    
+    typedef enum {
+        ObjectBasicInformation = 0,
+        ObjectNameInformation = 1,
+        ObjectTypeInformation = 2
+    } OBJECT_INFORMATION_CLASS;
+
 #ifndef NTSTATUS
 #define NTSTATUS LONG
 #endif
@@ -133,6 +140,15 @@ namespace windows_nt_kernel
       );
 
 
+    // From https://msdn.microsoft.com/en-us/library/bb432383%28v=vs.85%29.aspx
+    typedef NTSTATUS (NTAPI *NtQueryObject_t)(
+      /*_In_opt_*/   HANDLE Handle,
+      /*_In_*/       OBJECT_INFORMATION_CLASS ObjectInformationClass,
+      /*_Out_opt_*/  PVOID ObjectInformation,
+      /*_In_*/       ULONG ObjectInformationLength,
+      /*_Out_opt_*/  PULONG ReturnLength
+    );
+    
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/NtQueryInformationFile.html
     // and http://msdn.microsoft.com/en-us/library/windows/hardware/ff567052(v=vs.85).aspx
     typedef NTSTATUS (NTAPI *NtQueryInformationFile_t)(
@@ -381,6 +397,7 @@ namespace windows_nt_kernel
       };
     } REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
 
+    static NtQueryObject_t NtQueryObject;
     static NtQueryInformationFile_t NtQueryInformationFile;
     static NtQueryVolumeInformationFile_t NtQueryVolumeInformationFile;
     static NtOpenDirectoryObject_t NtOpenDirectoryObject;
@@ -402,6 +419,9 @@ namespace windows_nt_kernel
     {
       if(RtlGenRandom)
         return;
+      if(!NtQueryObject)
+          if(!(NtQueryObject=(NtQueryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryObject")))
+              abort();
       if(!NtQueryInformationFile)
           if(!(NtQueryInformationFile=(NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
               abort();

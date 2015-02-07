@@ -6,7 +6,7 @@ namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 struct test_handle : async_io_handle
 {
     test_handle(async_file_io_dispatcher_base *parent) : async_io_handle(parent, std::shared_ptr<async_io_handle>(),
-        "foo", file_flags::None) {}
+        file_flags::None) {}
     virtual void close()
     {
         // Do nothing
@@ -14,6 +14,11 @@ struct test_handle : async_io_handle
     virtual void *native_handle() const
     {
         return nullptr;
+    }
+    using async_io_handle::path;
+    virtual filesystem::path path(bool refresh=false)
+    {
+      return "foo";
     }
     virtual directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) const
     {

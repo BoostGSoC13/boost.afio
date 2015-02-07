@@ -750,7 +750,7 @@ static stat_t print_stat(std::shared_ptr<async_io_handle> h)
 {
     using namespace boost::afio;
     auto entry=h->lstat(metadata_flags::All);
-    std::cout << "Entry " << h->path() << " is a ";
+    std::cout << "Entry " << h->path(true) << " is a ";
     switch(entry.st_type)
     {
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
