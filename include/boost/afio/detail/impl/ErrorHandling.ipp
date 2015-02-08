@@ -18,7 +18,7 @@ File Created: Nov 2012
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
             
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
 #if AFIO_STANDALONE
                 using std::to_string;
@@ -49,22 +49,22 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 {
                     if(ERROR_FILE_NOT_FOUND==code || ERROR_PATH_NOT_FOUND==code)
                     {
-                            errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
+                            errstr="File '"+filename().generic_string()+"' not found [Host OS Error: "+errstr+"]";
                     }
                     else if(ERROR_ACCESS_DENIED==code || ERROR_EA_ACCESS_DENIED==code)
                     {
-                            errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                            errstr="Access to '"+filename().generic_string()+"' denied [Host OS Error: "+errstr+"]";
                     }
                     else
                     {
-                      errstr.append(" [Path: '"+filename->generic_string()+"']");
+                      errstr.append(" [Path: '"+filename().generic_string()+"']");
                     }
                 }
                 BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, const filesystem::path *filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
 #if AFIO_STANDALONE
                 using std::to_string;
@@ -115,15 +115,15 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 {
                     if(0xC000000F/*STATUS_NO_SUCH_FILE*/==code || 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==code)
                     {
-                        errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
+                        errstr="File '"+filename().generic_string()+"' not found [Host OS Error: "+errstr+"]";
                     }
                     else if(0xC0000022/*STATUS_ACCESS_DENIED*/==code)
                     {
-                        errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                        errstr="Access to '"+filename().generic_string()+"' denied [Host OS Error: "+errstr+"]";
                     }
                     else
                     {
-                      errstr.append(" [Path: '"+filename->generic_string()+"']");
+                      errstr.append(" [Path: '"+filename().generic_string()+"']");
                     }
                 }
                 BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
@@ -138,7 +138,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
 
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, const filesystem::path *filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
 #if AFIO_STANDALONE
                 using std::to_string;
@@ -151,15 +151,15 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 {
                     if(ENOENT==code || ENOTDIR==code)
                     {
-                            errstr="File '"+filename->generic_string()+"' not found [Host OS Error: "+errstr+"]";
+                            errstr="File '"+filename().generic_string()+"' not found [Host OS Error: "+errstr+"]";
                     }
                     else if(EACCES==code)
                     {
-                            errstr="Access to '"+filename->generic_string()+"' denied [Host OS Error: "+errstr+"]";
+                            errstr="Access to '"+filename().generic_string()+"' denied [Host OS Error: "+errstr+"]";
                     }
                     else
                     {
-                      errstr.append(" [Path: '"+filename->generic_string()+"']");
+                      errstr.append(" [Path: '"+filename().generic_string()+"']");
                     }
                 }
                 BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());

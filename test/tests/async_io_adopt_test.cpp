@@ -2,6 +2,7 @@
 
 using namespace BOOST_AFIO_V1_NAMESPACE;
 namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+namespace afio = BOOST_AFIO_V1_NAMESPACE;
 
 struct test_handle : async_io_handle
 {
@@ -16,11 +17,11 @@ struct test_handle : async_io_handle
         return nullptr;
     }
     using async_io_handle::path;
-    virtual filesystem::path path(bool refresh=false)
+    virtual afio::path path(bool refresh=false)
     {
       return "foo";
     }
-    virtual const filesystem::path &path() const
+    virtual afio::path path() const
     {
       return "foo";
     }
@@ -28,9 +29,9 @@ struct test_handle : async_io_handle
     {
         return directory_entry();
     }
-    virtual filesystem::path target() const
+    virtual afio::path target() const
     {
-        return filesystem::path();
+        return afio::path();
     }
     virtual void *try_mapfile()
     {

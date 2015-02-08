@@ -377,7 +377,7 @@ namespace detail {
   struct process_lockfile_registry
   {
     std::unordered_map<async_io_handle *, lock_file<actual_lock_file> *> handle_to_lockfile;
-    std::unordered_map<filesystem::path, std::weak_ptr<actual_lock_file>, filesystem_hash> path_to_lockfile;
+    std::unordered_map<path, std::weak_ptr<actual_lock_file>, path_hash> path_to_lockfile;
     template<class T> static std::unique_ptr<T> open(async_io_handle *h)
     {
       lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
@@ -390,9 +390,9 @@ namespace detail {
   };
   struct actual_lock_file : std::enable_shared_from_this<actual_lock_file>
   {
-    filesystem::path path, lockfilepath;
+    afio::path path, lockfilepath;
   protected:
-    actual_lock_file(filesystem::path p) : path(p), lockfilepath(p)
+    actual_lock_file(afio::path p) : path(p), lockfilepath(p)
     {
       lockfilepath+=".afiolockfile";
     }
@@ -411,7 +411,7 @@ namespace detail {
     std::vector<struct flock> local_locks;
 #endif
     std::vector<async_lock_op_req> locks;
-    posix_actual_lock_file(filesystem::path p) : actual_lock_file(std::move(p)), h(0)
+    posix_actual_lock_file(afio::path p) : actual_lock_file(std::move(p)), h(0)
     {
 #ifndef WIN32
       bool done=false;
@@ -498,7 +498,7 @@ namespace detail {
     {
       if(h)
       {
-        auto mypath=h->path();
+        auto mypath=h->path(true);
         auto it=process_lockfile_registry_ptr->path_to_lockfile.find(mypath);
         if(process_lockfile_registry_ptr->path_to_lockfile.end()!=it)
           actual=it->second.lock();
@@ -546,15 +546,15 @@ namespace detail {
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         void *mapaddr; size_t mapsize;
         typedef spinlock<bool> pathlock_t;
-        mutable pathlock_t pathlock; filesystem::path _path;
+        mutable pathlock_t pathlock; afio::path _path;
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
         std::unique_ptr<posix_lock_file> lockfile;
 #endif
 
-        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0), _path(path)
+        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const afio::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), mapaddr(nullptr), mapsize(0), _path(path)
         {
             if(fd!=-999)
-                BOOST_AFIO_ERRHOSFN(fd, path);
+                BOOST_AFIO_ERRHOSFN(fd, [&path]{return path;});
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
             if(!!(flags & file_flags::OSLockable))
                 lockfile=process_lockfile_registry::open<posix_lock_file>(this);
@@ -565,18 +565,18 @@ namespace detail {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
             if(mapaddr)
             {
-                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_MUNMAP(mapaddr, mapsize), path());
+                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_MUNMAP(mapaddr, mapsize), [this]{return path();});
                 mapaddr=nullptr;
             }
             int _fd=fd;
             if(fd>=0)
             {
                 if(SyncOnClose && write_count_since_fsync())
-                    BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(fd), path());
-                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), path());
-                fd=-1;
+                    BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(fd), [this]{return path();});
                 if(DeleteOnClose)
-                  BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(path().c_str()), path());
+                  BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(path(true).c_str()), [this]{return path();});
+                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), [this]{return path();});
+                fd=-1;
             }
             // Deregister AFTER close of file handle
             if(has_been_added)
@@ -590,7 +590,7 @@ namespace detail {
             int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
         {
           if(refresh)
           {
@@ -604,13 +604,13 @@ namespace detail {
             if((len = readlink(buffer, buffer, sizeof(buffer)-1)) == -1)
                 BOOST_AFIO_ERRGOS(-1);
             lock_guard<pathlock_t> g(pathlock);
-            _path=filesystem::path::string_type(buffer, len);
+            _path=path::string_type(buffer, len);
             return _path;
 #elif defined(__FreeBSD__)
             char buffer[PATH_MAX+1];
             BOOST_AFIO_ERRGOS(fcntl(fd, F_GETPATH, buffer));
             lock_guard<pathlock_t> g(pathlock);
-            _path=filesystem::path::string_type(buffer);
+            _path=path::string_type(buffer);
             return _path;
 #else
 #error Unknown system
@@ -619,7 +619,7 @@ namespace detail {
           lock_guard<pathlock_t> g(pathlock);
           return _path;
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC const filesystem::path &path() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path() const override final
         {
           lock_guard<pathlock_t> g(pathlock);
           return _path;
@@ -630,6 +630,10 @@ namespace detail {
         {
             if(fd!=-999)
             {
+#ifndef WIN32
+                // Canonicalise my path
+                path(true);
+#endif
                 parent()->int_add_io_handle((void *) (size_t) fd, shared_from_this());
                 has_been_added=true;
             }
@@ -644,7 +648,7 @@ namespace detail {
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
             if(opened_as_symlink())
             {
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), path());
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), [this]{return path();});
               fill_stat_t(stat, s, wanted);
               return directory_entry(path()
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
@@ -652,33 +656,33 @@ namespace detail {
 #else
                 .filename()
 #endif
-              , stat, wanted);
+              .native(), stat, wanted);
             }
             else
             {
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &s), path());
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &s), [this]{return path();});
               fill_stat_t(stat, s, wanted);
-              return directory_entry((-1==BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s)) ? filesystem::path() : path()
+              return directory_entry(const_cast<async_io_handle_posix *>(this)->path(true)
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
                 .leaf()
 #else
                 .filename()
 #endif
-              , stat, wanted);
+              .native(), stat, wanted);
             }
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const override final
         {
 #ifdef WIN32
-            return filesystem::path();
+            return path();
 #else
             if(!opened_as_symlink())
-                return filesystem::path();
+                return path();
             char buffer[PATH_MAX+1];
             ssize_t len;
             if((len = readlink(path().c_str(), buffer, sizeof(buffer)-1)) == -1)
                 BOOST_AFIO_ERRGOS(-1);
-            return filesystem::path::string_type(buffer, len);
+            return path::string_type(buffer, len);
 #endif
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() override final
@@ -775,7 +779,7 @@ namespace detail {
         typedef recursive_mutex dircachelock_t;
         fdslock_t fdslock; engine_unordered_map_t<void *, std::weak_ptr<async_io_handle>> fds;
         opslock_t opslock; atomic<size_t> monotoniccount; engine_unordered_map_t<size_t, std::shared_ptr<async_file_io_dispatcher_op>> ops;
-        dircachelock_t dircachelock; std::unordered_map<filesystem::path, std::weak_ptr<async_io_handle>, filesystem_hash> dirhcache;
+        dircachelock_t dircachelock; std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash> dirhcache;
 
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
             flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
@@ -802,7 +806,7 @@ namespace detail {
             lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
             {
-                std::unordered_map<filesystem::path, std::weak_ptr<async_io_handle>, filesystem_hash>::iterator it=dirhcache.find(req.path);
+                std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash>::iterator it=dirhcache.find(req.path);
                 if(dirhcache.end()==it || it->second.expired())
                 {
                     if(dirhcache.end()!=it) dirhcache.erase(it);
@@ -1843,7 +1847,7 @@ namespace detail {
                     if(!(req.flags & file_flags::CreateOnlyIfNotExist))
                         ret=0;
                 }
-                BOOST_AFIO_ERRHOSFN(ret, req.path);
+                BOOST_AFIO_ERRHOSFN(ret, [&req]{return req.path;});
                 req.flags=req.flags&~(file_flags::Create|file_flags::CreateOnlyIfNotExist);
             }
 
@@ -1865,7 +1869,7 @@ namespace detail {
         completion_returntype dormdir(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RMDIR(req.path.c_str()), req.path);
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RMDIR(req.path.c_str()), [&req]{return req.path;});
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
@@ -1916,7 +1920,7 @@ namespace detail {
         completion_returntype dormfile(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(req.path.c_str()), req.path);
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(req.path.c_str()), [&req]{return req.path;});
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
@@ -1928,7 +1932,7 @@ namespace detail {
             BOOST_AFIO_THROW(std::runtime_error("Creating symbolic links via MSVCRT is not supported on Windows."));
 #else
             req.flags=fileflags(req.flags)|file_flags::int_opening_link;
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_SYMLINK(h->path().c_str(), req.path.c_str()), req.path);
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_SYMLINK(h->path(true).c_str(), req.path.c_str()), [&req]{return req.path;});
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
 #endif
@@ -1937,7 +1941,7 @@ namespace detail {
         completion_returntype dormsymlink(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(req.path.c_str()), req.path);
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(req.path.c_str()), [&req]{return req.path;});
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
@@ -1965,7 +1969,7 @@ namespace detail {
                   done=false;
                   break;
                 }
-                BOOST_AFIO_ERRHOSFN(-1, p->path());
+                BOOST_AFIO_ERRHOSFN(-1, [p]{return p->path();});
               }
             }
 #endif
@@ -1989,7 +1993,7 @@ namespace detail {
                     size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
                     off_t offset=i.first+byteswritten;
                     while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
-                    BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+                    BOOST_AFIO_ERRHOSFN((int) _byteswritten, [p]{return p->path();});
                     byteswritten+=_byteswritten;
                 } 
               }
@@ -2006,7 +2010,7 @@ namespace detail {
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             off_t bytestobesynced=p->write_count_since_fsync();
             if(bytestobesynced)
-                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(p->fd), p->path());
+                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(p->fd), [p]{return p->path();});
             p->has_ever_been_fsynced=true;
             p->byteswrittenatlastfsync+=bytestobesynced;
             return std::make_pair(true, h);
@@ -2076,7 +2080,7 @@ namespace detail {
                         }
                     }
                 }
-                BOOST_AFIO_ERRHOSFN((int) _bytesread, p->path());
+                BOOST_AFIO_ERRHOSFN((int) _bytesread, [p]{return p->path();});
                 p->bytesread+=_bytesread;
                 bytesread+=_bytesread;
             }
@@ -2124,7 +2128,7 @@ namespace detail {
                         }
                     }
                 }
-                BOOST_AFIO_ERRHOSFN((int) _byteswritten, p->path());
+                BOOST_AFIO_ERRHOSFN((int) _byteswritten, [p]{return p->path();});
                 p->byteswritten+=_byteswritten;
                 byteswritten+=_byteswritten;
             }
@@ -2140,7 +2144,7 @@ namespace detail {
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
             int ret;
             while(-1==(ret=BOOST_AFIO_POSIX_FTRUNCATE(p->fd, newsize)) && EINTR==errno);
-            BOOST_AFIO_ERRHOSFN(ret, p->path());
+            BOOST_AFIO_ERRHOSFN(ret, [p]{return p->path();});
             return std::make_pair(true, h);
         }
 #ifdef __linux__
@@ -2160,7 +2164,7 @@ namespace detail {
                     std::vector<directory_entry> _ret;
                     _ret.reserve(1);
                     BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-                    filesystem::path path(p->path());
+                    path path(p->path(true));
                     path/=req.glob;
                     if(-1!=BOOST_AFIO_POSIX_LSTAT(path.c_str(), &s))
                     {
@@ -2172,7 +2176,7 @@ namespace detail {
 #else
                          .filename()
 #endif
-                        , stat, req.metadata));
+                        .native(), stat, req.metadata));
                     }
                     ret->set_value(std::make_pair(std::move(_ret), false));
                     return std::make_pair(true, h);
@@ -2232,7 +2236,7 @@ namespace detail {
                     if(length<=2 && '.'==dent->d_name[0])
                         if(1==length || '.'==dent->d_name[1]) continue;
                     if(!req.glob.empty() && fnmatch(globstr.c_str(), dent->d_name, 0)) continue;
-                    filesystem::path::string_type leafname(dent->d_name, length);
+                    path::string_type leafname(dent->d_name, length);
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=dent->d_ino;
                     char d_type=dent->d_type;
@@ -2696,18 +2700,18 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         {
             // Fast path skips opening a handle per file by enumerating the containing directory using a glob
             // exactly matching the leafname. This is about 10x quicker, so it's very much worth it.
-            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[sizeof(FILE_ID_FULL_DIR_INFORMATION)/sizeof(filesystem::path::value_type)+32769];
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[sizeof(FILE_ID_FULL_DIR_INFORMATION)/sizeof(path::value_type)+32769];
             IO_STATUS_BLOCK isb={ 0 };
             UNICODE_STRING _glob;
             NTSTATUS ntstat;
-            _glob.Buffer=const_cast<filesystem::path::value_type *>(leafname.c_str());
-            _glob.MaximumLength=(_glob.Length=(USHORT) (leafname.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
+            _glob.Buffer=const_cast<path::value_type *>(leafname.c_str());
+            _glob.MaximumLength=(_glob.Length=(USHORT) (leafname.size()*sizeof(path::value_type)))+sizeof(path::value_type);
             FILE_ID_FULL_DIR_INFORMATION *ffdi=(FILE_ID_FULL_DIR_INFORMATION *) buffer;
             ntstat=NtQueryDirectoryFile(dirh->native_handle(), NULL, NULL, NULL, &isb, ffdi, sizeof(buffer),
                 FileIdFullDirectoryInformation, TRUE, &_glob, FALSE);
             if(STATUS_PENDING==ntstat)
                 ntstat=NtWaitForSingleObject(dirh->native_handle(), FALSE, NULL);
-            BOOST_AFIO_ERRHNTFN(ntstat, dirh->path());
+            BOOST_AFIO_ERRHNTFN(ntstat, [dirh]{return dirh->path();});
             if(!!(wanted&metadata_flags::ino)) { stat.st_ino=ffdi->FileId.QuadPart; }
             if(!!(wanted&metadata_flags::type)) { stat.st_type=windows_nt_kernel::to_st_type(ffdi->FileAttributes); }
             if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(ffdi->LastAccessTime); }
@@ -2722,7 +2726,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         else
         {
             // No choice here, open a handle and stat it.
-            async_path_op_req req(dirh->path()/name(), file_flags::Read);
+            async_path_op_req req(dirh->path(true)/name(), file_flags::Read);
             auto fileh=dispatcher->dofile(0, async_io_op(), req).second;
             auto direntry=fileh->direntry(wanted);
             wanted=wanted & direntry.metadata_ready(); // direntry() can fail to fill some entries on Win XP
@@ -2758,9 +2762,9 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
 #endif
     {
         BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-        filesystem::path path(dirh->path());
+        afio::path path(dirh->path(true));
         path/=leafname;
-        BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path.c_str(), &s), path);
+        BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path.c_str(), &s), [&path]{return path;});
         fill_stat_t(stat, s, wanted);
     }
     have_metadata=have_metadata | wanted;

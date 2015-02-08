@@ -61,6 +61,9 @@ complete) using a variety of algorithms (including cheap copies on btrfs [cp --r
 with progress notification via the file change monitoring. Extend rename file and delete file
 with lock file options.
 
+* Also related to locking files, DeleteOnClose should use advisory locks to have the
+last handle close do the file delete on POSIX.
+
 * Extended attributes support. TripleGit could use this to avoid a second file
 handle open of metadata per graph object read. Unsure if NTFS is any faster
 opening EA though, need to test.
@@ -163,17 +166,26 @@ file handle had been deleted.
 behaviour was throwing exceptions when the symlink was broken.
 
 * Made async_io_handle::path() virtual and now capable of asking for the current path of the file handle
-even after the file has been renamed or deleted.
+even after the file has been renamed or deleted. Doing this required a refactoring of the error generation code which previously consumed a const filesystem::path &, now it consumes a lambda which generates the path on demand.
+
+* File handles now refresh their path() to their true path on open, and again at various points during execution. A careful audit was undertaken to spot all instances where a fresh path is really needed versus a stale path, nevertheless some instances may have been missed. Nevertheless, this now means that AFIO can work with files whose names and locations change throughout the time that AFIO holds a path open to them, though
+note that inevitably this support will be racy if the filename changes between AFIO's refresh and the operation.
+
+* Replaced all use of filesystem::path with afio::path which on Windows enforces NT kernel path naming and
+ensures that multiple conversions from win32 path to NT paths are no longer done. Support is also now provided for converting the NT kernel paths AFIO uses to traditional DOS ones.
+
+* directory_entry::name() is now a string instead of a path.
+
+
 
 
 TODO BEFORE RELEASE
 
-2. Add ability to look up the current full path of an open file handle, and add use of this ability to
-delete and rename.
+1. Implement normalise_path() and add it to unit test printing.
 
-2a. Audit all uses of path() for correctness.
+2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine. 
 
-2b. Add unit test making sure that file renaming and deletion works as expected.
+3. Add unit test making sure that file renaming and deletion works as expected.
 
 4. clang-reformat everything.
 
@@ -182,6 +194,8 @@ You might think this easy, but AFIO has about twenty different build
 configurations now.
 
 6. Run performance benchmarks on all platforms. Fix any regressions.
+
+7. Regen the docs and make sure the new APIs have appeared.
 
 
 

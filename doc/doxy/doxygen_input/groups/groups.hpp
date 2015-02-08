@@ -9,6 +9,7 @@
 /*!
 \defgroup macros x
 \defgroup process_threadpool x
+\defgroup normalise_path x
 \defgroup when_all_futures x
 \defgroup file_flags x
 \defgroup metadata_flags x

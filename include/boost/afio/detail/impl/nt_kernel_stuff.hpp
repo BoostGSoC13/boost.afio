@@ -473,22 +473,6 @@ namespace windows_nt_kernel
         }
     }
 
-    static inline filesystem::path ntpath_from_dospath(filesystem::path p)
-    {
-        // This is pretty easy thanks to a convenient symlink in the NT kernel root directory ...
-        filesystem::path base("\\??");
-        base/=p;
-        return base;
-    }
-
-    static inline filesystem::path dospath_from_ntpath(filesystem::path p)
-    {
-        auto &_p = p.native();
-        if(_p[1]=='?' && _p[2]=='?')
-            p=filesystem::path(_p.begin()+4, _p.end());
-        return p;
-    }
-
     static inline filesystem::file_type to_st_type(ULONG FileAttributes)
     {
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS

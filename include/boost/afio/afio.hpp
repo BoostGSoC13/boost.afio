@@ -352,12 +352,241 @@ On first use, this instantiates a default std_thread_pool running `BOOST_AFIO_MA
 */
 BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threadpool();
 
+
 class async_file_io_dispatcher_base;
 struct async_io_op;
 struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 struct async_lock_op_req;
+
+/*! \class path
+\brief An AFIO filesystem path, a thin wrapper of filesystem::path used to mark when a
+filesystem path has been prepared for AFIO usage. Note that on Windows this exclusively
+refers to a NT kernel path, not a Win32 path (Win32 paths are converted in the constructor)
+*/
+class path : protected filesystem::path
+{
+  void int_regularise()
+  {
+    if(preferred_separator!='/')
+      make_preferred();
+#ifdef WIN32
+    // Need to strip off any win32 prefixing, and instead prefix any drive letters
+    bool isExtendedPath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='?' && native()[3]=='\\');
+    bool isDevicePath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='.' && native()[3]=='\\');
+    bool hasDriveLetter=(isalpha(native()[(isExtendedPath+isDevicePath)*4+0]) && native()[(isExtendedPath+isDevicePath)*4+1]==':');
+    if(hasDriveLetter && (isExtendedPath || isDevicePath))
+    {
+      filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
+      me[1]=me[2]='?';
+    }
+    else if(hasDriveLetter)
+    {
+      filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
+      me=L"\\??\\"+me;
+    }
+    else if(isExtendedPath || isDevicePath)
+    {
+      filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
+      me=me.substr(4);
+    }
+#endif
+  }
+public:
+  typedef filesystem::path::value_type value_type;
+  typedef filesystem::path::string_type string_type;
+  using filesystem::path::preferred_separator;
+    //! Makes a path absolute
+  struct make_absolute;
+
+  //! \constr
+  path() {}
+  //! \cconstr
+  path(const path &p) : filesystem::path(p) { }
+  //! Converts a filesystem::path to AFIO format
+  path(const filesystem::path &p) : filesystem::path(p) { int_regularise(); }
+  //! Converts a filesystem::path to AFIO format
+  path(const char *p) : filesystem::path(p) { int_regularise(); }
+  //! Converts a filesystem::path to AFIO format
+  path(const std::string &p) : filesystem::path(p) { int_regularise(); }
+  //! Converts a filesystem::path to AFIO format
+  path(const string_type &p) : filesystem::path(p) { int_regularise(); }
+  //! \mconstr
+  path(path &&p) BOOST_NOEXCEPT : filesystem::path(std::move(p)) { }
+  //! Converts a filesystem::path to AFIO format
+  path(filesystem::path &&p) : filesystem::path(std::move(p)) { int_regularise(); }
+  //! Converts a filesystem::path to AFIO format
+  path(string_type &&p) : filesystem::path(std::move(p)) { int_regularise(); }
+  //! Converts source to AFIO path format
+  //template<class Source> path(const Source &source) : filesystem::path(source) { int_regularise(); }
+  //! Converts source to AFIO path format
+  template <class InputIterator> path(InputIterator begin, InputIterator end) : filesystem::path(begin, end) { int_regularise(); }
+  //! \cassign
+  path& operator=(const path& p) { filesystem::path::operator=(filesystem::path(p)); return *this; }
+  //! \massign
+  path& operator=(path&& p) BOOST_NOEXCEPT { filesystem::path::operator=(static_cast<filesystem::path &&>(p)); return *this; }
+  //! Converts source to AFIO path format
+  template <class Source>
+    path& operator=(Source const& source) { filesystem::path::operator=(source); int_regularise(); return *this; }
+
+  template <class Source>
+    path& assign(Source const& source) { filesystem::path::assign(source); return *this; }
+  template <class InputIterator>
+    path& assign(InputIterator begin, InputIterator end) { filesystem::path::assign(begin, end); return *this; }
+  path& operator/=(const path& p) { filesystem::path::operator/=(filesystem::path(p)); return *this; }
+  template <class Source>
+    path& operator/=(Source const& source) { filesystem::path::operator/=(source); return *this; }
+  template <class Source>
+    path& append(Source const& source) { filesystem::path::append(source); return *this; }
+  template <class InputIterator>
+    path& append(InputIterator begin, InputIterator end) { filesystem::path::append(begin, end); return *this; }
+
+  path& operator+=(const path& x) { filesystem::path::operator+=(filesystem::path(x)); return *this; }
+  path& operator+=(const string_type& x) { filesystem::path::operator+=(x); return *this; }
+  path& operator+=(const value_type* x) { filesystem::path::operator+=(x); return *this; }
+  path& operator+=(value_type x) { filesystem::path::operator+=(x); return *this; }
+  template <class Source>
+    path& operator+=(Source const& x) { filesystem::path::operator+=(x); return *this; }
+  template <class Source>
+    path& concat(Source const& x) { filesystem::path::concat(x); return *this; }
+  template <class InputIterator>
+    path& concat(InputIterator begin, InputIterator end) { filesystem::path::concat(begin, end); return *this; }
+  
+  using filesystem::path::clear;
+  path& make_preferred() { filesystem::path::make_preferred(); return *this; }
+  path& remove_filename() { filesystem::path::remove_filename(); return *this; }
+  path& replace_extension(const path& new_extension = path()) { filesystem::path::replace_extension(filesystem::path(new_extension)); return *this; }
+  using filesystem::path::swap;
+
+  using filesystem::path::native;
+  using filesystem::path::c_str;
+  using filesystem::path::string;
+  using filesystem::path::wstring;
+  using filesystem::path::u16string;
+  using filesystem::path::u32string;
+  using filesystem::path::generic_string;
+  using filesystem::path::generic_u16string;
+  using filesystem::path::generic_u32string;
+  using filesystem::path::compare;
+
+  path  root_name() const { return static_cast<path&>(filesystem::path::root_name()); }
+  path  root_directory() const { return static_cast<path&>(filesystem::path::root_directory()); }
+  path  root_path() const { return static_cast<path&>(filesystem::path::root_path()); }
+  path  relative_path() const { return static_cast<path&>(filesystem::path::relative_path()); }
+  path  parent_path() const { return static_cast<path&>(filesystem::path::parent_path()); }
+  path  filename() const { return static_cast<path&>(filesystem::path::filename()); }
+  path  stem() const { return static_cast<path&>(filesystem::path::stem()); }
+  path  extension() const { return static_cast<path&>(filesystem::path::extension()); }
+
+  using filesystem::path::empty;
+  using filesystem::path::has_root_name;
+  using filesystem::path::has_root_directory;
+  using filesystem::path::has_root_path;
+  using filesystem::path::has_relative_path;
+  using filesystem::path::has_parent_path;
+  using filesystem::path::has_filename;
+  using filesystem::path::has_stem;
+  using filesystem::path::has_extension;
+  using filesystem::path::is_absolute;
+  using filesystem::path::is_relative;
+
+  // TODO FIXME: Need our own iterator here
+  typedef filesystem::path::iterator iterator;
+  typedef filesystem::path::const_iterator const_iterator;
+
+  iterator begin() const { return filesystem::path::begin(); }
+  iterator end() const { return filesystem::path::end(); }
+  
+  /*! \brief Return a normalised filesystem::path from an AFIO path.
+
+  On POSIX this passes through its input unchanged.
+
+  On Windows AFIO exclusively uses NT kernel paths which are not necessarily trivially convertible
+  to Win32 paths. As an example, the Win32 path `C:\Foo` might be `\??\C:\Foo` or even
+  `\Device\HarddiskVolume1\Foo`. This function will convert any NT kernel path into
+  something which can be fed to normal Win32 APIs quickly, though note that the
+  output path will be rejected by most other APIs as invalid. If you need a Win32
+  path which is completely valid, use normalise_path().
+  */
+  filesystem::path filesystem_path() const
+  {
+#ifdef WIN32
+    bool isSymlinkedDosPath=(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\');
+    if(isSymlinkedDosPath)
+    {
+      filesystem::path::string_type p(native());
+      p[1]='\\';
+      return p;
+    }
+    else
+      return filesystem::path(L"\\\\.")/filesystem::path(*this);
+#else
+    return *this;
+#endif
+  }
+  friend inline bool operator<(const path& lhs, const path& rhs);
+  friend inline bool operator<=(const path& lhs, const path& rhs);
+  friend inline bool operator>(const path& lhs, const path& rhs);
+  friend inline bool operator>=(const path& lhs, const path& rhs);
+  friend inline bool operator==(const path& lhs, const path& rhs);
+  friend inline bool operator!=(const path& lhs, const path& rhs);
+  friend inline path operator/(const path& lhs, const path& rhs);
+  friend inline std::ostream &operator<<(std::ostream &s, const path &p);
+  friend struct path_hash;
+};
+inline bool operator<(const path& lhs, const path& rhs) { return filesystem::path(lhs)<filesystem::path(rhs); }
+inline bool operator<=(const path& lhs, const path& rhs) { return filesystem::path(lhs)<=filesystem::path(rhs); }
+inline bool operator>(const path& lhs, const path& rhs) { return filesystem::path(lhs)>filesystem::path(rhs); }
+inline bool operator>=(const path& lhs, const path& rhs) { return filesystem::path(lhs)>=filesystem::path(rhs); }
+inline bool operator==(const path& lhs, const path& rhs) { return filesystem::path(lhs)==filesystem::path(rhs); }
+inline bool operator!=(const path& lhs, const path& rhs) { return filesystem::path(lhs)!=filesystem::path(rhs); }
+inline path operator/(const path& lhs, const path& rhs) { return static_cast<path &>(filesystem::path(lhs)/filesystem::path(rhs)); }
+inline std::ostream &operator<<(std::ostream &s, const path &p) { return s << filesystem::path(p); }
+struct path::make_absolute : public path
+{
+  make_absolute(path &&p) : path(std::move(p))
+  {
+    if(native()[0]!=preferred_separator)
+      *this=filesystem::absolute(std::move(*this));
+  }
+  template<class T> make_absolute(T &&p) : path(filesystem::absolute(std::forward<T>(p))) { }
+};
+/*! \brief A hasher for path
+*/
+struct path_hash
+{
+  std::hash<path::string_type> hasher;
+public:
+    size_t operator()(const path &p) const
+    {
+      return hasher(p.native());
+    }
+};
+
+/*! \brief Return a normalised filesystem::path from an AFIO path.
+
+On POSIX this passes through its input unchanged.
+
+On Windows AFIO exclusively uses NT kernel paths which are not necessarily trivially convertible
+to Win32 paths. As an example, the Win32 path `C:\Foo` might be `\??\C:\Foo` or even
+`\Device\HarddiskVolume1\Foo`. This function will convert any NT kernel path into
+something which can be fed to normal Win32 APIs - a drive letter if available, else a GUID volume
+path, and with an extended path prefix if the path is sufficiently long.
+
+\ingroup normalise_path
+\param p Path to be normalised
+\param guid On Windows return the normalised path as a GUID path. Both the volume and the
+file where possible will be GUIDed. This sort of path allows very long paths to be supplied
+to programs which do not support them, plus the path returned is independent of any name
+or path changes - it is a guaranteed universal and unique reference to the original file.
+*/
+#ifdef WIN32
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid=false);
+#else
+inline filesystem::path normalise_path(path p, bool guid=false) { return std::move(p); }
+#endif
+
 
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
 inline BOOST_CONSTEXPR type operator&(type a, type b) \
@@ -678,8 +907,8 @@ struct statfs_t
 #endif
      uint64_t f_fsid[2];                  /*!< filesystem id                      (Windows, POSIX) */
      std::string f_fstypename;            /*!< filesystem type name               (Windows, POSIX) */
-     std::string f_mntfromname;           /*!< mounted filesystem                 (POSIX) */
-     filesystem::path f_mntonname;        /*!< directory on which mounted         (Windows, POSIX) */
+     std::string f_mntfromname;           /*!< mounted filesystem                 (Windows, POSIX) */
+     path f_mntonname;        /*!< directory on which mounted         (Windows, POSIX) */
      statfs_t()
      {
        size_t frontbytes=((char *) &f_fstypename)-((char *) this);
@@ -700,7 +929,7 @@ class BOOST_AFIO_DECL directory_entry
     friend class detail::async_file_io_dispatcher_linux;
     friend class detail::async_file_io_dispatcher_qnx;
 
-    filesystem::path leafname;
+    path::string_type leafname;
     stat_t stat;
     metadata_flags have_metadata;
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void _int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
@@ -708,7 +937,7 @@ public:
     //! \constr
     directory_entry() : stat(nullptr), have_metadata(metadata_flags::None) { }
     //! \constr
-    directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
+    directory_entry(path::string_type _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
     directory_entry(const directory_entry &) = default;
     directory_entry &operator=(const directory_entry &) = default;
     directory_entry(directory_entry &&o) : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
@@ -727,7 +956,7 @@ public:
     bool operator> (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname > rhs.leafname; }
     bool operator>=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname >= rhs.leafname; }
     //! \return The name of the directory entry. May be empty if the file is deleted.
-    filesystem::path name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
+    path::string_type name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
     //! \return A bitfield of what metadata is ready right now
     metadata_flags metadata_ready() const BOOST_NOEXCEPT_OR_NOTHROW { return have_metadata; }
     /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
@@ -875,9 +1104,9 @@ public:
     
     \ntkernelnamespacenote
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC const filesystem::path &path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
     //! True if this handle was opened as a file
@@ -900,8 +1129,11 @@ public:
         directory_entry de(direntry(wanted));
         return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
     }
-    //! Returns the target path of this handle if it is a symbolic link
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! Returns the target path of this handle if it is a symbolic link.
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     
@@ -2168,50 +2400,42 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_o
 */
 struct async_path_op_req
 {
-    filesystem::path path; //!< The filing system path to be used for this operation
+    afio::path path;            //!< The filing system path to be used for this operation
     file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
     async_io_op precondition;   //!< An optional precondition for this operation
     //! \constr
     async_path_op_req() : flags(file_flags::None) { }
     /*! \brief Constructs an instance.
     
-    Note that this will fail if path is not absolute.
-    
-    \param _path The filing system path to be used. Must be absolute.
+    \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    async_path_op_req(filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags) { if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
+    async_path_op_req(afio::path _path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
-    Note that this will fail if path is not absolute.
+    \param _path The filing system path to be used.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(const filesystem::path &_path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
+    /*! \brief Constructs an instance.
+    
+    \param _path The filing system path to be used.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(const char *_path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
+    /*! \brief Constructs an instance.
+    
+    \param _path The filing system path to be used.
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(const std::string &_path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
+    /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
-    \param _path The filing system path to be used. Must be absolute.
+    \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    async_path_op_req(async_io_op _precondition, filesystem::path _path, file_flags _flags=file_flags::None) : path(_path), flags(_flags), precondition(std::move(_precondition)) { _validate(); if(!path.is_absolute()) BOOST_AFIO_THROW(std::runtime_error("Non-absolute path")); }
-    /*! \brief Constructs an instance.
-    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(std::string _path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
-    /*! \brief Constructs an instance.
-    \param _precondition The precondition for this operation.
-    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(async_io_op _precondition, std::string _path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
-    /*! \brief Constructs an instance.
-    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(const char *_path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags) { _validate(); }
-    /*! \brief Constructs an instance.
-    \param _precondition The precondition for this operation.
-    \param _path The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(async_io_op _precondition, const char *_path, file_flags _flags=file_flags::None) : path(filesystem::absolute(filesystem::path(_path).make_preferred())), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(async_io_op _precondition, afio::path _path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -2813,7 +3037,7 @@ struct async_enumerate_op_req
     async_io_op precondition;    //!< A precondition for this operation.
     size_t maxitems;             //!< The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
     bool restart;                //!< Restarts the enumeration for this open directory handle.
-    filesystem::path glob;  //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    path glob;                   //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     metadata_flags metadata;     //!< The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     //! \constr
     async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None) { }
@@ -2825,7 +3049,7 @@ struct async_enumerate_op_req
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     */
-    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, filesystem::path _glob=filesystem::path(), metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -2834,7 +3058,7 @@ struct async_enumerate_op_req
     \param _restart Restarts the enumeration for this open directory handle.
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     */
-    async_enumerate_op_req(async_io_op _precondition, filesystem::path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -2843,7 +3067,7 @@ struct async_enumerate_op_req
     \param _restart Restarts the enumeration for this open directory handle.
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     */
-    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, filesystem::path _glob=filesystem::path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -3112,6 +3336,14 @@ BOOST_AFIO_V1_NAMESPACE_END
 #include <functional>
 namespace std
 {
+    template<> struct hash<BOOST_AFIO_V1_NAMESPACE::path>
+    {
+    public:
+        size_t operator()(const BOOST_AFIO_V1_NAMESPACE::path &p) const
+        {
+            return BOOST_AFIO_V1_NAMESPACE::path_hash()(p);
+        }
+    };
     template<> struct hash<BOOST_AFIO_V1_NAMESPACE::directory_entry>
     {
     public:
