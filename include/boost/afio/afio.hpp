@@ -464,18 +464,18 @@ public:
   using filesystem::path::generic_string;
   using filesystem::path::compare;
 
-  path  root_name() const { *return static_cast<path*>(&filesystem::path::root_name()); }
-  path  root_directory() const { *return static_cast<path*>(&filesystem::path::root_directory()); }
-  path  root_path() const { *return static_cast<path*>(&filesystem::path::root_path()); }
-  path  relative_path() const { *return static_cast<path*>(&filesystem::path::relative_path()); }
-  path  parent_path() const { *return static_cast<path*>(&filesystem::path::parent_path()); }
+  path  root_name() const { return *static_cast<path*>(&filesystem::path::root_name()); }
+  path  root_directory() const { return *static_cast<path*>(&filesystem::path::root_directory()); }
+  path  root_path() const { return *static_cast<path*>(&filesystem::path::root_path()); }
+  path  relative_path() const { return *static_cast<path*>(&filesystem::path::relative_path()); }
+  path  parent_path() const { return *static_cast<path*>(&filesystem::path::parent_path()); }
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-  path  leaf() const { *return static_cast<path*>(&filesystem::path::leaf()); }
+  path  leaf() const { return *static_cast<path*>(&filesystem::path::leaf()); }
 #else
-  path  filename() const { *return static_cast<path*>(&filesystem::path::filename()); }
+  path  filename() const { return *static_cast<path*>(&filesystem::path::filename()); }
 #endif
-  path  stem() const { *return static_cast<path*>(&filesystem::path::stem()); }
-  path  extension() const { *return static_cast<path*>(&filesystem::path::extension()); }
+  path  stem() const { return *static_cast<path*>(&filesystem::path::stem()); }
+  path  extension() const { return *static_cast<path*>(&filesystem::path::extension()); }
 
   using filesystem::path::empty;
   using filesystem::path::has_root_name;
