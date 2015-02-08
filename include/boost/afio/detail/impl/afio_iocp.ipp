@@ -1269,7 +1269,7 @@ namespace detail {
                 {
                   ret.f_mntfromname.reserve(volumenamelen);
                   for(size_t n=0; n<volumenamelen; n++)
-                    ret.f_mntfromname.push_back(volumename[n]);
+                    ret.f_mntfromname.push_back((char) volumename[n]);
                 }
               }
             }

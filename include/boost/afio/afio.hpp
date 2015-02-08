@@ -409,8 +409,6 @@ public:
   //! Converts a filesystem::path to AFIO format
   path(const char *p) : filesystem::path(p) { int_regularise(); }
   //! Converts a filesystem::path to AFIO format
-  path(const std::string &p) : filesystem::path(p) { int_regularise(); }
-  //! Converts a filesystem::path to AFIO format
   path(const string_type &p) : filesystem::path(p) { int_regularise(); }
   //! \mconstr
   path(path &&p) BOOST_NOEXCEPT : filesystem::path(std::move(p)) { }
@@ -463,21 +461,21 @@ public:
   using filesystem::path::c_str;
   using filesystem::path::string;
   using filesystem::path::wstring;
-  using filesystem::path::u16string;
-  using filesystem::path::u32string;
   using filesystem::path::generic_string;
-  using filesystem::path::generic_u16string;
-  using filesystem::path::generic_u32string;
   using filesystem::path::compare;
 
-  path  root_name() const { return static_cast<path&>(filesystem::path::root_name()); }
-  path  root_directory() const { return static_cast<path&>(filesystem::path::root_directory()); }
-  path  root_path() const { return static_cast<path&>(filesystem::path::root_path()); }
-  path  relative_path() const { return static_cast<path&>(filesystem::path::relative_path()); }
-  path  parent_path() const { return static_cast<path&>(filesystem::path::parent_path()); }
-  path  filename() const { return static_cast<path&>(filesystem::path::filename()); }
-  path  stem() const { return static_cast<path&>(filesystem::path::stem()); }
-  path  extension() const { return static_cast<path&>(filesystem::path::extension()); }
+  path  root_name() const { *return static_cast<path*>(&filesystem::path::root_name()); }
+  path  root_directory() const { *return static_cast<path*>(&filesystem::path::root_directory()); }
+  path  root_path() const { *return static_cast<path*>(&filesystem::path::root_path()); }
+  path  relative_path() const { *return static_cast<path*>(&filesystem::path::relative_path()); }
+  path  parent_path() const { *return static_cast<path*>(&filesystem::path::parent_path()); }
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+  path  leaf() const { *return static_cast<path*>(&filesystem::path::leaf()); }
+#else
+  path  filename() const { *return static_cast<path*>(&filesystem::path::filename()); }
+#endif
+  path  stem() const { *return static_cast<path*>(&filesystem::path::stem()); }
+  path  extension() const { *return static_cast<path*>(&filesystem::path::extension()); }
 
   using filesystem::path::empty;
   using filesystem::path::has_root_name;
@@ -534,6 +532,11 @@ public:
   friend inline path operator/(const path& lhs, const path& rhs);
   friend inline std::ostream &operator<<(std::ostream &s, const path &p);
   friend struct path_hash;
+#ifdef WIN32
+  friend BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid=false);
+#else
+  friend inline filesystem::path normalise_path(path p, bool guid=false);
+#endif
 };
 inline bool operator<(const path& lhs, const path& rhs) { return filesystem::path(lhs)<filesystem::path(rhs); }
 inline bool operator<=(const path& lhs, const path& rhs) { return filesystem::path(lhs)<=filesystem::path(rhs); }
