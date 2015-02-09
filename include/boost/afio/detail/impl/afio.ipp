@@ -601,19 +601,25 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
         {
-          if(refresh)
+          if(refresh && !opened_as_symlink())
           {
 #if defined(WIN32)
             BOOST_AFIO_THROW(std::runtime_error("Reading the current path of a file handle via MSVCRT is not supported on Windows."));
 #elif defined(__linux__)
             // Linux keeps a symlink at /proc/self/fd/n
-            char buffer[PATH_MAX+1];
-            sprintf(buffer, "/proc/self/fd/%d", fd);
+            char in[PATH_MAX+1], out[PATH_MAX+1];
+            sprintf(in, "/proc/self/fd/%d", fd);
             ssize_t len;
-            if((len = readlink(buffer, buffer, sizeof(buffer)-1)) == -1)
+            if((len = readlink(in, out, sizeof(out)-1)) == -1)
                 BOOST_AFIO_ERRGOS(-1);
             lock_guard<pathlock_t> g(pathlock);
-            _path=path::string_type(buffer, len);
+            path::string_type ret(out, len);
+            // Linux appends a " (deleted)" when a fd is nameless
+            // TODO: Should I stat the target to be really sure?
+            if(!ret.compare(ret.size()-10, 10, " (deleted)"))
+              _path.clear();
+            else
+              _path=ret;
             return _path;
 #elif defined(__APPLE__)
             char buffer[PATH_MAX+1];

@@ -124,6 +124,14 @@ there is a `when_all(std::nothrow_t(), ...)` overload available.
 
 [endsect] [/hello_world]
 
+[section:rename_tracking Tracking files over their lifetime
+
+Todo
+
+Detail what can be tracked and not tracked per OS and filing system.
+
+[endsect] [/rename_tracking]
+
 [section:file_concat A less toy example: Concatenating files]
 
 The Hello World example didn't really demonstrate why using AFIO is any better than using

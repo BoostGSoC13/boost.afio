@@ -166,13 +166,19 @@ file handle had been deleted.
 behaviour was throwing exceptions when the symlink was broken.
 
 * Made async_io_handle::path() virtual and now capable of asking for the current path of the file handle
-even after the file has been renamed or deleted. Doing this required a refactoring of the error generation code which previously consumed a const filesystem::path &, now it consumes a lambda which generates the path on demand.
+even after the file has been renamed or deleted. Doing this required a refactoring of the error generation
+code which previously consumed a const filesystem::path &, now it consumes a lambda which generates the path
+on demand.
 
-* File handles now refresh their path() to their true path on open, and again at various points during execution. A careful audit was undertaken to spot all instances where a fresh path is really needed versus a stale path, nevertheless some instances may have been missed. Nevertheless, this now means that AFIO can work with files whose names and locations change throughout the time that AFIO holds a path open to them, though
+* File handles now refresh their path() to their true path on open, and again at various points during execution.
+A careful audit was undertaken to spot all instances where a fresh path is really needed versus a stale path,
+nevertheless some instances may have been missed. Nevertheless, this now means that AFIO can work with files
+whose names and locations change throughout the time that AFIO holds a path open to them, though
 note that inevitably this support will be racy if the filename changes between AFIO's refresh and the operation.
 
 * Replaced all use of filesystem::path with afio::path which on Windows enforces NT kernel path naming and
-ensures that multiple conversions from win32 path to NT paths are no longer done. Support is also now provided for converting the NT kernel paths AFIO uses to traditional DOS ones.
+ensures that multiple conversions from win32 path to NT paths are no longer done. Support is also now provided
+for converting the NT kernel paths AFIO uses to traditional DOS ones.
 
 * directory_entry::name() is now a string instead of a path.
 
@@ -181,9 +187,16 @@ ensures that multiple conversions from win32 path to NT paths are no longer done
 
 TODO BEFORE RELEASE
 
-2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine. 
+1. Expose crypto random function to public API, plus hex name crypto random function.
+
+2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine.
+
+2a. Look into a "add hardlink to open handle" function i.e. an undelete function. Linux can do this, but
+can the other OSs?
 
 3. Add unit test making sure that file renaming and deletion works as expected, probably to path_works.
+
+3a. Write tutorial section on tracking files over time.
 
 4. clang-reformat everything.
 
