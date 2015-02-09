@@ -393,6 +393,8 @@ class path : protected filesystem::path
     }
 #endif
   }
+  struct direct { };
+  path(filesystem::path &&p, direct) : filesystem::path(std::move(p)) { }
 public:
   typedef filesystem::path::value_type value_type;
   typedef filesystem::path::string_type string_type;
@@ -408,12 +410,20 @@ public:
   path(const filesystem::path &p) : filesystem::path(p) { int_regularise(); }
   //! Converts a filesystem::path to AFIO format
   path(const char *p) : filesystem::path(p) { int_regularise(); }
+#ifdef WIN32
+  //! Converts a filesystem::path to AFIO format
+  path(const std::string &p) : filesystem::path(p) { int_regularise(); }
+#endif
   //! Converts a filesystem::path to AFIO format
   path(const string_type &p) : filesystem::path(p) { int_regularise(); }
   //! \mconstr
   path(path &&p) BOOST_NOEXCEPT : filesystem::path(std::move(p)) { }
   //! Converts a filesystem::path to AFIO format
   path(filesystem::path &&p) : filesystem::path(std::move(p)) { int_regularise(); }
+#ifdef WIN32
+  //! Converts a filesystem::path to AFIO format
+  path(std::string &&p) : filesystem::path(std::move(p)) { int_regularise(); }
+#endif
   //! Converts a filesystem::path to AFIO format
   path(string_type &&p) : filesystem::path(std::move(p)) { int_regularise(); }
   //! Converts source to AFIO path format
@@ -464,18 +474,18 @@ public:
   using filesystem::path::generic_string;
   using filesystem::path::compare;
 
-  path  root_name() const { return *static_cast<path*>(&filesystem::path::root_name()); }
-  path  root_directory() const { return *static_cast<path*>(&filesystem::path::root_directory()); }
-  path  root_path() const { return *static_cast<path*>(&filesystem::path::root_path()); }
-  path  relative_path() const { return *static_cast<path*>(&filesystem::path::relative_path()); }
-  path  parent_path() const { return *static_cast<path*>(&filesystem::path::parent_path()); }
+  path  root_name() const { return path(filesystem::path::root_name(), direct()); }
+  path  root_directory() const { return path(filesystem::path::root_directory(), direct()); }
+  path  root_path() const { return path(filesystem::path::root_path(), direct()); }
+  path  relative_path() const { return path(filesystem::path::relative_path(), direct()); }
+  path  parent_path() const { return path(filesystem::path::parent_path(), direct()); }
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-  path  leaf() const { return *static_cast<path*>(&filesystem::path::leaf()); }
+  path  leaf() const { return path(filesystem::path::leaf(), direct()); }
 #else
-  path  filename() const { return *static_cast<path*>(&filesystem::path::filename()); }
+  path  filename() const { return path(filesystem::path::filename(), direct()); }
 #endif
-  path  stem() const { return *static_cast<path*>(&filesystem::path::stem()); }
-  path  extension() const { return *static_cast<path*>(&filesystem::path::extension()); }
+  path  stem() const { return path(filesystem::path::stem(), direct()); }
+  path  extension() const { return path(filesystem::path::extension(), direct()); }
 
   using filesystem::path::empty;
   using filesystem::path::has_root_name;
@@ -585,9 +595,9 @@ to programs which do not support them, plus the path returned is independent of 
 or path changes - it is a guaranteed universal and unique reference to the original file.
 */
 #ifdef WIN32
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid=false);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid);
 #else
-inline filesystem::path normalise_path(path p, bool guid=false) { return std::move(p); }
+inline filesystem::path normalise_path(path p, bool guid) { return std::move(p); }
 #endif
 
 
