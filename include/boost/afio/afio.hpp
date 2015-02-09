@@ -550,9 +550,9 @@ public:
   friend inline std::ostream &operator<<(std::ostream &s, const path &p);
   friend struct path_hash;
 #ifdef WIN32
-  friend BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid=false);
+  friend BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid);
 #else
-  friend inline filesystem::path normalise_path(path p, bool guid=false);
+  friend inline filesystem::path normalise_path(path p, bool guid);
 #endif
 };
 inline bool operator<(const path& lhs, const path& rhs) { return filesystem::path(lhs)<filesystem::path(rhs); }
@@ -602,9 +602,9 @@ to programs which do not support them, plus the path returned is independent of 
 or path changes - it is a guaranteed universal and unique reference to the original file.
 */
 #ifdef WIN32
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid=false);
 #else
-inline filesystem::path normalise_path(path p, bool guid) { return std::move(p); }
+inline filesystem::path normalise_path(path p, bool guid=false) { return std::move(p); }
 #endif
 
 
