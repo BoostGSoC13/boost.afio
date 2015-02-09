@@ -369,13 +369,20 @@ class path : protected filesystem::path
 {
   void int_regularise()
   {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6326) // comparison of constants
+#endif
     if(preferred_separator!='/')
       make_preferred();
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #ifdef WIN32
     // Need to strip off any win32 prefixing, and instead prefix any drive letters
     bool isExtendedPath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='?' && native()[3]=='\\');
     bool isDevicePath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='.' && native()[3]=='\\');
-    bool hasDriveLetter=(isalpha(native()[(isExtendedPath+isDevicePath)*4+0]) && native()[(isExtendedPath+isDevicePath)*4+1]==':');
+    bool hasDriveLetter=(isalpha(native()[((int) isExtendedPath+(int) isDevicePath)*4+0]) && native()[((int) isExtendedPath+(int) isDevicePath)*4+1]==':');
     if(hasDriveLetter && (isExtendedPath || isDevicePath))
     {
       filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
@@ -554,7 +561,7 @@ inline bool operator>(const path& lhs, const path& rhs) { return filesystem::pat
 inline bool operator>=(const path& lhs, const path& rhs) { return filesystem::path(lhs)>=filesystem::path(rhs); }
 inline bool operator==(const path& lhs, const path& rhs) { return filesystem::path(lhs)==filesystem::path(rhs); }
 inline bool operator!=(const path& lhs, const path& rhs) { return filesystem::path(lhs)!=filesystem::path(rhs); }
-inline path operator/(const path& lhs, const path& rhs) { return static_cast<path &>(filesystem::path(lhs)/filesystem::path(rhs)); }
+inline path operator/(const path& lhs, const path& rhs) { return path(filesystem::path(lhs)/filesystem::path(rhs), path::direct()); }
 inline std::ostream &operator<<(std::ostream &s, const path &p) { return s << filesystem::path(p); }
 struct path::make_absolute : public path
 {

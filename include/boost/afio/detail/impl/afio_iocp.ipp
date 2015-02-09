@@ -1149,6 +1149,10 @@ namespace detail {
         {
           return doextents(id, op, std::move(ret), 16);
         }
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6262) // Excessive stack usage
+#endif
         // Called in unknown thread
         completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> out)
         {
@@ -1282,6 +1286,9 @@ namespace detail {
             throw;
           }
         }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         // Called in unknown thread
         completion_returntype dolock(size_t id, async_io_op op, async_lock_op_req req)
         {
