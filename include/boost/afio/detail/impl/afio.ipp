@@ -115,6 +115,8 @@ typedef __int64 off64_t;
 #include <fcntl.h>
 #include <sys/stat.h>
 #ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <sys/user.h>
 #endif
 #ifdef WIN32
