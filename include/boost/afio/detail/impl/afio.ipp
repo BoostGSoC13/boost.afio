@@ -115,9 +115,14 @@ typedef __int64 off64_t;
 #include <fcntl.h>
 #include <sys/stat.h>
 #ifdef __FreeBSD__
+// Unfortunately these spazz all over the place which causes ambiguous symbol resolution for C++
+// So map them into a C++ namespace which only works because they are C
+namespace freebsd_sysctl
+{
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <sys/user.h>
+}
 #endif
 #ifdef WIN32
 #ifndef S_IFSOCK
@@ -620,11 +625,12 @@ namespace detail {
 #elif defined(__FreeBSD__)
             size_t len;
             int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
-            BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
+            BOOST_AFIO_ERRHOS(freebsd_sysctl::sysctl(mib, 4, NULL, &len, NULL, 0));
             std::vector<char> buffer(len*2);
-            BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+            BOOST_AFIO_ERRHOS(freebsd_sysctl::sysctl(mib, 4, buffer.data(), &len, NULL, 0));
             for(char *p=buffer.data(); p<buffer.data()+len;)
             {
+              using namespace freebsd_sysctl;
               struct kinfo_file *kif=(struct kinfo_file *) p;
               if(kif->kf_fd==fd)
               {
