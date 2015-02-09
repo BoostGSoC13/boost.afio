@@ -2,6 +2,9 @@
 # (C) 2015 Niall Douglas
 
 language: cpp
+os:
+ - linux
+ - osx
 notifications:
   email:
 #    recipients:
@@ -14,14 +17,26 @@ env:
   # Coveralls.io API key
   secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
   matrix:
-    - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" UNIT_TESTS=1 DEBUG=1 GCCVER="-4.8" GCOV=1
+    - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
+    - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
+    
+    exclude:
+      - os: linux
+        - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
+      - os: osx
+        - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
 
 before_install:
- - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
- - sudo add-apt-repository -y ppa:boost-latest/ppa
- - sudo apt-get update -qq
- - sudo apt-get install -qq libboost1.55-all-dev
- - if [ $GCCVER != "" ]; then sudo apt-get install -qq g++$GCCVER; fi
+ - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+ -   sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+ -   sudo add-apt-repository -y ppa:boost-latest/ppa
+ -   sudo apt-get update -qq
+ -   sudo apt-get install -qq libboost1.55-all-dev
+ -   if [ $GCCVER != "" ]; then sudo apt-get install -qq g++$GCCVER; fi
+ - elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
+ -   brew update
+ -   brew install boost
+ - fi
  - git submodule update --init --recursive
 
 script:
@@ -30,8 +45,8 @@ script:
  - cd test
  - bash ./test_file_glob.sh
  - cd ..
- - g++$GCCVER -o test_all_gcov $CCFLAGS $LINKFLAGS
- - ./test_all_gcov
+ - $GCCVER -o test_all $CCFLAGS $LINKFLAGS
+ - ./test_all
 
 after_success:
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
