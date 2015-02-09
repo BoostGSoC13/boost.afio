@@ -2,11 +2,12 @@
 
 using namespace BOOST_AFIO_V1_NAMESPACE;
 namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+namespace afio = BOOST_AFIO_V1_NAMESPACE;
 
 struct test_handle : async_io_handle
 {
     test_handle(async_file_io_dispatcher_base *parent) : async_io_handle(parent, std::shared_ptr<async_io_handle>(),
-        "foo", file_flags::None) {}
+        file_flags::None) {}
     virtual void close()
     {
         // Do nothing
@@ -15,13 +16,22 @@ struct test_handle : async_io_handle
     {
         return nullptr;
     }
+    using async_io_handle::path;
+    virtual afio::path path(bool refresh=false)
+    {
+      return "foo";
+    }
+    virtual afio::path path() const
+    {
+      return "foo";
+    }
     virtual directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) const
     {
         return directory_entry();
     }
-    virtual filesystem::path target() const
+    virtual afio::path target() const
     {
-        return filesystem::path();
+        return afio::path();
     }
     virtual void *try_mapfile()
     {

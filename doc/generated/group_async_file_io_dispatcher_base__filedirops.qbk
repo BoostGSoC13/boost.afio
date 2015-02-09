@@ -264,6 +264,9 @@ An op handle.
 '''<indexterm><primary>rmfile</primary></indexterm>'''
 Schedule a batch of asynchronous file deletions after optional preconditions. 
 
+[heading Description]
+Note that you can delete files before they are closed on Windows just as with POSIX if and only if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets this). The actual file data will be deleted when the last handle is closed on the system.
+
 [heading Synopsis]
 ``virtual std::vector<async_io_op> async_file_io_dispatcher_base::rmfile(const std::vector< async_path_op_req > & reqs)``
 
@@ -292,6 +295,9 @@ A batch of op handles.
 
 '''<indexterm><primary>rmfile</primary></indexterm>'''
 Schedule an asynchronous file deletion after an optional precondition. 
+
+[heading Description]
+Note that you can delete files before they are closed on Windows just as with POSIX if and only if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets this). The actual file data will be deleted when the last handle is closed on the system.
 
 [heading Synopsis]
 ``async_io_op async_file_io_dispatcher_base::rmfile(const async_path_op_req & req)``
@@ -323,9 +329,7 @@ An op handle.
 Schedule a batch of asynchronous symlink creations and opens after a precondition. 
 
 [heading Description]
-Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse point instead of a symlink due to the default lack of the [^`SeCreateSymbolicLinkPrivilege`] for non-Administrative users.
-
-Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
+Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse point instead of a symlink due to the default lack of the [^`SeCreateSymbolicLinkPrivilege`] for non-Administrative users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX you cannot do this and an invalid handle is output.
 
 [heading Synopsis]
 ``virtual std::vector<async_io_op> async_file_io_dispatcher_base::symlink(const std::vector< async_path_op_req > & reqs)``
@@ -357,9 +361,7 @@ A batch of op handles.
 Schedule an asynchronous symlink creation and open after a precondition. 
 
 [heading Description]
-Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse point instead of a symlink due to the default lack of the [^`SeCreateSymbolicLinkPrivilege`] for non-Administrative users.
-
-Note that currently on Windows non-directory symbolic links are not supported. If there is demand for this we may add support.
+Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse point instead of a symlink due to the default lack of the [^`SeCreateSymbolicLinkPrivilege`] for non-Administrative users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX you cannot do this and an invalid handle is output.
 
 [heading Synopsis]
 ``async_io_op async_file_io_dispatcher_base::symlink(const async_path_op_req & req)``
@@ -571,7 +573,7 @@ An op handle.
 Schedule a batch of asynchronous data reads after preceding operations, where offset and total data read must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. 
+Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations). 
 
 [heading Synopsis]
 ``template<class T>
@@ -605,7 +607,7 @@ A batch of op handles.
 Schedule an asynchronous data read after a preceding operation, where offset and total data read must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. 
+Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations). 
 
 [heading Synopsis]
 ``template<class T>
@@ -639,7 +641,7 @@ An op handle.
 Schedule a batch of asynchronous data writes after preceding operations, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. 
+Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations). 
 
 [heading Synopsis]
 ``template<class T>
@@ -673,7 +675,7 @@ A batch of op handles.
 Schedule an asynchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. 
+Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations). 
 
 [heading Synopsis]
 ``template<class T>

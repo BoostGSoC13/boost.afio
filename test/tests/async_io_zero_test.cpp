@@ -63,6 +63,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       for(auto &i : buffer2)
         if(i) { allzero = false; break; }
       BOOST_CHECK(allzero);
+      
+      // Sleep for a second to let the filing system do delayed deallocation
+      this_thread::sleep_for(chrono::seconds(1));
 
       // Verify they now consumes less than 1Mb of disc space
       stat_t afterzerostatsp=mkfilesp->lstat(metadata_flags::All);
@@ -84,6 +87,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
         auto extentssp=dispatcher->extents(mkfilesp).first.get();
         // Tolerate systems which can't enumerate extents, one those a single file sized extent is returned
         BOOST_CHECK(!extentssp.empty());
+        std::cout << "extents() reports " << extentssp.size() << " extents. These were:" << std::endl;
+        for(auto &i : extentssp)
+          std::cout << "  " << i.first << ", " << i.second << std::endl;
         BOOST_CHECK((extentssp.size()==2 || extentssp.size()==1));
         if(extentssp.size()==1)
         {

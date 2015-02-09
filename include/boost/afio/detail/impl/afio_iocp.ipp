@@ -6,7 +6,76 @@ File Created: Mar 2013
 
 #ifdef WIN32
 BOOST_AFIO_V1_NAMESPACE_BEGIN
+
 namespace detail {
+    // Helper for opening files
+    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(async_path_op_req req, bool overlapped=true, bool dontknowtype=false) BOOST_NOEXCEPT
+    {
+      DWORD access=FILE_READ_ATTRIBUTES|SYNCHRONIZE, attribs=FILE_ATTRIBUTE_NORMAL;
+      DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
+      DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
+      if(!overlapped)
+        flags|=0x20/*FILE_SYNCHRONOUS_IO_NONALERT*/;
+      if(!dontknowtype)
+      {
+        if(!!(req.flags & file_flags::int_opening_dir))
+        {
+            flags|=0x01/*FILE_DIRECTORY_FILE*/;
+            access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
+            if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
+            if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
+            // Windows doesn't like opening directories without buffering.
+            if(!!(req.flags & file_flags::OSDirect)) req.flags=req.flags & ~file_flags::OSDirect;
+        }
+        else
+        {
+            flags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
+            if(!!(req.flags & file_flags::Append)) access|=FILE_APPEND_DATA;
+            else
+            {
+                if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
+                if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
+            }
+            if(!!(req.flags & file_flags::WillBeSequentiallyAccessed))
+                flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
+            else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
+                flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
+            if(!!(req.flags & file_flags::TemporaryFile))
+                attribs|=FILE_ATTRIBUTE_TEMPORARY;
+            if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
+            {
+                flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
+                access|=DELETE;
+            }
+            if(!!(req.flags & file_flags::int_file_share_delete))
+                access|=DELETE;
+        }
+      }
+      if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
+      else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
+      else if(!!(req.flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
+      else creatdisp|=0x00000001/*FILE_OPEN*/;
+      if(!!(req.flags & file_flags::OSDirect)) flags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
+      if(!!(req.flags & file_flags::AlwaysSync)) flags|=0x00000002/*FILE_WRITE_THROUGH*/;
+
+      windows_nt_kernel::init();
+      using namespace windows_nt_kernel;
+      HANDLE h=nullptr;
+      IO_STATUS_BLOCK isb={ 0 };
+      OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+      path path(req.path.make_preferred());
+      UNICODE_STRING _path;
+      // TODO: I'd like to turn this off when possible really ...
+      oa.Attributes=0x40/*OBJ_CASE_INSENSITIVE*/;
+      _path.Buffer=const_cast<path::value_type *>(path.c_str());
+      _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
+      oa.ObjectName=&_path;
+      // Should I bother with oa.RootDirectory? For now, no.
+      LARGE_INTEGER AllocationSize={0};
+      return std::make_pair(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, fileshare,
+          creatdisp, flags, NULL, 0), h);
+    }
+
     struct win_actual_lock_file;
     struct win_lock_file : public lock_file<win_actual_lock_file>
     {
@@ -18,35 +87,205 @@ namespace detail {
         ev.assign(evh);
       }
     };
+    
+    // Two modes of calling, either a handle or a leafname + dir handle
+    // Overloads below call this
+    static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h, path::string_type leafname, std::shared_ptr<async_io_handle> dirh)
+    {
+      windows_nt_kernel::init();
+      using namespace windows_nt_kernel;
+      HANDLE temph=h ? h->native_handle() : nullptr;
+      bool isHex=leafname.empty();
+      if(leafname.size()==38 && !leafname.compare(0, 6, L".afiod"))
+      {
+        // Could be one of our "deleted" files, is he ".afiod" + all hex?
+        for(size_t n=5; n<37; n++)
+        {
+          auto c=leafname[n];
+          if(!((c>='1' && c<='9') || (c>='a' && c<='f')))
+          {
+            isHex=false;
+            break;
+          }
+        }
+      }
+      if(isHex)
+      {
+        NTSTATUS ntstat;
+        if(!temph)
+        {
+          // Ask to open with no rights at all, this should succeed even if perms deny any access
+          std::tie(ntstat, temph)=ntcreatefile(async_path_op_req(dirh->path(true)/leafname, file_flags::None), false, true);
+          if(ntstat)
+          {
+            // Couldn't open the file
+            if((NTSTATUS) 0xC000000F/*STATUS_NO_SUCH_FILE*/==ntstat || (NTSTATUS) 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==ntstat)
+              return true;
+            else
+              return false;
+          }
+        }
+        IO_STATUS_BLOCK isb={ 0 };
+        BOOST_AFIO_TYPEALIGNMENT(8) FILE_ALL_INFORMATION fai;
+        ntstat=NtQueryInformationFile(temph, &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
+        if(!h)
+          CloseHandle(temph);
+        // If the query succeeded and delete is pending, filter out this entry
+        if(!ntstat && fai.StandardInformation.DeletePending)
+          return true;
+      }
+      return false;
+    }
+    static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h) { return isDeletedFile(std::move(h), path::string_type(), std::shared_ptr<async_io_handle>()); }
+    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
+    
+    static inline path MountPointFromHandle(HANDLE h)
+    {
+      windows_nt_kernel::init();
+      using namespace windows_nt_kernel;
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+      IO_STATUS_BLOCK isb={ 0 };
+      NTSTATUS ntstat;
+      UNICODE_STRING *objectpath=(UNICODE_STRING *) buffer;
+      ULONG length;
+      ntstat=NtQueryObject(h, ObjectNameInformation, objectpath, sizeof(buffer), &length);
+      if(STATUS_PENDING==ntstat)
+        ntstat=NtWaitForSingleObject(h, FALSE, NULL);
+      BOOST_AFIO_ERRHNT(ntstat);
+      // Now get the subpath of our handle within its mount
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer2[sizeof(FILE_NAME_INFORMATION)/sizeof(path::value_type)+32769];
+      FILE_NAME_INFORMATION *fni=(FILE_NAME_INFORMATION *) buffer2;
+      ntstat=NtQueryInformationFile(h, &isb, fni, sizeof(buffer2), FileNameInformation);
+      if(STATUS_PENDING==ntstat)
+        ntstat=NtWaitForSingleObject(h, FALSE, NULL);
+      BOOST_AFIO_ERRHNT(ntstat);
+      // The mount path will be the remainder of the objectpath after removing the
+      // common ending
+      size_t remainder=(objectpath->Length-fni->FileNameLength)/sizeof(path::value_type);
+      return path::string_type(objectpath->Buffer, remainder);
+    }
+    
+    static inline path::string_type VolumeNameFromMountPoint(path mountpoint)
+    {
+      HANDLE vh;
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type volumename[64];
+      // Enumerate every volume in the system and the device it maps until we find ours
+      BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(vh=FindFirstVolume(volumename, sizeof(volumename)/sizeof(volumename[0]))));
+      auto unvh=Undoer([&vh]{FindVolumeClose(vh);});
+      size_t volumenamelen;
+      do
+      {
+        DWORD len;
+        volumenamelen=wcslen(volumename);
+        volumename[volumenamelen-1]=0;  // remove the trailing backslash
+        BOOST_AFIO_ERRHWIN((len=QueryDosDevice(volumename+4, buffer, sizeof(buffer)/sizeof(buffer[0]))));
+        if(!mountpoint.native().compare(0, len, buffer))
+          return path::string_type(volumename, volumenamelen-1);
+      } while(FindNextVolume(vh, volumename, sizeof(volumename)/sizeof(volumename[0])));
+      return path::string_type();
+    }
+}
 
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_normalise type)
+{
+  windows_nt_kernel::init();
+  using namespace windows_nt_kernel;
+  bool isSymlinkedDosPath=(p.native()[0]=='\\' && p.native()[1]=='?' && p.native()[2]=='?' && p.native()[3]=='\\');
+  bool needToOpen=!isSymlinkedDosPath || path_normalise::guid_all==type;
+  // Path is probably \Device\Harddisk...
+  NTSTATUS ntstat;
+  HANDLE h=nullptr;
+  if(needToOpen)
+  {
+    // Open with no rights and no access
+    std::tie(ntstat, h)=detail::ntcreatefile(async_path_op_req(p, file_flags::None), false, true);
+    BOOST_AFIO_ERRHNTFN(ntstat, [&p]{return p;});
+  }
+  auto unh=detail::Undoer([&h]{if(h) CloseHandle(h);});
+  path mountpoint;
+  path::string_type volumename;
+  if(isSymlinkedDosPath)
+  {
+    BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[64];
+    mountpoint=path(p.native().substr(0, p.native().find('\\', 4)+1), path::direct());
+    BOOST_AFIO_ERRHWIN(GetVolumeNameForVolumeMountPoint(mountpoint.c_str()+4, buffer, 64));
+    volumename=buffer;
+    // Trim the mount point's ending slash
+    filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(mountpoint.native());
+    me.resize(me.size()-1);
+  }
+  else
+  {
+    mountpoint=detail::MountPointFromHandle(h);
+    volumename=detail::VolumeNameFromMountPoint(mountpoint);
+  }
+  if(path_normalise::guid_volume==type)
+    return filesystem::path(volumename)/p.native().substr(mountpoint.native().size());
+  else if(path_normalise::guid_all==type)
+  {
+    FILE_OBJECTID_BUFFER fob;
+    DWORD out;
+    BOOST_AFIO_ERRHWIN(DeviceIoControl(h, FSCTL_CREATE_OR_GET_OBJECT_ID, nullptr, 0, &fob, sizeof(fob), &out, nullptr));
+    GUID *guid=(GUID *) &fob.ObjectId;
+    path::value_type buffer[64];
+    swprintf_s(buffer, 64, L"{%08x-%04hx-%04hx-%02x%02x-%02x%02x%02x%02x%02x%02x}", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+    return filesystem::path(volumename)/filesystem::path::string_type(buffer, 38);
+  }
+  else
+  {
+    DWORD len;
+    BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+    if(volumename.back()!='\\') volumename.push_back('\\');
+    BOOST_AFIO_ERRHWIN(GetVolumePathNamesForVolumeName(volumename.c_str(), buffer, sizeof(buffer)/sizeof(buffer[0]), &len));
+    // Read the returned DOS mount points into a vector and sort them by size
+    std::vector<path::string_type> dosmountpoints;
+    for(path::value_type *x=buffer; *x; x+=wcslen(x)+1)
+      dosmountpoints.push_back(path::string_type(x));
+    if(dosmountpoints.empty())
+      BOOST_AFIO_THROW(std::runtime_error("No Win32 mount points returned for volume path"));
+    std::sort(dosmountpoints.begin(), dosmountpoints.end(), [](const path::string_type &a, const path::string_type &b){return a.size()<b.size();});
+    filesystem::path ret(dosmountpoints.front());
+    ret/=p.native().substr(mountpoint.native().size()+1);
+    if(ret.native().size()>=260)
+      return filesystem::path("\\\\?")/ret;
+    else
+      return ret;
+  }
+}
+
+namespace detail
+{
     struct async_io_handle_windows : public async_io_handle
     {
         std::unique_ptr<asio::windows::random_access_handle> h;
         void *myid;
         bool has_been_added, SyncOnClose;
         void *mapaddr;
+        typedef spinlock<bool> pathlock_t;
+        mutable pathlock_t pathlock; afio::path _path;
         std::unique_ptr<win_lock_file> lockfile;
 
-        static HANDLE int_checkHandle(HANDLE h, const filesystem::path &path)
+        static HANDLE int_checkHandle(HANDLE h, const afio::path &path)
         {
-            BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, path);
+            BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, [&path]{return path;});
             return h;
         }
-        async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags) : async_io_handle(_parent, std::move(_dirh), path, flags), myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr) { }
-        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const filesystem::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
+        async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const afio::path &path, file_flags flags) : async_io_handle(_parent, std::move(_dirh), flags), myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
+        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
             if(mapaddr)
             {
-                BOOST_AFIO_ERRHWINFN(UnmapViewOfFile(mapaddr), path());
+                BOOST_AFIO_ERRHWINFN(UnmapViewOfFile(mapaddr), [this]{return path();});
                 mapaddr=nullptr;
             }
             if(h)
             {
                 // Windows doesn't provide an async fsync so do it synchronously
                 if(SyncOnClose && write_count_since_fsync())
-                    BOOST_AFIO_ERRHWINFN(FlushFileBuffers(myid), path());
+                    BOOST_AFIO_ERRHWINFN(FlushFileBuffers(myid), [this]{return path();});
                 h->close();
                 h.reset();
             }
@@ -63,12 +302,46 @@ namespace detail {
             int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return myid; }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
+        {
+          if(refresh)
+          {
+            if(isDeletedFile(shared_from_this()))
+            {
+              lock_guard<pathlock_t> g(pathlock);
+              _path.clear();
+              return _path;
+            }
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            HANDLE h=myid;
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            UNICODE_STRING *volumepath=(UNICODE_STRING *) buffer;
+            ULONG bufferlength;
+            NTSTATUS ntstat=NtQueryObject(h, ObjectNameInformation, volumepath, sizeof(buffer), &bufferlength);
+            if(STATUS_PENDING==ntstat)
+              ntstat=NtWaitForSingleObject(h, FALSE, NULL);
+            BOOST_AFIO_ERRHNT(ntstat);
+            lock_guard<pathlock_t> g(pathlock);
+            _path=path::string_type(volumepath->Buffer, volumepath->Length/sizeof(path::value_type));
+            return _path;
+          }
+          lock_guard<pathlock_t> g(pathlock);
+          return _path;
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path() const override final
+        {
+          lock_guard<pathlock_t> g(pathlock);
+          return _path;
+        }
 
         // You can't use shared_from_this() in a constructor so ...
         void do_add_io_handle_to_parent()
         {
             if(myid)
             {
+                // Canonicalise my path
+                path(true);
                 parent()->int_add_io_handle(myid, shared_from_this());
                 has_been_added=true;
             }
@@ -86,7 +359,7 @@ namespace detail {
             NTSTATUS ntstat;
 
             HANDLE h=myid;
-            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[sizeof(FILE_ALL_INFORMATION)/sizeof(filesystem::path::value_type)+32769];
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[sizeof(FILE_ALL_INFORMATION)/sizeof(path::value_type)+32769];
             buffer[0]=0;
             FILE_ALL_INFORMATION &fai=*(FILE_ALL_INFORMATION *)buffer;
             FILE_FS_SECTOR_SIZE_INFORMATION ffssi={0};
@@ -101,7 +374,7 @@ namespace detail {
                 ntstat=NtQueryInformationFile(h, &isb, &fai, sizeof(buffer), FileAllInformation);
                 if(STATUS_PENDING==ntstat)
                     ntstat=NtWaitForSingleObject(h, FALSE, NULL);
-                BOOST_AFIO_ERRHNTFN(ntstat, path());
+                BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
             }
             else
             {
@@ -110,21 +383,21 @@ namespace detail {
                     ntstat=NtQueryInformationFile(h, &isb, &fai.InternalInformation, sizeof(fai.InternalInformation), FileInternalInformation);
                     if(STATUS_PENDING==ntstat)
                         ntstat=NtWaitForSingleObject(h, FALSE, NULL);
-                    BOOST_AFIO_ERRHNTFN(ntstat, path());
+                    BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
                 }
                 if(needBasic)
                 {
                     ntstat=NtQueryInformationFile(h, &isb, &fai.BasicInformation, sizeof(fai.BasicInformation), FileBasicInformation);
                     if(STATUS_PENDING==ntstat)
                         ntstat=NtWaitForSingleObject(h, FALSE, NULL);
-                    BOOST_AFIO_ERRHNTFN(ntstat, path());
+                    BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
                 }
                 if(needStandard)
                 {
                     ntstat=NtQueryInformationFile(h, &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
                     if(STATUS_PENDING==ntstat)
                         ntstat=NtWaitForSingleObject(h, FALSE, NULL);
-                    BOOST_AFIO_ERRHNTFN(ntstat, path());
+                    BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
                 }
             }
             if(!!(wanted&metadata_flags::blocks) || !!(wanted&metadata_flags::blksize))
@@ -132,7 +405,7 @@ namespace detail {
                 ntstat=NtQueryVolumeInformationFile(h, &isb, &ffssi, sizeof(ffssi), FileFsSectorSizeInformation);
                 if(STATUS_PENDING==ntstat)
                     ntstat=NtWaitForSingleObject(h, FALSE, NULL);
-                //BOOST_AFIO_ERRHNTFN(ntstat, path());
+                //BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
                 if(0/*STATUS_SUCCESS*/!=ntstat)
                 {
                     // Windows XP and Vista don't support the FILE_FS_SECTOR_SIZE_INFORMATION
@@ -153,18 +426,18 @@ namespace detail {
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(fai.BasicInformation.CreationTime); }
             if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE); }
             if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
-            return directory_entry(path()
+            return directory_entry(const_cast<async_io_handle_windows *>(this)->path(true)
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
               .leaf()
 #else
               .filename()
 #endif
-            , stat, wanted);
+            .native(), stat, wanted);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC filesystem::path target() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const override final
         {
             if(!opened_as_symlink())
-                return filesystem::path();
+                return path();
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
             using windows_nt_kernel::REPARSE_DATA_BUFFER;
@@ -176,9 +449,9 @@ namespace detail {
             switch(rpd->ReparseTag)
             {
             case IO_REPARSE_TAG_MOUNT_POINT:
-                return dospath_from_ntpath(filesystem::path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(filesystem::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(filesystem::path::value_type)));
+                return path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type));
             case IO_REPARSE_TAG_SYMLINK:
-                return dospath_from_ntpath(filesystem::path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(filesystem::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(filesystem::path::value_type)));
+                return path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type));
             }
             BOOST_AFIO_THROW(std::runtime_error("Unknown type of symbolic link."));
         }
@@ -200,10 +473,10 @@ namespace detail {
         }
     };
     inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh,
-      const filesystem::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
-      : async_io_handle(_parent, std::move(_dirh), path, flags),
+      const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
+      : async_io_handle(_parent, std::move(_dirh), flags),
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
-        has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr)
+        has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr), _path(path)
     {
       if(!!(flags & file_flags::OSLockable))
         lockfile=process_lockfile_registry::open<win_lock_file>(this);
@@ -235,78 +508,12 @@ namespace detail {
         completion_returntype dormdir(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native());
-            BOOST_AFIO_ERRHWINFN(RemoveDirectory(escapedpath.c_str()), req.path);
+            path::string_type escapedpath(req.path.filesystem_path().native());
+            BOOST_AFIO_ERRHWINFN(RemoveDirectory(escapedpath.c_str()), [&req]{return req.path;});
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
       public:
-        // Helper for dofile()
-        static std::pair<NTSTATUS, HANDLE> ntcreatefile(async_path_op_req req) BOOST_NOEXCEPT
-        {
-          DWORD access=FILE_READ_ATTRIBUTES, attribs=FILE_ATTRIBUTE_NORMAL;
-          DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
-          DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
-          if(!!(req.flags & file_flags::int_opening_dir))
-          {
-              flags|=0x01/*FILE_DIRECTORY_FILE*/;
-              access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
-              if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
-              if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
-              // Windows doesn't like opening directories without buffering.
-              if(!!(req.flags & file_flags::OSDirect)) req.flags=req.flags & ~file_flags::OSDirect;
-          }
-          else
-          {
-              flags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
-              if(!!(req.flags & file_flags::Append)) access|=FILE_APPEND_DATA|SYNCHRONIZE;
-              else
-              {
-                  if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
-                  if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
-              }
-              if(!!(req.flags & file_flags::WillBeSequentiallyAccessed))
-                  flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
-              else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
-                  flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
-              if(!!(req.flags & file_flags::TemporaryFile))
-                  attribs|=FILE_ATTRIBUTE_TEMPORARY;
-              if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
-              {
-                  flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
-                  access|=DELETE;
-              }
-              if(!!(req.flags & file_flags::int_file_share_delete))
-                  access|=DELETE;
-          }
-          if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
-          else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
-          else if(!!(req.flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
-          else creatdisp|=0x00000001/*FILE_OPEN*/;
-          if(!!(req.flags & file_flags::OSDirect)) flags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
-          if(!!(req.flags & file_flags::AlwaysSync)) flags|=0x00000002/*FILE_WRITE_THROUGH*/;
-
-          windows_nt_kernel::init();
-          using namespace windows_nt_kernel;
-          HANDLE h=nullptr;
-          IO_STATUS_BLOCK isb={ 0 };
-          OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
-          filesystem::path path(req.path.make_preferred());
-          UNICODE_STRING _path;
-          if(isalpha(path.native()[0]) && path.native()[1]==':')
-          {
-              path=ntpath_from_dospath(path);
-              // If it's a DOS path, ignore case differences
-              oa.Attributes=0x40/*OBJ_CASE_INSENSITIVE*/;
-          }
-          _path.Buffer=const_cast<filesystem::path::value_type *>(path.c_str());
-          _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
-          oa.ObjectName=&_path;
-          // Should I bother with oa.RootDirectory? For now, no.
-          LARGE_INTEGER AllocationSize={0};
-          return std::make_pair(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, fileshare,
-              creatdisp, flags, NULL, 0), h);
-        }
       private:
         // Called in unknown thread
         completion_returntype dofile(size_t id, async_io_op, async_path_op_req req)
@@ -318,7 +525,7 @@ namespace detail {
             if(!!(req.flags & file_flags::FastDirectoryEnumeration))
                 dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_windows::dofile);
             std::tie(status, h)=ntcreatefile(req);
-            BOOST_AFIO_ERRHNTFN(status, req.path);
+            BOOST_AFIO_ERRHNTFN(status, [&req]{return req.path;});
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, dirh, req.path, req.flags,
                 (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
@@ -329,7 +536,7 @@ namespace detail {
             {
               DWORD bytesout=0;
               USHORT val=COMPRESSION_FORMAT_DEFAULT;
-              BOOST_AFIO_ERRHWINFN(DeviceIoControl(ret->native_handle(), FSCTL_SET_COMPRESSION, &val, sizeof(val), nullptr, 0, &bytesout, nullptr), req.path);
+              BOOST_AFIO_ERRHWINFN(DeviceIoControl(ret->native_handle(), FSCTL_SET_COMPRESSION, &val, sizeof(val), nullptr, 0, &bytesout, nullptr), [&req]{return req.path;});
             }
             if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link))
             {
@@ -352,12 +559,12 @@ namespace detail {
             return std::make_pair(true, ret);
         }
         // Generates a 32 character long crypto strong random name
-        static filesystem::path::string_type make_randomname()
+        static path::string_type make_randomname()
         {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
-            static const filesystem::path::string_type::value_type table[]=L"0123456789abcdef";
-            filesystem::path::string_type ret;
+            static const path::string_type::value_type table[]=L"0123456789abcdef";
+            path::string_type ret;
             char buffer[16];
             BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, sizeof(buffer))); // crypto secure
             ret.reserve(2*sizeof(buffer));
@@ -374,21 +581,22 @@ namespace detail {
             req.flags=fileflags(req.flags);
             // To emulate POSIX unlink semantics, we first rename the file to something random
             // before we delete it.
-            filesystem::path randompath(req.path.parent_path()/make_randomname());
-            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native()), escapedrandompath(L"\\\\?\\"+randompath.native());
+            path randompath(req.path.parent_path()/(L".afiod"+make_randomname()));
+            path::string_type escapedpath(req.path.filesystem_path().native()), escapedrandompath(randompath.filesystem_path().native());
             if(MoveFile(escapedpath.c_str(), escapedrandompath.c_str()))
             {
-              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedrandompath.c_str()), req.path);
+              // TODO: Also mark with hidden attributes? If you do, instead of MoveFile open the file and use rename + attribs on it.
+              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedrandompath.c_str()), [&req]{return req.path;});
             }
             else
             {
-              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), req.path);
+              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), [&req]{return req.path;});
             }
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
-        void boost_asio_symlink_completion_handler(size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::unique_ptr<filesystem::path::value_type[]>> buffer, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_symlink_completion_handler(size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::unique_ptr<path::value_type[]>> buffer, const asio::error_code &ec, size_t bytes_transferred)
         {
             if(ec)
             {
@@ -396,7 +604,7 @@ namespace detail {
                 // boost::system::system_error makes no attempt to ask windows for what the error code means :(
                 try
                 {
-                    BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                    BOOST_AFIO_ERRGWINFN(ec.value(), [h]{return h->path();});
                 }
                 catch(...)
                 {
@@ -436,10 +644,10 @@ namespace detail {
               req.flags=req.flags|file_flags::int_opening_dir;
             completion_returntype ret=dodir(id, op, req);
             assert(ret.first);
-            filesystem::path destpath(h->path());
-            size_t destpathbytes=destpath.native().size()*sizeof(filesystem::path::value_type);
+            path destpath(h->path(true));
+            size_t destpathbytes=destpath.native().size()*sizeof(path::value_type);
             size_t buffersize=sizeof(REPARSE_DATA_BUFFER)+destpathbytes*2+256;
-            auto buffer=std::make_shared<std::unique_ptr<filesystem::path::value_type[]>>(new filesystem::path::value_type[buffersize]);
+            auto buffer=std::make_shared<std::unique_ptr<path::value_type[]>>(new path::value_type[buffersize]);
             REPARSE_DATA_BUFFER *rpd=(REPARSE_DATA_BUFFER *) buffer->get();
             memset(rpd, 0, sizeof(*rpd));
             // Create a directory junction for directories and symbolic links for files
@@ -447,29 +655,27 @@ namespace detail {
               rpd->ReparseTag=IO_REPARSE_TAG_MOUNT_POINT;
             else
               rpd->ReparseTag=IO_REPARSE_TAG_SYMLINK;
-            if(isalpha(destpath.native()[0]) && destpath.native()[1]==':')
+            if(isalpha(destpath.native()[4]) && destpath.native()[5]==':')
             {
-                destpath=ntpath_from_dospath(destpath);
-                destpathbytes=destpath.native().size()*sizeof(filesystem::path::value_type);
-                memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(filesystem::path::value_type));
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(path::value_type));
                 rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
                 rpd->MountPointReparseBuffer.SubstituteNameLength=(USHORT)destpathbytes;
-                rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(filesystem::path::value_type));
-                rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)(h->path().native().size()*sizeof(filesystem::path::value_type));
-                memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(filesystem::path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(filesystem::path::value_type));
+                rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(path::value_type));
+                rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)(destpathbytes-4);
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(path::value_type), destpath.c_str()+4, rpd->MountPointReparseBuffer.PrintNameLength+sizeof(path::value_type));
             }
             else
             {
-                memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(filesystem::path::value_type));
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(path::value_type));
                 rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
                 rpd->MountPointReparseBuffer.SubstituteNameLength=(USHORT)destpathbytes;
-                rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(filesystem::path::value_type));
+                rpd->MountPointReparseBuffer.PrintNameOffset=(USHORT)(destpathbytes+sizeof(path::value_type));
                 rpd->MountPointReparseBuffer.PrintNameLength=(USHORT)destpathbytes;
-                memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(filesystem::path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(filesystem::path::value_type));
+                memcpy(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.PrintNameOffset/sizeof(path::value_type), h->path().c_str(), rpd->MountPointReparseBuffer.PrintNameLength+sizeof(path::value_type));
             }
             size_t headerlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer);
             size_t reparsebufferheaderlen=offsetof(REPARSE_DATA_BUFFER, MountPointReparseBuffer.PathBuffer)-headerlen;
-            rpd->ReparseDataLength=(USHORT)(rpd->MountPointReparseBuffer.SubstituteNameLength+rpd->MountPointReparseBuffer.PrintNameLength+2*sizeof(filesystem::path::value_type)+reparsebufferheaderlen);
+            rpd->ReparseDataLength=(USHORT)(rpd->MountPointReparseBuffer.SubstituteNameLength+rpd->MountPointReparseBuffer.PrintNameLength+2*sizeof(path::value_type)+reparsebufferheaderlen);
             auto dirop(ret.second);
             asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, id,
               BOOST_AFIO_LAMBDA_MOVE_CAPTURE(dirop),
@@ -492,14 +698,14 @@ namespace detail {
         completion_returntype dormsymlink(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
-            filesystem::path::string_type escapedpath(L"\\\\?\\"+req.path.native());
+            path::string_type escapedpath(req.path.filesystem_path().native());
             if(GetFileAttributes(escapedpath.c_str())&FILE_ATTRIBUTE_DIRECTORY)
             {
-              BOOST_AFIO_ERRHWINFN(RemoveDirectory(escapedpath.c_str()), req.path);
+              BOOST_AFIO_ERRHWINFN(RemoveDirectory(escapedpath.c_str()), [&req]{return req.path;});
             }
             else
             {
-              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), req.path);
+              BOOST_AFIO_ERRHWINFN(DeleteFile(escapedpath.c_str()), [&req]{return req.path;});
             }
             auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
             return std::make_pair(true, ret);
@@ -540,7 +746,7 @@ namespace detail {
                 // boost::system::system_error makes no attempt to ask windows for what the error code means :(
                 try
                 {
-                  BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                  BOOST_AFIO_ERRGWINFN(ec.value(), [h]{return h->path();});
                 }
                 catch(...)
                 {
@@ -583,7 +789,7 @@ namespace detail {
           assert(p);
           off_t bytestobesynced=p->write_count_since_fsync();
           if(bytestobesynced)
-            BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->native_handle()), p->path());
+            BOOST_AFIO_ERRHWINFN(FlushFileBuffers(p->native_handle()), [p]{return p->path();});
           p->byteswrittenatlastfsync+=bytestobesynced;
           return std::make_pair(true, h);
         }
@@ -622,7 +828,7 @@ namespace detail {
                 // boost::system::system_error makes no attempt to ask windows for what the error code means :(
                 try
                 {
-                    BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                    BOOST_AFIO_ERRGWINFN(ec.value(), [h]{return h->path();});
                 }
                 catch(...)
                 {
@@ -789,7 +995,7 @@ namespace detail {
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
 #if 1
-            BOOST_AFIO_ERRHWINFN(wintruncate(p->native_handle(), _newsize), p->path());
+            BOOST_AFIO_ERRHWINFN(wintruncate(p->native_handle(), _newsize), [p]{return p->path();});
 #else
             // This is a bit tricky ... overlapped files ignore their file position except in this one
             // case, but clearly here we have a race condition. No choice but to rinse and repeat I guess.
@@ -797,9 +1003,9 @@ namespace detail {
             newsize.QuadPart=_newsize;
             while(size.QuadPart!=newsize.QuadPart)
             {
-                BOOST_AFIO_ERRHWINFN(SetFilePointerEx(p->native_handle(), newsize, NULL, FILE_BEGIN), p->path());
-                BOOST_AFIO_ERRHWINFN(SetEndOfFile(p->native_handle()), p->path());
-                BOOST_AFIO_ERRHWINFN(GetFileSizeEx(p->native_handle(), &size), p->path());
+                BOOST_AFIO_ERRHWINFN(SetFilePointerEx(p->native_handle(), newsize, NULL, FILE_BEGIN), [p]{return p->path();});
+                BOOST_AFIO_ERRHWINFN(SetEndOfFile(p->native_handle()), [p]{return p->path();});
+                BOOST_AFIO_ERRHWINFN(GetFileSizeEx(p->native_handle(), &size), [p]{return p->path();});
             }
 #endif
             return std::make_pair(true, h);
@@ -823,7 +1029,7 @@ namespace detail {
         typedef std::shared_ptr<enumerate_state> enumerate_state_t;
         void boost_asio_enumerate_completion_handler(enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
         {
-            using windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION;
+            using namespace windows_nt_kernel;
             size_t id=state->id;
             std::shared_ptr<async_io_handle> h(state->op.get());
             std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=state->ret;
@@ -849,7 +1055,7 @@ namespace detail {
                 // boost::system::system_error makes no attempt to ask windows for what the error code means :(
                 try
                 {
-                    BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                    BOOST_AFIO_ERRGWINFN(ec.value(), [h]{return h->path();});
                 }
                 catch(...)
                 {
@@ -873,14 +1079,14 @@ namespace detail {
                 bool done=false;
                 for(FILE_ID_FULL_DIR_INFORMATION *ffdi=buffer.get(); !done; ffdi=(FILE_ID_FULL_DIR_INFORMATION *)((size_t) ffdi + ffdi->NextEntryOffset))
                 {
-                    size_t length=ffdi->FileNameLength/sizeof(filesystem::path::value_type);
+                    if(!ffdi->NextEntryOffset) done=true;
+                    size_t length=ffdi->FileNameLength/sizeof(path::value_type);
                     if(length<=2 && '.'==ffdi->FileName[0])
                         if(1==length || '.'==ffdi->FileName[1])
-                        {
-                            if(!ffdi->NextEntryOffset) done=true;
                             continue;
-                        }
-                    filesystem::path::string_type leafname(ffdi->FileName, length);
+                    path::string_type leafname(ffdi->FileName, length);
+                    if(isDeletedFile(leafname, h))
+                      continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
                     item.stat.st_type=to_st_type(ffdi->FileAttributes);
@@ -893,7 +1099,6 @@ namespace detail {
                     item.stat.st_sparse=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE);
                     item.stat.st_compressed=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_COMPRESSED);
                     _ret.push_back(std::move(item));
-                    if(!ffdi->NextEntryOffset) done=true;
                 }
                 if(needmoremetadata)
                 {
@@ -919,8 +1124,8 @@ namespace detail {
             UNICODE_STRING _glob={ 0 };
             if(!req.glob.empty())
             {
-                _glob.Buffer=const_cast<filesystem::path::value_type *>(req.glob.c_str());
-                _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(filesystem::path::value_type)))+sizeof(filesystem::path::value_type);
+                _glob.Buffer=const_cast<path::value_type *>(req.glob.c_str());
+                _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
             }
             asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, state](const asio::error_code &ec, size_t bytes)
             {
@@ -1012,7 +1217,7 @@ namespace detail {
                 // boost::system::system_error makes no attempt to ask windows for what the error code means :(
                 try
                 {
-                  BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+                  BOOST_AFIO_ERRGWINFN(ec.value(), [h]{return h->path();});
                 }
                 catch(...)
                 {
@@ -1065,6 +1270,10 @@ namespace detail {
         {
           return doextents(id, op, std::move(ret), 16);
         }
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6262) // Excessive stack usage
+#endif
         // Called in unknown thread
         completion_returntype dostatfs(size_t id, async_io_op op, fs_metadata_flags req, std::shared_ptr<promise<statfs_t>> out)
         {
@@ -1078,7 +1287,7 @@ namespace detail {
             statfs_t ret;
 
             // Probably not worth doing these asynchronously, so execute synchronously
-            BOOST_AFIO_TYPEALIGNMENT(8) filesystem::path::value_type buffer[32769];
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
             IO_STATUS_BLOCK isb={ 0 };
             NTSTATUS ntstat;
             if(!!(req&fs_metadata_flags::flags) || !!(req&fs_metadata_flags::namemax) || !!(req&fs_metadata_flags::fstypename))
@@ -1087,7 +1296,7 @@ namespace detail {
               ntstat=NtQueryVolumeInformationFile(h->native_handle(), &isb, ffai, sizeof(buffer), FileFsAttributeInformation);
               if(STATUS_PENDING==ntstat)
                   ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
-              BOOST_AFIO_ERRHNTFN(ntstat, h->path());
+              BOOST_AFIO_ERRHNTFN(ntstat, [h]{return h->path();});
               if(!!(req&fs_metadata_flags::flags))
               {
                 ret.f_flags.rdonly=!!(ffai->FileSystemAttributes & FILE_READ_ONLY_VOLUME);
@@ -1100,8 +1309,8 @@ namespace detail {
               if(!!(req&fs_metadata_flags::namemax)) ret.f_namemax=ffai->MaximumComponentNameLength;
               if(!!(req&fs_metadata_flags::fstypename))
               {
-                ret.f_fstypename.resize(ffai->FileSystemNameLength/sizeof(filesystem::path::value_type));
-                for(size_t n=0; n<ffai->FileSystemNameLength/sizeof(filesystem::path::value_type); n++)
+                ret.f_fstypename.resize(ffai->FileSystemNameLength/sizeof(path::value_type));
+                for(size_t n=0; n<ffai->FileSystemNameLength/sizeof(path::value_type); n++)
                   ret.f_fstypename[n]=(char) ffai->FileSystemName[n];
               }
             }
@@ -1111,7 +1320,7 @@ namespace detail {
               ntstat=NtQueryVolumeInformationFile(h->native_handle(), &isb, fffsi, sizeof(buffer), FileFsFullSizeInformation);
               if(STATUS_PENDING==ntstat)
                   ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
-              BOOST_AFIO_ERRHNTFN(ntstat, h->path());
+              BOOST_AFIO_ERRHNTFN(ntstat, [h]{return h->path();});
               if(!!(req&fs_metadata_flags::bsize)) ret.f_bsize=fffsi->BytesPerSector*fffsi->SectorsPerAllocationUnit;
               if(!!(req&fs_metadata_flags::blocks)) ret.f_blocks=fffsi->TotalAllocationUnits.QuadPart;
               if(!!(req&fs_metadata_flags::bfree)) ret.f_bfree=fffsi->ActualAvailableAllocationUnits.QuadPart;
@@ -1143,6 +1352,18 @@ namespace detail {
               }
               ret.f_iosize=ffssi->PhysicalBytesPerSectorForPerformance;
             }
+            if(!!(req&fs_metadata_flags::mntfromname) || !!(req&fs_metadata_flags::mntonname))
+            {
+              // Irrespective we need the mount path before figuring out the mounted device
+              ret.f_mntonname=MountPointFromHandle(h->native_handle());
+              if(!!(req&fs_metadata_flags::mntfromname))
+              {
+                path::string_type volumename=VolumeNameFromMountPoint(ret.f_mntonname);
+                ret.f_mntfromname.reserve(volumename.size());
+                for(size_t n=0; n<volumename.size(); n++)
+                  ret.f_mntfromname.push_back((char) volumename[n]);
+              }
+            }
             out->set_value(std::move(ret));
             return std::make_pair(true, h);
           }
@@ -1152,6 +1373,9 @@ namespace detail {
             throw;
           }
         }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         // Called in unknown thread
         completion_returntype dolock(size_t id, async_io_op op, async_lock_op_req req)
         {
@@ -1371,7 +1595,7 @@ namespace detail {
         DWORD len_low=1, len_high=0;
         return UnlockFileEx(h, 0, len_low, len_high, &ol)!=0;
       }
-      win_actual_lock_file(filesystem::path p) : actual_lock_file(std::move(p)), h(nullptr)
+      win_actual_lock_file(afio::path p) : actual_lock_file(std::move(p)), h(nullptr)
       {
         memset(&ol, 0, sizeof(ol));
         bool done=false;
@@ -1381,7 +1605,7 @@ namespace detail {
           for(size_t n=0; n<10; n++)
           {
             // TODO FIXME: Lock file needs to copy exact security descriptor from its original
-            std::tie(status, h)=async_file_io_dispatcher_windows::ntcreatefile(async_path_op_req(lockfilepath, file_flags::Create|file_flags::ReadWrite|file_flags::TemporaryFile|file_flags::int_file_share_delete));
+            std::tie(status, h)=ntcreatefile(async_path_op_req(lockfilepath, file_flags::Create|file_flags::ReadWrite|file_flags::TemporaryFile|file_flags::int_file_share_delete));
             // This may fail with STATUS_DELETE_PENDING, if so sleep and loop
             if(!status)
               break;
@@ -1407,7 +1631,7 @@ namespace detail {
           // If this lock succeeded then I am potentially the last with this file open
           // so unlink myself, which will work with my open file handle as I was opened with FILE_SHARE_DELETE.
           // All further opens will now fail with STATUS_DELETE_PENDING
-          filesystem::path::string_type escapedpath(L"\\\\?\\"+lockfilepath.native());
+          path::string_type escapedpath(lockfilepath.filesystem_path().native());
           BOOST_AFIO_ERRHWIN(DeleteFile(escapedpath.c_str()));
         }
         BOOST_AFIO_ERRHWIN(CloseHandle(h));
@@ -1426,7 +1650,7 @@ namespace detail {
             // boost::system::system_error makes no attempt to ask windows for what the error code means :(
             try
             {
-              BOOST_AFIO_ERRGWINFN(ec.value(), h->path());
+              BOOST_AFIO_ERRGWINFN(ec.value(), [h]{return h->path();});
             }
             catch(...)
             {

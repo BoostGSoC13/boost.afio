@@ -56,6 +56,14 @@ timeouts.
 * Portable fast file byte range advisory locking which works across network shares,
 but can still utilise shared memory when possible.
 
+* Related to locking files, the ability to copy files (unwritten destination locked until
+complete) using a variety of algorithms (including cheap copies on btrfs [cp --reflink=auto])
+with progress notification via the file change monitoring. Extend rename file and delete file
+with lock file options.
+
+* Also related to locking files, DeleteOnClose should use advisory locks to have the
+last handle close do the file delete on POSIX.
+
 * Extended attributes support. TripleGit could use this to avoid a second file
 handle open of metadata per graph object read. Unsure if NTFS is any faster
 opening EA though, need to test.
@@ -148,10 +156,34 @@ only be used for writing only and not reading.
 during destruction.
 
 * Use rename to random name before deletion pattern in rmfile() to work around Windows refusing new file
-creation with the same name as a recently deleted file.
+creation with the same name as a recently deleted file. enumerate() now filters out such zombied pending
+delete files automatically. This makes AFIO rmfile() work on Windows with POSIX semantics.
+
+* Fixed bug where direntry() was using lstat() instead of fstat() on POSIX and therefore failing if the
+file handle had been deleted.
+
+* symlink() no longer opens target file on POSIX, and instead returns a closed handle. The previous
+behaviour was throwing exceptions when the symlink was broken.
+
+* Made async_io_handle::path() virtual and now capable of asking for the current path of the file handle
+even after the file has been renamed or deleted. Doing this required a refactoring of the error generation code which previously consumed a const filesystem::path &, now it consumes a lambda which generates the path on demand.
+
+* File handles now refresh their path() to their true path on open, and again at various points during execution. A careful audit was undertaken to spot all instances where a fresh path is really needed versus a stale path, nevertheless some instances may have been missed. Nevertheless, this now means that AFIO can work with files whose names and locations change throughout the time that AFIO holds a path open to them, though
+note that inevitably this support will be racy if the filename changes between AFIO's refresh and the operation.
+
+* Replaced all use of filesystem::path with afio::path which on Windows enforces NT kernel path naming and
+ensures that multiple conversions from win32 path to NT paths are no longer done. Support is also now provided for converting the NT kernel paths AFIO uses to traditional DOS ones.
+
+* directory_entry::name() is now a string instead of a path.
+
+
 
 
 TODO BEFORE RELEASE
+
+2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine. 
+
+3. Add unit test making sure that file renaming and deletion works as expected, probably to path_works.
 
 4. clang-reformat everything.
 
@@ -160,6 +192,8 @@ You might think this easy, but AFIO has about twenty different build
 configurations now.
 
 6. Run performance benchmarks on all platforms. Fix any regressions.
+
+7. Regen the docs and make sure the new APIs have appeared.
 
 
 
@@ -554,7 +588,7 @@ on the filing system's present mood. This turns out to be a major source on unex
 errors for even AFIO's unit tests where the same file name tends to be reused across tests.
 
 AFIO solves this by taking a dual step to deleting files. Firstly, it renames the file to a 128
-bit cryptographically strong random name, and only then does it delete the file. As AFIO always
+bit cryptographically strong random name prefixed by [".afio], and only then does it delete the file. As AFIO always
 opens files with `FILE_SHARE_DELETE` permission enabled, with that flag Windows permits renaming
 and deletion, and because the name was changed to a very random name before deletion, you don't
 see those unexpected and random errors when creating files with the same name as a recently deleted
