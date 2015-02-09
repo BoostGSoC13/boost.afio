@@ -181,11 +181,9 @@ ensures that multiple conversions from win32 path to NT paths are no longer done
 
 TODO BEFORE RELEASE
 
-1. Implement normalise_path() and add it to unit test printing.
-
 2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine. 
 
-3. Add unit test making sure that file renaming and deletion works as expected.
+3. Add unit test making sure that file renaming and deletion works as expected, probably to path_works.
 
 4. clang-reformat everything.
 

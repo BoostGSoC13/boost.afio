@@ -95,10 +95,10 @@ namespace detail {
       windows_nt_kernel::init();
       using namespace windows_nt_kernel;
       HANDLE temph=h ? h->native_handle() : nullptr;
-      bool isHex=true;
-      if(leafname.size()==37 && !leafname.compare(0, 5, L".afio"))
+      bool isHex=leafname.empty();
+      if(leafname.size()==38 && !leafname.compare(0, 6, L".afiod"))
       {
-        // Could be one of our "deleted" files, is he ".afio" + all hex?
+        // Could be one of our "deleted" files, is he ".afiod" + all hex?
         for(size_t n=5; n<37; n++)
         {
           auto c=leafname[n];
@@ -581,7 +581,7 @@ namespace detail
             req.flags=fileflags(req.flags);
             // To emulate POSIX unlink semantics, we first rename the file to something random
             // before we delete it.
-            path randompath(req.path.parent_path()/(L".afio"+make_randomname()));
+            path randompath(req.path.parent_path()/(L".afiod"+make_randomname()));
             path::string_type escapedpath(req.path.filesystem_path().native()), escapedrandompath(randompath.filesystem_path().native());
             if(MoveFile(escapedpath.c_str(), escapedrandompath.c_str()))
             {
