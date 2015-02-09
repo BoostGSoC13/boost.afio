@@ -114,6 +114,9 @@ typedef __int64 off64_t;
 #endif
 #include <fcntl.h>
 #include <sys/stat.h>
+#ifdef __FreeBSD__
+#include <sys/user.h>
+#endif
 #ifdef WIN32
 #ifndef S_IFSOCK
 #define S_IFSOCK 0xC000
@@ -606,12 +609,30 @@ namespace detail {
             lock_guard<pathlock_t> g(pathlock);
             _path=path::string_type(buffer, len);
             return _path;
-#elif defined(__FreeBSD__)
+#elif defined(__APPLE__)
             char buffer[PATH_MAX+1];
-            BOOST_AFIO_ERRGOS(fcntl(fd, F_GETPATH, buffer));
+            BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
             lock_guard<pathlock_t> g(pathlock);
             _path=path::string_type(buffer);
             return _path;
+#elif defined(__FreeBSD__)
+            size_t len;
+            int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
+            BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
+            std::vector<char> buffer(len*2);
+            BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+            for(char *p=buffer.data(); p<buffer.data()+len;)
+            {
+              struct kinfo_file *kif=(struct kinfo_file *) p;
+              if(kif->kf_fd==fd)
+              {
+                lock_guard<pathlock_t> g(pathlock);
+                _path=path::string_type(kif->kf_path);
+                return _path;
+              }
+              p+=kif->kf_structsize;
+            }
+            BOOST_AFIO_THROW(std::runtime_error("Failed to find fd in kernel fd tables"));
 #else
 #error Unknown system
 #endif

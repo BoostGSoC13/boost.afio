@@ -6,44 +6,50 @@ File Created: Mar 2013
 
 #ifdef WIN32
 BOOST_AFIO_V1_NAMESPACE_BEGIN
+
 namespace detail {
     // Helper for opening files
-    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(async_path_op_req req) BOOST_NOEXCEPT
+    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(async_path_op_req req, bool overlapped=true, bool dontknowtype=false) BOOST_NOEXCEPT
     {
-      DWORD access=FILE_READ_ATTRIBUTES, attribs=FILE_ATTRIBUTE_NORMAL;
+      DWORD access=FILE_READ_ATTRIBUTES|SYNCHRONIZE, attribs=FILE_ATTRIBUTE_NORMAL;
       DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
       DWORD creatdisp=0, flags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
-      if(!!(req.flags & file_flags::int_opening_dir))
+      if(!overlapped)
+        flags|=0x20/*FILE_SYNCHRONOUS_IO_NONALERT*/;
+      if(!dontknowtype)
       {
-          flags|=0x01/*FILE_DIRECTORY_FILE*/;
-          access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
-          if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
-          if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
-          // Windows doesn't like opening directories without buffering.
-          if(!!(req.flags & file_flags::OSDirect)) req.flags=req.flags & ~file_flags::OSDirect;
-      }
-      else
-      {
-          flags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
-          if(!!(req.flags & file_flags::Append)) access|=FILE_APPEND_DATA|SYNCHRONIZE;
-          else
-          {
-              if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
-              if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
-          }
-          if(!!(req.flags & file_flags::WillBeSequentiallyAccessed))
-              flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
-          else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
-              flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
-          if(!!(req.flags & file_flags::TemporaryFile))
-              attribs|=FILE_ATTRIBUTE_TEMPORARY;
-          if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
-          {
-              flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
-              access|=DELETE;
-          }
-          if(!!(req.flags & file_flags::int_file_share_delete))
-              access|=DELETE;
+        if(!!(req.flags & file_flags::int_opening_dir))
+        {
+            flags|=0x01/*FILE_DIRECTORY_FILE*/;
+            access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
+            if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
+            if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
+            // Windows doesn't like opening directories without buffering.
+            if(!!(req.flags & file_flags::OSDirect)) req.flags=req.flags & ~file_flags::OSDirect;
+        }
+        else
+        {
+            flags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
+            if(!!(req.flags & file_flags::Append)) access|=FILE_APPEND_DATA;
+            else
+            {
+                if(!!(req.flags & file_flags::Read)) access|=GENERIC_READ;
+                if(!!(req.flags & file_flags::Write)) access|=GENERIC_WRITE;
+            }
+            if(!!(req.flags & file_flags::WillBeSequentiallyAccessed))
+                flags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
+            else if(!!(req.flags & file_flags::WillBeRandomlyAccessed))
+                flags|=0x00000800/*FILE_RANDOM_ACCESS*/;
+            if(!!(req.flags & file_flags::TemporaryFile))
+                attribs|=FILE_ATTRIBUTE_TEMPORARY;
+            if(!!(req.flags & file_flags::DeleteOnClose) && !!(req.flags & file_flags::CreateOnlyIfNotExist))
+            {
+                flags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
+                access|=DELETE;
+            }
+            if(!!(req.flags & file_flags::int_file_share_delete))
+                access|=DELETE;
+        }
       }
       if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
       else if(!!(req.flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
@@ -109,7 +115,7 @@ namespace detail {
         if(!temph)
         {
           // Ask to open with no rights at all, this should succeed even if perms deny any access
-          std::tie(ntstat, temph)=ntcreatefile(async_path_op_req(dirh->path(true)/leafname, file_flags::None));
+          std::tie(ntstat, temph)=ntcreatefile(async_path_op_req(dirh->path(true)/leafname, file_flags::None), false, true);
           if(ntstat)
           {
             // Couldn't open the file
@@ -122,8 +128,6 @@ namespace detail {
         IO_STATUS_BLOCK isb={ 0 };
         BOOST_AFIO_TYPEALIGNMENT(8) FILE_ALL_INFORMATION fai;
         ntstat=NtQueryInformationFile(temph, &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
-        if(STATUS_PENDING==ntstat)
-          ntstat=NtWaitForSingleObject(temph, FALSE, NULL);
         if(!h)
           CloseHandle(temph);
         // If the query succeeded and delete is pending, filter out this entry
@@ -134,7 +138,100 @@ namespace detail {
     }
     static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h) { return isDeletedFile(std::move(h), path::string_type(), std::shared_ptr<async_io_handle>()); }
     static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
+    
+    static inline path MountPointFromHandle(HANDLE h)
+    {
+      windows_nt_kernel::init();
+      using namespace windows_nt_kernel;
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+      IO_STATUS_BLOCK isb={ 0 };
+      NTSTATUS ntstat;
+      UNICODE_STRING *objectpath=(UNICODE_STRING *) buffer;
+      ULONG length;
+      ntstat=NtQueryObject(h, ObjectNameInformation, objectpath, sizeof(buffer), &length);
+      if(STATUS_PENDING==ntstat)
+        ntstat=NtWaitForSingleObject(h, FALSE, NULL);
+      BOOST_AFIO_ERRHNT(ntstat);
+      // Now get the subpath of our handle within its mount
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer2[sizeof(FILE_NAME_INFORMATION)/sizeof(path::value_type)+32769];
+      FILE_NAME_INFORMATION *fni=(FILE_NAME_INFORMATION *) buffer2;
+      ntstat=NtQueryInformationFile(h, &isb, fni, sizeof(buffer2), FileNameInformation);
+      if(STATUS_PENDING==ntstat)
+        ntstat=NtWaitForSingleObject(h, FALSE, NULL);
+      BOOST_AFIO_ERRHNT(ntstat);
+      // The mount path will be the remainder of the objectpath after removing the
+      // common ending
+      size_t remainder=(objectpath->Length-fni->FileNameLength)/sizeof(path::value_type);
+      return path::string_type(objectpath->Buffer, remainder);
+    }
+    
+    static inline path::string_type VolumeNameFromMountPoint(path mountpoint)
+    {
+      HANDLE vh;
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+      BOOST_AFIO_TYPEALIGNMENT(8) path::value_type volumename[64];
+      // Enumerate every volume in the system and the device it maps until we find ours
+      BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(vh=FindFirstVolume(volumename, sizeof(volumename)/sizeof(volumename[0]))));
+      auto unvh=Undoer([&vh]{FindVolumeClose(vh);});
+      size_t volumenamelen;
+      do
+      {
+        DWORD len;
+        volumenamelen=wcslen(volumename);
+        volumename[volumenamelen-1]=0;  // remove the trailing backslash
+        BOOST_AFIO_ERRHWIN((len=QueryDosDevice(volumename+4, buffer, sizeof(buffer)/sizeof(buffer[0]))));
+        if(!mountpoint.native().compare(0, len, buffer))
+          return path::string_type(volumename, volumenamelen-1);
+      } while(FindNextVolume(vh, volumename, sizeof(volumename)/sizeof(volumename[0])));
+      return path::string_type();
+    }
+}
 
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_normalise type)
+{
+  windows_nt_kernel::init();
+  using namespace windows_nt_kernel;
+  // Path is probably \Device\Harddisk...
+  // Open the path and figure out which volume it lives in
+  NTSTATUS ntstat;
+  HANDLE h;
+  // Open with no rights and no access
+  std::tie(ntstat, h)=detail::ntcreatefile(async_path_op_req(p, file_flags::None), false, true);
+  BOOST_AFIO_ERRHNTFN(ntstat, [&p]{return p;});
+  auto unh=detail::Undoer([&h]{CloseHandle(h);});
+  path mountpoint=detail::MountPointFromHandle(h);
+  path::string_type volumename=detail::VolumeNameFromMountPoint(mountpoint);
+  if(path_normalise::guid_volume==type)
+    return filesystem::path(volumename)/p.native().substr(mountpoint.native().size());
+  else if(path_normalise::guid_all==type)
+  {
+    FILE_OBJECTID_BUFFER fob;
+    DWORD out;
+    BOOST_AFIO_ERRHWIN(DeviceIoControl(h, FSCTL_CREATE_OR_GET_OBJECT_ID, nullptr, 0, &fob, sizeof(fob), &out, nullptr));
+    GUID *guid=(GUID *) &fob.ObjectId;
+    path::value_type buffer[64];
+    swprintf_s(buffer, 64, L"{%08x-%04hx-%04hx-%02x%02x-%02x%02x%02x%02x%02x%02x}", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+    return filesystem::path(volumename)/filesystem::path::string_type(buffer, 38);
+  }
+  else
+  {
+    DWORD len;
+    BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+    volumename.push_back('\\');
+    BOOST_AFIO_ERRHWIN(GetVolumePathNamesForVolumeName(volumename.c_str(), buffer, sizeof(buffer)/sizeof(buffer[0]), &len));
+    // Read the returned DOS mount points into a vector and sort them by size
+    std::vector<path::string_type> dosmountpoints;
+    for(path::value_type *x=buffer; *x; x+=wcslen(x)+1)
+      dosmountpoints.push_back(path::string_type(x));
+    if(dosmountpoints.empty())
+      BOOST_AFIO_THROW(std::runtime_error("No Win32 mount points returned for volume path"));
+    std::sort(dosmountpoints.begin(), dosmountpoints.end(), [](const path::string_type &a, const path::string_type &b){return a.size()<b.size();});
+    return filesystem::path(dosmountpoints.front())/p.native().substr(mountpoint.native().size()+1);
+  }
+}
+
+namespace detail
+{
     struct async_io_handle_windows : public async_io_handle
     {
         std::unique_ptr<asio::windows::random_access_handle> h;
@@ -1234,47 +1331,13 @@ namespace detail {
             if(!!(req&fs_metadata_flags::mntfromname) || !!(req&fs_metadata_flags::mntonname))
             {
               // Irrespective we need the mount path before figuring out the mounted device
-              UNICODE_STRING *objectpath=(UNICODE_STRING *) buffer;
-              ULONG length;
-              ntstat=NtQueryObject(h->native_handle(), ObjectNameInformation, objectpath, sizeof(buffer), &length);
-              if(STATUS_PENDING==ntstat)
-                ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
-              BOOST_AFIO_ERRHNTFN(ntstat, [h]{return h->path();});
-              // Now get the subpath of our handle within its mount
-              BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer2[sizeof(FILE_NAME_INFORMATION)/sizeof(path::value_type)+32769];
-              FILE_NAME_INFORMATION *fni=(FILE_NAME_INFORMATION *) buffer2;
-              NTSTATUS ntstat=NtQueryInformationFile(h->native_handle(), &isb, fni, sizeof(buffer2), FileNameInformation);
-              if(STATUS_PENDING==ntstat)
-                ntstat=NtWaitForSingleObject(h->native_handle(), FALSE, NULL);
-              BOOST_AFIO_ERRHNT(ntstat);
-              // The mount path will be the remainder of the objectpath after removing the
-              // common ending
-              size_t remainder=(objectpath->Length-fni->FileNameLength)/sizeof(path::value_type);
-              ret.f_mntonname=path::string_type(objectpath->Buffer, remainder);
+              ret.f_mntonname=MountPointFromHandle(h->native_handle());
               if(!!(req&fs_metadata_flags::mntfromname))
               {
-                HANDLE vh;
-                BOOST_AFIO_TYPEALIGNMENT(8) path::value_type volumename[64];
-                // Enumerate every volume in the system and the device it maps until we find ours
-                BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(vh=FindFirstVolume(volumename, sizeof(volumename)/sizeof(volumename[0]))));
-                auto unvh=Undoer([&vh]{FindVolumeClose(vh);});
-                size_t volumenamelen;
-                do
-                {
-                  DWORD len;
-                  volumenamelen=wcslen(volumename);
-                  volumename[volumenamelen-1]=0;  // remove the trailing backslash
-                  BOOST_AFIO_ERRHWIN((len=QueryDosDevice(volumename+4, buffer, sizeof(buffer)/sizeof(buffer[0]))));
-                  if(!ret.f_mntonname.native().compare(0, len, buffer))
-                    break;
-                  volumenamelen=0;
-                } while(FindNextVolume(vh, volumename, sizeof(volumename)/sizeof(volumename[0])));
-                if(volumenamelen)
-                {
-                  ret.f_mntfromname.reserve(volumenamelen);
-                  for(size_t n=0; n<volumenamelen; n++)
-                    ret.f_mntfromname.push_back((char) volumename[n]);
-                }
+                path::string_type volumename=VolumeNameFromMountPoint(ret.f_mntonname);
+                ret.f_mntfromname.reserve(volumename.size());
+                for(size_t n=0; n<volumename.size(); n++)
+                  ret.f_mntfromname.push_back((char) volumename[n]);
               }
             }
             out->set_value(std::move(ret));

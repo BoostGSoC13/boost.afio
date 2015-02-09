@@ -360,6 +360,14 @@ template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 struct async_lock_op_req;
 
+//! \brief The types of path normalisation available
+enum class path_normalise
+{
+  dos,         //!< Return the shortest normalised path possible (usually a drive letter prefix). This is a traditional DOS style path.
+  guid_volume, //!< Return the volume as a GUID. This eliminates problems with drive letters vanishing or being ambiguous. Anything accepting a Win32 path can accept one of these.
+  guid_all     //!< Return the whole path as a GUID. This eliminates problems with long paths or if the file is renamed. Note this may cause the creation of a GUID for the file. Anything accepting a Win32 path can accept one of these.
+};
+
 /*! \class path
 \brief An AFIO filesystem path, a thin wrapper of filesystem::path used to mark when a
 filesystem path has been prepared for AFIO usage. Note that on Windows this exclusively
@@ -550,9 +558,9 @@ public:
   friend inline std::ostream &operator<<(std::ostream &s, const path &p);
   friend struct path_hash;
 #ifdef WIN32
-  friend BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid);
+  friend BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_normalise type);
 #else
-  friend inline filesystem::path normalise_path(path p, bool guid);
+  friend inline filesystem::path normalise_path(path p, path_normalise type);
 #endif
 };
 inline bool operator<(const path& lhs, const path& rhs) { return filesystem::path(lhs)<filesystem::path(rhs); }
@@ -596,15 +604,12 @@ path, and with an extended path prefix if the path is sufficiently long.
 
 \ingroup normalise_path
 \param p Path to be normalised
-\param guid On Windows return the normalised path as a GUID path. Both the volume and the
-file where possible will be GUIDed. This sort of path allows very long paths to be supplied
-to programs which do not support them, plus the path returned is independent of any name
-or path changes - it is a guaranteed universal and unique reference to the original file.
+\param type A path_normalise enum
 */
 #ifdef WIN32
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, bool guid=false);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_normalise type=path_normalise::dos);
 #else
-inline filesystem::path normalise_path(path p, bool guid=false) { return std::move(p); }
+inline filesystem::path normalise_path(path p, path_normalise type=path_normalise::dos) { return std::move(p); }
 #endif
 
 

@@ -782,6 +782,9 @@ static stat_t print_stat(std::shared_ptr<async_io_handle> h)
 #endif
     }
     std::cout << " and it has the following information:" << std::endl;
+    std::cout << "  Normalised path: " << normalise_path(h->path()) << std::endl;
+    std::cout << "  Normalised path with volume GUID: " << normalise_path(h->path(), path_normalise::guid_volume) << std::endl;
+    std::cout << "  Normalised path as GUID: " << normalise_path(h->path(), path_normalise::guid_all) << std::endl;
     if(
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
       filesystem::file_type::symlink_file
