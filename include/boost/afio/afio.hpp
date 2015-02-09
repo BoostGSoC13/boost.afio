@@ -404,7 +404,7 @@ class path : protected filesystem::path
     else if(isExtendedPath || isDevicePath)
     {
       filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
-      me=me.substr(4);
+      me=me.substr(isDevicePath ? 3 : 4);
     }
 #endif
   }
@@ -450,8 +450,7 @@ public:
   //! \massign
   path& operator=(path&& p) BOOST_NOEXCEPT { filesystem::path::operator=(static_cast<filesystem::path &&>(p)); return *this; }
   //! Converts source to AFIO path format
-  template <class Source>
-    path& operator=(Source const& source) { filesystem::path::operator=(source); int_regularise(); return *this; }
+  //template <class Source> path& operator=(Source const& source) { filesystem::path::operator=(source); int_regularise(); return *this; }
 
   template <class Source>
     path& assign(Source const& source) { filesystem::path::assign(source); return *this; }

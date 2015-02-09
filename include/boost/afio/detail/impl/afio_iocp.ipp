@@ -191,16 +191,35 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
 {
   windows_nt_kernel::init();
   using namespace windows_nt_kernel;
+  bool isSymlinkedDosPath=(p.native()[0]=='\\' && p.native()[1]=='?' && p.native()[2]=='?' && p.native()[3]=='\\');
+  bool needToOpen=!isSymlinkedDosPath || path_normalise::guid_all==type;
   // Path is probably \Device\Harddisk...
-  // Open the path and figure out which volume it lives in
   NTSTATUS ntstat;
-  HANDLE h;
-  // Open with no rights and no access
-  std::tie(ntstat, h)=detail::ntcreatefile(async_path_op_req(p, file_flags::None), false, true);
-  BOOST_AFIO_ERRHNTFN(ntstat, [&p]{return p;});
-  auto unh=detail::Undoer([&h]{CloseHandle(h);});
-  path mountpoint=detail::MountPointFromHandle(h);
-  path::string_type volumename=detail::VolumeNameFromMountPoint(mountpoint);
+  HANDLE h=nullptr;
+  if(needToOpen)
+  {
+    // Open with no rights and no access
+    std::tie(ntstat, h)=detail::ntcreatefile(async_path_op_req(p, file_flags::None), false, true);
+    BOOST_AFIO_ERRHNTFN(ntstat, [&p]{return p;});
+  }
+  auto unh=detail::Undoer([&h]{if(h) CloseHandle(h);});
+  path mountpoint;
+  path::string_type volumename;
+  if(isSymlinkedDosPath)
+  {
+    BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[64];
+    mountpoint=path(p.native().substr(0, p.native().find('\\', 4)+1), path::direct());
+    BOOST_AFIO_ERRHWIN(GetVolumeNameForVolumeMountPoint(mountpoint.c_str()+4, buffer, 64));
+    volumename=buffer;
+    // Trim the mount point's ending slash
+    filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(mountpoint.native());
+    me.resize(me.size()-1);
+  }
+  else
+  {
+    mountpoint=detail::MountPointFromHandle(h);
+    volumename=detail::VolumeNameFromMountPoint(mountpoint);
+  }
   if(path_normalise::guid_volume==type)
     return filesystem::path(volumename)/p.native().substr(mountpoint.native().size());
   else if(path_normalise::guid_all==type)
@@ -217,7 +236,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
   {
     DWORD len;
     BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-    volumename.push_back('\\');
+    if(volumename.back()!='\\') volumename.push_back('\\');
     BOOST_AFIO_ERRHWIN(GetVolumePathNamesForVolumeName(volumename.c_str(), buffer, sizeof(buffer)/sizeof(buffer[0]), &len));
     // Read the returned DOS mount points into a vector and sort them by size
     std::vector<path::string_type> dosmountpoints;
@@ -226,7 +245,12 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
     if(dosmountpoints.empty())
       BOOST_AFIO_THROW(std::runtime_error("No Win32 mount points returned for volume path"));
     std::sort(dosmountpoints.begin(), dosmountpoints.end(), [](const path::string_type &a, const path::string_type &b){return a.size()<b.size();});
-    return filesystem::path(dosmountpoints.front())/p.native().substr(mountpoint.native().size()+1);
+    filesystem::path ret(dosmountpoints.front());
+    ret/=p.native().substr(mountpoint.native().size()+1);
+    if(ret.native().size()>=260)
+      return filesystem::path("\\\\?")/ret;
+    else
+      return ret;
   }
 }
 

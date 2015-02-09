@@ -34,7 +34,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
             BOOST_CHECK(mkfilestat.st_ino!=mklinkstat.st_ino);
             BOOST_CHECK(mkdirstat.st_ino!=mklinkstat.st_ino);
             BOOST_CHECK(mklink.get()->target()==mkdir.get()->path());
-                        BOOST_CHECK(mkdir.get()->container()->native_handle()==test.get()->native_handle());
+            BOOST_CHECK(mkdir.get()->container()->native_handle()==test.get()->native_handle());
         }
 
         // Let the handles close before deleting
