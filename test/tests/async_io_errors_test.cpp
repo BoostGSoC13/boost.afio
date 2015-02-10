@@ -7,9 +7,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
     namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 
     if(filesystem::exists("testdir/a"))
-        filesystem::remove("testdir/a");
+        try { filesystem::remove("testdir/a"); } catch(...) { }
     if(filesystem::exists("testdir"))
-        filesystem::remove("testdir");
+        try { filesystem::remove("testdir"); } catch(...) { }
     {
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_async_file_io_dispatcher();

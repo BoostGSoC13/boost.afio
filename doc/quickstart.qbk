@@ -124,7 +124,7 @@ there is a `when_all(std::nothrow_t(), ...)` overload available.
 
 [endsect] [/hello_world]
 
-[section:rename_tracking Tracking files over their lifetime
+[section:rename_tracking Tracking files over their lifetime]
 
 Todo
 

@@ -187,12 +187,24 @@ for converting the NT kernel paths AFIO uses to traditional DOS ones.
 
 TODO BEFORE RELEASE
 
-1. Expose crypto random function to public API, plus hex name crypto random function.
+0. Add fnctl(F_READAHEAD) for FreeBSD in doopen. Add readahead() simulation for Linux. Default to a huge page size (Linux: /proc/meminfo Hugepagesize, FreeBSD getpagesizes())
+
+1. Expose crypto random function to public API, plus hex name crypto random function. Another API should return list of page sizes supported (getpagesizes), and another which returns special huge page allocations for file copying.
+
+1a. Replace all POSIX use of open(), mkdir(), readlink(), symlink(), unlink(), stat() with XXXat() variants where possible. This avoids many races.
+
+1b. Directory handle cache needs to be updated when directories move. Add unit test swapping two directories
+each with an open file in them and make sure it doesn't get confused.
 
 2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine.
 
 2a. Look into a "add hardlink to open handle" function i.e. an undelete function. Linux can do this, but
 can the other OSs?
+
+Windows: NtSetInformationFile(FileLinkInformation)
+
+Linux: snprintf(path, PATH_MAX,  "/proc/self/fd/%d", fd);
+       linkat(AT_FDCWD, path, AT_FDCWD, "/path/for/file", AT_SYMLINK_FOLLOW);
 
 3. Add unit test making sure that file renaming and deletion works as expected, probably to path_works.
 
