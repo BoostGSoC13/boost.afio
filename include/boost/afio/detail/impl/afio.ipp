@@ -307,7 +307,8 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset
 }
 BOOST_AFIO_V1_NAMESPACE_END
 
-#elif !defined(IOV_MAX)  // Android lacks preadv() and pwritev()
+#elif !defined(IOV_MAX) || defined(__APPLE__)  // Android lacks preadv() and pwritev()
+#ifndef IOV_MAX
 #define IOV_MAX 1024
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 struct iovec {
@@ -315,6 +316,7 @@ struct iovec {
     size_t iov_len;     /* Number of bytes to transfer */
 };
 typedef ptrdiff_t ssize_t;
+#endif
 inline ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
     off_t at=offset;
@@ -2181,7 +2183,10 @@ namespace detail {
             return std::make_pair(true, h);
         }
 #ifdef __linux__
-        static int int_getdents(int fd, char *buf, int count) { return syscall(SYS_getdents64, fd, buf, count); }
+        static int int_getdents(int fd, char *buf, unsigned count) { return syscall(SYS_getdents64, fd, buf, count); }
+#endif
+#ifdef __APPLE__
+        static int int_getdents_emulation(int fd, char *buf, unsigned count) { off_t foo; return syscall(SYS_getdirentries64, fd, buf, count, &foo); }
 #endif
         // Called in unknown thread
         completion_returntype doenumerate(size_t id, async_io_op op, async_enumerate_op_req req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret)
@@ -2219,9 +2224,14 @@ namespace detail {
 #else
 #ifdef __linux__
                 // Unlike FreeBSD, Linux doesn't define a getdents() function, so we'll do that here.
-                typedef int (*getdents64_t)(int, char *, int);
+                typedef int (*getdents64_t)(int, char *, unsigned);
                 getdents64_t getdents=(getdents64_t)(&async_file_io_dispatcher_compat::int_getdents);
                 typedef dirent64 dirent;
+#endif
+#ifdef __APPLE__
+                // OS X defines a getdirentries64() kernel syscall which can emulate getdents
+                typedef int (*getdents_emulation_t)(int, char *, unsigned);
+                getdents_emulation_t getdents=(getdents_emulation_t)(&async_file_io_dispatcher_compat::int_getdents_emulation);
 #endif
                 auto buffer=std::unique_ptr<dirent[]>(new dirent[req.maxitems]);
                 if(req.restart)
@@ -2345,11 +2355,17 @@ namespace detail {
                 if((off_t)-1==start) break;
                 end=lseek64(p->fd, start, SEEK_HOLE);
                 if((off_t)-1==end) break;
-#else
+#elif defined(__APPLE__)
+                // Can't find any support for extent enumeration in OS X
+                errno=EINVAL;
+                break;
+#elif defined(__FreeBSD__)
                 start=lseek(p->fd, end, SEEK_DATA);
                 if((off_t)-1==start) break;
                 end=lseek(p->fd, start, SEEK_HOLE);
                 if((off_t)-1==end) break;
+#else
+#error Unknown system
 #endif
                 // Data region may have been concurrently deleted
                 if(end>start)
@@ -2484,7 +2500,10 @@ namespace detail {
               out.f_flags.rdonly     =!!(s.f_flags & MNT_RDONLY);
               out.f_flags.noexec     =!!(s.f_flags & MNT_NOEXEC);
               out.f_flags.nosuid     =!!(s.f_flags & MNT_NOSUID);
+              out.f_flags.acls       =0;
+#if defined(MNT_ACLS) && defined(MNT_NFS4ACLS)
               out.f_flags.acls       =!!(s.f_flags & (MNT_ACLS|MNT_NFS4ACLS));
+#endif
               out.f_flags.xattr      =1; // UFS and ZFS support xattr. TODO FIXME actually calculate this, zfs get xattr <f_mntfromname> would do it.
               out.f_flags.compression=!strcmp(s.f_fstypename, "zfs");
               out.f_flags.extents    =!strcmp(s.f_fstypename, "ufs") || !strcmp(s.f_fstypename, "zfs");
@@ -2496,7 +2515,9 @@ namespace detail {
             if(!!(req&fs_metadata_flags::bavail))      out.f_bavail     =s.f_bavail;
             if(!!(req&fs_metadata_flags::files))       out.f_files      =s.f_files;
             if(!!(req&fs_metadata_flags::ffree))       out.f_ffree      =s.f_ffree;
+#ifndef __APPLE__
             if(!!(req&fs_metadata_flags::namemax))     out.f_namemax    =s.f_namemax;
+#endif
             if(!!(req&fs_metadata_flags::owner))       out.f_owner      =s.f_owner;
             if(!!(req&fs_metadata_flags::fsid))        { out.f_fsid[0]=(unsigned) s.f_fsid.val[0]; out.f_fsid[1]=(unsigned) s.f_fsid.val[1]; }
             if(!!(req&fs_metadata_flags::fstypename))  out.f_fstypename =s.f_fstypename;
