@@ -20,12 +20,12 @@ env:
     - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
     - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
     
-#matrix:
-#  exclude:
-#    - os: linux
-#      - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
-#    - os: osx
-#      - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
+matrix:
+  exclude:
+    - os: linux
+      - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
+    - os: osx
+      - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
 
 before_install:
  - if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$_" = "MacOS X build" ]; then echo "FATAL: NOT OS X!!!"; exit 1; fi
@@ -34,8 +34,8 @@ before_install:
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install -qq libboost1.55-all-dev; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ] && [ $GCCVER != "" ]; then sudo apt-get install -qq $GCCVER; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sudo brew update; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sudo brew install boost; fi
+# - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sudo brew update; fi
+# - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sudo brew install boost; fi
  - git submodule update --init --recursive
 
 script:
