@@ -26,8 +26,6 @@ matrix:
     - os: linux
       env:
         - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
-    - os: linux
-      env:
         - _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
     - os: osx
       env:
