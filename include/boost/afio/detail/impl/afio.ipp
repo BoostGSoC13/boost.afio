@@ -376,12 +376,12 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
           pagesizes.resize(out);
 #elif defined(__linux__)
       pagesizes.push_back(getpagesize());
-      int ih=open("/proc/meminfo", O_RDONLY);
+      int ih=::open("/proc/meminfo", O_RDONLY);
       if(-1!=ih)
       {
         char buffer[4096], *hugepagesize, *hugepages;
-        buffer[read(ih, buffer, sizeof(buffer)-1)]=0;
-        close(ih);
+        buffer[::read(ih, buffer, sizeof(buffer)-1)]=0;
+        ::close(ih);
         hugepagesize=strstr(buffer, "Hugepagesize:");
         hugepages=strstr(buffer, "HugePages_Total:");
         if(hugepagesize && hugepages)
