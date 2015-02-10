@@ -614,9 +614,9 @@ namespace detail {
                 BOOST_AFIO_ERRGOS(-1);
             lock_guard<pathlock_t> g(pathlock);
             path::string_type ret(out, len);
-            // Linux appends a " (deleted)" when a fd is nameless
+            // Linux prepends or appends a " (deleted)" when a fd is nameless
             // TODO: Should I stat the target to be really sure?
-            if(!ret.compare(ret.size()-10, 10, " (deleted)"))
+            if(ret.size()>=10 && (!ret.compare(0, 10, " (deleted)") || !ret.compare(ret.size()-10, 10, " (deleted)")))
               _path.clear();
             else
               _path=ret;
