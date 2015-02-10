@@ -182,6 +182,7 @@ for converting the NT kernel paths AFIO uses to traditional DOS ones.
 
 * directory_entry::name() is now a string instead of a path.
 
+* Thanks to Travis CI adding Mac OS X as a CI target, added OS X support to AFIO.
 
 
 

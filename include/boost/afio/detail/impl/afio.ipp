@@ -251,7 +251,11 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
     if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(*((struct timespec *)&s.st_atime)); }
     if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(*((struct timespec *)&s.st_mtime)); }
     if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(*((struct timespec *)&s.st_ctime)); }
-#else
+#elif defined(__APPLE__)
+    if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(s.st_atimespec); }
+    if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(s.st_mtimespec); }
+    if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(s.st_ctimespec); }
+#else  // Linux and BSD
     if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(s.st_atim); }
     if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(s.st_mtim); }
     if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(s.st_ctim); }
@@ -267,7 +271,11 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
     if(!!(wanted&metadata_flags::gen)) { stat.st_gen=s.st_gen; }
 #endif
 #ifdef HAVE_BIRTHTIMESPEC
+#if defined(__APPLE__)
+    if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(s.st_birthtimespec); }
+#else
     if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(s.st_birthtim); }
+#endif
 #endif
     if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=((off_t) s.st_blocks*512)<(off_t) s.st_size; }
 }
@@ -2515,7 +2523,9 @@ namespace detail {
             if(!!(req&fs_metadata_flags::bavail))      out.f_bavail     =s.f_bavail;
             if(!!(req&fs_metadata_flags::files))       out.f_files      =s.f_files;
             if(!!(req&fs_metadata_flags::ffree))       out.f_ffree      =s.f_ffree;
-#ifndef __APPLE__
+#ifdef __APPLE__
+            if(!!(req&fs_metadata_flags::namemax))     out.f_namemax    =255;
+#else
             if(!!(req&fs_metadata_flags::namemax))     out.f_namemax    =s.f_namemax;
 #endif
             if(!!(req&fs_metadata_flags::owner))       out.f_owner      =s.f_owner;

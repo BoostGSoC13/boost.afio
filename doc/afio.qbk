@@ -103,6 +103,7 @@ making use of host OS asynchronous file i/o facilities are provided for:
 __boost_afio__ is regularly compiled and per-commit unit tested on these platforms:
 
 * Android (libc++ STL toolchain only).
+* Apple Mac OS X 10.6 (should still work on 10.5).
 * FreeBSD 10.1 (should also work on 10.0).
 * Linux kernels 2.6.32 to 3.13.
 * Microsoft Windows 8.1 (should still work on XP using mingw-w64).
