@@ -563,30 +563,13 @@ namespace detail
             }
             return std::make_pair(true, ret);
         }
-        // Generates a 32 character long crypto strong random name
-        static path::string_type make_randomname()
-        {
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-            static const path::string_type::value_type table[]=L"0123456789abcdef";
-            path::string_type ret;
-            char buffer[16];
-            BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, sizeof(buffer))); // crypto secure
-            ret.reserve(2*sizeof(buffer));
-            for(size_t n=0; n<sizeof(buffer); n++)
-            {
-              ret.push_back(table[buffer[n]&0xf]);
-              ret.push_back(table[(buffer[n]>>4)&0xf]);
-            }
-            return ret;
-        }
         // Called in unknown thread
         completion_returntype dormfile(size_t id, async_io_op _, async_path_op_req req)
         {
             req.flags=fileflags(req.flags);
             // To emulate POSIX unlink semantics, we first rename the file to something random
             // before we delete it.
-            path randompath(req.path.parent_path()/(L".afiod"+make_randomname()));
+            path randompath(req.path.parent_path()/(".afiod"+random_string(32 /* 128 bits */)));
             path::string_type escapedpath(req.path.filesystem_path().native()), escapedrandompath(randompath.filesystem_path().native());
             if(MoveFile(escapedpath.c_str(), escapedrandompath.c_str()))
             {
@@ -1386,7 +1369,7 @@ namespace detail
         }
 
     public:
-        async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask), pagesize(page_size())
+        async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask), pagesize(page_sizes().front())
         {
         }
 

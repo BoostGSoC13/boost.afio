@@ -184,6 +184,10 @@ for converting the NT kernel paths AFIO uses to traditional DOS ones.
 
 * Thanks to Travis CI adding Mac OS X as a CI target, added OS X support to AFIO.
 
+* Added APIs random_fill() and random_string() useful for generating crypto strong random file names.
+
+* page_size() has become page_sizes(), and now can return large/huge page sizes.
+
 
 
 TODO BEFORE RELEASE

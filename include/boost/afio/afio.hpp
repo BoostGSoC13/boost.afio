@@ -2063,14 +2063,33 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> barrier(const std::vector<async_io_op> &ops);
 
-    /*! \brief Returns the page size of this architecture which is useful for calculating direct i/o multiples.
+    /*! \brief Returns the page sizes of this architecture which is useful for calculating direct i/o multiples.
     
-    \return The page size of this architecture.
+    \return The page sizes of this architecture.
     \ingroup async_file_io_dispatcher_base__misc
     \complexity{Whatever the system API takes (one would hope constant time).}
     \exceptionmodel{Never throws any exception.}
     */
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t page_size() BOOST_NOEXCEPT_OR_NOTHROW;
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> page_sizes() BOOST_NOEXCEPT_OR_NOTHROW;
+
+    /*! \brief Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API.
+    
+    \param buffer A buffer to fill
+    \param bytes How many bytes to fill
+    \ingroup async_file_io_dispatcher_base__misc
+    \complexity{Whatever the system API takes.}
+    \exceptionmodel{Never throws any exception.}
+    */
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void random_fill(char *buffer, size_t bytes);
+
+    /*! \brief Returns a cryptographically strong random hexadecimal string.
+    
+    \param length How many characters to return
+    \ingroup async_file_io_dispatcher_base__misc
+    \complexity{Whatever the system API takes.}
+    \exceptionmodel{Never throws any exception.}
+    */
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string random_string(size_t length);
 
     /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
 

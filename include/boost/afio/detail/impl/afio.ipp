@@ -80,6 +80,7 @@ File Created: Mar 2013
 #include "ErrorHandling.ipp"
 
 #include <limits>
+#include <random>
 #include <unordered_map>
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
 BOOST_AFIO_V1_NAMESPACE_BEGIN
@@ -348,20 +349,105 @@ BOOST_AFIO_V1_NAMESPACE_END
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::page_size() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatcher_base::page_sizes() BOOST_NOEXCEPT_OR_NOTHROW
 {
-    static size_t pagesize;
-    if(!pagesize)
+    static spinlock<bool> lock;
+    static std::vector<size_t> pagesizes;
+    lock_guard<decltype(lock)> g(lock);
+    if(pagesizes.empty())
     {
 #ifdef WIN32
+        typedef size_t (WINAPI *GetLargePageMinimum_t)(void);
         SYSTEM_INFO si={ 0 };
         GetSystemInfo(&si);
-        pagesize=si.dwPageSize;
+        pagesizes.push_back(si.dwPageSize);
+        GetLargePageMinimum_t GetLargePageMinimum_ = (GetLargePageMinimum_t) GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetLargePageMinimum");
+        if(GetLargePageMinimum_)
+          pagesizes.push_back(GetLargePageMinimum_());
+#elif defined(__FreeBSD__)
+        pagesizes.resize(32);
+        int out;
+        if(-1==(out=getpagesizes((long *) pagesizes.data(), 32)))
+        {
+          pagesizes.clear();
+          pagesizes.push_back(getpagesize());
+        }
+        else
+          pagesizes.resize(out);
+#elif defined(__linux__)
+      pagesizes.push_back(getpagesize());
+      int ih=open("/proc/meminfo", O_RDONLY);
+      if(-1!=ih)
+      {
+        char buffer[4096], *hugepagesize, *hugepages;
+        buffer[read(ih, buffer, sizeof(buffer)-1)]=0;
+        close(ih);
+        hugepagesize=strstr(buffer, "Hugepagesize:");
+        hugepages=strstr(buffer, "HugePages_Total:");
+        if(hugepagesize && hugepages)
+        {
+          unsigned _hugepages=0, _hugepagesize=0;
+          while((*++hugepagesize!=' '));
+          while((*++hugepages!=' '));
+          while((*++hugepagesize==' '));
+          while((*++hugepages==' '));
+          sscanf(hugepagesize, "%u", &_hugepagesize);
+          sscanf(hugepages, "%u", &_hugepages);
+#if DEBUG
+          printf("Hugepages=%u, size=%u\n", _hugepages, _hugepagesize);
+#endif
+          if(_hugepages && _hugepagesize)
+            pagesizes.push_back(((size_t)_hugepagesize)*1024);
+        }
+      }
 #else
-        pagesize=getpagesize();
+        pagesizes.push_back(getpagesize());
 #endif
     }
-    return pagesize;
+    return pagesizes;
+}
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::random_fill(char *buffer, size_t bytes)
+{
+#ifdef WIN32
+    windows_nt_kernel::init();
+    using namespace windows_nt_kernel;
+    BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, bytes));
+#else
+    static spinlock<bool> lock;
+    static std::random_device device;
+    lock_guard<decltype(lock)> g(lock);
+    std::random_device::result_type *b=(std::random_device::result_type *) buffer;
+    while(bytes>=sizeof(std::random_device::result_type))
+    {
+      *b++=device();
+      bytes-=sizeof(std::random_device::result_type);
+    }
+    if(bytes)
+    {
+      buffer=(char *) b;
+      auto t=device();
+      *b++=t&0xff; bytes--;
+      while(bytes)
+      {
+        t>>=8;
+        *b++=t&0xff;
+        bytes--;
+      }
+    }
+#endif
+}
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string async_file_io_dispatcher_base::random_string(size_t length)
+{
+    static BOOST_CONSTEXPR_OR_CONST char table[]="0123456789abcdef";
+    std::string ret;
+    ret.resize(length);
+    random_fill(const_cast<char *>(ret.data()), length/2);
+    for(size_t n=(length-1)/2; n<length/2; n--)
+    {
+      ret[n*2+1]=table[(ret[n]>>4)&0xf];
+      ret[n*2]=table[ret[n]&0xf];
+    }
+    return ret;
 }
 
 std::shared_ptr<std_thread_pool> process_threadpool()
