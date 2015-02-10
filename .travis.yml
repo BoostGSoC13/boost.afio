@@ -2,9 +2,6 @@
 # (C) 2015 Niall Douglas
 
 language: cpp
-os:
- - linux
- - osx
 notifications:
   email:
 #    recipients:
@@ -15,17 +12,14 @@ notifications:
 
 env:
   # Coveralls.io API key
-  secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
-  matrix:
-    - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
-    - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
-    
+  secure:  "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
+
 matrix:
-  exclude:
-    - os: linux
-      - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
-    - os: osx
-      - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
+  include:
+    - env: _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1
+      os: linux
+    - env: _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0
+      os: osx
 
 before_install:
  - if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$_" = "MacOS X build" ]; then echo "FATAL: NOT OS X!!!"; exit 1; fi
