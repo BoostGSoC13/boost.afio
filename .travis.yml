@@ -24,12 +24,11 @@ env:
 matrix:
   exclude:
     - os: linux
-      env:
-        - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
-        - _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
+      env: _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
+    - os: linux
+      env: _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
     - os: osx
-      env:
-        - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
+      env: _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
 
 
 before_install:
