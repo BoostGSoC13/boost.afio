@@ -349,6 +349,10 @@ BOOST_AFIO_V1_NAMESPACE_END
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
+#endif
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatcher_base::page_sizes() BOOST_NOEXCEPT_OR_NOTHROW
 {
     static spinlock<bool> lock;
@@ -406,6 +410,10 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
     }
     return pagesizes;
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::random_fill(char *buffer, size_t bytes)
 {
 #ifdef WIN32
@@ -436,13 +444,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::random_
     }
 #endif
 }
+
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string async_file_io_dispatcher_base::random_string(size_t length)
 {
     static BOOST_CONSTEXPR_OR_CONST char table[]="0123456789abcdef";
     std::string ret;
     ret.resize(length);
     random_fill(const_cast<char *>(ret.data()), length/2);
-    for(size_t n=(length-1)/2; n<length/2; n--)
+    for(size_t n=(length-1)/2; n<length; n--)
     {
       ret[n*2+1]=table[(ret[n]>>4)&0xf];
       ret[n*2]=table[ret[n]&0xf];
