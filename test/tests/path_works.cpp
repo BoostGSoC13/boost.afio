@@ -27,6 +27,8 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     BOOST_CHECK(p.native().substr(4)==fp.native().substr(4));
     // Make sure it converts back perfectly via slow path
     fp=normalise_path(p);
+    std::cout << fp << std::endl;
+    std::cout << filesystem::absolute("testfile") << std::endl;
     BOOST_CHECK(fp.native()==filesystem::absolute("testfile"));
     
     // Make sure it handles extended path inputs
