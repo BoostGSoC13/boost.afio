@@ -3454,7 +3454,7 @@ public:
     { return std::addressof(x); }
 
     pointer
-    allocate(size_type n, typename file_buffer_allocator<void>::const_pointer = 0)
+    allocate(size_type n, const void *hint = 0)
     {
         if(n>max_size())
             throw std::bad_alloc();
