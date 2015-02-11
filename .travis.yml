@@ -57,5 +57,7 @@ after_success:
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /Library/Logs/DiagnosticReports/; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then echo "thread backtrace all" > lldb.commands; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then find /cores/ -name core.* | xargs lldb -s lldb.commands -c ; fi

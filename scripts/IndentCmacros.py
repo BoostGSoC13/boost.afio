@@ -38,7 +38,7 @@ for n in range(0, len(lines)):
       elif command!='else':
         stack.append('  /* '+' '.join(trimmedline.split()[1:])+' */')
 
-with open('tempfile.hpp', 'wt') as h:
-#with open(sys.argv[1], 'wt') as h:
+#with open('tempfile.hpp', 'wt') as h:
+with open(sys.argv[1], 'wt') as h:
   h.writelines(lines)
   
