@@ -20,6 +20,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
             
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
+                if(ERROR_NOT_ENOUGH_MEMORY==code || ERROR_OUTOFMEMORY==code) BOOST_AFIO_THROW(std::bad_alloc());
 #if AFIO_STANDALONE
                 using std::to_string;
 #endif
@@ -140,6 +141,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
+                if(ENOMEM==code) BOOST_AFIO_THROW(std::bad_alloc());
 #if AFIO_STANDALONE
                 using std::to_string;
 #endif

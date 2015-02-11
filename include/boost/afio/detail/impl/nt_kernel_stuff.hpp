@@ -265,6 +265,27 @@ namespace windows_nt_kernel
           /*_Out_*/  PVOID RandomBuffer,
           /*_In_*/   ULONG RandomBufferLength
           );
+          
+    typedef BOOL (WINAPI *OpenProcessToken_t)(
+          /*_In_*/   HANDLE ProcessHandle,
+          /*_In_*/   DWORD DesiredAccess,
+          /*_Out_*/  PHANDLE TokenHandle
+        );
+        
+    typedef BOOL (WINAPI *LookupPrivilegeValue_t)(
+          /*_In_opt_*/  LPCTSTR lpSystemName,
+          /*_In_*/      LPCTSTR lpName,
+          /*_Out_*/     PLUID lpLuid
+        );
+        
+    typedef BOOL (WINAPI *AdjustTokenPrivileges_t)(
+          /*_In_*/       HANDLE TokenHandle,
+          /*_In_*/       BOOL DisableAllPrivileges,
+          /*_In_opt_*/   PTOKEN_PRIVILEGES NewState,
+          /*_In_*/       DWORD BufferLength,
+          /*_Out_opt_*/  PTOKEN_PRIVILEGES PreviousState,
+          /*_Out_opt_*/  PDWORD ReturnLength
+        );
 
     typedef struct _FILE_BASIC_INFORMATION {
       LARGE_INTEGER CreationTime;
@@ -410,6 +431,9 @@ namespace windows_nt_kernel
     static NtLockFile_t NtLockFile;
     static NtUnlockFile_t NtUnlockFile;
     static RtlGenRandom_t RtlGenRandom;
+    static OpenProcessToken_t OpenProcessToken;
+    static LookupPrivilegeValue_t LookupPrivilegeValue;
+    static AdjustTokenPrivileges_t AdjustTokenPrivileges;
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -417,7 +441,7 @@ namespace windows_nt_kernel
 #endif
     static inline void doinit()
     {
-      if(RtlGenRandom)
+      if(AdjustTokenPrivileges)
         return;
       if(!NtQueryObject)
           if(!(NtQueryObject=(NtQueryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryObject")))
@@ -455,8 +479,18 @@ namespace windows_nt_kernel
       if(!NtUnlockFile)
           if(!(NtUnlockFile=(NtUnlockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtUnlockFile")))
               abort();
+      HMODULE advapi32=LoadLibraryA("ADVAPI32.DLL");
       if(!RtlGenRandom)
-          if(!(RtlGenRandom=(RtlGenRandom_t) GetProcAddress(LoadLibraryA("ADVAPI32.DLL"), "SystemFunction036")))
+          if(!(RtlGenRandom=(RtlGenRandom_t) GetProcAddress(advapi32, "SystemFunction036")))
+              abort();
+      if(!OpenProcessToken)
+          if(!(OpenProcessToken=(OpenProcessToken_t) GetProcAddress(advapi32, "OpenProcessToken")))
+              abort();
+      if(!LookupPrivilegeValue)
+          if(!(LookupPrivilegeValue=(LookupPrivilegeValue_t) GetProcAddress(advapi32, "LookupPrivilegeValueW")))
+              abort();
+      if(!AdjustTokenPrivileges)
+          if(!(AdjustTokenPrivileges=(AdjustTokenPrivileges_t) GetProcAddress(advapi32, "AdjustTokenPrivileges")))
               abort();
       // MAKE SURE you update the early exit check at the top to whatever the last of these is!
     }

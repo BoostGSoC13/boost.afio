@@ -353,10 +353,10 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 #pragma warning(push)
 #pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
 #endif
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatcher_base::page_sizes() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatcher_base::page_sizes(bool only_actually_available) BOOST_NOEXCEPT_OR_NOTHROW
 {
     static spinlock<bool> lock;
-    static std::vector<size_t> pagesizes;
+    static std::vector<size_t> pagesizes, pagesizes_available;
     lock_guard<decltype(lock)> g(lock);
     if(pagesizes.empty())
     {
@@ -365,9 +365,27 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
         SYSTEM_INFO si={ 0 };
         GetSystemInfo(&si);
         pagesizes.push_back(si.dwPageSize);
+        pagesizes_available.push_back(si.dwPageSize);
         GetLargePageMinimum_t GetLargePageMinimum_ = (GetLargePageMinimum_t) GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetLargePageMinimum");
         if(GetLargePageMinimum_)
-          pagesizes.push_back(GetLargePageMinimum_());
+        {
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            pagesizes.push_back(GetLargePageMinimum_());
+            /* Attempt to enable SeLockMemoryPrivilege */
+            HANDLE token;
+            if(OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token))
+            {
+                auto untoken=detail::Undoer([&token]{CloseHandle(token);});
+                TOKEN_PRIVILEGES privs={1};
+                if(LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &privs.Privileges[0].Luid))
+                {
+                    privs.Privileges[0].Attributes=SE_PRIVILEGE_ENABLED;
+                    if(AdjustTokenPrivileges(token, FALSE, &privs, 0, NULL, NULL) && GetLastError()==S_OK)
+                        pagesizes_available.push_back(GetLargePageMinimum_());
+                }
+            }
+        }
 #elif defined(__FreeBSD__)
         pagesizes.resize(32);
         int out;
@@ -375,11 +393,16 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
         {
           pagesizes.clear();
           pagesizes.push_back(getpagesize());
+          pagesizes_available.push_back(getpagesize());
         }
         else
+        {
           pagesizes.resize(out);
+          pagesizes_available=pagesizes;
+        }
 #elif defined(__linux__)
       pagesizes.push_back(getpagesize());
+      pagesizes_available.push_back(getpagesize());
       int ih=::open("/proc/meminfo", O_RDONLY);
       if(-1!=ih)
       {
@@ -400,15 +423,20 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
 #if DEBUG
           printf("Hugepages=%u, size=%u\n", _hugepages, _hugepagesize);
 #endif
-          if(_hugepages && _hugepagesize)
+          if(_hugepagesize)
+          {
             pagesizes.push_back(((size_t)_hugepagesize)*1024);
+            if(_hugepages)
+              pagesizes_available.push_back(((size_t)_hugepagesize)*1024);
+          }
         }
       }
 #else
         pagesizes.push_back(getpagesize());
+        pagesizes_available.push_back(getpagesize());
 #endif
     }
-    return pagesizes;
+    return only_actually_available ? pagesizes_available : pagesizes;
 }
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -465,6 +493,65 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string async_file_io_dispatcher_base::
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
+
+namespace detail
+{
+  large_page_allocation allocate_large_pages(size_t bytes)
+  {
+    large_page_allocation ret(calculate_large_page_allocation(bytes));
+#ifdef WIN32
+    DWORD type=MEM_COMMIT|MEM_RESERVE;
+    if(ret.page_size_used>65536)
+      type|=MEM_LARGE_PAGES;
+    if(!(ret.p=VirtualAlloc(nullptr, ret.actual_size, type, PAGE_READWRITE)))
+    {
+      if(ERROR_NOT_ENOUGH_MEMORY==GetLastError())
+        if((ret.p)=VirtualAlloc(nullptr, ret.actual_size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE))
+          return ret;
+      BOOST_AFIO_ERRHWIN(0);
+    }
+#ifndef NDEBUG
+    else
+      std::cout << "afio: Large page allocation successful" << std::endl;
+#endif
+#else
+    int flags=MAP_SHARED|MAP_ANON;
+    if(ret.page_size_used>65536)
+    {
+#ifdef MAP_HUGETLB
+      flags|=MAP_HUGETLB;
+#endif
+#ifdef MAP_ALIGNED_SUPER
+      flags|=MAP_ALIGNED_SUPER;
+#endif
+#ifdef VM_FLAGS_SUPERPAGE_SIZE_ANY
+      flags|=VM_FLAGS_SUPERPAGE_SIZE_ANY;
+#endif
+    }
+    if(!(ret.p=mmap(nullptr, ret.actual_size, PROT_WRITE, flags, -1, 0)))
+    {
+      if(ENOMEM==errno)
+        if((ret.p=mmap(nullptr, ret.actual_size, PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0)))
+          return ret;
+      BOOST_AFIO_ERRHOS(-1);
+    }
+#ifndef NDEBUG
+    else
+      std::cout << "afio: Large page allocation successful" << std::endl;
+#endif
+#endif
+    return ret;
+  }
+  void deallocate_large_pages(void *p, size_t bytes)
+  {
+#ifdef WIN32
+    BOOST_AFIO_ERRHWIN(VirtualFree(p, 0, MEM_RELEASE));
+#else
+    BOOST_AFIO_ERRHOS(munmap(p, bytes));
+#endif
+  }
+}
+
 
 std::shared_ptr<std_thread_pool> process_threadpool()
 {

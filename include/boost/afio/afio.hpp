@@ -362,6 +362,7 @@ template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 struct async_lock_op_req;
 
+
 //! \brief The types of path normalisation available
 enum class path_normalise
 {
@@ -2065,12 +2066,13 @@ public:
 
     /*! \brief Returns the page sizes of this architecture which is useful for calculating direct i/o multiples.
     
+    \param only_actually_available Only return page sizes actually available to the user running this process
     \return The page sizes of this architecture.
     \ingroup async_file_io_dispatcher_base__misc
     \complexity{Whatever the system API takes (one would hope constant time).}
-    \exceptionmodel{Never throws any exception.}
+    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
     */
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> page_sizes() BOOST_NOEXCEPT_OR_NOTHROW;
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available=true) BOOST_NOEXCEPT_OR_NOTHROW;
 
     /*! \brief Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API.
     
@@ -2078,7 +2080,7 @@ public:
     \param bytes How many bytes to fill
     \ingroup async_file_io_dispatcher_base__misc
     \complexity{Whatever the system API takes.}
-    \exceptionmodel{Never throws any exception.}
+    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
     */
     static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void random_fill(char *buffer, size_t bytes);
 
@@ -2087,10 +2089,10 @@ public:
     \param length How many characters to return
     \ingroup async_file_io_dispatcher_base__misc
     \complexity{Whatever the system API takes.}
-    \exceptionmodel{Never throws any exception.}
+    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
     */
     static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string random_string(size_t length);
-
+    
     /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
 
     \ingroup async_file_io_dispatcher_base__misc
@@ -3372,6 +3374,127 @@ inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::s
   auto ret = statfs(o, i);
   return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
+
+namespace detail
+{
+  struct large_page_allocation
+  {
+    void *p;
+    size_t page_size_used;
+    size_t actual_size;
+    large_page_allocation() : p(nullptr), page_size_used(0), actual_size(0) { }
+    large_page_allocation(void *_p, size_t pagesize, size_t actual) : p(_p), page_size_used(pagesize), actual_size(actual) { }
+  };
+  inline large_page_allocation calculate_large_page_allocation(size_t bytes)
+  {
+    large_page_allocation ret;
+    auto pagesizes(async_file_io_dispatcher_base::page_sizes());
+    do
+    {
+      ret.page_size_used=pagesizes.back();
+      pagesizes.pop_back();
+    } while(!pagesizes.empty() && !(bytes/ret.page_size_used));
+    ret.actual_size=(bytes+ret.page_size_used-1)&~(ret.page_size_used-1);
+    return ret;    
+  }
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC large_page_allocation allocate_large_pages(size_t bytes);
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void deallocate_large_pages(void *p, size_t bytes);
+}
+/*! \class file_buffer_allocator
+\brief An STL allocator which allocates large TLB page memory.
+
+If the operating system is configured to allow it, this type of memory is particularly efficient for doing
+large scale file i/o. This is because the kernel must normally convert the scatter gather buffers you pass
+into extended scatter gather buffers as the memory you see as contiguous may not, and probably isn't, actually be
+contiguous in physical memory. Regions returned by this allocator \em may be allocated contiguously in physical
+memory and therefore the kernel can pass through your scatter gather buffers unmodified.
+
+A particularly useful combination with this allocator is with the page_sizes() member function of __afio_dispatcher__.
+This will return which pages sizes are possible, and which page sizes are enabled for this user. If writing a
+file copy routine for example, using this allocator with the largest page size as the copy chunk makes a great
+deal of sense.
+
+Be aware that as soon as the allocation exceeds a large page size, most systems allocate in multiples of the large
+page size, so if the large page size were 2Mb and you allocate 2Mb + 1 byte, 4Mb is actually consumed.
+*/
+template <typename T>
+class file_buffer_allocator
+{
+public:
+    typedef T         value_type;
+    typedef T*        pointer;
+    typedef const T*  const_pointer;
+    typedef T& reference;
+    typedef const T&  const_reference;
+    typedef size_t    size_type;
+    typedef ptrdiff_t difference_type;
+    typedef std::true_type propagate_on_container_move_assignment;
+    typedef std::true_type is_always_equal;
+
+    template <class U>
+    struct rebind { typedef file_buffer_allocator<U> other; };
+
+    file_buffer_allocator() BOOST_NOEXCEPT_OR_NOTHROW
+    {}
+
+    template <class U>
+    file_buffer_allocator(const file_buffer_allocator<U>&) BOOST_NOEXCEPT_OR_NOTHROW
+    {}
+
+    size_type
+    max_size() const BOOST_NOEXCEPT_OR_NOTHROW
+    { return size_type(~0) / sizeof(T); }
+
+    pointer
+    address(reference x) const BOOST_NOEXCEPT_OR_NOTHROW
+    { return std::addressof(x); }
+
+    const_pointer
+    address(const_reference x) const BOOST_NOEXCEPT_OR_NOTHROW
+    { return std::addressof(x); }
+
+    pointer
+    allocate(size_type n, typename file_buffer_allocator<void>::const_pointer = 0)
+    {
+        if(n>max_size())
+            throw std::bad_alloc();
+        auto mem(detail::allocate_large_pages(n * sizeof(T)));
+        if (mem.p == nullptr)
+            throw std::bad_alloc();
+        return reinterpret_cast<pointer>(mem.p);
+    }
+
+    void
+    deallocate(pointer p, size_type n)
+    {
+        if(n>max_size())
+            throw std::bad_alloc();
+        detail::deallocate_large_pages(p, n * sizeof(T));
+    }
+
+    template <class U, class ...Args>
+    void
+    construct(U* p, Args&&... args)
+    { ::new(reinterpret_cast<void*>(p)) U(std::forward<Args>(args)...); }
+
+    template <class U> void
+    destroy(U* p)
+    { p->~U(); }
+};
+template <>
+class file_buffer_allocator<void>
+{
+public:
+    typedef void         value_type;
+    typedef void*        pointer;
+    typedef const void*  const_pointer;
+    typedef std::true_type propagate_on_container_move_assignment;
+    typedef std::true_type is_always_equal;
+
+    template <class U>
+    struct rebind { typedef file_buffer_allocator<U> other; };
+};
+
 
 
 BOOST_AFIO_V1_NAMESPACE_END

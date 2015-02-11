@@ -57,5 +57,5 @@ after_success:
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cat /Library/Logs/DiagnosticReports/*; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls /cores/; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /Library/Logs/DiagnosticReports/; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
