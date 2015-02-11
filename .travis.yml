@@ -50,10 +50,12 @@ script:
  - bash ./test_file_glob.sh
  - cd ..
  - $GCCVER -o test_all $CCFLAGS $LINKFLAGS
+ - ulimit -c unlimited
  - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
 
 after_success:
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cat /Library/Logs/CrashReporter/*; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cat /Library/Logs/DiagnosticReports/*; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls /cores/; fi
