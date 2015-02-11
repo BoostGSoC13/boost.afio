@@ -6,25 +6,33 @@ struct test_handle : boost::afio::async_io_handle
     test_handle(boost::afio::async_file_io_dispatcher_base *parent) :
         boost::afio::async_io_handle(parent,
         std::shared_ptr<boost::afio::async_io_handle>(),
-        "foo", boost::afio::file_flags::None) {}
-    virtual void close()
+        boost::afio::file_flags::None) {}
+    virtual void close() override final
     {
         // Do nothing
     }
-    virtual void *native_handle() const
+    virtual void *native_handle() const override final
     {
         return nullptr;
     }
+    virtual boost::afio::path path(bool refresh=false) override final
+    {
+        return boost::afio::path();
+    }
+    virtual boost::afio::path path() const override final
+    {
+        return boost::afio::path();
+    }
     virtual boost::afio::directory_entry direntry(boost::afio::metadata_flags
-        wanted=boost::afio::directory_entry::metadata_fastpath()) const
+        wanted=boost::afio::directory_entry::metadata_fastpath()) const override final
     {
         return boost::afio::directory_entry();
     }
-    virtual boost::afio::filesystem::path target() const
+    virtual boost::afio::path target() const override final
     {
-        return boost::afio::filesystem::path();
+        return boost::afio::path();
     }
-    virtual void *try_mapfile()
+    virtual void *try_mapfile() override final
     {
         return nullptr;
     }

@@ -12,6 +12,8 @@ namespace {
         boost::afio::filesystem::path dest, std::vector<boost::afio::filesystem::path> sources,
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
+        // A special allocator of highly efficient file i/o memory
+        typedef std::vector<char, file_buffer_allocator<char>> file_buffer_type;
         // Schedule the opening of the output file for writing
         auto oh=dispatcher->file(async_path_op_req(dest, file_flags::Create|file_flags::Write));
         // Schedule the opening of all the input files for reading
@@ -28,7 +30,7 @@ namespace {
 
         // Need to figure out the sizes of the sources so we can resize output
         // correctly. We also need to allocate scratch buffers for each source.
-        std::vector<std::tuple<off_t, off_t, std::unique_ptr<char[]>>> offsets;
+        std::vector<std::tuple<off_t, off_t, std::unique_ptr<file_buffer_type>>> offsets;
         offsets.reserve(ihs.size());
         off_t offset=0;
         for(auto &ih : ihs)
@@ -37,7 +39,7 @@ namespace {
             off_t bytes=ih.get()->direntry(metadata_flags::size).st_size();
             // Push the offset to write at, amount to write, and a scratch buffer
             offsets.push_back(std::make_tuple(offset, bytes,
-                std::unique_ptr<char[]>(new char[chunk_size])));
+                std::make_unique<file_buffer_type>(chunk_size)));
             offset+=bytes;
         }
         // Schedule resizing output to correct size, retrieving errors
@@ -58,11 +60,11 @@ namespace {
                 size_t thischunk=(size_t)(bytes-o);
                 if(thischunk>chunk_size) thischunk=chunk_size;
                 // Schedule a filling of buffer from offset o after last has completed
-                auto readchunk=dispatcher->read(make_async_data_op_req(last, buffer.get(),
+                auto readchunk=dispatcher->read(make_async_data_op_req(last, buffer->data(),
                     thischunk, o));
                 // Schedule a writing of buffer to offset offset+o after readchunk is ready
                 auto writechunk=dispatcher->write(make_async_data_op_req(readchunk,
-                    buffer.get(), thischunk, offset+o));
+                    buffer->data(), thischunk, offset+o));
                 // Schedule incrementing written after write has completed
                 auto incwritten=dispatcher->call(writechunk, [&written, thischunk]{
                     written+=thischunk;

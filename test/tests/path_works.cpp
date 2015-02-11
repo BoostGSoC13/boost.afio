@@ -53,5 +53,5 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     std::cout << "\nDeleting hellobaby file using OS ..." << std::endl;
     filesystem::remove("hellobaby");
     auto afterdelete=print_stat(h);
-    BOOST_CHECK(h->path()==afio::path());
+    BOOST_CHECK(h->path()==BOOST_AFIO_V1_NAMESPACE::path());
 }

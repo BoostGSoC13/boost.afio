@@ -38,7 +38,12 @@ int main(void)
         list=enumeration.first.get();
         for(boost::afio::directory_entry &i : list.first)
         {
-            std::cout << i.name() << " type " << static_cast<int>(i.st_type()) << std::endl;
+#ifdef WIN32
+            std::wcout << i.name();
+#else
+            std::cout << i.name();
+#endif
+            std::cout << " type " << static_cast<int>(i.st_type()) << std::endl;
         }
     } while(list.second);
     //]
