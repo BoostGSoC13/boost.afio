@@ -419,7 +419,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::random_
 #ifdef WIN32
     windows_nt_kernel::init();
     using namespace windows_nt_kernel;
-    BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, bytes));
+    BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, (ULONG) bytes));
 #else
     static spinlock<bool> lock;
     static std::random_device device;
@@ -445,19 +445,26 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::random_
 #endif
 }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
+#endif
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string async_file_io_dispatcher_base::random_string(size_t length)
 {
     static BOOST_CONSTEXPR_OR_CONST char table[]="0123456789abcdef";
     std::string ret;
     ret.resize(length);
     random_fill(const_cast<char *>(ret.data()), length/2);
-    for(size_t n=(length-1)/2; n<length; n--)
+    for(size_t n=(length-1)/2; n<=(length-1)/2; n--)
     {
       ret[n*2+1]=table[(ret[n]>>4)&0xf];
       ret[n*2]=table[ret[n]&0xf];
     }
     return ret;
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 std::shared_ptr<std_thread_pool> process_threadpool()
 {

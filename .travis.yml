@@ -15,19 +15,18 @@ notifications:
 
 env:
   # Coveralls.io API key
-  secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
-  matrix:
-    - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
-    - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
-    - _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
+  - secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
+  - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
+  - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
+  - _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
     
 matrix:
-  exclude:
-    - os: linux
-      env: _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
-    - os: linux
-      env: _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
+  include:
     - os: osx
+      env: _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
+    - os: osx
+      env: _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
+    - os: linux
       env: _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
 
 
