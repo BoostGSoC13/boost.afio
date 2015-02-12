@@ -17,7 +17,7 @@ A convenience bundle of path and flags, with optional precondition.
 [heading Synopsis]
 ``struct async_path_op_req
 {
-  filesystem::path path;     // The filing system path to be used for this operation. 
+  afio::path path;           // The filing system path to be used for this operation. 
   file_flags flags;          // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction). 
   async_io_op precondition;  // An optional precondition for this operation 
 };
@@ -32,21 +32,9 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(filesystem::path _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(afio::path _path, file_flags _flags = file_flags::None)``
 
-] [Constructs an instance. ] [[* filesystem::path]: ['_path]:  The filing system path to be used. Must be absolute. 
-
-[* file_flags]: ['_flags]:  The flags to be used. 
-
-
-
-
-]]
-[[``async_path_op_req(async_io_op _precondition, filesystem::path _path, file_flags _flags = file_flags::None)``
-
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
-
-[* filesystem::path]: ['_path]:  The filing system path to be used. Must be absolute. 
+] [Constructs an instance. ] [[* afio::path]: ['_path]:  The filing system path to be used. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -54,21 +42,9 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(std::string _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(const filesystem::path & _path, file_flags _flags = file_flags::None)``
 
-] [Constructs an instance. ] [[* std::string]: ['_path]:  The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path. 
-
-[* file_flags]: ['_flags]:  The flags to be used. 
-
-
-
-
-]]
-[[``async_path_op_req(async_io_op _precondition, std::string _path, file_flags _flags = file_flags::None)``
-
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
-
-[* std::string]: ['_path]:  The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path. 
+] [Constructs an instance. ] [[* const filesystem::path &]: ['_path]:  The filing system path to be used. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -78,7 +54,7 @@ A convenience bundle of path and flags, with optional precondition.
 ]]
 [[``async_path_op_req(const char * _path, file_flags _flags = file_flags::None)``
 
-] [Constructs an instance. ] [[* const char *]: ['_path]:  The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path. 
+] [Constructs an instance. ] [[* const char *]: ['_path]:  The filing system path to be used. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -86,11 +62,21 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(async_io_op _precondition, const char * _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(const std::string & _path, file_flags _flags = file_flags::None)``
+
+] [Constructs an instance. ] [[* const std::string &]: ['_path]:  The filing system path to be used. 
+
+[* file_flags]: ['_flags]:  The flags to be used. 
+
+
+
+
+]]
+[[``async_path_op_req(async_io_op _precondition, afio::path _path, file_flags _flags = file_flags::None)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
-[* const char *]: ['_path]:  The filing system leaf or path to be used. make_preferred() and absolute() will be used to convert the string into an absolute path. 
+[* afio::path]: ['_path]:  The filing system path to be used. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 

@@ -567,12 +567,32 @@ A batch of op handles.
 
 
 ]]
-[[``size_t page_size()``
+[[``std::vector< size_t > page_sizes(bool only_actually_available = true)``
 
-] [Returns the page size of this architecture which is useful for calculating direct i/o multiples. ] [
+] [Returns the page sizes of this architecture which is useful for calculating direct i/o multiples. ] [[* bool]: ['only_actually_available]:  Only return page sizes actually available to the user running this process 
+
+
 
 ][
-The page size of this architecture.
+The page sizes of this architecture.
+
+
+]]
+[[``void random_fill(char * buffer, size_t bytes)``
+
+] [Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API. ] [[* char *]: ['buffer]:  A buffer to fill 
+
+[* size_t]: ['bytes]:  How many bytes to fill
+
+
+
+
+]]
+[[``std::string random_string(size_t length)``
+
+] [Returns a cryptographically strong random hexadecimal string. ] [[* size_t]: ['length]:  How many characters to return
+
+
 
 
 ]]

@@ -29,8 +29,8 @@ Metadata about a filing system. Unsupported entries are -1.
   int16_t f_owner;                                  // user that mounted the filesystem (BSD, OS X) 
   uint64_t f_fsid;                                  // filesystem id (Windows, POSIX) 
   std::string f_fstypename;                         // filesystem type name (Windows, POSIX) 
-  std::string f_mntfromname;                        // mounted filesystem (POSIX) 
-  filesystem::path f_mntonname;                     // directory on which mounted (POSIX) 
+  std::string f_mntfromname;                        // mounted filesystem (Windows, POSIX) 
+  path f_mntonname;                                 // directory on which mounted (Windows, POSIX) 
 };
 ``
 

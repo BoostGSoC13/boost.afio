@@ -27,7 +27,7 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
   async_io_op precondition;  // A precondition for this operation. 
   size_t maxitems;           // The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. 
   bool restart;              // Restarts the enumeration for this open directory handle. 
-  filesystem::path glob;     // An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
+  path glob;                 // An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
   metadata_flags metadata;   // The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. 
 };
 ``
@@ -41,7 +41,7 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 
 ]]
-[[``async_enumerate_op_req(async_io_op _precondition, size_t _maxitems = 2, bool _restart = true, filesystem::path _glob = filesystem::path(), metadata_flags _metadata = metadata_flags::None)``
+[[``async_enumerate_op_req(async_io_op _precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(), metadata_flags _metadata = metadata_flags::None)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
@@ -49,7 +49,7 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 [* bool]: ['_restart]:  Restarts the enumeration for this open directory handle. 
 
-[* filesystem::path]: ['_glob]:  An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
+[* path]: ['_glob]:  An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
 
 [* metadata_flags]: ['_metadata]:  The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. 
 
@@ -57,11 +57,11 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 
 ]]
-[[``async_enumerate_op_req(async_io_op _precondition, filesystem::path _glob, size_t _maxitems = 2, bool _restart = true, metadata_flags _metadata = metadata_flags::None)``
+[[``async_enumerate_op_req(async_io_op _precondition, path _glob, size_t _maxitems = 2, bool _restart = true, metadata_flags _metadata = metadata_flags::None)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
-[* filesystem::path]: ['_glob]:  A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
+[* path]: ['_glob]:  A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
 
 [* size_t]: ['_maxitems]:  The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. 
 
@@ -73,7 +73,7 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 
 ]]
-[[``async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems = 2, bool _restart = true, filesystem::path _glob = filesystem::path())``
+[[``async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems = 2, bool _restart = true, path _glob = path())``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
@@ -83,7 +83,7 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 [* bool]: ['_restart]:  Restarts the enumeration for this open directory handle. 
 
-[* filesystem::path]: ['_glob]:  An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
+[* path]: ['_glob]:  An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
 
 
 

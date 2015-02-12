@@ -63,9 +63,17 @@ Note that failure to explicitly schedule closing a file handle in the dispatcher
 
 
 ]]
-[[``const filesystem::path & path()``
+[[``afio::path path(bool refresh = false)``
 
-] [Returns the path of this i/o handle as when opened. Use direntry() to discover if the file is now deleted. ] [
+] [] [[* bool]: ['refresh]:  
+
+
+
+
+]]
+[[``afio::path path()``
+
+] [Returns the last known good path of this i/o handle. May be null if the file has been deleted. ] [
 
 
 ]]
@@ -127,9 +135,9 @@ Note that failure to explicitly schedule closing a file handle in the dispatcher
 
 
 ]]
-[[``filesystem::path target()``
+[[``afio::path target()``
 
-] [Returns the target path of this handle if it is a symbolic link. ] [
+] [] [
 
 
 ]]

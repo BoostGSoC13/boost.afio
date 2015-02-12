@@ -15,7 +15,7 @@
 The abstract base class for an entry in a directory with lazily filled metadata. 
 
 [heading Description]
-Note that [^`directory_entry_hash`] will hash one of these for you, and a [^`std::hash<``directory_entry``>`] specialisation is defined for you so you ought to be able to use directory\u005fentry directly in an [^`unordered_map<>`]. 
+Note that [^`directory_entry_hash`] will hash one of these for you, and a [^`std::hash<``directory_entry``>`] specialisation is defined for you so you ought to be able to use directory\u005fentry directly in an [^`unordered_map<>`].
 
 [heading Synopsis]
 ``class directory_entry
@@ -33,9 +33,9 @@ Note that [^`directory_entry_hash`] will hash one of these for you, and a [^`std
 
 
 ]]
-[[``directory_entry(filesystem::path _leafname, stat_t __stat, metadata_flags _have_metadata)``
+[[``directory_entry(path::string_type _leafname, stat_t __stat, metadata_flags _have_metadata)``
 
-] [Default constructor. ] [[* filesystem::path]: ['_leafname]:  
+] [Default constructor. ] [[* path::string_type]: ['_leafname]:  
 
 [* stat_t]: ['__stat]:  
 
@@ -130,7 +130,7 @@ Note that [^`directory_entry_hash`] will hash one of these for you, and a [^`std
 
 
 ]]
-[[``filesystem::path name()``
+[[``path::string_type name()``
 
 ] [] [
 
@@ -340,6 +340,8 @@ A copy of the internal [^`stat_t`] structure.
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
+
+[include generated/struct_directory_entry_hash.qbk]
 
 [endsect]
 

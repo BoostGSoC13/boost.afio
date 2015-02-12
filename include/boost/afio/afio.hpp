@@ -375,6 +375,11 @@ enum class path_normalise
 \brief An AFIO filesystem path, a thin wrapper of filesystem::path used to mark when a
 filesystem path has been prepared for AFIO usage. Note that on Windows this exclusively
 refers to a NT kernel path, not a Win32 path (Win32 paths are converted in the constructor)
+
+\qbk{
+[include generated/struct_path_1_1make_absolute.qbk]
+[include generated/struct_path_hash.qbk]
+}
 */
 class path : protected filesystem::path
 {
@@ -599,8 +604,8 @@ public:
 On POSIX this passes through its input unchanged.
 
 On Windows AFIO exclusively uses NT kernel paths which are not necessarily trivially convertible
-to Win32 paths. As an example, the Win32 path `C:\Foo` might be `\??\C:\Foo` or even
-`\Device\HarddiskVolume1\Foo`. This function will convert any NT kernel path into
+to Win32 paths. As an example, the Win32 path `C:\\Foo` might be `\\??\\C:\\Foo` or even
+`\\Device\\HarddiskVolume1\\Foo`. This function will convert any NT kernel path into
 something which can be fed to normal Win32 APIs - a drive letter if available, else a GUID volume
 path, and with an extended path prefix if the path is sufficiently long.
 
@@ -948,6 +953,10 @@ struct statfs_t
 
 Note that `directory_entry_hash` will hash one of these for you, and a `std::hash<directory_entry>` specialisation
 is defined for you so you ought to be able to use directory_entry directly in an `unordered_map<>`.
+
+\qbk{
+[include generated/struct_directory_entry_hash.qbk]
+}
 */
 class BOOST_AFIO_DECL directory_entry
 {
