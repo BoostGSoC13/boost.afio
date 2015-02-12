@@ -59,5 +59,6 @@ after_success:
 after_failure:
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then echo "thread backtrace all" > lldb.commands; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then find /cores/ -name core.* | xargs lldb -s lldb.commands -c ; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then echo "thread list" > lldb.commands; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then echo "thread backtrace all" >> lldb.commands; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then find /cores/ -name core.* | xargs lldb -o "thread list" -o "thread backtrace all" -c ; fi
