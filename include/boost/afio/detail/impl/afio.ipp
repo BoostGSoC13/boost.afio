@@ -389,7 +389,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
 #elif defined(__FreeBSD__)
         pagesizes.resize(32);
         int out;
-        if(-1==(out=getpagesizes((long *) pagesizes.data(), 32)))
+        if(-1==(out=getpagesizes(pagesizes.data(), 32)))
         {
           pagesizes.clear();
           pagesizes.push_back(getpagesize());
@@ -414,15 +414,12 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
         if(hugepagesize && hugepages)
         {
           unsigned _hugepages=0, _hugepagesize=0;
-          while((*++hugepagesize!=' '));
-          while((*++hugepages!=' '));
-          while((*++hugepagesize==' '));
-          while((*++hugepages==' '));
+          while(*++hugepagesize!=' ');
+          while(*++hugepages!=' ');
+          while(*++hugepagesize==' ');
+          while(*++hugepages==' ');
           sscanf(hugepagesize, "%u", &_hugepagesize);
           sscanf(hugepages, "%u", &_hugepages);
-#if DEBUG
-          printf("Hugepages=%u, size=%u\n", _hugepages, _hugepagesize);
-#endif
           if(_hugepagesize)
           {
             pagesizes.push_back(((size_t)_hugepagesize)*1024);
