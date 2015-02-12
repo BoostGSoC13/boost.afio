@@ -68,6 +68,9 @@ last handle close do the file delete on POSIX.
 handle open of metadata per graph object read. Unsure if NTFS is any faster
 opening EA though, need to test.
 
+* Kernel side file <=> socket data copying via sendfile and splice on Linux. Integrating
+splice as async with ASIO is unfortunately painful :(
+
 * async_io_dispatcher_base::read_partial() to read as much of a single buffer as
 possible, rather than only complete buffers.
 
