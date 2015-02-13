@@ -1,0 +1,4 @@
+spawn lldb ./test_all
+expect "*\n(lldb) Process * stopped\n"
+send "bt\rthread list\rthread backtrace all\rquit\r"
+expect default

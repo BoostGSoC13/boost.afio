@@ -50,17 +50,12 @@ script:
  - bash ./test_file_glob.sh
  - cd ..
  - $GCCVER -o test_all $CCFLAGS $LINKFLAGS
- - ulimit -c unlimited
- - if [ $UNITTESTS -eq 1 ]; then ./test_all || true; fi
- - if [ $UNITTESTS -eq 1 ]; then lldb -o "run" -o "bt" ./test_all; fi
- - if [ $UNITTESTS -eq 1 ]; then exit 1; fi
-
+ - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
+ 
 after_success:
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then echo "thread list" > lldb.commands; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then echo "thread backtrace all" >> lldb.commands; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then find /cores/ -name core.* | xargs lldb -o "bt" -c ; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ $UNITTESTS -eq 1 ]; then expect -d scripts/travis_lldb.expect; fi
