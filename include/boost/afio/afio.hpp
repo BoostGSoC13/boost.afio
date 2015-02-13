@@ -2083,6 +2083,32 @@ public:
     */
     static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available=true) BOOST_NOEXCEPT_OR_NOTHROW;
 
+    /*! \brief Returns a reasonable default size for file_buffer_allocator, typically the closest page size from
+    page_sizes() to 1Mb.
+    
+    \return A value of a TLB large page size close to 1Mb.
+    \ingroup async_file_io_dispatcher_base__misc
+    \complexity{Whatever the system API takes (one would hope constant time).}
+    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
+    */
+    static inline size_t file_buffer_default_size() BOOST_NOEXCEPT_OR_NOTHROW
+    {
+      static size_t size;
+      if(!size)
+      {
+        std::vector<size_t> sizes(page_sizes(true));
+        for(auto &i : sizes)
+          if(i>=1024*1024)
+          {
+            size=i;
+            break;
+          }
+        if(!size)
+          size=1024*1024;
+      }
+      return size;
+    }
+
     /*! \brief Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API.
     
     \param buffer A buffer to fill

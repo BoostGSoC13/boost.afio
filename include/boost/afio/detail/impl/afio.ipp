@@ -2174,10 +2174,6 @@ namespace detail {
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
         }
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 6262) // Excessive stack usage
-#endif
         // Called in unknown thread
         completion_returntype dozero(size_t id, async_io_op op, std::vector<std::pair<off_t, off_t>> ranges)
         {
@@ -2205,16 +2201,15 @@ namespace detail {
             // Fall back onto a write of zeros
             if(!done)
             {
-              char buffer[1024*1024];
-              memset(buffer, 0, sizeof(buffer));
+              std::vector<char, file_buffer_allocator<char>> buffer(file_buffer_default_size());
               for(auto &i: ranges)
               {
                 ssize_t byteswritten=0;
-                std::vector<iovec> vecs(1+(size_t)(i.second/sizeof(buffer)));
+                std::vector<iovec> vecs(1+(size_t)(i.second/buffer.size()));
                 for(size_t n=0; n<vecs.size(); n++)
                 {
-                  vecs[n].iov_base=buffer;
-                  vecs[n].iov_len=(n<vecs.size()-1) ? sizeof(buffer) : (size_t)(i.second-(off_t) n*sizeof(buffer));
+                  vecs[n].iov_base=buffer.data();
+                  vecs[n].iov_len=(n<vecs.size()-1) ? buffer.size() : (size_t)(i.second-(off_t) n*buffer.size());
                 }
                 for(size_t n=0; n<vecs.size(); n+=IOV_MAX)
                 {
@@ -2229,9 +2224,6 @@ namespace detail {
             }
             return std::make_pair(true, h);
         }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
         // Called in unknown thread
         completion_returntype dosync(size_t id, async_io_op op, async_io_op)
         {
