@@ -50,12 +50,13 @@ script:
  - bash ./test_file_glob.sh
  - cd ..
  - $GCCVER -o test_all $CCFLAGS $LINKFLAGS
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sysctl -A | grep kern.maxfiles; fi
  - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
  
 after_success:
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ $UNITTESTS -eq 1 ]; then expect -d scripts/travis_lldb.expect; fi
+# - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
+# - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ $UNITTESTS -eq 1 ]; then expect scripts/travis_lldb.expect; fi
