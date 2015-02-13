@@ -1,11 +1,15 @@
 #!/bin/sh
 if [ -z "$CXX" ]; then
-  CXX=g++
+  if [ "$HOSTTYPE" = "FreeBSD" ]; then
+    CXX=clang++
+  else
+    CXX=g++
+  fi
 fi
 if [ "$CXX" != "${CXX#clang++}" ] && [ "$NODE_NAME" = "linux-gcc-clang" ]; then
   LIBATOMIC=-latomic
 fi
-if [ "$NODE_NAME" = "freebsd10-clang3.3" ]; then
+if [ "$HOSTTYPE" = "FreeBSD" ]; then
   LIBATOMIC="-I/usr/local/include -L/usr/local/lib"
 fi
 if [ ! -d asio ]; then

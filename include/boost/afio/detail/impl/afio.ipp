@@ -122,8 +122,15 @@ typedef __int64 off64_t;
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <sys/user.h>
-#include <libutil.h>
 #undef thread
+#define HAVE_STAT_FLAGS
+#define HAVE_STAT_GEN
+#define HAVE_BIRTHTIMESPEC
+#endif
+#ifdef __APPLE__
+#define HAVE_STAT_FLAGS
+#define HAVE_STAT_GEN
+#define HAVE_BIRTHTIMESPEC
 #endif
 #ifdef WIN32
 #ifndef S_IFSOCK
@@ -829,30 +836,51 @@ namespace detail {
 #elif defined(__APPLE__)
             char buffer[PATH_MAX+1];
             BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
+            // Apple returns the previous path when deleted, so fstat to be sure
+            struct stat s;
+            BOOST_AFIO_ERRHOS(fstat(fd, &s));
             lock_guard<pathlock_t> g(pathlock);
-            _path=path::string_type(buffer);
+            if(s.st_nlink)
+              _path=path path::string_type(buffer);
+            else
+              _path.clear();
             return _path;
 #elif defined(__FreeBSD__)
-#if 1
-            int len;
-            struct kinfo_file *kifs=kinfo_getfile(getpid(), &len);
-            auto unkifs=detail::Undoer([&kifs]{free(kifs);});
-            for(int n=0; n<len; n++)
+#if 0  // Doesn't work after rename :(
+            void *addr;
+            if(!(addr=mmap(nullptr, 1, PROT_NONE, 0, fd, 0)))
+              BOOST_AFIO_ERRHOS(-1);
+            auto unaddr=detail::Undoer([&addr]{munmap(addr, 1);});
+            size_t len;
+            int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
+            BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
+            std::vector<char> buffer(len*2);
+            BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+            for(char *p=buffer.data(); p<buffer.data()+len;)
             {
-              if(kifs[n].kf_fd==fd)
+              struct kinfo_vmentry *kve=(struct kinfo_vmentry *) p;
+              std::cout << kve->kve_start << " " << kve->kve_path << std::endl;
+              if((void *) kve->kve_start==addr)
               {
                 lock_guard<pathlock_t> g(pathlock);
-                _path=path::string_type(kifs[n].kf_path);
+                _path=path::string_type(kve->kve_path);
                 return _path;
               }
+              p+=kve->kve_structsize;
             }
-#else
+#else  // Doesn't work at all, the kernel isn't filling in kf_path for regular file vnodes
             // Borrowed from https://gitorious.org/freebsd/freebsd/raw/f1d6f4778d2044502209708bc167c05f9aa48615:lib/libutil/kinfo_getfile.c
             size_t len;
             int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
             BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
             std::vector<char> buffer(len*2);
             BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+            for(char *p=buffer.data(); p<buffer.data()+len;)
+            {
+              struct kinfo_file *kif=(struct kinfo_file *) p;
+              std::cout << kif->kf_type << " " << kif->kf_fd << " " << kif->kf_path << std::endl;
+              p+=kif->kf_structsize;
+            }
             for(char *p=buffer.data(); p<buffer.data()+len;)
             {
               struct kinfo_file *kif=(struct kinfo_file *) p;
@@ -1192,11 +1220,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
         | metadata_flags::allocated
         | metadata_flags::blocks
         | metadata_flags::blksize
-#define HAVE_STAT_FLAGS
         | metadata_flags::flags
-#define HAVE_STAT_GEN
         | metadata_flags::gen
-#define HAVE_BIRTHTIMESPEC
         | metadata_flags::birthtim
         | metadata_flags::sparse
         //| metadata_flags::compressed
@@ -1275,11 +1300,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
         | metadata_flags::allocated
         | metadata_flags::blocks
         | metadata_flags::blksize
-#define HAVE_STAT_FLAGS
         | metadata_flags::flags
-#define HAVE_STAT_GEN
         | metadata_flags::gen
-#define HAVE_BIRTHTIMESPEC
         | metadata_flags::birthtim
         | metadata_flags::sparse
         //| metadata_flags::compressed
