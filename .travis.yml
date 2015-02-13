@@ -53,7 +53,10 @@ script:
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then launchctl limit maxfiles; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sudo launchctl limit maxfiles 10000 10000; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then launchctl limit maxfiles; fi
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sysctl -a; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ulimit -a; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ulimit -n 10000; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ulimit -a; fi
+# - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sysctl -a; fi
  - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
  
 after_success:
