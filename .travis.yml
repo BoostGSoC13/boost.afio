@@ -50,7 +50,10 @@ script:
  - bash ./test_file_glob.sh
  - cd ..
  - $GCCVER -o test_all $CCFLAGS $LINKFLAGS
- - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sysctl -A | grep kern.maxfiles; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then launchctl limit maxfiles; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sudo launchctl limit maxfiles 10000 unlimited; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then launchctl limit maxfiles; fi
+ - if [ "$TRAVIS_OS_NAME" = "osx" ]; then sysctl -a; fi
  - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
  
 after_success:
