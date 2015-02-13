@@ -122,6 +122,7 @@ typedef __int64 off64_t;
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <sys/user.h>
+#include <libutil.h>
 #undef thread
 #endif
 #ifdef WIN32
@@ -400,6 +401,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatche
           pagesizes.resize(out);
           pagesizes_available=pagesizes;
         }
+#elif defined(__APPLE__)
+      // I can't find how to determine what the super page size is on OS X programmatically
+      // It appears to be hard coded into mach/vm_statistics.h which says that it's always 2Mb
+      // Therefore, we hard code 2Mb
+      pagesizes.push_back(getpagesize());
+      pagesizes_available.push_back(getpagesize());
+      pagesizes.push_back(2*1024*1024);
+      pagesizes_available.push_back(2*1024*1024);      
 #elif defined(__linux__)
       pagesizes.push_back(getpagesize());
       pagesizes_available.push_back(getpagesize());
@@ -503,7 +512,7 @@ namespace detail
     if(!(ret.p=VirtualAlloc(nullptr, ret.actual_size, type, PAGE_READWRITE)))
     {
       if(ERROR_NOT_ENOUGH_MEMORY==GetLastError())
-        if((ret.p)=VirtualAlloc(nullptr, ret.actual_size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE))
+        if((ret.p=VirtualAlloc(nullptr, ret.actual_size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE)))
           return ret;
       BOOST_AFIO_ERRHWIN(0);
     }
@@ -824,6 +833,21 @@ namespace detail {
             _path=path::string_type(buffer);
             return _path;
 #elif defined(__FreeBSD__)
+#if 1
+            int len;
+            struct kinfo_file *kifs=kinfo_getfile(getpid(), &len);
+            auto unkifs=detail::Undoer([&kifs]{free(kifs);});
+            for(int n=0; n<len; n++)
+            {
+              if(kifs[n].kf_fd==fd)
+              {
+                lock_guard<pathlock_t> g(pathlock);
+                _path=path::string_type(kifs[n].kf_path);
+                return _path;
+              }
+            }
+#else
+            // Borrowed from https://gitorious.org/freebsd/freebsd/raw/f1d6f4778d2044502209708bc167c05f9aa48615:lib/libutil/kinfo_getfile.c
             size_t len;
             int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
             BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
@@ -840,6 +864,7 @@ namespace detail {
               }
               p+=kif->kf_structsize;
             }
+#endif
             BOOST_AFIO_THROW(std::runtime_error("Failed to find fd in kernel fd tables"));
 #else
 #error Unknown system
@@ -2337,7 +2362,15 @@ namespace detail {
                 ssize_t _byteswritten;
                 size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
                 off_t offset=req.where+byteswritten;
-                while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
+                // POSIX doesn't actually guarantee pwritev appends to O_APPEND files, and indeed OS X does not.
+                if(!!(p->flags() & file_flags::Append))
+                {
+                  while(-1==(_byteswritten=writev(p->fd, (&vecs.front())+n, (int) amount)) && EINTR==errno);
+                }
+                else
+                {
+                  while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
+                }
                 if(!this->p->filters_buffers.empty())
                 {
                     asio::error_code ec(errno, generic_category());
