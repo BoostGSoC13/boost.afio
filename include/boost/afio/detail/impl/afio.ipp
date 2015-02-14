@@ -188,20 +188,31 @@ static inline filesystem::file_type to_st_type(uint16_t mode)
 #endif
     }
 }
+static BOOST_CONSTEXPR_OR_CONST int at_fdcwd=
+#ifdef AT_FDCWD
+AT_FDCWD;
+#else
+-100;
+#endif
+static inline BOOST_CONSTEXPR_OR_CONST int check_fdcwd(int dirh) { assert(dirh==at_fdcwd); return 0; }
 BOOST_AFIO_V1_NAMESPACE_END
 #ifdef WIN32
 // We also compile the posix compat layer for catching silly compile errors for POSIX
 #include <io.h>
 #include <direct.h>
-#define BOOST_AFIO_POSIX_MKDIR(path, mode) _wmkdir(path)
-#define BOOST_AFIO_POSIX_RMDIR _wrmdir
+#ifdef AT_FDCWD
+#error AT_FDCWD shouldn't be defined on MSVCRT, best check the thunk wrappers!
+#endif
+#define BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS 0
+#define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) (check_fdcwd(dirh), _wmkdir(path))
+#define BOOST_AFIO_POSIX_RMDIRAT(dirh, path) (check_fdcwd(dirh), _wrmdir(path))
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct __stat64
-#define BOOST_AFIO_POSIX_STAT _wstat64
-#define BOOST_AFIO_POSIX_LSTAT _wstat64
+#define BOOST_AFIO_POSIX_STATAT(dirh, s)  (check_fdcwd(dirh), _wstat64(s))
+#define BOOST_AFIO_POSIX_LSTATAT(dirh, s) (check_fdcwd(dirh), _wstat64(s))
 #define BOOST_AFIO_POSIX_FSTAT _fstat64
-#define BOOST_AFIO_POSIX_OPEN _wopen
+#define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), _wopen((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_CLOSE _close
-#define BOOST_AFIO_POSIX_UNLINK _wunlink
+#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), _wunlink(path))
 #define BOOST_AFIO_POSIX_FSYNC _commit
 #define BOOST_AFIO_POSIX_FTRUNCATE winftruncate
 #define BOOST_AFIO_POSIX_MMAP(addr, size, prot, flags, fd, offset) (-1)
@@ -219,20 +230,40 @@ BOOST_AFIO_V1_NAMESPACE_END
 # include <mntent.h>
 #endif
 #include <limits.h>
-#define BOOST_AFIO_POSIX_MKDIR mkdir
-#define BOOST_AFIO_POSIX_RMDIR ::rmdir
+// Does this POSIX provides at(dirh) support?
+#ifdef AT_FDCWD
+#define BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS 1
+#define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) ::mkdirat((path), (mode))
+#define BOOST_AFIO_POSIX_RMDIRAT(dirh, path) ::rmdir((dirh), (path))
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct stat 
-#define BOOST_AFIO_POSIX_STAT stat
-#define BOOST_AFIO_POSIX_LSTAT ::lstat
+#define BOOST_AFIO_POSIX_STATAT(dirh, s) ::statat((dirh), (s))
+#define BOOST_AFIO_POSIX_LSTATAT(dirh, s) ::lstat((dirh), (s))
 #define BOOST_AFIO_POSIX_FSTAT ::fstat
-#define BOOST_AFIO_POSIX_OPEN open
-#define BOOST_AFIO_POSIX_SYMLINK ::symlink
+#define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) ::openat((dirh), (path), (flags), (mode))
+#define BOOST_AFIO_POSIX_SYMLINKAT(dirh, from, to) ::symlinkat((dirh), (from), (to))
 #define BOOST_AFIO_POSIX_CLOSE ::close
-#define BOOST_AFIO_POSIX_UNLINK unlink
-#define BOOST_AFIO_POSIX_FSYNC fsync
-#define BOOST_AFIO_POSIX_FTRUNCATE ftruncate
-#define BOOST_AFIO_POSIX_MMAP mmap
-#define BOOST_AFIO_POSIX_MUNMAP munmap
+#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) ::unlinkat((dirh), (path), (flags))
+#define BOOST_AFIO_POSIX_FSYNC ::fsync
+#define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
+#define BOOST_AFIO_POSIX_MMAP ::mmap
+#define BOOST_AFIO_POSIX_MUNMAP ::munmap
+#else
+#define BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS 0
+#define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) (check_fdcwd(dirh), ::mkdir((path), (mode)))
+#define BOOST_AFIO_POSIX_RMDIRAT(dirh, path) (check_fdcwd(dirh), ::rmdir(path))
+#define BOOST_AFIO_POSIX_STAT_STRUCT struct stat 
+#define BOOST_AFIO_POSIX_STATAT(dirh, s) (check_fdcwd(dirh), ::stat(s))
+#define BOOST_AFIO_POSIX_LSTATAT(dirh, s) (check_fdcwd(dirh), ::lstat(s))
+#define BOOST_AFIO_POSIX_FSTAT ::fstat
+#define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), ::open((path), (flags), (mode)))
+#define BOOST_AFIO_POSIX_SYMLINKAT(dirh, from, to) (check_fdcwd(dirh), ::symlink((from), (to)))
+#define BOOST_AFIO_POSIX_CLOSE ::close
+#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), ::unlink(path))
+#define BOOST_AFIO_POSIX_FSYNC ::fsync
+#define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
+#define BOOST_AFIO_POSIX_MMAP ::mmap
+#define BOOST_AFIO_POSIX_MUNMAP ::munmap
+#endif
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 static inline chrono::system_clock::time_point to_timepoint(struct timespec ts)
@@ -321,6 +352,15 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset
     for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
         if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
     return (ssize_t)(at-offset);
+}
+inline ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
+{
+    off_t at=0;
+    ssize_t transferred;
+    lock_guard<decltype(preadwritelock)> lockh(preadwritelock);
+    for(; iovcnt; iov++, iovcnt--, at+=(off_t) transferred)
+        if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
+    return (ssize_t)(at);
 }
 BOOST_AFIO_V1_NAMESPACE_END
 
@@ -781,6 +821,32 @@ namespace detail {
                 lockfile=process_lockfile_registry::open<posix_lock_file>(this);
 #endif
         }
+        //! Returns the containing directory if my inode appears in it
+        inline std::shared_ptr<async_io_handle> int_verifymyinode();
+        void int_safeunlink()
+        {
+          if(!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
+          {
+            // In order to be race free, safely unlinking involves:
+            // 1. Open the containing directory
+            // 2. Find a file entry matching this inode as someone could have renamed it in between opening
+            //    the directory and now. If you don't find the inode error out now as otherwise you could
+            //    delete the wrong file.
+            // 3. Use unlinkat() to safely delete the file from its directory. THIS IS STILL RACY.
+            auto dirh(int_verifymyinode());
+            if(!dirh)
+            {
+              errno=ENOENT;
+              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+            }
+            afio::path leaf(path().filename());
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh->native_handle(), leaf.c_str()), [this]{return path();});
+          }
+          else
+          {
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), 0), [this]{return path();});
+          }
+        }
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
@@ -795,7 +861,7 @@ namespace detail {
                 if(SyncOnClose && write_count_since_fsync())
                     BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(fd), [this]{return path();});
                 if(DeleteOnClose)
-                  BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINK(path(true).c_str()), [this]{return path();});
+                    int_safeunlink();
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), [this]{return path();});
                 fd=-1;
             }
@@ -841,7 +907,7 @@ namespace detail {
             BOOST_AFIO_ERRHOS(fstat(fd, &s));
             lock_guard<pathlock_t> g(pathlock);
             if(s.st_nlink)
-              _path=path path::string_type(buffer);
+              _path=path::string_type(buffer);
             else
               _path.clear();
             return _path;
@@ -1084,6 +1150,7 @@ namespace detail {
         // Returns a handle to a directory from the cache, or creates a new directory handle.
         template<class F> std::shared_ptr<async_io_handle> get_handle_to_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
         {
+            assert(!req.is_relative);
             std::shared_ptr<async_io_handle> dirh;
             lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
@@ -1107,13 +1174,6 @@ namespace detail {
                     dirh=std::shared_ptr<async_io_handle>(it->second);
             } while(!dirh);
             return dirh;
-        }
-        // Returns a handle to a containing directory from the cache, or creates a new directory handle.
-        template<class F> std::shared_ptr<async_io_handle> get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
-        {
-            req.path=req.path.parent_path();
-            req.flags=req.flags&~file_flags::FastDirectoryEnumeration;
-            return get_handle_to_dir(parent, id, req, dofile);
         }
     };
     class async_file_io_dispatcher_compat;
@@ -1450,6 +1510,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_del
         lock_guard<decltype(p->fdslock)> g(p->fdslock);
         p->fds.erase(key);
     }
+}
+
+// Returns a handle to a containing directory from the cache, or creates a new directory handle.
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> async_file_io_dispatcher_base::int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
+{
+    req.path=req.path.parent_path();
+    req.flags=req.flags&~file_flags::HoldParentOpen;
+    return p->get_handle_to_dir(parent, id, req, dofile);
 }
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<thread_source> async_file_io_dispatcher_base::threadsource() const
@@ -2173,6 +2241,9 @@ namespace detail {
 #ifdef O_DIRECTORY
                 flags|=O_DIRECTORY;
 #endif
+#ifdef O_SEARCH
+                flags|=O_SEARCH;
+#endif
                 // Some POSIXs don't like opening directories without buffering.
                 if(!!(req.flags & file_flags::OSDirect))
                 {
@@ -2182,8 +2253,8 @@ namespace detail {
 #endif
                 }
             }
-            if(!!(req.flags & file_flags::FastDirectoryEnumeration))
-                dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_compat::dofile);
+            if(!!(req.flags & file_flags::HoldParentOpen))
+                dirh=int_get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_compat::dofile);
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_posix>(this, dirh, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
                 BOOST_AFIO_POSIX_OPEN(req.path.c_str(), flags, 0x1b0/*660*/));
@@ -2974,6 +3045,30 @@ namespace detail {
             return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dolock);
         }
     };
+
+    inline std::shared_ptr<async_io_handle> async_io_handle_posix::int_verifymyinode()
+    {
+        BOOST_AFIO_POSIX_STAT_STRUCT me, s={0};
+        BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &me), [this]{return path();});
+        std::shared_ptr<async_io_handle> dirh(container());
+        for(size_t n=0; n<10; n++)
+        {
+          if(!dirh)
+          {
+            async_path_op_req req(path(true));
+            dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_compat *>(parent()), 0, req, &async_file_io_dispatcher_compat::dofile);
+          }
+          if(-1!=BOOST_AFIO_POSIX_STATAT(dirh->native_handle(), &s))
+          {
+            if(s.st_ino==me.st_ino)
+              return dirh;
+          }
+          // Didn't find an entry with my name, so sleep and retry
+          dirh.reset();
+          this_thread::sleep(chrono::milliseconds(1));
+        }
+        return dirh;
+    }
 }
 
 BOOST_AFIO_V1_NAMESPACE_END

@@ -6,12 +6,12 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_statfs, "Tests statfs", 20)
     auto dispatcher = make_async_file_io_dispatcher();
     std::cout << "\n\nTesting statfs:\n";
     auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-    auto mkfile(dispatcher->file(async_path_op_req(mkdir, "testdir/foo", file_flags::Create | file_flags::ReadWrite)));
+    auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "foo", file_flags::Create | file_flags::ReadWrite)));
     auto statfs_(dispatcher->statfs(mkfile, fs_metadata_flags::All));
     auto closefile=dispatcher->close(statfs_.second);
-    auto delfile(dispatcher->rmfile(async_path_op_req(closefile, "testdir/foo")));
+    auto delfile(dispatcher->rmfile(closefile));
     BOOST_CHECK_NO_THROW(when_all({ mkdir, mkfile, statfs_.second, closefile, delfile }).get());
-    auto deldir(dispatcher->rmdir(async_path_op_req(delfile, "testdir")));
+    auto deldir(dispatcher->rmdir(mkdir));
     BOOST_CHECK_NO_THROW(when_all(deldir).wait());  // virus checkers sometimes make this spuriously fail
 
     auto statfs(statfs_.first.get());

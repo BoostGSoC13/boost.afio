@@ -11,7 +11,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
         auto dispatcher=make_async_file_io_dispatcher();
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
         mkdir.get();
-        auto mkfile(dispatcher->file(async_path_op_req(mkdir, "testdir/foo", file_flags::Create|file_flags::ReadWrite)));
+        auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "foo", file_flags::Create|file_flags::ReadWrite)));
         mkfile.get();
         auto last(dispatcher->truncate(mkfile, 1024));
         last.get();
@@ -425,7 +425,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
         }
         last=dispatcher->close(last);
         last.get();
-        auto rmfile(dispatcher->rmfile(async_path_op_req(last, "testdir/foo")));
+        auto rmfile(dispatcher->rmfile(last));
         rmfile.get();
     }
     try { filesystem::remove_all("testdir"); } catch(...) {}

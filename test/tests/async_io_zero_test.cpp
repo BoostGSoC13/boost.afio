@@ -14,8 +14,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
     {
       // Create a 1Mb file
       auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-      auto mkfilesp(dispatcher->file(async_path_op_req(mkdir, "testdir/sparse", file_flags::Create | file_flags::ReadWrite)));
-      auto mkfilec(dispatcher->file(async_path_op_req(mkdir, "testdir/compressed", file_flags::Create | file_flags::CreateCompressed | file_flags::ReadWrite)));
+      auto mkfilesp(dispatcher->file(async_path_op_req::relative(mkdir, "sparse", file_flags::Create | file_flags::ReadWrite)));
+      auto mkfilec(dispatcher->file(async_path_op_req::relative(mkdir, "compressed", file_flags::Create | file_flags::CreateCompressed | file_flags::ReadWrite)));
       auto resizefilesp(dispatcher->truncate(mkfilesp, buffer.size()));
       auto resizefilec(dispatcher->truncate(mkfilec, buffer.size()));
       auto writefilesp(dispatcher->write(make_async_data_op_req(resizefilesp, buffer, 0)));
@@ -106,10 +106,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
 
       auto closefilesp=dispatcher->close(readfilesp1);
       auto closefilec=dispatcher->close(readfilec1);
-      auto delfilesp(dispatcher->rmfile(async_path_op_req(closefilesp, "testdir/sparse")));
-      auto delfilec(dispatcher->rmfile(async_path_op_req(closefilec, "testdir/compressed")));
+      auto delfilesp(dispatcher->rmfile(closefilesp));
+      auto delfilec(dispatcher->rmfile(closefilec));
       BOOST_CHECK_NO_THROW(when_all({ closefilesp, closefilec, delfilesp, delfilec }).get());
-      auto deldir(dispatcher->rmdir(async_path_op_req(delfilec, "testdir")));
+      auto deldir(dispatcher->rmdir(mkdir));
       BOOST_CHECK_NO_THROW(when_all(deldir).wait());  // virus checkers sometimes make this spuriously fail
     }
 }

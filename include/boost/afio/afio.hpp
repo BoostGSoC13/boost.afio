@@ -502,7 +502,7 @@ public:
   path  relative_path() const { return path(filesystem::path::relative_path(), direct()); }
   path  parent_path() const { return path(filesystem::path::parent_path(), direct()); }
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-  path  leaf() const { return path(filesystem::path::leaf(), direct()); }
+  path  filename() const { return path(filesystem::path::leaf(), direct()); }
 #else
   path  filename() const { return path(filesystem::path::filename(), direct()); }
 #endif
@@ -580,12 +580,17 @@ inline path operator/(const path& lhs, const path& rhs) { return path(filesystem
 inline std::ostream &operator<<(std::ostream &s, const path &p) { return s << filesystem::path(p); }
 struct path::make_absolute : public path
 {
+  make_absolute(const path &p) : path(p)
+  {
+    if(native()[0]!=preferred_separator)
+      *this=filesystem::absolute(std::move(*this));
+  }
   make_absolute(path &&p) : path(std::move(p))
   {
     if(native()[0]!=preferred_separator)
       *this=filesystem::absolute(std::move(*this));
   }
-  template<class T> make_absolute(T &&p) : path(filesystem::absolute(std::forward<T>(p))) { }
+  template<class T, typename=typename std::enable_if<std::is_constructible<filesystem::path, T>::value>::type> make_absolute(T &&p) : path(filesystem::absolute(std::forward<T>(p))) { }
 };
 /*! \brief A hasher for path
 */
@@ -664,10 +669,11 @@ enum class file_flags : size_t
     WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
     NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
-    FastDirectoryEnumeration=(1<<10), //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration.
-    UniqueDirectoryHandle=(1<<11),    //!< Return a unique directory handle rather than a shared directory handle
-    TemporaryFile=(1<<12),   //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
-    DeleteOnClose=(1<<13),   //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
+    HoldParentOpen=(1<<10),         //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration and fast relative path ops.
+    UniqueDirectoryHandle=(1<<11),  //!< Return a unique directory handle rather than a shared directory handle
+    NoRaceProtection=(1<<12),       //!< Skip taking steps to avoid destruction of data due to filing system races. Most of the performance benefit of enabling this goes away if you enable HoldParentOpen instead, so be especially careful when considering turning this on.
+    TemporaryFile=(1<<13),          //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
+    DeleteOnClose=(1<<14),          //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
 
     OSDirect=(1<<16),   //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
     OSMMap=(1<<17),     //!< Memory map files (for reads only).
@@ -1128,7 +1134,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
     //! Returns the parent of this io handle
     async_file_io_dispatcher_base *parent() const { return _parent; }
-    //! Returns a handle to the directory containing this handle. Only works if `file_flags::FastDirectoryEnumeration` was specified when this handle was opened.
+    //! Returns a handle to the directory containing this handle. Only works if `file_flags::HoldParentOpen` was specified when this handle was opened.
     std::shared_ptr<async_io_handle> container() const { return dirh; }
     //! Returns the native handle of this io handle. On POSIX, you can cast this to a fd using `(int)(size_t) native_handle()`. On Windows it's a simple `(HANDLE) native_handle()`.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
@@ -1354,7 +1360,9 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     detail::async_file_io_dispatcher_base_p *p;
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req));
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
+
 protected:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
     std::pair<bool, std::shared_ptr<async_io_handle>> doadopt(size_t, async_io_op, std::shared_ptr<async_io_handle> h)
@@ -2073,6 +2081,19 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> barrier(const std::vector<async_io_op> &ops);
 
+    /*! \brief Schedule the return of an op handle after another op handle completes. This is useful when you
+    need to supply one op handle to a function but it must not begin until another op handle has finished.
+        
+    \return The op handle op.
+    \param precondition The op handle which must complete for op to be passed through.
+    \param op The op handle to return.
+    \ingroup async_file_io_dispatcher_base__depends
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
+    \exceptionmodelstd
+    \qexample{depends_example}
+    */
+    inline async_io_op depends(async_io_op precondition, async_io_op op);
+
     /*! \brief Returns the page sizes of this architecture which is useful for calculating direct i/o multiples.
     
     \param only_actually_available Only return page sizes actually available to the user running this process
@@ -2482,49 +2503,54 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_o
 */
 struct async_path_op_req
 {
+    bool is_relative;           //!< Whether the precondition is also where this path begins
     afio::path path;            //!< The filing system path to be used for this operation
     file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
     async_io_op precondition;   //!< An optional precondition for this operation
+    //! \brief Tags the path as being absolute
+    struct absolute;
+    //! \brief Tags the path as being relative
+    struct relative;
     //! \constr
-    async_path_op_req() : flags(file_flags::None) { }
+    async_path_op_req() : is_relative(false), flags(file_flags::None) { }
+    //! \cconstr
+    async_path_op_req(const async_path_op_req &o) = default;
+    //! \mconstr
+    async_path_op_req(async_path_op_req &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+    //! \mconstr
+    inline async_path_op_req(absolute &&o);
+    //! \mconstr
+    inline async_path_op_req(relative &&o);
     /*! \brief Constructs an instance.
     
+    \tparam "class T" The type of path to be used.
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    async_path_op_req(afio::path _path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
+
+    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<async_io_op, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::None) : is_relative(false), path(afio::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
-    \param _path The filing system path to be used.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(const filesystem::path &_path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
-    /*! \brief Constructs an instance.
-    
-    \param _path The filing system path to be used.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(const char *_path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
-    /*! \brief Constructs an instance.
-    
-    \param _path The filing system path to be used.
-    \param _flags The flags to be used.
-    */
-    async_path_op_req(const std::string &_path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags) { }
-    /*! \brief Constructs an instance.
-    
+    \tparam "class T" The type of path to be used.
+    \param _is_relative Whether the precondition is where the path begins
     \param _precondition The precondition for this operation.
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    async_path_op_req(async_io_op _precondition, afio::path _path, file_flags _flags=file_flags::None) : path(afio::path::make_absolute(std::move(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(is_relative ? std::forward<T>(_path) : afio::path::make_absolute(std::forward<T>(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    /*! \brief Constructs an instance.
+    
+    \param _precondition The precondition for this operation (used as the path).
+    \param _flags The flags to be used.
+    */
+    async_path_op_req(async_io_op _precondition, file_flags _flags=file_flags::None) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! Validates contents
     bool validate() const
     {
-        if(path.empty()) return false;
+        if(!is_relative && path.empty()) return false;
         return !precondition.id || precondition.validate();
     }
-private:
+protected:
     void _validate() const
     {
 #if BOOST_AFIO_VALIDATE_INPUTS
@@ -2533,6 +2559,30 @@ private:
 #endif
     }
 };
+struct async_path_op_req::relative : async_path_op_req
+{
+  /*! \brief Constructs an instance.
+  
+  \tparam "class T" The type of path to be used.
+  \param _precondition The precondition for this operation.
+  \param _path The filing system path to be used.
+  \param _flags The flags to be used.
+  */
+  template<class T> relative(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
+};
+struct async_path_op_req::absolute : async_path_op_req
+{
+  /*! \brief Constructs an instance.
+  
+  \tparam "class T" The type of path to be used.
+  \param _precondition The precondition for this operation.
+  \param _path The filing system path to be used.
+  \param _flags The flags to be used.
+  */
+  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(false, std::move(_precondition), afio::path::make_absolute(std::forward<T>(_path)), _flags) { _validate(); }
+};
+inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 
 /*! \defgroup to_asio_buffers Overloadable free functions converting the types passed to async_data_op_req<> into an asio buffer sequence for read() and write().
 
@@ -3408,6 +3458,17 @@ inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::s
   i.push_back(req);
   auto ret = statfs(o, i);
   return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
+}
+inline async_io_op async_file_io_dispatcher_base::depends(async_io_op precondition, async_io_op op)
+{
+    std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback(std::make_pair(async_op_flags::immediate,
+    [BOOST_AFIO_LAMBDA_MOVE_CAPTURE(op)](size_t, async_io_op) { return std::make_pair(true, op.get()); }));
+    std::vector<async_io_op> r;
+    std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
+    r.reserve(1); i.reserve(1);
+    r.push_back(precondition);
+    i.push_back(std::move(callback));
+    return std::move(completion(r, i).front());
 }
 
 namespace detail

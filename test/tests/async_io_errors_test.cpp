@@ -38,8 +38,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
             do
             {
                 filereqs.clear();
-                filereqs.push_back(async_path_op_req(mkdir, "testdir/a", file_flags::CreateOnlyIfNotExist));
-                filereqs.push_back(async_path_op_req(mkdir, "testdir/a", file_flags::CreateOnlyIfNotExist));
+                filereqs.push_back(async_path_op_req::relative(mkdir, "a", file_flags::CreateOnlyIfNotExist));
+                filereqs.push_back(async_path_op_req::relative(mkdir, "a", file_flags::CreateOnlyIfNotExist));
                 // Windows won't let you delete a file still open
                 while(dispatcher->fd_count()>1)
                     this_thread::sleep_for(chrono::milliseconds(1));

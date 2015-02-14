@@ -527,7 +527,7 @@ namespace detail
             NTSTATUS status=0;
             HANDLE h=nullptr;
             req.flags=fileflags(req.flags);
-            if(!!(req.flags & file_flags::FastDirectoryEnumeration))
+            if(!!(req.flags & file_flags::HoldParentOpen))
                 dirh=p->get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_windows::dofile);
             std::tie(status, h)=ntcreatefile(req);
             BOOST_AFIO_ERRHNTFN(status, [&req]{return req.path;});
