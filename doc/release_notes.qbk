@@ -185,13 +185,29 @@ for converting the NT kernel paths AFIO uses to traditional DOS ones.
 
 * directory_entry::name() is now a string instead of a path.
 
-* Thanks to Travis CI adding Mac OS X as a CI target, added OS X support to AFIO.
+* Thanks to Travis CI adding Mac OS X as a CI target, added OS X support to AFIO. This involved writing an
+expect-based lldb automator to get stack backtraces of failures, which was tedious.
 
 * Added APIs random_fill() and random_string() useful for generating crypto strong random file names.
 
-* page_size() has become page_sizes(), and now can return large/huge page sizes.
+* page_size() has become page_sizes(), and now can return large/huge page sizes. A file_buffer_default_size()
+new API will return the closest page size to 1Mb.
 
 * Added file_buffer_allocator, a STL allocator suitable for allocating efficient large file buffers.
+
+* stat_t flags, gen and birthtime weren't being set on FreeBSD. Sorry.
+
+* Made big changes to how async_path_op_req works and is used. Instead of hard coded overloads,
+async_path_op_req now takes a template parameter for the path and has metaprogramming for converting that into
+an afio::path. You can also now supply absolute and relative-to-the-precondition paths via
+`async_path_op_req::absolute` and `async_path_op_req::relative`, plus you can supply a bare precondition
+which finally allows rmfile() et al to directly delete inputs by op handle. Also added a depends() API
+which lets you return one op handle only when another op handle completes.
+
+* Made AFIO provide [*much] stronger filing system race condition protection. This comes with a performance
+cost, so a new file_flags::NoRaceProtection can disable the new semantics. Renamed file_flags::FastDirectoryEnumeration
+to file_flags::HoldParentOpen as enabling HoldParentOpen will make most of the performance cost of race
+protection disappear.
 
 
 TODO BEFORE RELEASE

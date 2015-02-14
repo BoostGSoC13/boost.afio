@@ -840,7 +840,7 @@ namespace detail {
               BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
             }
             afio::path leaf(path().filename());
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh->native_handle(), leaf.c_str()), [this]{return path();});
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh->native_handle(), leaf.c_str(), 0), [this]{return path();});
           }
           else
           {
@@ -996,27 +996,29 @@ namespace detail {
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
             if(opened_as_symlink())
             {
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTAT(path().c_str(), &s), [this]{return path();});
+              if(!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
+              {
+                auto dirh(int_verifymyinode());
+                if(!dirh)
+                {
+                  errno=ENOENT;
+                  BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+                }
+                afio::path leaf(path().filename());
+                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(dirh->native_handle(), leaf.c_str(), &s), [this]{return path();});
+              }
+              else
+              {
+                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, path().c_str(), &s), [this]{return path();});
+              }
               fill_stat_t(stat, s, wanted);
-              return directory_entry(path()
-#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-                .leaf()
-#else
-                .filename()
-#endif
-              .native(), stat, wanted);
+              return directory_entry(path().filename().native(), stat, wanted);
             }
             else
             {
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSTAT(fd, &s), [this]{return path();});
               fill_stat_t(stat, s, wanted);
-              return directory_entry(const_cast<async_io_handle_posix *>(this)->path(true)
-#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-                .leaf()
-#else
-                .filename()
-#endif
-              .native(), stat, wanted);
+              return directory_entry(const_cast<async_io_handle_posix *>(this)->path(true).filename().native(), stat, wanted);
             }
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const override final
@@ -2180,25 +2182,7 @@ namespace detail {
         // Called in unknown thread
         completion_returntype dodir(size_t id, async_io_op _, async_path_op_req req)
         {
-            int ret=0;
             req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::Read;
-            if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
-            {
-                ret=BOOST_AFIO_POSIX_MKDIR(req.path.c_str(), 0x1f8/*770*/);
-                if(-1==ret && EEXIST==errno)
-                {
-                    // Ignore already exists unless we were asked otherwise
-                    if(!(req.flags & file_flags::CreateOnlyIfNotExist))
-                        ret=0;
-                }
-                BOOST_AFIO_ERRHOSFN(ret, [&req]{return req.path;});
-                req.flags=req.flags&~(file_flags::Create|file_flags::CreateOnlyIfNotExist);
-            }
-
-            BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-            ret=BOOST_AFIO_POSIX_STAT(req.path.c_str(), &s);
-            if(0==ret && S_IFDIR!=(s.st_mode&S_IFDIR))
-                BOOST_AFIO_THROW(std::runtime_error("Not a directory"));
             if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write))
             {
                 // Return a copy of the one in the dir cache if available
@@ -2218,21 +2202,46 @@ namespace detail {
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
-        completion_returntype dofile(size_t id, async_io_op, async_path_op_req req)
+        completion_returntype dofile(size_t id, async_io_op op, async_path_op_req req)
         {
-            int flags=0;
+            int flags=0, fd;
             std::shared_ptr<async_io_handle> dirh;
             req.flags=fileflags(req.flags);
+            // Open my containing directory
+            if(req.is_relative)
+            {
+              std::shared_ptr<async_io_handle> h(op.get());
+              async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+              if(!!(req.flags & file_flags::HoldParentOpen) || (!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS))
+              {
+                if(p->opened_as_dir())
+                {
+                  if(!(h->flags() & file_flags::UniqueDirectoryHandle) && !!(h->flags() & file_flags::Read) && !(h->flags() & file_flags::Write))
+                    dirh=h;  // always valid and a directory
+                  else
+                    dirh=p->get_handle_to_dir(this, id, temp, &async_file_io_dispatcher_compat::dofile);
+                }
+                else
+                {
+                  dirh=p->container();  // quite likely empty
+                  if(!dir)
+                  {
+                    async_path_op_req temp(p->path(true));
+                    dirh=int_get_handle_to_containing_dir(this, id, temp, &async_file_io_dispatcher_compat::dofile);
+                  }
+                }
+              }
+            }
+            else
+            {
+              if(!!(req.flags & file_flags::HoldParentOpen) || (!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS))
+                dirh=int_get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_compat::dofile);
+              if(!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
+                req.path=req.path.filename();
+            }
             if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
             else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
             else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
-            if(!!(req.flags & file_flags::Append)) flags|=O_APPEND;
-            if(!!(req.flags & file_flags::Truncate)) flags|=O_TRUNC;
-            if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) flags|=O_EXCL|O_CREAT;
-            else if(!!(req.flags & file_flags::Create)) flags|=O_CREAT;
-#ifdef O_DIRECT
-            if(!!(req.flags & file_flags::OSDirect)) flags|=O_DIRECT;
-#endif
 #ifdef O_SYNC
             if(!!(req.flags & file_flags::AlwaysSync)) flags|=O_SYNC;
 #endif
@@ -2244,20 +2253,37 @@ namespace detail {
 #ifdef O_SEARCH
                 flags|=O_SEARCH;
 #endif
-                // Some POSIXs don't like opening directories without buffering.
-                if(!!(req.flags & file_flags::OSDirect))
+                if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
                 {
-                    req.flags=req.flags & ~file_flags::OSDirect;
-#ifdef O_DIRECT
-                    flags&=~O_DIRECT;
-#endif
+                    if(!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
+                      ret=BOOST_AFIO_POSIX_MKDIRAT(dirh->native_handle(), req.path.c_str(), 0x1f8/*770*/);
+                    else
+                      ret=BOOST_AFIO_POSIX_MKDIRAT(at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
+                    if(-1==ret && EEXIST==errno)
+                    {
+                        // Ignore already exists unless we were asked otherwise
+                        if(!(req.flags & file_flags::CreateOnlyIfNotExist))
+                            ret=0;
+                    }
+                    BOOST_AFIO_ERRHOSFN(ret, [&req]{return req.path;});
                 }
             }
-            if(!!(req.flags & file_flags::HoldParentOpen))
-                dirh=int_get_handle_to_containing_dir(this, id, req, &async_file_io_dispatcher_compat::dofile);
+            else
+            {
+                if(!!(req.flags & file_flags::Append)) flags|=O_APPEND;
+                if(!!(req.flags & file_flags::Truncate)) flags|=O_TRUNC;
+                if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) flags|=O_EXCL|O_CREAT;
+                else if(!!(req.flags & file_flags::Create)) flags|=O_CREAT;
+#ifdef O_DIRECT
+                if(!!(req.flags & file_flags::OSDirect)) flags|=O_DIRECT;
+#endif
+            }
+            if(!(flags() & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
+              fd=BOOST_AFIO_POSIX_OPENAT(dirh->native_handle(), req.path.c_str(), flags, 0x1b0/*660*/));
+            else
+              fd=BOOST_AFIO_POSIX_OPENAT(at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/));
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
-            auto ret=std::make_shared<async_io_handle_posix>(this, dirh, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
-                BOOST_AFIO_POSIX_OPEN(req.path.c_str(), flags, 0x1b0/*660*/));
+            auto ret=std::make_shared<async_io_handle_posix>(this, !!(req.flags & file_flags::HoldParentOpen) ? dirh : std::shared_ptr<async_io_handle>(), req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
             if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link) && !!(req.flags & file_flags::OSMMap))
                 ret->try_mapfile();
