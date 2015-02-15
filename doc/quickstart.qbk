@@ -333,63 +333,82 @@ you might implement the techniques used above:
 [section:filesystem_races Handling races on the filing system]
 
 Filing systems are a shared resource common to all processes on the system and sometimes the network,
-and are therefore inherently racy. Yet overwhelmingly even expert written programs singularly assume
-the filing system to be a static, constant and unchanging place only modifiable by the current program.
+and are therefore as a globally shared resource inherently racy. Yet overwhelmingly even expert written programs singularly assume
+the filing system to be a static, constant and unchanging place only modifiable by the current program,
+as indeed does most unfortunately the POSIX API standard which defines the common API for Linux, FreeBSD,
+Mac OS X and other Unices.
 When bug reports come in of data being lost, even very large professional corporations can make a real
 ham of testing that their ["fix] isn't worse at losing data than the previous more naive implementation.
 
 [heading Some background]
-As an example, a certain large office product vendor started off needing to support a lousy filing
-system which barely retained data without corruption at the best of times, so they came up with a copy
-on write system whereby the original file you opened was never touched, and instead a series of .tmp
-files were created which reflected every time some actor wrote a change and required a new copy. On
+As an example, let us imagine a completely hypothetical multinational vendor of a popular office suite.
+This vendor started off needing to support a primitive filing system only capable of 11 character length
+filenames which barely retained data without corruption at the best of times, so they came up with a copy
+on write system implemented atop of the primitive filing system whereby the original file you opened was
+never touched, and instead a series of .tmp
+files were created which reflected every time some actor in the office suite wrote a change and required a new copy. On
 the user pressing Save, these .tmp files were coalesced into a new temp file which reflected the new
-document, fsync was issued, the old file was renamed to a .tmp file, the new file to the name of
-the old file, more fsyncs, and the .tmp files excluding the just renamed former copy deleted. The idea
-here was if anything went wrong at any point that some version of the document could be retrieved.
+document, fsync was issued, the old file was renamed to a .tmp file, the new .tmp file to the name of
+the old file, more fsyncs, and the .tmp files excluding the just renamed former copy deleted. A backup copy
+was saving onto the local machine's temporary directory just for good measure. The idea
+here was if anything went wrong at any point that some working version of the document could be retrieved.
+This copy-on-write system with mirroring, whilst not without its flaws, worked very well in practice. Even if the user lost all their
+changes since the last time they successfully completed a save, it was quite rare that they lost everything __dash__
+well, except when the primitive filing system simply lost their files that is, whereupon only the initiated
+power users knew to look into the local temporary directory for backup copies.
 
-All well and good until one tries this scheme over a networked SMB share also being simultaneously used by
-many other users. For one thing, the .tmp files only had a few letters of randomness in them, so
-they could collide with other users regularly enough. Another problem was the many fsyncs and creation
-of many new temporary files holding data which really was genuinely temporary, and also often very large
-as it was intermediate transfer of say large bitmaps between one part of the office product and another.
+Quite a few years passed, and a problem began to emerge. If one tried this copy-on-write scheme over a
+networked SMB share also being simultaneously used by many other users, some unexpected problems emerged.
+For one thing, the .tmp files only had a few letters of randomness in them due to the 11 character filename limit, so
+.tmp file naming could collide with other users regularly enough not helped by the fact that the random number
+generator used a fixed seed and wasn't particular random. Another problem was the many fsyncs and creation
+of many new temporary copy-on-write files holding data which really was genuinely temporary, and also often very large
+as it was intermediate transfer of say large bitmaps between one part of the office product and another via
+a copy and paste operation.
 All that had to be pushed and pulled from the network share. Finally, the earlier logic had no awareness
-of what ought to happen if two people open the same file concurrently, or one writes a file name half
-way through the logic which swaps a new document for the old one, or indeed many other corner cases.
-They in fact bolted on a simple detection of a file being already open by another user, and if so a
-copy was made to the local system Temp drive where no changes could be saved.
+of what ought to happen if two people open the same file concurrently, or two users try to write to the same
+file name concurrently (obviously someone sees their sequence of renames to fail), or indeed many other corner cases.
+As a quick fix to these issues, the multinational vendor in fact bolted on a simple detection of a file being already
+open by another user, and if so all writes were directed to the local copy in the local system temporary drive.
 
-So, the vendor in question tried to substantially improve the support for concurrent users in the filing
-system. They did this by
-adding support for NT oplocks which were inherited from VMS as the NT kernel was originally the rewrite
-of the VMS kernel (something AFIO takes huge advantage of by directly using the NT/VMS kernel API to
-access all sorts of very useful and normally unavailable features). And for the record, NT/VMS has a really,
-really well designed filing system API, and its locking support is second to none __dash__ including
-in terms of performance as we saw in the previous section benchmarking NT against Linux and FreeBSD.
-They tested this new support against their proprietary in house technologies, fixed the bugs which
-showed up and when all looked good, shipped the feature.
+This vendor was more than well aware of the shortcomings in its completely hypothetical premier office suite product.
+So they went ahead and substantially improved the support for concurrent users in networked filing
+systems. They did this by adding support for NT opportunistic locks more about which you can read
+[@http://www.osronline.com/article.cfm?id=90 here all the way back in 1996]. These naturally extended
+the very well designed VMS file locking design inherited by the NT kernel (the NT kernel was originally the
+next generation VMS kernel, and therefore is largely backwards API compatible with VMS), and were both hugely faster
+than NFS and didn't corrupt data like NFS at that time did. The hypothetical vendor tested this new support
+against their proprietary implementation of a networking filing system, and it worked, so they shipped the feature.
 
-Unfortunately a large chunk of their user base doesn't use their proprietary network filing system
-implementation, rather they use Samba which is an open source alternative. Samba runs atop of mostly
-POSIX compliant file systems, and these are a pale shadow of what the NT/VMS kernel provides. Samba
-is therefore in a very unfortunate position of having to emulate NT/VMS oplock semantics using the
-highly inferior, and indeed known-to-be-fundamentally-broken byte range advisory locking on POSIX.
+Unfortunately, this turned out to be a case of what worked during testing not working so well in the field.
+NT opportunistic locks worked great, except when they didn't. If your network was heavily overloaded, or your MTU path discovery was broken,
+or you had a faulty network card anywhere on the network, ['then] you saw data corruption. You can read
+lots more about NT opportunistic locks [@https://www.samba.org/samba/docs/man/Samba-HOWTO-Collection/locking.html here].
 
-And cue a spate of file corruption and lost data, as any search of Google will show. As of the time
-of writing (Feb 2015), the still extant advice is to disable oplocks and therefore all caching in
-Samba which murders performance to ensure that the proprietary vendor's new much improved file system concurrency support does
-not destroy user data. The proprietary vendor appears to still hold that you ought to use their
-proprietary networking filing system implementation and you will not have these problems. However
-most orgs are mixed OS nowadays, and let's be blunt here in saying that Linux and FreeBSD are far
-more flexible as well as cheaper than Windows for the core storage architecture for a large, or even
-quite a small org (indeed I myself use a ZFS on FreeBSD store as my main storage for my home despite
-that most of the client computers are running Windows. That's because ZFS bit rot scrubs, is friendly
-to disk failures, and is generally far superior to all other alternatives).
+Furthermore, a large chunk of their user base doesn't use their proprietary network filing system
+implementation i.e. the one they did all their testing upon. Rather they use Samba which is an open source alternative. Samba runs atop of a mostly
+POSIX compliant file systems, and these provide a pale shadow of the locking facilities what the NT/VMS kernel provides. Samba
+is therefore in a very unfortunate position of having to emulate NT oplock semantics using the
+highly inferior, and indeed known-to-be-fundamentally-broken byte range advisory locking on POSIX
+(I won't start into just how braindead POSIX advisory locking is, but be happy that AFIO spends
+a lot of code working around it in the v1.4 engine onwards). This is not to denigrate the Samba authors
+__dash__ after all, they were forced to emulate semantics which POSIX cannot allow, and in fact
+Linux ended up implementing NT oplocks via the `F_SETLEASE` et al `fnctl()` extensions to help Samba
+replicate equivalent semantics.
 
-Now, I hate to blow my own trumpet here, but if that proprietary vendor of office suites were to
-adopt AFIO as their abstraction layer for reading and writing document files, it would be a fair bet
-that problems of file corruption such as the above would not present as AFIO is tested to work properly
-on mixed OS network shares. Sans bugs of course!
+Nevertheless, cue a spate of file corruption and lost data by users of this office suite when using
+network shares (a google search might find issues related to some office suite whose resemblance to the
+hypothetical one described is purely coincidental). As of the time
+of writing (Feb 2015), the still extant advice is to disable oplocks for all Samba shares which are not
+the user's personal home directory and therefore disables all caching in
+Samba for such shares. This has calamitous effects on performance, sufficiently so that Samba shares
+now appear quite slow relative to modern NFS shares. This is unfortunate, and I doubt that the designer
+of the oplock implemented by the office suite would have expected and definitely not intended such an outcome.
+
+Here is where AFIO comes into play. AFIO makes as much of platform quirks as is possible go away, but
+otherwise provides you with a set of behaviour guarantees regarding the remaining platform quirks.
+With care, and through examining this quirks list, by using AFIO it is possible to write high performance
+but ['correct] filing system manipulation logic __dash__ well, in so far as the quirks allow at least!
 
 [heading What AFIO provides for managing filing system raciness]
 
