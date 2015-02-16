@@ -1157,6 +1157,8 @@ public:
     bool opened_as_dir() const { return !!(_flags&file_flags::int_opening_dir); }
     //! True if this handle was opened as a symlink
     bool opened_as_symlink() const { return !!(_flags&file_flags::int_opening_link); }
+    //! True if this handle is used by the directory handle cache (not UniqueDirectoryHandle and is open for write and not open for write)
+    bool available_to_directory_cache() const { return !(_flags&file_flags::UniqueDirectoryHandle) && !!(_flags&file_flags::Read) && !(_flags::Write); }
     //! Returns how many bytes have been read since this handle was opened.
     off_t read_count() const { return bytesread; }
     //! Returns how many bytes have been written since this handle was opened.
