@@ -1158,7 +1158,7 @@ public:
     //! True if this handle was opened as a symlink
     bool opened_as_symlink() const { return !!(_flags&file_flags::int_opening_link); }
     //! True if this handle is used by the directory handle cache (not UniqueDirectoryHandle and is open for write and not open for write)
-    bool available_to_directory_cache() const { return !(_flags&file_flags::UniqueDirectoryHandle) && !!(_flags&file_flags::Read) && !(_flags::Write); }
+    bool available_to_directory_cache() const { return !(_flags&file_flags::UniqueDirectoryHandle) && !!(_flags&file_flags::Read) && !(_flags&file_flags::Write); }
     //! Returns how many bytes have been read since this handle was opened.
     off_t read_count() const { return bytesread; }
     //! Returns how many bytes have been written since this handle was opened.
@@ -1166,9 +1166,9 @@ public:
     //! Returns how many bytes have been written since this handle was last fsynced.
     off_t write_count_since_fsync() const { return byteswritten-byteswrittenatlastfsync; }
     //! Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
-    stat_t lstat(metadata_flags wanted=directory_entry::metadata_fastpath()) const
+    stat_t lstat(metadata_flags wanted=directory_entry::metadata_fastpath())
     {
         directory_entry de(direntry(wanted));
         return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
@@ -1177,7 +1177,7 @@ public:
 
     \ntkernelnamespacenote
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     
@@ -1246,7 +1246,7 @@ struct async_io_op
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id(0) { promise<async_io_handle> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
+    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id(0) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
@@ -1366,6 +1366,7 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     friend class detail::async_file_io_dispatcher_qnx;
 
     detail::async_file_io_dispatcher_base_p *p;
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;

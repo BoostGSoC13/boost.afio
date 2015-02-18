@@ -207,9 +207,9 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) (check_fdcwd(dirh), _wmkdir(path))
 #define BOOST_AFIO_POSIX_RMDIRAT(dirh, path) (check_fdcwd(dirh), _wrmdir(path))
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct __stat64
-#define BOOST_AFIO_POSIX_STATAT(dirh, s)  (check_fdcwd(dirh), _wstat64(s))
-#define BOOST_AFIO_POSIX_LSTATAT(dirh, s) (check_fdcwd(dirh), _wstat64(s))
-#define BOOST_AFIO_POSIX_FSTAT _fstat64
+#define BOOST_AFIO_POSIX_STATAT(dirh, path, s) (check_fdcwd(dirh), _wstat64(s))
+#define BOOST_AFIO_POSIX_LSTATAT(dirh, path, s) (check_fdcwd(dirh), _wstat64(s))
+#define BOOST_AFIO_POSIX_FSTAT(fd, s) _fstat64(s)
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), _wopen((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_CLOSE _close
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), _wunlink(path))
@@ -236,8 +236,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) ::mkdirat((path), (mode))
 #define BOOST_AFIO_POSIX_RMDIRAT(dirh, path) ::rmdir((dirh), (path))
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct stat 
-#define BOOST_AFIO_POSIX_STATAT(dirh, s) ::statat((dirh), (s))
-#define BOOST_AFIO_POSIX_LSTATAT(dirh, s) ::lstat((dirh), (s))
+#define BOOST_AFIO_POSIX_STATAT(dirh, path, s) ::fstatat((dirh), (path), (s))
+#define BOOST_AFIO_POSIX_LSTATAT(dirh, path, s) ::fstatat((dirh), (path), (s), AT_SYMLINK_NOFOLLOW)
 #define BOOST_AFIO_POSIX_FSTAT ::fstat
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) ::openat((dirh), (path), (flags), (mode))
 #define BOOST_AFIO_POSIX_SYMLINKAT(dirh, from, to) ::symlinkat((dirh), (from), (to))
@@ -252,8 +252,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) (check_fdcwd(dirh), ::mkdir((path), (mode)))
 #define BOOST_AFIO_POSIX_RMDIRAT(dirh, path) (check_fdcwd(dirh), ::rmdir(path))
 #define BOOST_AFIO_POSIX_STAT_STRUCT struct stat 
-#define BOOST_AFIO_POSIX_STATAT(dirh, s) (check_fdcwd(dirh), ::stat(s))
-#define BOOST_AFIO_POSIX_LSTATAT(dirh, s) (check_fdcwd(dirh), ::lstat(s))
+#define BOOST_AFIO_POSIX_STATAT(dirh, path, s) (check_fdcwd(dirh), ::stat((path), (s)))
+#define BOOST_AFIO_POSIX_LSTATAT(dirh, path, s) (check_fdcwd(dirh), ::lstat((path), (s)))
 #define BOOST_AFIO_POSIX_FSTAT ::fstat
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), ::open((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_SYMLINKAT(dirh, from, to) (check_fdcwd(dirh), ::symlink((from), (to)))
@@ -820,7 +820,7 @@ namespace detail {
             {
                 BOOST_AFIO_ERRHOSFN(fd, [&path]{return path;});
             }
-            if(!(flags() & file_flags::NoRaceProtection))
+            if(!(flags & file_flags::NoRaceProtection))
             {
               BOOST_AFIO_POSIX_STAT_STRUCT s={0};
               if(-999==fd)
@@ -860,7 +860,7 @@ namespace detail {
               BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
             }
             afio::path leaf(path().filename());
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh->native_handle(), leaf.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
 #else
             // At least check if what I am about to delete matches myself
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
@@ -912,89 +912,117 @@ namespace detail {
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
         {
-          if(refresh && -999!=fd)
+          if(refresh)
           {
-#if defined(WIN32)
-#elif defined(__linux__)
-            // Linux keeps a symlink at /proc/self/fd/n
-            char in[PATH_MAX+1], out[PATH_MAX+1];
-            sprintf(in, "/proc/self/fd/%d", fd);
-            ssize_t len;
-            if((len = readlink(in, out, sizeof(out)-1)) == -1)
-                BOOST_AFIO_ERRGOS(-1);
-            lock_guard<pathlock_t> g(pathlock);
-            path::string_type ret(out, len);
-            // Linux prepends or appends a " (deleted)" when a fd is nameless
-            // TODO: Should I stat the target to be really sure?
-            if(ret.size()>=10 && (!ret.compare(0, 10, " (deleted)") || !ret.compare(ret.size()-10, 10, " (deleted)")))
-              _path.clear();
+#if !defined(WIN32)
+            if(-999==fd)
+            {
+              auto mycontainer=container();
+              if(mycontainer)
+                mycontainer->path(true);
+            }
             else
-              _path=ret;
-            return _path;
+            {
+              path newpath;
+#if defined(__linux__)
+              // Linux keeps a symlink at /proc/self/fd/n
+              char in[PATH_MAX+1], out[PATH_MAX+1];
+              sprintf(in, "/proc/self/fd/%d", fd);
+              ssize_t len;
+              if((len = readlink(in, out, sizeof(out)-1)) == -1)
+                  BOOST_AFIO_ERRGOS(-1);
+              path::string_type ret(out, len);
+              // Linux prepends or appends a " (deleted)" when a fd is nameless
+              // TODO: Should I stat the target to be really sure?
+              if(ret.size()<10 || (ret.compare(0, 10, " (deleted)") && ret.compare(ret.size()-10, 10, " (deleted)")))
+                newpath=ret;
 #elif defined(__APPLE__)
-            char buffer[PATH_MAX+1];
-            BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
-            // Apple returns the previous path when deleted, so fstat to be sure
-            struct stat s;
-            BOOST_AFIO_ERRHOS(fstat(fd, &s));
-            lock_guard<pathlock_t> g(pathlock);
-            if(s.st_nlink)
-              _path=path::string_type(buffer);
-            else
-              _path.clear();
-            return _path;
+              char buffer[PATH_MAX+1];
+              BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
+              // Apple returns the previous path when deleted, so fstat to be sure
+              struct stat s;
+              BOOST_AFIO_ERRHOS(fstat(fd, &s));
+              if(s.st_nlink)
+                newpath=path::string_type(buffer);
 #elif defined(__FreeBSD__)
 #if 0  // Doesn't work after rename :(
-            void *addr;
-            if(!(addr=mmap(nullptr, 1, PROT_NONE, 0, fd, 0)))
-              BOOST_AFIO_ERRHOS(-1);
-            auto unaddr=detail::Undoer([&addr]{munmap(addr, 1);});
-            size_t len;
-            int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
-            BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
-            std::vector<char> buffer(len*2);
-            BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
-            for(char *p=buffer.data(); p<buffer.data()+len;)
-            {
-              struct kinfo_vmentry *kve=(struct kinfo_vmentry *) p;
-              std::cout << kve->kve_start << " " << kve->kve_path << std::endl;
-              if((void *) kve->kve_start==addr)
+              void *addr;
+              if(!(addr=mmap(nullptr, 1, PROT_NONE, 0, fd, 0)))
+                BOOST_AFIO_ERRHOS(-1);
+              auto unaddr=detail::Undoer([&addr]{munmap(addr, 1);});
+              size_t len;
+              int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
+              BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
+              std::vector<char> buffer(len*2);
+              BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+              for(char *p=buffer.data(); p<buffer.data()+len;)
               {
-                lock_guard<pathlock_t> g(pathlock);
-                _path=path::string_type(kve->kve_path);
-                return _path;
+                struct kinfo_vmentry *kve=(struct kinfo_vmentry *) p;
+                std::cout << kve->kve_start << " " << kve->kve_path << std::endl;
+                if((void *) kve->kve_start==addr)
+                {
+                  newpath=path::string_type(kve->kve_path);
+                  break;
+                }
+                p+=kve->kve_structsize;
               }
-              p+=kve->kve_structsize;
-            }
 #else  // Doesn't work at all, the kernel isn't filling in kf_path for regular file vnodes
-            // Borrowed from https://gitorious.org/freebsd/freebsd/raw/f1d6f4778d2044502209708bc167c05f9aa48615:lib/libutil/kinfo_getfile.c
-            size_t len;
-            int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
-            BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
-            std::vector<char> buffer(len*2);
-            BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
-            for(char *p=buffer.data(); p<buffer.data()+len;)
-            {
-              struct kinfo_file *kif=(struct kinfo_file *) p;
-              std::cout << kif->kf_type << " " << kif->kf_fd << " " << kif->kf_path << std::endl;
-              p+=kif->kf_structsize;
-            }
-            for(char *p=buffer.data(); p<buffer.data()+len;)
-            {
-              struct kinfo_file *kif=(struct kinfo_file *) p;
-              if(kif->kf_fd==fd)
+              // Borrowed from https://gitorious.org/freebsd/freebsd/raw/f1d6f4778d2044502209708bc167c05f9aa48615:lib/libutil/kinfo_getfile.c
+              size_t len;
+              int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
+              BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
+              std::vector<char> buffer(len*2);
+              BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+#ifndef NDEBUG
+              for(char *p=buffer.data(); p<buffer.data()+len;)
               {
-                lock_guard<pathlock_t> g(pathlock);
-                _path=path::string_type(kif->kf_path);
-                return _path;
+                struct kinfo_file *kif=(struct kinfo_file *) p;
+                std::cout << kif->kf_type << " " << kif->kf_fd << " " << kif->kf_path << std::endl;
+                p+=kif->kf_structsize;
               }
-              p+=kif->kf_structsize;
-            }
 #endif
-            BOOST_AFIO_THROW(std::runtime_error("Failed to find fd in kernel fd tables"));
+              for(char *p=buffer.data(); p<buffer.data()+len;)
+              {
+                struct kinfo_file *kif=(struct kinfo_file *) p;
+                if(kif->kf_fd==fd)
+                {
+                  newpath=path::string_type(kif->kf_path);
+                  break;
+                }
+                p+=kif->kf_structsize;
+              }
+#endif
 #else
 #error Unknown system
 #endif
+#endif
+              auto containerh(container());
+              bool changed=false;
+              if(available_to_directory_cache())
+              {
+                lock_guard<pathlock_t> g(pathlock);
+                if((changed=(_path!=newpath)))
+                {
+                  // Need to update the directory cache
+                  parent()->int_directory_cached_handle_path_changed(_path, newpath, shared_from_this());
+                  _path=std::move(newpath);
+                  if(!containerh)
+                    return _path;
+                }
+              }
+              else
+              {
+                lock_guard<pathlock_t> g(pathlock);
+                if(containerh)
+                  changed=(_path!=newpath);
+                _path=std::move(newpath);
+                if(!containerh)
+                  return _path;
+              }
+              assert(containerh && changed);
+              if(changed)
+                containerh->path(true);
+            }
           }
           lock_guard<pathlock_t> g(pathlock);
           return _path;
@@ -1022,7 +1050,7 @@ namespace detail {
         {
             int_close();
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) override final
         {
             stat_t stat(nullptr);
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
@@ -1038,7 +1066,7 @@ namespace detail {
                   BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
                 }
                 afio::path leaf(path().filename());
-                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(dirh->native_handle(), leaf.c_str(), &s), [this]{return path();});
+                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT((int)(size_t)dirh->native_handle(), leaf.c_str(), &s), [this]{return path();});
               }
               else
 #endif
@@ -1055,7 +1083,7 @@ namespace detail {
               return directory_entry(const_cast<async_io_handle_posix *>(this)->path(true).filename().native(), stat, wanted);
             }
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() override final
         {
 #ifdef WIN32
             return path();
@@ -1081,7 +1109,7 @@ namespace detail {
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
               afio::path leaf(path().filename());
-              if((len = readlinkat(dirh->native_handle(), leaf.c_str(), buffer, sizeof(buffer)-1)) == -1)
+              if((len = readlinkat((int)(size_t)dirh->native_handle(), leaf.c_str(), buffer, sizeof(buffer)-1)) == -1)
                   BOOST_AFIO_ERRGOS(-1);
             }
             else
@@ -1661,6 +1689,12 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::fd_co
     }
     return ret;
 }
+
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h)
+{
+  todo;
+}
+
 
 // Non op lock holding variant
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op async_file_io_dispatcher_base::int_op_from_scheduled_id(size_t id) const
@@ -2338,7 +2372,7 @@ namespace detail {
             else
             {
               auto dirh=decode_relative_path(op, req);
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
             }
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
             return std::make_pair(true, ret);
@@ -2371,7 +2405,7 @@ namespace detail {
 #else
               if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
               {
-                  ret=BOOST_AFIO_POSIX_SYMLINKAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str());
+                  ret=BOOST_AFIO_POSIX_SYMLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str());
                   if(-1==ret && EEXIST==errno)
                   {
                       // Ignore already exists unless we were asked otherwise
@@ -2395,7 +2429,7 @@ namespace detail {
 #endif
                 if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
                 {
-                    ret=BOOST_AFIO_POSIX_MKDIRAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
+                    ret=BOOST_AFIO_POSIX_MKDIRAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
                     if(-1==ret && EEXIST==errno)
                     {
                         // Ignore already exists unless we were asked otherwise
@@ -2415,7 +2449,7 @@ namespace detail {
                 if(!!(req.flags & file_flags::OSDirect)) flags|=O_DIRECT;
 #endif
             }
-            fd=BOOST_AFIO_POSIX_OPENAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/));
+            fd=BOOST_AFIO_POSIX_OPENAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/));
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
@@ -3211,9 +3245,9 @@ namespace detail {
               dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_compat *>(parent()), 0, req, &async_file_io_dispatcher_compat::dofile);
           }
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
-          if(-1!=BOOST_AFIO_POSIX_FSTATAT(dirh->native_handle(), req.path.filename().c_str(), &s, AT_SYMLINK_NOFOLLOW))
+          if(-1!=BOOST_AFIO_POSIX_LSTATAT((int)(size_t)dirh->native_handle(), req.path.filename().c_str(), &s))
 #else
-          if(-1!=BOOST_AFIO_POSIX_FSTATAT(at_fdcwd, req.path.c_str(), &s, AT_SYMLINK_NOFOLLOW))
+          if(-1!=BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, req.path.c_str(), &s))
 #endif
           {
             if(s.st_dev==st_dev && s.st_ino==st_ino)
