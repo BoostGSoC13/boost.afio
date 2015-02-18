@@ -814,7 +814,7 @@ namespace detail {
         std::unique_ptr<posix_lock_file> lockfile;
 #endif
 
-        async_io_handle_posix(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const afio::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, std::move(_dirh), flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), st_dev(0), st_ino(0), mapaddr(nullptr), mapsize(0), _path(path)
+        async_io_handle_posix(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), st_dev(0), st_ino(0), mapaddr(nullptr), mapsize(0), _path(path)
         {
             if(fd!=-999)
             {
@@ -915,7 +915,6 @@ namespace detail {
           if(refresh && -999!=fd)
           {
 #if defined(WIN32)
-            BOOST_AFIO_THROW(std::runtime_error("Reading the current path of a file handle via MSVCRT is not supported on Windows."));
 #elif defined(__linux__)
             // Linux keeps a symlink at /proc/self/fd/n
             char in[PATH_MAX+1], out[PATH_MAX+1];
@@ -1006,18 +1005,18 @@ namespace detail {
           return _path;
         }
 
-        // You can't use shared_from_this() in a constructor so ...
+        // You can't use shared_from_this() nor virtual functions in a constructor so ...
         void do_add_io_handle_to_parent()
         {
             if(fd!=-999)
             {
-#ifndef WIN32
                 // Canonicalise my path
                 path(true);
-#endif
                 parent()->int_add_io_handle((void *) (size_t) fd, shared_from_this());
                 has_been_added=true;
             }
+            if(!!(flags() & file_flags::HoldParentOpen))
+              dirh=int_verifymyinode();
         }
         ~async_io_handle_posix()
         {
@@ -2277,6 +2276,43 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
 namespace detail {
     class async_file_io_dispatcher_compat : public async_file_io_dispatcher_base
     {
+        // Returns a handle for the op used as the base for the relative path fragment
+        std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
+        {
+          if(!req.is_relative)
+            return std::shared_ptr<async_io_handle>;
+          std::shared_ptr<async_io_handle> h(op.get());
+          async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+          async_path_op_req parentpath(p->path(true));
+          if(!force_absolute)
+          {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+            if(p->opened_as_dir())
+            {
+              if(p->available_to_directory_cache())
+                return std::move(h);  // always valid and a directory
+              else
+                return p->get_handle_to_dir(this, id, parentpath, &async_file_io_dispatcher_compat::dofile);
+            }
+            else
+            {
+              // If path fragment doesn't begin with ../, fail
+              if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
+                BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a path fragment inside a file"));
+              // Trim the preceding ..
+              req.path=afio::path(++req.path.begin(), req.path.end());
+              std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
+              if(dirh)
+                return std::move(dirh);
+              else
+                return int_get_handle_to_containing_dir(this, id, parentpath, &async_file_io_dispatcher_compat::dofile);
+            }
+#endif
+          }
+          req.path=parentpath/req.path;
+          req.is_relative=false;
+          return std::shared_ptr<async_io_handle>();
+        }
         // Called in unknown thread
         completion_returntype dodir(size_t id, async_io_op _, async_path_op_req req)
         {
@@ -2284,43 +2320,13 @@ namespace detail {
             if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write))
             {
                 // Return a copy of the one in the dir cache if available
+                decode_relative_path(op, req, true);
                 return std::make_pair(true, p->get_handle_to_dir(this, id, req, &async_file_io_dispatcher_compat::dofile));
             }
             else
             {
                 return dofile(id, _, req);
             }
-        }
-        std::shared_ptr<async_io_handle> process_relative_path(async_io_op &op, async_path_op_req &req)
-        {
-          std::shared_ptr<async_io_handle> h(op.get());
-          async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
-          async_path_op_req parentpath(p->path(true));
-#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
-          if(p->opened_as_dir())
-          {
-            if(p->available_to_directory_cache())
-              return std::move(h);  // always valid and a directory
-            else
-              return p->get_handle_to_dir(this, id, parentpath, &async_file_io_dispatcher_compat::dofile);
-          }
-          else
-          {
-            // If path fragment doesn't begin with ../, fail
-            if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
-              BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a path fragment inside a file"));
-            // Trim the preceding ..
-            req.path=afio::path(++req.path.begin(), req.path.end());
-            std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
-            if(dirh)
-              return std::move(dirh);
-            else
-              return int_get_handle_to_containing_dir(this, id, parentpath, &async_file_io_dispatcher_compat::dofile);
-          }
-#else
-          req.path=parentpath/req.path;
-#endif
-          return std::shared_ptr<async_io_handle>();
         }
         // Called in unknown thread
         completion_returntype dounlink(bool is_dir, size_t id, async_io_op op, async_path_op_req req)
@@ -2331,11 +2337,7 @@ namespace detail {
               op->int_safeunlink();
             else
             {
-              std::shared_ptr<async_io_handle> dirh;
-              // Is req a path fragment based on op's path?
-              if(req.is_relative)
-              {
-              }
+              auto dirh=decode_relative_path(op, req);
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
             }
             auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
@@ -2350,53 +2352,40 @@ namespace detail {
         completion_returntype dofile(size_t id, async_io_op op, async_path_op_req req)
         {
             int flags=0, fd;
-            std::shared_ptr<async_io_handle> dirh, containerh;
             req.flags=fileflags(req.flags);
-            // Is req a path fragment based on op's path?
-            if(req.is_relative)
-            {
-              std::shared_ptr<async_io_handle> h(op.get());
-              async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
-              async_path_op_req parentpath(p->path(true));
-#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
-              if(p->opened_as_dir())
-              {
-                if(p->available_to_directory_cache())
-                  dirh=h;  // always valid and a directory
-                else
-                  dirh=p->get_handle_to_dir(this, id, parentpath, &async_file_io_dispatcher_compat::dofile);
-              }
-              else
-              {
-                // If path fragment doesn't begin with ../, fail
-                if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
-                  BOOST_AFIO_THROW(std::invalid_argument("Cannot create a path fragment inside a file"));
-                // Trim the preceding ..
-                req.path=afio::path(++req.path.begin(), req.path.end());
-                dirh=p->container();  // quite likely empty
-                if(!dirh)
-                  dirh=int_get_handle_to_containing_dir(this, id, parentpath, &async_file_io_dispatcher_compat::dofile);
-              }
-#else
-              req.path=parentpath/req.path;
-#endif
-            }
+            std::shared_ptr<async_io_handle> dirh=decode_relative_path(op, req);
+
             if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
             else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
             else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
 #ifdef O_SYNC
             if(!!(req.flags & file_flags::AlwaysSync)) flags|=O_SYNC;
 #endif
-#ifdef O_PATH
             if(!!(req.flags & file_flags::int_opening_link))
             {
+#ifdef O_PATH
               // Some platforms allow the direct opening of symbolic links as file descriptors. If so,
               // symlinks become as unracy as files.
               flags|=O_PATH|O_NOFOLLOW;
-            }
-            else
+              // fall through
+#else
+              if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
+              {
+                  ret=BOOST_AFIO_POSIX_SYMLINKAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str());
+                  if(-1==ret && EEXIST==errno)
+                  {
+                      // Ignore already exists unless we were asked otherwise
+                      if(!(req.flags & file_flags::CreateOnlyIfNotExist))
+                          ret=0;
+                  }
+                  BOOST_AFIO_ERRHOSFN(ret, [&req]{return req.path;});
+              }
+              // POSIX doesn't allow you to open symbolic links, so return a closed handle
+              auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, false, false, -999);
+              return std::make_pair(true, ret);
 #endif
-            if(!!(req.flags & file_flags::int_opening_dir))
+            }
+            else if(!!(req.flags & file_flags::int_opening_dir))
             {
 #ifdef O_DIRECTORY
                 flags|=O_DIRECTORY;
@@ -2406,10 +2395,7 @@ namespace detail {
 #endif
                 if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
                 {
-                    if(!(req.flags & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
-                      ret=BOOST_AFIO_POSIX_MKDIRAT(dirh->native_handle(), req.path.c_str(), 0x1f8/*770*/);
-                    else
-                      ret=BOOST_AFIO_POSIX_MKDIRAT(at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
+                    ret=BOOST_AFIO_POSIX_MKDIRAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
                     if(-1==ret && EEXIST==errno)
                     {
                         // Ignore already exists unless we were asked otherwise
@@ -2429,13 +2415,9 @@ namespace detail {
                 if(!!(req.flags & file_flags::OSDirect)) flags|=O_DIRECT;
 #endif
             }
-            !!(req.flags & file_flags::HoldParentOpen) || (
-            if(!(req.flags & file_flags::NoRaceProtection) && BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS)
-              fd=BOOST_AFIO_POSIX_OPENAT(dirh->native_handle(), req.path.c_str(), flags, 0x1b0/*660*/));
-            else
-              fd=BOOST_AFIO_POSIX_OPENAT(at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/));
+            fd=BOOST_AFIO_POSIX_OPENAT(dirh ? dirh->native_handle() : at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/));
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
-            auto ret=std::make_shared<async_io_handle_posix>(this, !!(req.flags & file_flags::HoldParentOpen) ? dirh : std::shared_ptr<async_io_handle>(), req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
+            auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
             if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link) && !!(req.flags & file_flags::OSMMap))
                 ret->try_mapfile();
@@ -2449,14 +2431,11 @@ namespace detail {
         // Called in unknown thread
         completion_returntype dosymlink(size_t id, async_io_op op, async_path_op_req req)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
 #ifdef WIN32
             BOOST_AFIO_THROW(std::runtime_error("Creating symbolic links via MSVCRT is not supported on Windows."));
 #else
             req.flags=fileflags(req.flags)|file_flags::int_opening_link;
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_SYMLINK(h->path(true).c_str(), req.path.c_str()), [&req]{return req.path;});
-            auto ret=std::make_shared<async_io_handle_posix>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags, false, false, -999);
-            return std::make_pair(true, ret);
+            return dofile(id, _, req);
 #endif
         }
         // Called in unknown thread
@@ -3218,7 +3197,6 @@ namespace detail {
         }
     };
 
-#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
     inline std::shared_ptr<async_io_handle> async_io_handle_posix::int_verifymyinode()
     {
         BOOST_AFIO_POSIX_STAT_STRUCT s={0};
@@ -3232,7 +3210,11 @@ namespace detail {
             if(!dirh)
               dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_compat *>(parent()), 0, req, &async_file_io_dispatcher_compat::dofile);
           }
-          if(-1!=BOOST_AFIO_POSIX_LSTATAT(dirh->native_handle(), req.path.filename().c_str(), &s))
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+          if(-1!=BOOST_AFIO_POSIX_FSTATAT(dirh->native_handle(), req.path.filename().c_str(), &s, AT_SYMLINK_NOFOLLOW))
+#else
+          if(-1!=BOOST_AFIO_POSIX_FSTATAT(at_fdcwd, req.path.c_str(), &s, AT_SYMLINK_NOFOLLOW))
+#endif
           {
             if(s.st_dev==st_dev && s.st_ino==st_ino)
               return dirh;
@@ -3243,7 +3225,6 @@ namespace detail {
         }
         return dirh;
     }
-#endif
 }
 
 BOOST_AFIO_V1_NAMESPACE_END
@@ -3293,7 +3274,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         else
         {
             // No choice here, open a handle and stat it.
-            async_path_op_req req(dirh->path(true)/name(), file_flags::Read);
+            async_path_op_req::relative req(dirh, name(), file_flags::Read);
             auto fileh=dispatcher->dofile(0, async_io_op(), req).second;
             auto direntry=fileh->direntry(wanted);
             wanted=wanted & direntry.metadata_ready(); // direntry() can fail to fill some entries on Win XP

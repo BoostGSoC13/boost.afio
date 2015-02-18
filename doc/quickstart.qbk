@@ -339,6 +339,8 @@ as indeed does most unfortunately the POSIX API standard which defines the commo
 Mac OS X and other Unices.
 When bug reports come in of data being lost, even very large professional corporations can make a real
 ham of testing that their ["fix] isn't worse at losing data than the previous more naive implementation.
+This is because when you program against a model of a static, unchanging filesystem you will become
+inevitably surprised when it happens to change at exactly the wrong moment.
 
 [heading Some background]
 As an example, let us imagine a completely hypothetical multinational vendor of a popular office suite.
@@ -351,21 +353,22 @@ the user pressing Save, these .tmp files were coalesced into a new temp file whi
 document, fsync was issued, the old file was renamed to a .tmp file, the new .tmp file to the name of
 the old file, more fsyncs, and the .tmp files excluding the just renamed former copy deleted. A backup copy
 was saving onto the local machine's temporary directory just for good measure. The idea
-here was if anything went wrong at any point that some working version of the document could be retrieved.
-This copy-on-write system with mirroring, whilst not without its flaws, worked very well in practice. Even if the user lost all their
+here was if anything went wrong at any point, that some working version of the document could be retrieved.
+This (effectively speaking) copy-on-write system with mirroring, whilst not without its flaws, worked very well in practice. Even if the user lost all their
 changes since the last time they successfully completed a save, it was quite rare that they lost everything __dash__
-well, except when the primitive filing system simply lost their files that is, whereupon only the initiated
+well, except when the primitive filing system simply lost the correct extents for their files that is, whereupon only the initiated
 power users knew to look into the local temporary directory for backup copies.
 
 Quite a few years passed, and a problem began to emerge. If one tried this copy-on-write scheme over a
 networked SMB share also being simultaneously used by many other users, some unexpected problems emerged.
 For one thing, the .tmp files only had a few letters of randomness in them due to the 11 character filename limit, so
-.tmp file naming could collide with other users regularly enough not helped by the fact that the random number
-generator used a fixed seed and wasn't particular random. Another problem was the many fsyncs and creation
+.tmp file naming could collide with other users regularly enough __dash__ not helped by the fact that the random number
+generator wasn't particularly random. Another problem was the many fsyncs and creation
 of many new temporary copy-on-write files holding data which really was genuinely temporary, and also often very large
 as it was intermediate transfer of say large bitmaps between one part of the office product and another via
 a copy and paste operation.
-All that had to be pushed and pulled from the network share. Finally, the earlier logic had no awareness
+All that had to be pushed and pulled from the network share over what was in those days typically a 10 Mbit coaxial
+ethernet cable (i.e. very slow). Finally, the earlier logic had no awareness
 of what ought to happen if two people open the same file concurrently, or two users try to write to the same
 file name concurrently (obviously someone sees their sequence of renames to fail), or indeed many other corner cases.
 As a quick fix to these issues, the multinational vendor in fact bolted on a simple detection of a file being already
@@ -381,37 +384,169 @@ than NFS and didn't corrupt data like NFS at that time did. The hypothetical ven
 against their proprietary implementation of a networking filing system, and it worked, so they shipped the feature.
 
 Unfortunately, this turned out to be a case of what worked during testing not working so well in the field.
-NT opportunistic locks worked great, except when they didn't. If your network was heavily overloaded, or your MTU path discovery was broken,
-or you had a faulty network card anywhere on the network, ['then] you saw data corruption. You can read
+NT opportunistic locks worked great, except when they didn't. If your network was heavily overloaded and was
+dropping packets, or your MTU path discovery was broken (dropping some packets not others without the proper
+ICMP response), or you had a faulty network card anywhere on the network, ['then] you saw data corruption due
+to the op locks getting out of sync with one another. You can read
 lots more about NT opportunistic locks [@https://www.samba.org/samba/docs/man/Samba-HOWTO-Collection/locking.html here].
 
 Furthermore, a large chunk of their user base doesn't use their proprietary network filing system
 implementation i.e. the one they did all their testing upon. Rather they use Samba which is an open source alternative. Samba runs atop of a mostly
-POSIX compliant file systems, and these provide a pale shadow of the locking facilities what the NT/VMS kernel provides. Samba
+POSIX compliant file systems, and these provide a pale, and incommensurate to even other POSIX implementations,
+shadow of the locking facilities provided by the NT/VMS kernel. Samba
 is therefore in a very unfortunate position of having to emulate NT oplock semantics using the
 highly inferior, and indeed known-to-be-fundamentally-broken byte range advisory locking on POSIX
 (I won't start into just how braindead POSIX advisory locking is, but be happy that AFIO spends
-a lot of code working around it in the v1.4 engine onwards). This is not to denigrate the Samba authors
+a lot of code working around it in the v1.4 engine onwards and the Austin Working Group may soon
+have POSIX not require such a foolish design). This is not to denigrate the Samba authors
 __dash__ after all, they were forced to emulate semantics which POSIX cannot allow, and in fact
-Linux ended up implementing NT oplocks via the `F_SETLEASE` et al `fnctl()` extensions to help Samba
+Linux ended up implementing NT oplocks in its kernel via the `F_SETLEASE` et al `fnctl()` extensions to help Samba
 replicate equivalent semantics.
 
-Nevertheless, cue a spate of file corruption and lost data by users of this office suite when using
+Nevertheless, cue a spate of file corruption and lost data by users of this hypothetical office suite when using
 network shares (a google search might find issues related to some office suite whose resemblance to the
 hypothetical one described is purely coincidental). As of the time
 of writing (Feb 2015), the still extant advice is to disable oplocks for all Samba shares which are not
 the user's personal home directory and therefore disables all caching in
-Samba for such shares. This has calamitous effects on performance, sufficiently so that Samba shares
+Samba for such non-exclusive i.e. actually shared network shares. This has calamitous effects on performance, sufficiently so that Samba shares
 now appear quite slow relative to modern NFS shares. This is unfortunate, and I doubt that the designer
-of the oplock implemented by the office suite would have expected and definitely not intended such an outcome.
+of the oplock based solution implemented by the office suite would have expected, and definitely not intended,
+the real world outcome of lost and corrupted user data combined with poor performance.
 
-Here is where AFIO comes into play. AFIO makes as much of platform quirks as is possible go away, but
+Here is where AFIO comes into play. AFIO makes as many platform quirks as is possible go away, but
 otherwise provides you with a set of behaviour guarantees regarding the remaining platform quirks.
-With care, and through examining this quirks list, by using AFIO it is possible to write high performance
+With care, and through examining this quirks list below, by using AFIO it is possible to write high performance
 but ['correct] filing system manipulation logic __dash__ well, in so far as the quirks allow at least!
 
 [heading What AFIO provides for managing filing system raciness]
 
+Firstly, the only operating system capable of providing completely race free filing system behaviour is Microsoft Windows.
+Linux provides file descriptor path discovery and the `XXXat()` POSIX APIs, and with those AFIO can provide pretty
+good race condition safety on Linux. Mac OS X provides file descriptor path discovery, but does not provide the `XXXat()`
+POSIX APIs and so AFIO cannot provide race protection, but can throw exceptions sometimes if it detects the filesystem
+has suddenly changed. FreeBSD provides the `XXXat()` POSIX APIs, but no file descriptor path discovery (I've opened
+a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695) and therefore only quite
+limited race condition safety.
+
+Additionally, working with the filing system in a race safe way on POSIX requires opening a file descriptor to the
+containing directory for every operation. AFIO will keep a global cache of open file handles for containing directories
+on request using the `file_flags::HoldParentOpen` flag which can be enabled per dispatcher or per individual file handle open,
+this very significantly reduces the cost of race condition safety on POSIX ['for file entries only] as directories ignore
+the `file_flags::HoldParentOpen` flag, though at the cost of increased file descriptor usage, which has low hard limits
+especially on OS X which is why it is disabled by default. The alternative if you don't want AFIO to bother with race safety
+is to specify the `file_flags::NoRaceProtection` flag per dispatcher or per individual file handle open, this causes AFIO
+to use the same maximum performance code paths as used before the v1.3 engine.
+
+The APIs provided by AFIO which have potential file system races are as follows:
+
+[table:afio_racy_apis1 Potential races in APIs provided by AFIO:
+[[API][Context]]
+
+[[`afio::path::make_absolute()`][Where a relative path fragment is supplied and `filesystem::absolute()` must be called
+to convert it into an absolute path, this is racy on the process current working directory setting.][Either always
+supply absolute paths when not traversing from a precondition, or never change the current working directory (including
+any third party libraries).]]
+
+[[`async_io_handle::path(false)`][By default returns the last known good path. Calling it with true is much slower, but
+may return a path which is currently correct for some hard link __dash__ not necessarily the hard link you originally
+opened (platforms vary on this) __dash__ of the inode currently opened by the handle. Note that the returned path may
+become invalid at any moment if someone else changes the directory hierarchy underneath the file entry.]]
+
+]
+
+Remember in the following table that __afio_path_op_req__ can be constructed via any of the following means:
+
+* Implicit conversion from a __afio_path__, which if not absolute is made absolute from the current working directory.
+* Boolean `is_relative`, precondition and path. If is relative, the precondition's path is used as the starting point
+for the path fragment and if the path fragment is empty, that means the path of the precondition.
+If is not relative, if the path is not absolute it is made absolute from the current working directory.
+* `async_path_op_req::relative` type markup for the preceding constructor with `is_relative=true`.
+* `async_path_op_req::absolute` type markup for the preceding constructor with `is_relative=false`.
+
+The essential rule for achieving maximum filing system race safety is to avoid using absolute paths where possible.
+
+[table:afio_racy_apis2
+[[API][Race protection][Path op type][Microsoft Windows][Linux][Mac OS X][FreeBSD]]
+
+[[`dir/file(async_path_op_req)`][On][Absolute]
+ [Unsafe on all platforms as may not open the directory or file expected if the filing system changes.]
+]
+[[][On][Relative]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Unsafe]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+]
+[[][Off][Absolute]
+ [Unsafe on all platforms as may not open the directory or file expected if the filing system changes.]
+]
+[[][Off][Relative]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+ [Unsafe]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+]
+
+[[`rmdir/rmfile(async_path_op_req)`][On][Absolute]
+ [Unsafe on all platforms as may not delete the directory or file expected if the filing system changes.]
+]
+[[][On][Relative]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Safe to precondition's containing directory. Unsafe within containing directory.]
+ [Unsafe.]
+ [Should return not found if unsafe.]
+]
+[[][Off][Absolute]
+ [Unsafe on all platforms as may not delete the directory or file expected if the filing system changes.]
+]
+[[][Off][Relative]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+ [Unsafe.]
+ [Should return not found if unsafe.]
+]
+
+[[`symlink(async_path_op_req)`][On][Absolute]
+ [Unsafe on all platforms as may not open the symlink expected if the filing system changes.]
+]
+[[][On][Relative]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Unsafe]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+]
+[[][Off][Absolute]
+ [Unsafe on all platforms as may not open the symlink expected if the filing system changes.]
+]
+[[][Off][Relative]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+ [Unsafe]
+ [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
+]
+
+[[`rmsymlink(async_path_op_req)`][On][Absolute]
+ [Unsafe on all platforms as may not delete the symlink expected if the filing system changes.]
+]
+[[][On][Relative]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Unsafe.]
+ [Throws exception if unsafe if link is not broken and refers to a distinct file. Otherwise unsafe.]
+]
+[[][Off][Absolute]
+ [Unsafe on all platforms as may not delete the symlink expected if the filing system changes.]
+]
+[[][Off][Relative]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Safe to precondition. Any path fragment from there may not be the one expected.]
+ [Unsafe.]
+ [Should return not found if unsafe.]
+]
+
+
+
+]
 
 Detail what can be tracked and not tracked per OS and filing system.
 

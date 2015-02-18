@@ -1123,12 +1123,12 @@ class async_io_handle : public std::enable_shared_from_this<async_io_handle>
     friend class detail::async_file_io_dispatcher_qnx;
 
     async_file_io_dispatcher_base *_parent;
-    std::shared_ptr<async_io_handle> dirh;
     chrono::system_clock::time_point _opened;
     file_flags _flags;
 protected:
+    std::shared_ptr<async_io_handle> dirh;
     atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
-    async_io_handle(async_file_io_dispatcher_base *parent, std::shared_ptr<async_io_handle> _dirh, file_flags flags) : _parent(parent), dirh(std::move(_dirh)), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    async_io_handle(async_file_io_dispatcher_base *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
@@ -1241,6 +1241,12 @@ struct async_io_op
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
     async_io_op(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
+    /*! Constructs an instance.
+    \param _handle A shared_ptr to shared state between all instances of this reference.
+    \param check_handle Whether to have validation additionally check if a handle is not null
+    \param validate Whether to check the inputs and shared state for valid (and not errored) values
+    */
+    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id(0) { promise<async_io_handle> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.

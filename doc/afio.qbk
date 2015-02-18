@@ -52,6 +52,8 @@
 [def __afio_extents__ [link afio.reference.classes.async_file_io_dispatcher_base.extents_1_batch `async_file_io_dispatcher_base::extents()`]]
 [def __afio_op__ [link afio.reference.structs.async_io_op `struct async_io_op`]]
 [def __afio_handle__ [link afio.reference.classes.async_io_handle `class async_io_handle`]]
+[def __afio_path__ [link afio.reference.classes.path `class path`]]
+[def __afio_path_op_req__ [link afio.reference.structs.async_data_op_req.async_data_op_req `struct async_data_op_req`]]
 [def __afio_when_all__ [link afio.reference.functions.when_all_ops `when_all()`]]
 
 [import ../example/adopt_example.cpp]
