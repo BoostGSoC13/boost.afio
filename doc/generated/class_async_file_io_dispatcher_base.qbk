@@ -567,6 +567,19 @@ A batch of op handles.
 
 
 ]]
+[[``async_io_op depends(async_io_op precondition, async_io_op op)``
+
+] [Schedule the return of an op handle after another op handle completes. This is useful when you need to supply one op handle to a function but it must not begin until another op handle has finished. ] [[* async_io_op]: ['precondition]:  The op handle which must complete for op to be passed through. 
+
+[* async_io_op]: ['op]:  The op handle to return.
+
+
+
+][
+The op handle op. 
+
+
+]]
 [[``std::vector< size_t > page_sizes(bool only_actually_available = true)``
 
 ] [Returns the page sizes of this architecture which is useful for calculating direct i/o multiples. ] [[* bool]: ['only_actually_available]:  Only return page sizes actually available to the user running this process 
@@ -575,6 +588,15 @@ A batch of op handles.
 
 ][
 The page sizes of this architecture.
+
+
+]]
+[[``size_t file_buffer_default_size()``
+
+] [Returns a reasonable default size for file_buffer_allocator, typically the closest page size from page_sizes() to 1Mb. ] [
+
+][
+A value of a TLB large page size close to 1Mb.
 
 
 ]]

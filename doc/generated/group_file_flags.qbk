@@ -24,8 +24,9 @@
 '''<indexterm><primary>WillBeSequentiallyAccessed</primary></indexterm>'''
 '''<indexterm><primary>WillBeRandomlyAccessed</primary></indexterm>'''
 '''<indexterm><primary>NoSparse</primary></indexterm>'''
-'''<indexterm><primary>FastDirectoryEnumeration</primary></indexterm>'''
+'''<indexterm><primary>HoldParentOpen</primary></indexterm>'''
 '''<indexterm><primary>UniqueDirectoryHandle</primary></indexterm>'''
+'''<indexterm><primary>NoRaceProtection</primary></indexterm>'''
 '''<indexterm><primary>TemporaryFile</primary></indexterm>'''
 '''<indexterm><primary>DeleteOnClose</primary></indexterm>'''
 '''<indexterm><primary>OSDirect</primary></indexterm>'''
@@ -33,14 +34,14 @@
 '''<indexterm><primary>OSLockable</primary></indexterm>'''
 '''<indexterm><primary>AlwaysSync</primary></indexterm>'''
 '''<indexterm><primary>SyncOnClose</primary></indexterm>'''
-'''<indexterm><primary>EnforceDependencyWriteOrder</primary></indexterm>'''
+'''<indexterm><primary>int_hold_parent_open_nested</primary></indexterm>'''
 '''<indexterm><primary>int_file_share_delete</primary></indexterm>'''
 '''<indexterm><primary>int_opening_link</primary></indexterm>'''
 '''<indexterm><primary>int_opening_dir</primary></indexterm>'''
 Bitwise file and directory open flags. 
 
 [heading Synopsis]
-``enum file_flags {None = 0, Read = 1, Write = 2, ReadWrite = 3, Append = 4, Truncate = 8, Create = 16, CreateOnlyIfNotExist = 32, CreateCompressed = 64, WillBeSequentiallyAccessed = 128, WillBeRandomlyAccessed = 256, NoSparse = 512, FastDirectoryEnumeration = (1<<10), UniqueDirectoryHandle = (1<<11), TemporaryFile = (1<<12), DeleteOnClose = (1<<13), OSDirect = (1<<16), OSMMap = (1<<17), OSLockable = (1<<18), AlwaysSync = (1<<24), SyncOnClose = (1<<25), EnforceDependencyWriteOrder = (1<<26), int_file_share_delete = (1<<28), int_opening_link = (1<<29), int_opening_dir = (1<<30)};``
+``enum file_flags {None = 0, Read = 1, Write = 2, ReadWrite = 3, Append = 4, Truncate = 8, Create = 16, CreateOnlyIfNotExist = 32, CreateCompressed = 64, WillBeSequentiallyAccessed = 128, WillBeRandomlyAccessed = 256, NoSparse = 512, HoldParentOpen = (1<<10), UniqueDirectoryHandle = (1<<11), NoRaceProtection = (1<<12), TemporaryFile = (1<<13), DeleteOnClose = (1<<14), OSDirect = (1<<16), OSMMap = (1<<17), OSLockable = (1<<18), AlwaysSync = (1<<24), SyncOnClose = (1<<25), int_hold_parent_open_nested = (1<<27), int_file_share_delete = (1<<28), int_opening_link = (1<<29), int_opening_dir = (1<<30)};``
 
 [heading Values]
 
@@ -55,11 +56,12 @@ Bitwise file and directory open flags.
 [[Create] [Open and create if doesn't exist. Always creates sparse files if possible. ]]
 [[CreateOnlyIfNotExist] [Create and open only if doesn't exist. ]]
 [[CreateCompressed] [Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system. ]]
-[[WillBeSequentiallyAccessed] [Will be exclusively either read or written sequentially. If you're exclusively writing sequentially, ['strongly] consider turning on OSDirect too. ]]
+[[WillBeSequentiallyAccessed] [Will be ['exclusively] either read or written sequentially. If you're exclusively writing sequentially, ['strongly] consider turning on OSDirect too. ]]
 [[WillBeRandomlyAccessed] [Will be randomly accessed, so don't bother with read-ahead. If you're using this, ['strongly] consider turning on OSDirect too. ]]
 [[NoSparse] [Don't create sparse files. May be ignored by some filing systems (e.g. ext4). ]]
-[[FastDirectoryEnumeration] [Hold a file handle open to the containing directory of each open file for fast directory enumeration. ]]
+[[HoldParentOpen] [Hold a file handle open to the containing directory of each open file for fast directory enumeration and fast relative path ops. ]]
 [[UniqueDirectoryHandle] [Return a unique directory handle rather than a shared directory handle. ]]
+[[NoRaceProtection] [Skip taking steps to avoid destruction of data due to filing system races. Most of the performance benefit of enabling this goes away if you enable HoldParentOpen instead, so be especially careful when considering turning this on. ]]
 [[TemporaryFile] [On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close. ]]
 [[DeleteOnClose] [Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX. ]]
 [[OSDirect] [Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on) ]]
@@ -67,7 +69,7 @@ Bitwise file and directory open flags.
 [[OSLockable] []]
 [[AlwaysSync] [Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose. ]]
 [[SyncOnClose] [Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete. ]]
-[[EnforceDependencyWriteOrder] [Ensure that data writes to files reach physical storage in the same order as the op dependencies close files. Does NOT enforce ordering of individual data writes, ONLY all file writes accumulated before a file close. ]]
+[[int_hold_parent_open_nested] [Internal use only. Don't use. ]]
 [[int_file_share_delete] [Internal use only. Don't use. ]]
 [[int_opening_link] [Internal use only. Don't use. ]]
 [[int_opening_dir] [Internal use only. Don't use. ]]

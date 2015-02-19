@@ -17,6 +17,7 @@ A convenience bundle of path and flags, with optional precondition.
 [heading Synopsis]
 ``struct async_path_op_req
 {
+  bool is_relative;          // Whether the precondition is also where this path begins. 
   afio::path path;           // The filing system path to be used for this operation. 
   file_flags flags;          // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction). 
   async_io_op precondition;  // An optional precondition for this operation 
@@ -32,9 +33,42 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(afio::path _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(const async_path_op_req & o)``
 
-] [Constructs an instance. ] [[* afio::path]: ['_path]:  The filing system path to be used. 
+] [Copy constructor. ] [[* const async_path_op_req &]: ['o]:  
+
+
+
+
+]]
+[[``async_path_op_req(async_path_op_req && o)``
+
+] [Move constructor. ] [[* async_path_op_req &&]: ['o]:  
+
+
+
+
+]]
+[[``async_path_op_req(absolute && o)``
+
+] [Move constructor. ] [[* absolute &&]: ['o]:  
+
+
+
+
+]]
+[[``async_path_op_req(relative && o)``
+
+] [Move constructor. ] [[* relative &&]: ['o]:  
+
+
+
+
+]]
+[[``template<class T, typename>
+async_path_op_req(T && _path, file_flags _flags = file_flags::None)``
+
+] [Constructs an instance. ] [[* T &&]: ['_path]:  The filing system path to be used. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -42,19 +76,14 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(const filesystem::path & _path, file_flags _flags = file_flags::None)``
+[[``template<class T>
+async_path_op_req(bool _is_relative, async_io_op _precondition, T && _path, file_flags _flags = file_flags::None)``
 
-] [Constructs an instance. ] [[* const filesystem::path &]: ['_path]:  The filing system path to be used. 
+] [Constructs an instance. ] [[* bool]: ['_is_relative]:  Whether the precondition is where the path begins 
 
-[* file_flags]: ['_flags]:  The flags to be used. 
+[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
-
-
-
-]]
-[[``async_path_op_req(const char * _path, file_flags _flags = file_flags::None)``
-
-] [Constructs an instance. ] [[* const char *]: ['_path]:  The filing system path to be used. 
+[* T &&]: ['_path]:  The filing system path to be used. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -62,21 +91,9 @@ A convenience bundle of path and flags, with optional precondition.
 
 
 ]]
-[[``async_path_op_req(const std::string & _path, file_flags _flags = file_flags::None)``
+[[``async_path_op_req(async_io_op _precondition, file_flags _flags = file_flags::None)``
 
-] [Constructs an instance. ] [[* const std::string &]: ['_path]:  The filing system path to be used. 
-
-[* file_flags]: ['_flags]:  The flags to be used. 
-
-
-
-
-]]
-[[``async_path_op_req(async_io_op _precondition, afio::path _path, file_flags _flags = file_flags::None)``
-
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
-
-[* afio::path]: ['_path]:  The filing system path to be used. 
+] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation (used as the path). 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 
@@ -99,6 +116,9 @@ A convenience bundle of path and flags, with optional precondition.
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
+
+[include generated/struct_async_path_op_req_1_1absolute.qbk]
+[include generated/struct_async_path_op_req_1_1relative.qbk]
 
 [endsect]
 

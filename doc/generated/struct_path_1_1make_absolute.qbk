@@ -25,6 +25,14 @@
 [heading Constructor(s)]
 [table
 [[Function] [Description] [Parameters] ]
+[[``make_absolute(const path & p)``
+
+] [] [[* const path &]: ['p]:  
+
+
+
+
+]]
 [[``make_absolute(path && p)``
 
 ] [] [[* path &&]: ['p]:  
@@ -33,7 +41,7 @@
 
 
 ]]
-[[``template<class T>
+[[``template<class T, typename>
 make_absolute(T && p)``
 
 ] [] [[* T &&]: ['p]:  
@@ -215,7 +223,7 @@ path & concat(InputIterator begin, InputIterator end)``
 
 
 ]]
-[[``path leaf()``
+[[``path filename()``
 
 ] [] [
 

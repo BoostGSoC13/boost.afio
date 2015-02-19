@@ -2509,6 +2509,11 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_o
 
 /*! \struct async_path_op_req
 \brief A convenience bundle of path and flags, with optional precondition
+
+\qbk{
+[include generated/struct_async_path_op_req_1_1absolute.qbk]
+[include generated/struct_async_path_op_req_1_1relative.qbk]
+}
 */
 struct async_path_op_req
 {
@@ -2580,7 +2585,6 @@ struct async_path_op_req::relative : async_path_op_req
   template<class T> relative(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
   /*! \brief Constructs an instance.
   
-  \tparam "class T" The type of path to be used.
   \param _precondition The precondition for this operation.
   \param _flags The flags to be used.
   */
@@ -2645,6 +2649,7 @@ inline std::vector<asio::const_buffer> to_asio_buffers(asio::const_buffer &v)
 }
 /*! \brief A buffer at v sized length*sizeof(T)
 
+\tparam "class T" Any trivial type T
 \return A vector of ASIO buffers
 \ingroup to_asio_buffers
 \qbk{distinguish, buffer of T}
@@ -2656,6 +2661,7 @@ template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T *v,
 }
 /*! \brief A buffer at v sized length*sizeof(T)
 
+\tparam "class T" Any trivial type T
 \return A vector of ASIO buffers
 \ingroup to_asio_buffers
 \qbk{distinguish, const buffer of T}
@@ -2807,6 +2813,7 @@ Container types have their value type deduced and to_asio_buffers() called on th
 Additional specialisations are provided for string, vector and array to collapse the scatter
 gather buffers into a single one for contiguous storage.
 
+\tparam "class T" Any trivial type T or STL container
 \return A vector of ASIO buffers
 \ingroup to_asio_buffers
 \qbk{distinguish, trivial and container types}
@@ -2822,6 +2829,7 @@ Container types have their value type deduced and to_asio_buffers() called on th
 Additional specialisations are provided for string, vector and array to collapse the scatter
 gather buffers into a single one for contiguous storage.
 
+\tparam "class T" Any trivial type T or STL container
 \return A vector of ASIO buffers
 \ingroup to_asio_buffers
 \qbk{distinguish, const trivial and container types}
@@ -2832,6 +2840,7 @@ template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T
 }
 /*! \brief A buffer at v sized N*sizeof(T)
 
+\tparam "class T" Any trivial type T
 \return A vector of ASIO buffers
 \ingroup to_asio_buffers
 \qbk{distinguish, C arrays}
@@ -2842,6 +2851,7 @@ template<class T, size_t N> inline std::vector<asio::mutable_buffer> to_asio_buf
 }
 /*! \brief A buffer at v sized N*sizeof(T)
 
+\tparam "class T" Any trivial type T
 \return A vector of ASIO buffers
 \ingroup to_asio_buffers
 \qbk{distinguish, const C arrays}
@@ -2961,6 +2971,7 @@ namespace detail
 
 /*! \struct async_data_op_req
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
+
 \tparam "class T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */
@@ -2993,6 +3004,7 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
+
 \tparam "class T" Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload.
 \ingroup async_data_op_req
 */

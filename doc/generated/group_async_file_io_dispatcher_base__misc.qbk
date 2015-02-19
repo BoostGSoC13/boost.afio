@@ -37,6 +37,33 @@ The page sizes of this architecture.
 
 [endsect]
 
+[section:file_buffer_default_size file_buffer_default_size]
+
+'''<indexterm><primary>file_buffer_default_size</primary></indexterm>'''
+Returns a reasonable default size for file\u005fbuffer\u005fallocator, typically the closest page size from page\u005fsizes() to 1Mb. 
+
+[heading Synopsis]
+``static size_t async_file_io_dispatcher_base::file_buffer_default_size()``
+
+[heading Parameters]
+
+[table
+[[Type] [Concept] [Name] [Description] ]
+]
+
+
+[heading Returns]
+A value of a TLB large page size close to 1Mb.
+
+[heading Header]
+`#include <boost/afio/afio.hpp>`
+
+[heading Complexity]Whatever the system API takes (one would hope constant time).
+[heading Exception Model]Any error from the operating system or std::bad_alloc.
+
+
+[endsect]
+
 [section:random_fill random_fill]
 
 '''<indexterm><primary>random_fill</primary></indexterm>'''

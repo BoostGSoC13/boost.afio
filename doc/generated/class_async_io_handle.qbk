@@ -47,7 +47,7 @@ Note that failure to explicitly schedule closing a file handle in the dispatcher
 ]]
 [[``std::shared_ptr< async_io_handle > container()``
 
-] [Returns a handle to the directory containing this handle. Only works if [^`file_flags::FastDirectoryEnumeration`] was specified when this handle was opened. ] [
+] [Returns a handle to the directory containing this handle. Only works if [^`file_flags::HoldParentOpen`] was specified when this handle was opened. ] [
 
 
 ]]
@@ -98,6 +98,12 @@ Note that failure to explicitly schedule closing a file handle in the dispatcher
 [[``bool opened_as_symlink()``
 
 ] [True if this handle was opened as a symlink. ] [
+
+
+]]
+[[``bool available_to_directory_cache()``
+
+] [True if this handle is used by the directory handle cache (not UniqueDirectoryHandle and is open for write and not open for write) ] [
 
 
 ]]

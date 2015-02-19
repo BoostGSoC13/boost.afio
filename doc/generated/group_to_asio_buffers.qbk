@@ -72,7 +72,7 @@ std::vector<asio::mutable_buffer> to_asio_buffers(T * v, size_t length)``
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[class T] [] [ - ] [Must be specified]]
+[[class T] [Any trivial type T ] [ - ] [Must be specified]]
 [[T *] [] [v] []]
 [[size_t] [] [length] []]
 ]
@@ -100,7 +100,7 @@ std::vector<asio::const_buffer> to_asio_buffers(const T * v, size_t length)``
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[class T] [] [ - ] [Must be specified]]
+[[class T] [Any trivial type T ] [ - ] [Must be specified]]
 [[const T *] [] [v] []]
 [[size_t] [] [length] []]
 ]
@@ -183,7 +183,7 @@ std::vector< asio::mutable_buffer > to_asio_buffers(T & v)``
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[class T] [] [ - ] [Must be specified]]
+[[class T] [Any trivial type T or STL container ] [ - ] [Must be specified]]
 [[T &] [] [v] []]
 ]
 
@@ -213,7 +213,7 @@ std::vector< asio::const_buffer > to_asio_buffers(const T & v)``
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[class T] [] [ - ] [Must be specified]]
+[[class T] [Any trivial type T or STL container ] [ - ] [Must be specified]]
 [[const T &] [] [v] []]
 ]
 
@@ -240,7 +240,7 @@ std::vector< asio::mutable_buffer > to_asio_buffers(T(&) v)``
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[class T] [] [ - ] [Must be specified]]
+[[class T] [Any trivial type T ] [ - ] [Must be specified]]
 [[N] [] [ - ] [Must be specified]]
 [[T(&)] [] [v] []]
 ]
@@ -268,7 +268,7 @@ std::vector< asio::const_buffer > to_asio_buffers(const T(&) v)``
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[class T] [] [ - ] [Must be specified]]
+[[class T] [Any trivial type T ] [ - ] [Must be specified]]
 [[N] [] [ - ] [Must be specified]]
 [[const T(&)] [] [v] []]
 ]
