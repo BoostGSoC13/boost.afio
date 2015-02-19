@@ -209,6 +209,7 @@ cost, so a new file_flags::NoRaceProtection can disable the new semantics. Renam
 to file_flags::HoldParentOpen as enabling HoldParentOpen will make most of the performance cost of race
 protection disappear.
 
+* Implemented WillBeSequentiallyAccessed and WillBeRandomlyAccessed for POSIX.
 
 TODO BEFORE RELEASE
 

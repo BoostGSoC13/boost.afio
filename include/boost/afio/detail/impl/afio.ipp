@@ -945,35 +945,19 @@ namespace detail {
               if(s.st_nlink)
                 newpath=path::string_type(buffer);
 #elif defined(__FreeBSD__)
-#if 0  // Doesn't work after rename :(
-              void *addr;
-              if(!(addr=mmap(nullptr, 1, PROT_NONE, 0, fd, 0)))
-                BOOST_AFIO_ERRHOS(-1);
-              auto unaddr=detail::Undoer([&addr]{munmap(addr, 1);});
-              size_t len;
-              int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_VMMAP, getpid()};
-              BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
-              std::vector<char> buffer(len*2);
-              BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
-              for(char *p=buffer.data(); p<buffer.data()+len;)
+              // This works if and only if the fd has an extent and has not been renamed since
+              // being opened, otherwise it return a null path :(. This implementation hopes
+              // that the call starts working soon (https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695).
               {
-                struct kinfo_vmentry *kve=(struct kinfo_vmentry *) p;
-                std::cout << kve->kve_start << " " << kve->kve_path << std::endl;
-                if((void *) kve->kve_start==addr)
-                {
-                  newpath=path::string_type(kve->kve_path);
-                  break;
-                }
-                p+=kve->kve_structsize;
+                lock_guard<pathlock_t> g(pathlock);
+                newpath=_path;
               }
-#else  // Doesn't work at all, the kernel isn't filling in kf_path for regular file vnodes
-              // Borrowed from https://gitorious.org/freebsd/freebsd/raw/f1d6f4778d2044502209708bc167c05f9aa48615:lib/libutil/kinfo_getfile.c
               size_t len;
               int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
               BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
               std::vector<char> buffer(len*2);
               BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
-#ifndef NDEBUG
+#if 0 //ndef NDEBUG
               for(char *p=buffer.data(); p<buffer.data()+len;)
               {
                 struct kinfo_file *kif=(struct kinfo_file *) p;
@@ -986,42 +970,42 @@ namespace detail {
                 struct kinfo_file *kif=(struct kinfo_file *) p;
                 if(kif->kf_fd==fd)
                 {
-                  newpath=path::string_type(kif->kf_path);
+                  struct stat s;
+                  BOOST_AFIO_ERRHOS(fstat(fd, &s));
+                  if(s.st_nlink && kif->kf_path[0])
+                    newpath=path::string_type(kif->kf_path);
+                  else if(!s.st_nlink)
+                    newpath.clear();
                   break;
                 }
                 p+=kif->kf_structsize;
               }
-#endif
 #else
 #error Unknown system
 #endif
 #endif
-              auto containerh(container());
               bool changed=false;
-              if(available_to_directory_cache())
+              afio::path oldpath;
               {
                 lock_guard<pathlock_t> g(pathlock);
                 if((changed=(_path!=newpath)))
                 {
-                  // Need to update the directory cache
-                  parent()->int_directory_cached_handle_path_changed(_path, newpath, shared_from_this());
-                  _path=std::move(newpath);
-                  if(!containerh)
-                    return _path;
+                  oldpath=std::move(_path);
+                  _path=newpath;
                 }
               }
-              else
-              {
-                lock_guard<pathlock_t> g(pathlock);
-                if(containerh)
-                  changed=(_path!=newpath);
-                _path=std::move(newpath);
-                if(!containerh)
-                  return _path;
-              }
-              assert(containerh && changed);
               if(changed)
-                containerh->path(true);
+              {
+                // Need to update the directory cache
+                if(available_to_directory_cache())
+                  parent()->int_directory_cached_handle_path_changed(oldpath, newpath, shared_from_this());
+#if 0
+                // Perhaps also need to update my container
+                auto containerh(container());
+                if(containerh)
+                  containerh->path(true);
+#endif
+              }
             }
           }
           lock_guard<pathlock_t> g(pathlock);
@@ -1043,7 +1027,7 @@ namespace detail {
                 parent()->int_add_io_handle((void *) (size_t) fd, shared_from_this());
                 has_been_added=true;
             }
-            if(!!(flags() & file_flags::HoldParentOpen))
+            if(!!(flags() & file_flags::HoldParentOpen) && !(flags() & file_flags::int_hold_parent_open_nested))
               dirh=int_verifymyinode();
         }
         ~async_io_handle_posix()
@@ -1132,7 +1116,13 @@ namespace detail {
                     if(-1!=fstat(fd, &s))
                     {
                         if((mapaddr=BOOST_AFIO_POSIX_MMAP(nullptr, s.st_size, PROT_READ, MAP_SHARED, fd, 0)))
+                        {
                             mapsize=s.st_size;
+                            if(!!(flags() & file_flags::WillBeSequentiallyAccessed))
+                              madvise(mapaddr, mapsize, MADV_SEQUENTIAL);
+                            else if(!!(flags() & file_flags::WillBeRandomlyAccessed))
+                              madvise(mapaddr, mapsize, MADV_RANDOM);
+                        }
                     }
                 }
             }
@@ -1239,7 +1229,7 @@ namespace detail {
         template<class F> std::shared_ptr<async_io_handle> get_handle_to_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
         {
             assert(!req.is_relative);
-            req.flags=(req.flags|file_flags::int_opening_dir|file_flags::Read)&~(file_flags::HoldParentOpen|file_flags::UniqueDirectoryHandle|file_flags::Write);
+            req.flags=file_flags::int_hold_parent_open_nested|file_flags::int_opening_dir|file_flags::Read;
             std::vector<std::pair<path, std::weak_ptr<async_io_handle>>> torefresh;
             lock_guard<dircachelock_t> dircachelockh(dircachelock);
             // First refresh all paths in the cache, eliminating any stale ptrs
@@ -1655,18 +1645,6 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<thread_source> async_file_i
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC file_flags async_file_io_dispatcher_base::fileflags(file_flags flags) const
 {
     file_flags ret=(flags&~p->flagsmask)|p->flagsforce;
-    if(!!(ret&file_flags::EnforceDependencyWriteOrder))
-    {
-        // The logic (for now) is this:
-        // If the data is sequentially accessed, we won't be seeking much
-        // so turn on AlwaysSync.
-        // If not sequentially accessed and we might therefore be seeking,
-        // turn on SyncOnClose.
-        if(!!(ret&file_flags::WillBeSequentiallyAccessed))
-            ret=ret|file_flags::AlwaysSync;
-        else
-            ret=ret|file_flags::SyncOnClose;
-    }
     return ret;
 }
 
@@ -2467,8 +2445,29 @@ namespace detail {
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
-            if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link) && !!(req.flags & file_flags::OSMMap))
+            if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link))
+            {              
+              if(!!(req.flags & file_flags::WillBeSequentiallyAccessed) || !!(req.flags & file_flags::WillBeRandomlyAccessed))
+              {
+#ifndef WIN32
+#if !defined(__APPLE__)
+                int advice=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ?
+                  (POSIX_FADV_SEQUENTIAL|POSIX_FADV_WILLNEED) :
+                  (POSIX_FADV_RANDOM);
+                BOOST_AFIO_ERRHOSFN(::posix_fadvise(fd, 0, 0, advice), [&req]{return req.path;});
+#endif
+#if defined(__FreeBSD__)
+                size_t readaheadsize=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? file_buffer_default_size() : 0;
+                BOOST_AFIO_ERRHOSFN(::fcntl(fd, F_READAHEAD, readaheadsize), [&req]{return req.path;});
+#elif defined(__APPLE__)
+                size_t readahead=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? 1 : 0;
+                BOOST_AFIO_ERRHOSFN(::fcntl(fd, F_RDAHEAD, readahead), [&req]{return req.path;});
+#endif
+#endif
+              }
+              if(!!(req.flags & file_flags::OSMMap))
                 ret->try_mapfile();
+            }
             return std::make_pair(true, ret);
         }
         // Called in unknown thread

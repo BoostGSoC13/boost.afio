@@ -665,7 +665,7 @@ enum class file_flags : size_t
     CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
     CreateCompressed=64,     //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
-    WillBeSequentiallyAccessed=128, //!< Will be exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
+    WillBeSequentiallyAccessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
     WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
     NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
@@ -681,8 +681,8 @@ enum class file_flags : size_t
 
     AlwaysSync=(1<<24),     //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
     SyncOnClose=(1<<25),    //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
-    EnforceDependencyWriteOrder=(1<<26), //!< Ensure that data writes to files reach physical storage in the same order as the op dependencies close files. Does NOT enforce ordering of individual data writes, ONLY all file writes accumulated before a file close.
 
+    int_hold_parent_open_nested=(1<<27), //!< Internal use only. Don't use.
     int_file_share_delete=(1<<28), //!< Internal use only. Don't use.
     int_opening_link=(1<<29), //!< Internal use only. Don't use.
     int_opening_dir=(1<<30) //!< Internal use only. Don't use.
