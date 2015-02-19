@@ -1158,7 +1158,7 @@ public:
     //! True if this handle was opened as a symlink
     bool opened_as_symlink() const { return !!(_flags&file_flags::int_opening_link); }
     //! True if this handle is used by the directory handle cache (not UniqueDirectoryHandle and is open for write and not open for write)
-    bool available_to_directory_cache() const { return !(_flags&file_flags::UniqueDirectoryHandle) && !!(_flags&file_flags::Read) && !(_flags&file_flags::Write); }
+    bool available_to_directory_cache() const { return opened_as_dir() && !(_flags&file_flags::UniqueDirectoryHandle) && !!(_flags&file_flags::Read) && !(_flags&file_flags::Write); }
     //! Returns how many bytes have been read since this handle was opened.
     off_t read_count() const { return bytesread; }
     //! Returns how many bytes have been written since this handle was opened.
@@ -2546,7 +2546,7 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(is_relative ? std::forward<T>(_path) : afio::path::make_absolute(std::forward<T>(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? std::forward<T>(_path) : /*afio::path::make_absolute*/(std::forward<T>(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
@@ -2578,6 +2578,13 @@ struct async_path_op_req::relative : async_path_op_req
   \param _flags The flags to be used.
   */
   template<class T> relative(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
+  /*! \brief Constructs an instance.
+  
+  \tparam "class T" The type of path to be used.
+  \param _precondition The precondition for this operation.
+  \param _flags The flags to be used.
+  */
+  relative(async_io_op _precondition, file_flags _flags=file_flags::None) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
 };
 struct async_path_op_req::absolute : async_path_op_req
 {

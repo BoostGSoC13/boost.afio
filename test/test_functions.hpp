@@ -110,6 +110,8 @@ static inline void set_maximum_cpus(size_t no=0)
 static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<atomic<bool>, condition_variable>> cv)
 {
     detail::set_threadname("watchdog_thread");
+    if(getenv("BOOST_AFIO_TEST_DISABLE_WATCHDOG_TIMER"))
+      return;
     bool docountdown=timeout>10;
     if(docountdown) timeout-=10;
     chrono::duration<size_t, ratio<1, 1>> d(timeout);
@@ -137,7 +139,7 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
 
 #define BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(callable) \
   try { callable; } \
-  catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
+  catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
   catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
   catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; }
 template<class T> inline void wrap_test_method(T &t)

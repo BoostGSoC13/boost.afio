@@ -188,20 +188,20 @@ static inline filesystem::file_type to_st_type(uint16_t mode)
 #endif
     }
 }
-static BOOST_CONSTEXPR_OR_CONST int at_fdcwd=
 #ifdef AT_FDCWD
-AT_FDCWD;
+static BOOST_CONSTEXPR_OR_CONST int at_fdcwd=AT_FDCWD;
 #else
--100;
+static BOOST_CONSTEXPR_OR_CONST int at_fdcwd=-100;
 #endif
-static inline BOOST_CONSTEXPR_OR_CONST int check_fdcwd(int dirh) { assert(dirh==at_fdcwd); return 0; }
+// Should give a compile time error on compilers with constexpr
+static inline BOOST_CONSTEXPR_OR_CONST int check_fdcwd(int dirh) { return (dirh!=at_fdcwd) ? throw std::runtime_error("dirh is not at_fdcwd on a platform which does not have XXXat() API support") : 0; }
 BOOST_AFIO_V1_NAMESPACE_END
 #ifdef WIN32
 // We also compile the posix compat layer for catching silly compile errors for POSIX
 #include <io.h>
 #include <direct.h>
 #ifdef AT_FDCWD
-#error AT_FDCWD shouldn't be defined on MSVCRT, best check the thunk wrappers!
+#error AT_FDCWD should not be defined on MSVCRT, best check the thunk wrappers!
 #endif
 #define BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS 0
 #define BOOST_AFIO_POSIX_MKDIRAT(dirh, path, mode) (check_fdcwd(dirh), _wmkdir(path))
@@ -896,7 +896,7 @@ namespace detail {
                 if(DeleteOnClose)
                     int_safeunlink();
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), [this]{return path();});
-                fd=-1;
+                fd=-999;
             }
             // Deregister AFTER close of file handle
             if(has_been_added)
@@ -1023,9 +1023,14 @@ namespace detail {
             if(fd!=-999)
             {
                 // Canonicalise my path
-                path(true);
+                auto newpath=path(true);
                 parent()->int_add_io_handle((void *) (size_t) fd, shared_from_this());
                 has_been_added=true;
+                // If I'm the right sort of directory, register myself with the dircache. path(true) on some platforms may have
+                // already done this, but it's not much harm to repeat myself.
+                if(available_to_directory_cache())
+                  parent()->int_directory_cached_handle_path_changed(afio::path(), newpath, shared_from_this());
+                  
             }
             if(!!(flags() & file_flags::HoldParentOpen) && !(flags() & file_flags::int_hold_parent_open_nested))
               dirh=int_verifymyinode();
@@ -1230,42 +1235,34 @@ namespace detail {
         {
             assert(!req.is_relative);
             req.flags=file_flags::int_hold_parent_open_nested|file_flags::int_opening_dir|file_flags::Read;
-            std::vector<std::pair<path, std::weak_ptr<async_io_handle>>> torefresh;
-            lock_guard<dircachelock_t> dircachelockh(dircachelock);
             // First refresh all paths in the cache, eliminating any stale ptrs
-            for(auto it=dirhcache.begin(); it!=dirhcache.end();)
+            // One problem is that h->path(true) will update itself in dirhcache if it has changed, thus invalidating all the iterators
+            // so we first copy dirhcache into torefresh
+            std::vector<std::pair<path, std::weak_ptr<async_io_handle>>> torefresh;
             {
-              auto h(it->second.lock());
-              if(!h)
+              lock_guard<dircachelock_t> dircachelockh(dircachelock);
+              torefresh.reserve(dirhcache.size());
+              for(auto it=dirhcache.begin(); it!=dirhcache.end();)
               {
-                it=dirhcache.erase(it);
-                continue;
-              }
-              auto newpath(h->path(true));
-              if(newpath!=it->first)
-              {
+                if(it->second.expired())
+                {
 #ifndef NDEBUG
-                std::cout << "afio: directory cached handle relocates from " << it->first << " to " << newpath << std::endl;
+                  std::cout << "afio: directory cached handle pruned stale " << it->first << std::endl;
 #endif
-                torefresh.push_back(std::make_pair(std::move(newpath), std::move(it->second)));
-                it=dirhcache.erase(it);
-                continue;
-              }
-              ++it;
-            }
-            if(!torefresh.empty())
-            {
-              // Insert changed items excluding duplicates
-              for(auto it=torefresh.begin(); it!=torefresh.end();)
-              {
-                auto nextit=it;
-                ++nextit;
-                if(nextit==torefresh.end() || it->first!=nextit->first)
-                  dirhcache.insert(std::move(*it));
-                it=nextit;
+                  it=dirhcache.erase(it);
+                  continue;
+                }
+                torefresh.push_back(*it);
+                ++it;
               }
             }
             std::shared_ptr<async_io_handle> dirh;
+            for(auto &i : torefresh)
+            {
+              dirh=i.second.lock();
+              dirh->path(true);
+            }
+            lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
             {
                 std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash>::iterator it=dirhcache.find(req.path);
@@ -1275,10 +1272,7 @@ namespace detail {
                     if(!result.first) abort();
                     dirh=std::move(result.second);
                     if(dirh)
-                    {
-                        auto _it=dirhcache.insert(std::make_pair(req.path, std::weak_ptr<async_io_handle>(dirh)));
-                        return dirh;
-                    }
+                      return dirh;
                     else
                         abort();
                 }
@@ -1287,7 +1281,7 @@ namespace detail {
                     dirh=it->second.lock();
 #ifndef NDEBUG
                     if(dirh)
-                      std::cout << "afio: directory cached handle served for " << it->first << std::endl;
+                      std::cout << "afio: directory cached handle served for " << it->first << " (" << dirh.get() << ")" << std::endl;
 #endif
                 }
             } while(!dirh);
@@ -1671,14 +1665,20 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t async_file_io_dispatcher_base::fd_co
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h)
 {
   lock_guard<decltype(p->dircachelock)> dircachelockh(p->dircachelock);
-  auto it=p->dirhcache.find(oldpath);
-  assert(it!=p->dirhcache.end());
-  if(it!=p->dirhcache.end())
+  if(!oldpath.empty())
   {
-    assert(it->second.lock()==h);
-    p->dirhcache.erase(it);
+    auto it=p->dirhcache.find(oldpath);
+    if(it!=p->dirhcache.end())
+    {
+      assert(it->second.lock()==h);
+      p->dirhcache.erase(it);
+    }
   }
-  p->dirhcache.insert(std::make_pair(std::move(newpath), std::move(h)));
+#ifndef NDEBUG
+  std::cout << "afio: directory cached handle we relocate from " << oldpath << " to " << newpath << " (" << h.get() << ")" << std::endl;
+#endif
+  if(!newpath.empty())
+    p->dirhcache.insert(std::make_pair(std::move(newpath), std::move(h)));
 }
 
 
@@ -2310,19 +2310,28 @@ namespace detail {
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
             if(p->opened_as_dir())
             {
-              if(p->available_to_directory_cache())
+              if(req.path.empty())
+              {
+                req.path=parentpath.path.filename();
+                parentpath.path=parentpath.path.parent_path();
+              }
+              else if(p->available_to_directory_cache())
                 return std::move(h);  // always valid and a directory
-              else
-                return this->p->get_handle_to_dir(this, 0, parentpath, &async_file_io_dispatcher_compat::dofile);
+              return this->p->get_handle_to_dir(this, 0, parentpath, &async_file_io_dispatcher_compat::dofile);
             }
             else
             {
-              // If path fragment doesn't begin with ../, fail
-              if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
-                BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a path fragment inside a file"));
-              // Trim the preceding ..
-              auto &nativepath=const_cast<afio::path::string_type &>(req.path.native());
-              nativepath=nativepath.substr(4);
+              // If path fragment isn't empty or doesn't begin with ../, fail
+              if(req.path.empty())
+                req.path=parentpath.path.filename();
+              else
+              {
+                if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
+                  BOOST_AFIO_THROW(std::invalid_argument("Cannot use a path fragment inside a file, try prepending a ../"));
+                // Trim the preceding ..
+                auto &nativepath=const_cast<afio::path::string_type &>(req.path.native());
+                nativepath=nativepath.substr(4);
+              }
               std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
               if(dirh)
                 return std::move(dirh);
@@ -2339,16 +2348,23 @@ namespace detail {
         completion_returntype dodir(size_t id, async_io_op op, async_path_op_req req)
         {
             req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::Read;
-            if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write))
+            // TODO FIXME: Currently file_flags::Create may duplicate handles in the dirhcache
+            if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write) && !(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
             {
-                // Return a copy of the one in the dir cache if available
-                decode_relative_path(op, req, true);
-                return std::make_pair(true, p->get_handle_to_dir(this, id, req, &async_file_io_dispatcher_compat::dofile));
+              async_path_op_req req2(req);
+              // Return a copy of the one in the dir cache if available as a fast path
+              decode_relative_path(op, req2, true);
+              try
+              {
+                return std::make_pair(true, p->get_handle_to_dir(this, id, req2, &async_file_io_dispatcher_compat::dofile));
+              }
+              catch(...)
+              {
+                // fall through
+              }
             }
-            else
-            {
-                return dofile(id, op, req);
-            }
+            // This will add itself to the dir cache if it's eligible
+            return dofile(id, op, req);
         }
         // Called in unknown thread
         completion_returntype dounlink(bool is_dir, size_t id, async_io_op op, async_path_op_req req)
@@ -2389,12 +2405,6 @@ namespace detail {
 #endif
             if(!!(req.flags & file_flags::int_opening_link))
             {
-#ifdef O_PATH
-              // Some platforms allow the direct opening of symbolic links as file descriptors. If so,
-              // symlinks become as unracy as files.
-              flags|=O_PATH|O_NOFOLLOW;
-              // fall through
-#else
               if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
               {
                   fd=BOOST_AFIO_POSIX_SYMLINKAT(op->path().c_str(), dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str());
@@ -2406,6 +2416,12 @@ namespace detail {
                   }
                   BOOST_AFIO_ERRHOSFN(fd, [&req]{return req.path;});
               }
+#ifdef O_PATH
+              // Some platforms allow the direct opening of symbolic links as file descriptors. If so,
+              // symlinks become as unracy as files.
+              flags|=O_PATH|O_NOFOLLOW;
+              // fall through
+#else
               // POSIX doesn't allow you to open symbolic links, so return a closed handle
               auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, false, false, -999);
               return std::make_pair(true, ret);
@@ -2419,7 +2435,7 @@ namespace detail {
 #ifdef O_SEARCH
                 flags|=O_SEARCH;
 #endif
-                if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
+                if(!!(req.flags & file_flags::Create) || !!(req.flags & file_flags::CreateOnlyIfNotExist))
                 {
                     fd=BOOST_AFIO_POSIX_MKDIRAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
                     if(-1==fd && EEXIST==errno)
@@ -2442,6 +2458,8 @@ namespace detail {
 #endif
             }
             fd=BOOST_AFIO_POSIX_OPENAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/);
+            if(dirh)
+              req.path=dirh->path()/req.path;
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
