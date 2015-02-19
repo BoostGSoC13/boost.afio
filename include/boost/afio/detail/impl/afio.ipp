@@ -945,9 +945,9 @@ namespace detail {
               if(s.st_nlink)
                 newpath=path::string_type(buffer);
 #elif defined(__FreeBSD__)
-              // This works if and only if the fd has an extent and has not been renamed since
-              // being opened, otherwise it return a null path :(. This implementation hopes
-              // that the call starts working soon (https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695).
+              // Unfortunately this call is broken on FreeBSD 10 where it is currently returning
+              // null paths most of the time for regular files. Directories work perfectly. I've
+              // logged a bug with test case at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695.
               {
                 lock_guard<pathlock_t> g(pathlock);
                 newpath=_path;
