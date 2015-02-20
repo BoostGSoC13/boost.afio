@@ -70,8 +70,9 @@ namespace detail {
       OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
       path path(req.path.make_preferred());
       UNICODE_STRING _path;
-      // TODO: I'd like to turn this off when possible really ...
-      oa.Attributes=0x40/*OBJ_CASE_INSENSITIVE*/;
+      // If relative path, or symlinked DOS path, use case insensitive
+      bool isSymlinkedDosPath=(path.native()[0]=='\\' && path.native()[1]=='?' && path.native()[2]=='?' && path.native()[3]=='\\');
+      oa.Attributes=(path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
       _path.Buffer=const_cast<path::value_type *>(path.c_str());
       _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
       oa.ObjectName=&_path;
@@ -276,8 +277,40 @@ namespace detail
             BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, [&path]{return path;});
             return h;
         }
-        async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const afio::path &path, file_flags flags) : async_io_handle(_parent, std::move(_dirh), flags), myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
-        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh, const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
+        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _SyncOnClose=false, HANDLE _h=nullptr);
+        inline std::shared_ptr<async_io_handle> int_verifymyinode();
+        void int_safeunlink()
+        {
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+#if 1
+            // NtDeleteFile deletes immediately, no hanging the filename
+            // around. Plus it conveniently accepts a file handle when
+            // combined with an empty leafname, handy.
+            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+            oa.RootDirectory=myid;
+            UNICODE_STRING _path;
+            path::value_type c=0;
+            _path.Buffer=&c;
+            _path.MaximumLength=(_path.Length=(USHORT) sizeof(path::value_type))+sizeof(path::value_type);
+            oa.ObjectName=&_path;
+            BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [this]{return path();});
+#else
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=nullptr;
+            auto randompath(".afiod"+random_string(32 /* 128 bits */));
+            fni->FileNameLength=randompath.size()*sizeof(path::value_type);
+            for(size_t n=0; n<randompath.size(); n++)
+              fni->FileName[n]=randompath[n];
+            fni->FileName[randompath.size()]=0;
+            BOOST_AFIO_ERRHNT(NtSetInformationFile(h, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation));
+            FILE_DISPOSITION_INFORMATION fdi={true};
+            BOOST_AFIO_ERRHNT(NtSetInformationFile(h, &isb, &fdi, sizeof(fdi), FileDispositionInformation));
+#endif
+        }
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
@@ -311,25 +344,54 @@ namespace detail
         {
           if(refresh)
           {
-            if(isDeletedFile(shared_from_this()))
+            if(!myid)
             {
-              lock_guard<pathlock_t> g(pathlock);
-              _path.clear();
-              return _path;
+#if 0
+              auto mycontainer=container();
+              if(mycontainer)
+                mycontainer->path(true);
+#endif
             }
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-            HANDLE h=myid;
-            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-            UNICODE_STRING *volumepath=(UNICODE_STRING *) buffer;
-            ULONG bufferlength;
-            NTSTATUS ntstat=NtQueryObject(h, ObjectNameInformation, volumepath, sizeof(buffer), &bufferlength);
-            if(STATUS_PENDING==ntstat)
-              ntstat=NtWaitForSingleObject(h, FALSE, NULL);
-            BOOST_AFIO_ERRHNT(ntstat);
-            lock_guard<pathlock_t> g(pathlock);
-            _path=path::string_type(volumepath->Buffer, volumepath->Length/sizeof(path::value_type));
-            return _path;
+            else
+            {
+              afio::path newpath;
+              if(!isDeletedFile(shared_from_this()))
+              {
+                windows_nt_kernel::init();
+                using namespace windows_nt_kernel;
+                HANDLE h=myid;
+                BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+                UNICODE_STRING *volumepath=(UNICODE_STRING *) buffer;
+                ULONG bufferlength;
+                NTSTATUS ntstat=NtQueryObject(h, ObjectNameInformation, volumepath, sizeof(buffer), &bufferlength);
+                if(STATUS_PENDING==ntstat)
+                  ntstat=NtWaitForSingleObject(h, FALSE, NULL);
+                BOOST_AFIO_ERRHNT(ntstat);
+                newpath=path::string_type(volumepath->Buffer, volumepath->Length/sizeof(path::value_type));
+              }
+              bool changed=false;
+              afio::path oldpath;
+              {
+                lock_guard<pathlock_t> g(pathlock);
+                if((changed=(newpath!=_path)))
+                {
+                  oldpath=std::move(_path);
+                  _path=newpath;
+                }
+              }
+              if(changed)
+              {
+                // Need to update the directory cache
+                if(available_to_directory_cache())
+                  parent()->int_directory_cached_handle_path_changed(oldpath, newpath, shared_from_this());
+#if 0
+                // Perhaps also need to update my container
+                auto containerh(container());
+                if(containerh)
+                  containerh->path(true);
+#endif
+              }
+            }
           }
           lock_guard<pathlock_t> g(pathlock);
           return _path;
@@ -346,16 +408,22 @@ namespace detail
             if(myid)
             {
                 // Canonicalise my path
-                path(true);
+                auto newpath=path(true);
                 parent()->int_add_io_handle(myid, shared_from_this());
                 has_been_added=true;
+                // If I'm the right sort of directory, register myself with the dircache. path(true) may have
+                // already done this, but it's not much harm to repeat myself.
+                if(available_to_directory_cache())
+                  parent()->int_directory_cached_handle_path_changed(afio::path(), newpath, shared_from_this());
             }
+            if(!!(flags() & file_flags::HoldParentOpen) && !(flags() & file_flags::int_hold_parent_open_nested))
+              dirh=int_verifymyinode();
         }
         ~async_io_handle_windows()
         {
             int_close();
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) override final
         {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
@@ -439,7 +507,7 @@ namespace detail
 #endif
             .native(), stat, wanted);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() override final
         {
             if(!opened_as_symlink())
                 return path();
@@ -477,9 +545,9 @@ namespace detail
             return mapaddr;
         }
     };
-    inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent, std::shared_ptr<async_io_handle> _dirh,
+    inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
       const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
-      : async_io_handle(_parent, std::move(_dirh), flags),
+      : async_io_handle(_parent, flags),
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
         has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr), _path(path)
     {
@@ -491,23 +559,64 @@ namespace detail
     {
         friend class directory_entry;
         friend void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
-
+        friend struct async_io_handle_windows;
         size_t pagesize;
-        // Called in unknown thread
-        completion_returntype dodir(size_t id, async_io_op _, async_path_op_req req)
+        std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
         {
-            BOOL ret=0;
+          return int_decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(op, req, force_absolute);
+        }
+
+        // Called in unknown thread
+        completion_returntype dodir(size_t id, async_io_op op, async_path_op_req req)
+        {
             req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::Read;
-            if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write))
+            // TODO FIXME: Currently file_flags::Create may duplicate handles in the dirhcache
+            if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write) && !(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
             {
-                // Return a copy of the one in the dir cache if available
-                return std::make_pair(true, p->get_handle_to_dir(this, id, req, &async_file_io_dispatcher_windows::dofile));
+              async_path_op_req req2(req);
+              // Return a copy of the one in the dir cache if available as a fast path
+              decode_relative_path(op, req2, true);
+              try
+              {
+                return std::make_pair(true, p->get_handle_to_dir(this, id, req2, &async_file_io_dispatcher_windows::dofile));
+              }
+              catch(...)
+              {
+                // fall through
+              }
+            }
+            // This will add itself to the dir cache if it's eligible
+            return dofile(id, op, req);
+        }
+        // Called in unknown thread
+        completion_returntype dounlink(bool is_dir, size_t id, async_io_op op, async_path_op_req req)
+        {
+            req.flags=fileflags(req.flags);
+            // Deleting the input op?
+            if(req.path.empty())
+            {
+	            std::shared_ptr<async_io_handle> h(op.get());
+	            async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
+              p->int_safeunlink();
             }
             else
             {
-                // With the NT kernel, you create a directory by creating a file.
-                return dofile(id, _, req);
+              windows_nt_kernel::init();
+              using namespace windows_nt_kernel;
+              auto dirh=decode_relative_path(op, req);
+              OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+              oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
+              UNICODE_STRING _path;
+              // If relative path, or symlinked DOS path, use case insensitive
+              bool isSymlinkedDosPath=(req.path.native()[0]=='\\' && req.path.native()[1]=='?' && req.path.native()[2]=='?' && req.path.native()[3]=='\\');
+              oa.Attributes=(req.path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
+              _path.Buffer=const_cast<path::value_type *>(req.path.c_str());
+              _path.MaximumLength=(_path.Length=(USHORT) (req.path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
+              oa.ObjectName=&_path;
+              BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [&req]{return req.path;});
             }
+            auto ret=std::make_shared<async_io_handle_windows>(this, std::shared_ptr<async_io_handle>(), req.path, req.flags);
+            return std::make_pair(true, ret);
         }
         // Called in unknown thread
         completion_returntype dormdir(size_t id, async_io_op _, async_path_op_req req)
@@ -1554,6 +1663,17 @@ namespace detail
             return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dolock);
         }
     };
+
+    inline std::shared_ptr<async_io_handle> async_io_handle_windows::int_verifymyinode()
+    {
+        std::shared_ptr<async_io_handle> dirh(container());
+        if(!dirh)
+        {
+          async_path_op_req req(path(true));
+          dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_windows *>(parent()), 0, req, &async_file_io_dispatcher_windows::dofile);
+        }
+        return dirh;
+    }
 
     struct win_actual_lock_file : public actual_lock_file
     {

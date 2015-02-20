@@ -1369,6 +1369,7 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
+    template<class Impl, class Handle> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
 
 protected:

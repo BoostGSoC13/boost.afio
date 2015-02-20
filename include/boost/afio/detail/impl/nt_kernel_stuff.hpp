@@ -201,9 +201,13 @@ namespace windows_nt_kernel
       /*_In_*/      ULONG EaLength
     );
 
-    typedef NTSTATUS (NTAPI *NtClose_t)(
-      /*_Out_*/  HANDLE FileHandle
+    typedef NTSTATUS (NTAPI *NtDeleteFile_t)(
+      /*_In_*/      POBJECT_ATTRIBUTES ObjectAttributes
     );
+
+    typedef NTSTATUS(NTAPI *NtClose_t)(
+      /*_Out_*/  HANDLE FileHandle
+      );
 
     // From http://undocumented.ntinternals.net/UserMode/Undocumented%20Functions/NT%20Objects/File/NtQueryDirectoryFile.html
     // and http://msdn.microsoft.com/en-us/library/windows/hardware/ff567047(v=vs.85).aspx
@@ -424,6 +428,7 @@ namespace windows_nt_kernel
     static NtOpenDirectoryObject_t NtOpenDirectoryObject;
     static NtOpenFile_t NtOpenFile;
     static NtCreateFile_t NtCreateFile;
+    static NtDeleteFile_t NtDeleteFile;
     static NtClose_t NtClose;
     static NtQueryDirectoryFile_t NtQueryDirectoryFile;
     static NtSetInformationFile_t NtSetInformationFile;
@@ -460,6 +465,9 @@ namespace windows_nt_kernel
               abort();
       if(!NtCreateFile)
           if(!(NtCreateFile=(NtCreateFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtCreateFile")))
+              abort();
+      if(!NtDeleteFile)
+          if(!(NtDeleteFile =(NtDeleteFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtDeleteFile")))
               abort();
       if(!NtClose)
           if(!(NtClose=(NtClose_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtClose")))
