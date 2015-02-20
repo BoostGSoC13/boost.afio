@@ -1645,7 +1645,7 @@ template<class Impl, class Handle> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::sha
       }
       else if(p->available_to_directory_cache())
         return std::move(h);  // always valid and a directory
-      return this->p->get_handle_to_dir(this, 0, parentpath, &Impl::dofile);
+      return this->p->get_handle_to_dir(static_cast<Impl *>(this), 0, parentpath, &Impl::dofile);
     }
     else
     {
@@ -1664,7 +1664,7 @@ template<class Impl, class Handle> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::sha
       if(dirh)
         return std::move(dirh);
       else
-        return int_get_handle_to_containing_dir(this, 0, parentpath, &Impl::dofile);
+        return int_get_handle_to_containing_dir(static_cast<Impl *>(this), 0, parentpath, &Impl::dofile);
     }
 #endif
   }
@@ -2345,10 +2345,11 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
 namespace detail {
     class async_file_io_dispatcher_compat : public async_file_io_dispatcher_base
     {
+        friend class async_file_io_dispatcher_base;
         friend struct async_io_handle_posix;
         std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
         {
-          return int_decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(op, req, force_absolute);
+          return async_file_io_dispatcher_base::int_decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(op, req, force_absolute);
         }
         // Called in unknown thread
         completion_returntype dodir(size_t id, async_io_op op, async_path_op_req req)

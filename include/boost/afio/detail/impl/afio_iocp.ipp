@@ -557,13 +557,14 @@ namespace detail
 
     class async_file_io_dispatcher_windows : public async_file_io_dispatcher_base
     {
+        friend class async_file_io_dispatcher_base;
         friend class directory_entry;
         friend void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
         friend struct async_io_handle_windows;
         size_t pagesize;
         std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
         {
-          return int_decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(op, req, force_absolute);
+          return async_file_io_dispatcher_base::int_decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(op, req, force_absolute);
         }
 
         // Called in unknown thread
