@@ -943,9 +943,9 @@ namespace detail {
               BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
               // Apple returns the previous path when deleted, so lstat to be sure
               struct stat ls;
-              bool exists=(-1!=lstat(buffer, &ls));
+              bool exists=(-1!=::lstat(buffer, &ls));
               // File could have been replaced with another
-              if(exists && (!!(flags & file_flags::NoRaceProtection) || (ls.st_dev==st_dev && ls.st_ino==st_ino)))
+              if(exists && (!!(flags() & file_flags::NoRaceProtection) || (ls.st_dev==st_dev && ls.st_ino==st_ino)))
                 newpath=path::string_type(buffer);
 #elif defined(__FreeBSD__)
               // Unfortunately this call is broken on FreeBSD 10 where it is currently returning
@@ -2381,9 +2381,9 @@ namespace detail {
             // Deleting the input op?
             if(req.path.empty())
             {
-	            std::shared_ptr<async_io_handle> h(op.get());
-	            async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
-                    p->int_safeunlink();
+              std::shared_ptr<async_io_handle> h(op.get());
+              async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+              p->int_safeunlink();
             }
             else
             {
@@ -2474,6 +2474,14 @@ namespace detail {
             fd=BOOST_AFIO_POSIX_OPENAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/);
             if(dirh)
               req.path=dirh->path()/req.path;
+#ifdef O_PATH
+            // Some kernels don't really implement O_PATH
+            if(-1==fd && ELOOP==errno && !!(flags&O_PATH))
+            {
+              auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, false, false, -999);
+              return std::make_pair(true, ret);
+            }
+#endif
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
