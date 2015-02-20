@@ -941,10 +941,11 @@ namespace detail {
 #elif defined(__APPLE__)
               char buffer[PATH_MAX+1];
               BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
-              // Apple returns the previous path when deleted, so fstat to be sure
-              struct stat s;
-              BOOST_AFIO_ERRHOS(fstat(fd, &s));
-              if(s.st_nlink)
+              // Apple returns the previous path when deleted, so lstat to be sure
+              struct stat ls;
+              bool exists=(-1!=lstat(buffer, &ls));
+              // File could have been replaced with another
+              if(exists && (!!(flags & file_flags::NoRaceProtection) || (ls.st_dev==st_dev && ls.st_ino==st_ino)))
                 newpath=path::string_type(buffer);
 #elif defined(__FreeBSD__)
               // Unfortunately this call is broken on FreeBSD 10 where it is currently returning
@@ -2434,6 +2435,8 @@ namespace detail {
               // fall through
 #else
               // POSIX doesn't allow you to open symbolic links, so return a closed handle
+              if(dirh)
+                req.path=dirh->path()/req.path;
               auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, false, false, -999);
               return std::make_pair(true, ret);
 #endif
