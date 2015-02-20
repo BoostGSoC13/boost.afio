@@ -213,11 +213,10 @@ protection disappear.
 
 TODO BEFORE RELEASE
 
-0. Add fnctl(F_READAHEAD) for FreeBSD in doopen. Add readahead() simulation for Linux. Default to a huge page size (Linux: /proc/meminfo Hugepagesize, FreeBSD getpagesizes())
+1a. Move the page sizes, random and hex filenames stuff into a utils namespace. Add a non-hex file name converter. Add
+converters converting hex into numbers. Add benchmarks for all utils.
 
-1a. Replace all POSIX use of open(), mkdir(), readlink(), symlink(), unlink(), stat() with XXXat() variants where possible. This avoids many races.
-
-1b. Directory handle cache needs to be updated when directories move. Add unit test swapping two directories
+1b. Add unit test swapping two directories
 each with an open file in them and make sure it doesn't get confused.
 
 2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine.
@@ -242,7 +241,7 @@ FreeBSD: I don't believe this can.
 You might think this easy, but AFIO has about twenty different build
 configurations now.
 
-6. Run performance benchmarks on all platforms. Fix any regressions.
+6. Run performance benchmarks on all platforms. Fix any regressions. Add a benchmark for race protection.
 
 7. Regen the docs and make sure the new APIs have appeared.
 
