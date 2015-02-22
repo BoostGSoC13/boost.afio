@@ -31,7 +31,6 @@ print('''<p align="center">
 Boost.AFIO Jenkins CI status:
 </h3>
 <p align="center">Unit test code coverage is: <a href='https://coveralls.io/r/BoostGSoC13/boost.afio'><img src='https://coveralls.io/repos/BoostGSoC13/boost.afio/badge.png' alt='Coverage Status' /></a></p>
-<p align="center">Current master branch build and unit tests status on Travis CI: <a href="https://travis-ci.org/BoostGSoC13/boost.afio"><img valign="middle" src="https://travis-ci.org/BoostGSoC13/boost.afio.png?branch=master"/></a></p>
 
 <center>
 <table border="1" cellpadding="2">
@@ -60,6 +59,11 @@ Boost.AFIO Jenkins CI status:
 <!-- sep -->
 <tr></tr>
 
+<!-- os x -->
+<tr align="center"><td>Apple Mac OS X 10.9</td><td>clang 3.5</td><td>libc++</td><td>x64</td><td>
+<div><a href="https://travis-ci.org/BoostGSoC13/boost.afio"><img valign="middle" src="https://travis-ci.org/BoostGSoC13/boost.afio.png?branch=master"/></a></div></td><td>
+<div><a href="https://travis-ci.org/BoostGSoC13/boost.afio"><img valign="middle" src="https://travis-ci.org/BoostGSoC13/boost.afio.png?branch=master"/></a></div></td>
+</tr>
 ''')
 
 # <a href='https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.8,LINKTYPE=static,label=android-ndk/'><img src='https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.8,LINKTYPE=static,label=android-ndk/badge/icon'></a>
