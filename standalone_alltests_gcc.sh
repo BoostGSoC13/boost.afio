@@ -9,7 +9,7 @@ fi
 if [ "$CXX" != "${CXX#clang++}" ] && [ "$NODE_NAME" = "linux-gcc-clang" ]; then
   LIBATOMIC=-latomic
 fi
-if [ "$HOSTTYPE" = "FreeBSD" ]; then
+if [ "$HOSTTYPE" = "FreeBSD" ] || [ "$NODE_NAME" = "freebsd10-clang3.3" ]; then
   LIBATOMIC="-I/usr/local/include -L/usr/local/lib"
 fi
 if [ ! -d asio ]; then

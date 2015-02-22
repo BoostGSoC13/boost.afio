@@ -651,6 +651,7 @@ namespace detail {
   };
   struct actual_lock_file : std::enable_shared_from_this<actual_lock_file>
   {
+    // TODO FIXME This needs to cope with sudden file relocations
     afio::path path, lockfilepath;
   protected:
     actual_lock_file(afio::path p) : path(p), lockfilepath(p)

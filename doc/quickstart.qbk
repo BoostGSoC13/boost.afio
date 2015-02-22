@@ -46,6 +46,7 @@ refilled with more useful data later.
 also work on shared Samba and NFS network drives, such as:
  * Deleting and renaming open files.
  * Files having unique device id and inode pairs in the system.
+ * Case sensitive file paths of at least 1000 characters on all supported platforms.
  * POSIX timestamping of last accessed, last modified, last status changed and created.
  * File extent management and traversal.
  * Explicitly documented filing system race guarantees.
@@ -57,6 +58,13 @@ also work on shared Samba and NFS network drives, such as:
  * Exclusive lock files (manual support already there, async support coming in v1.4).
  * File change monitoring (coming in v1.4).
  * File byte range advisory locking (coming in v1.4).
+ 
+You'll probably note that these are POSIX file semantics. On Microsoft Windows, AFIO directly uses
+the NT kernel API and can therefore achieve almost perfect POSIX file semantics, at the cost of
+no support for DOS feature emulation like short names or case insensitivity or drive letters. Going directly to the
+NT kernel makes filing system performance on Windows both much faster and a near identical experience
+to coding for POSIX, this saves you time and money and produces a much more consistent experience
+for your users.
 
 A surprising amount of production code out there is highly unreliable when used on a filing
 system experiencing rapid change, or even just a filing system mounted on a network. In many
@@ -420,13 +428,15 @@ but ['correct] filing system manipulation logic __dash__ well, in so far as the 
 
 [heading What AFIO provides for managing filing system raciness]
 
-Firstly, the only operating system capable of providing completely race free filing system behaviour is Microsoft Windows.
+Firstly, the only operating system capable of providing completely race free filing system behaviour is Microsoft Windows,
+or rather the very well designed NT kernel API which AFIO uses directly.
 Linux provides file descriptor path discovery and the `XXXat()` POSIX APIs, and with those AFIO can provide pretty
 good race condition safety on Linux. Mac OS X provides file descriptor path discovery, but does not provide the `XXXat()`
 POSIX APIs and so AFIO cannot provide race protection, but can throw exceptions sometimes if it detects the filesystem
-has suddenly changed. FreeBSD provides the `XXXat()` POSIX APIs, but no file descriptor path discovery (I've opened
+has suddenly changed and you're about to delete the wrong file. FreeBSD provides the `XXXat()` POSIX APIs, but its file
+descriptor path discovery only works correctly for directory not file handles due to a kernel bug (I've opened
 a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695) and therefore only quite
-limited race condition safety.
+limited race condition safety for directories only.
 
 Additionally, working with the filing system in a race safe way on POSIX requires opening a file descriptor to the
 containing directory for every operation. AFIO will keep a global cache of open file handles for containing directories

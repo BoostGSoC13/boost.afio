@@ -374,7 +374,7 @@ enum class path_normalise
 /*! \class path
 \brief An AFIO filesystem path, a thin wrapper of filesystem::path used to mark when a
 filesystem path has been prepared for AFIO usage. Note that on Windows this exclusively
-refers to a NT kernel path, not a Win32 path (Win32 paths are converted in the constructor)
+refers to a case sensitive NT kernel path, not a Win32 path (Win32 paths are converted in the constructor).
 
 \qbk{
 [include generated/struct_path_1_1make_absolute.qbk]
