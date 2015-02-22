@@ -840,12 +840,14 @@ namespace detail {
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
         void int_safeunlink()
         {
+          if(-999==fd && !opened_as_symlink())
+            BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a closed file by handle."));
           if(!(flags() & file_flags::NoRaceProtection))
           {
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
             // Some platforms may allow direct deletion of file handles, in which we are done
 #ifdef AT_EMPTY_PATH
-            if(-1!=BOOST_AFIO_POSIX_UNLINKAT(fd, "", opened_as_dir() ? AT_EMPTY_PATH|AT_REMOVEDIR : AT_EMPTY_PATH))
+            if(fd>=0 && -1!=BOOST_AFIO_POSIX_UNLINKAT(fd, "", opened_as_dir() ? AT_EMPTY_PATH|AT_REMOVEDIR : AT_EMPTY_PATH))
               return;
 #endif
             // In order to be mostly race free, safely unlinking involves:
@@ -1271,11 +1273,20 @@ namespace detail {
                 std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash>::iterator it=dirhcache.find(req.path);
                 if(dirhcache.end()==it)
                 {
-                    auto result=(parent->*dofile)(id, async_io_op(), req);
+                    auto result=(parent->*dofile)(id, async_io_op(), req); // should recurse in to insert itself
                     if(!result.first) abort();
                     dirh=std::move(result.second);
+#ifndef NDEBUG
                     if(dirh)
+                      std::cout << "afio: directory cached handle created for " << req.path << " (" << dirh.get() << ")" << std::endl;
+#endif
+                    if(dirh)
+                    {
+                      // May have renamed itself, if so add this entry point to the cache too
+                      if(dirh->path()!=req.path)
+                        dirhcache.insert(std::make_pair(req.path, dirh));
                       return dirh;
+                    }
                     else
                         abort();
                 }
@@ -2391,8 +2402,7 @@ namespace detail {
               auto dirh=decode_relative_path(op, req);
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
             }
-            auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, false, false, -999);
-            return std::make_pair(true, ret);
+            return std::make_pair(true, op.get());
         }
         // Called in unknown thread
         completion_returntype dormdir(size_t id, async_io_op op, async_path_op_req req)

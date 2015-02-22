@@ -104,10 +104,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
         }
       }
 
-      auto closefilesp=dispatcher->close(readfilesp1);
-      auto closefilec=dispatcher->close(readfilec1);
-      auto delfilesp(dispatcher->rmfile(closefilesp));
-      auto delfilec(dispatcher->rmfile(closefilec));
+      auto delfilesp(dispatcher->rmfile(readfilesp1));
+      auto delfilec(dispatcher->rmfile(readfilec1));
+      auto closefilesp=dispatcher->close(delfilesp);
+      auto closefilec=dispatcher->close(delfilec);
       BOOST_CHECK_NO_THROW(when_all({ closefilesp, closefilec, delfilesp, delfilec }).get());
       auto deldir(dispatcher->rmdir(mkdir));
       BOOST_CHECK_NO_THROW(when_all(deldir).wait());  // virus checkers sometimes make this spuriously fail

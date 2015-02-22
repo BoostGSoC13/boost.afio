@@ -28,18 +28,18 @@ namespace detail {
             ntflags|=0x01/*FILE_DIRECTORY_FILE*/;
             access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
             if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
-            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE;
+            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
             // Windows doesn't like opening directories without buffering.
             if(!!(flags & file_flags::OSDirect)) flags=flags & ~file_flags::OSDirect;
         }
         else
         {
             ntflags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
-            if(!!(flags & file_flags::Append)) access|=FILE_APPEND_DATA;
+            if(!!(flags & file_flags::Append)) access|=FILE_APPEND_DATA|DELETE;
             else
             {
                 if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
-                if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE;
+                if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
             }
             if(!!(flags & file_flags::WillBeSequentiallyAccessed))
                 ntflags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
@@ -56,8 +56,16 @@ namespace detail {
                 access|=DELETE;
         }
       }
-      if(!!(flags & file_flags::CreateOnlyIfNotExist)) creatdisp|=0x00000002/*FILE_CREATE*/;
-      else if(!!(flags & file_flags::Create)) creatdisp|=0x00000003/*FILE_OPEN_IF*/;
+      if(!!(flags & file_flags::CreateOnlyIfNotExist))
+      {
+        creatdisp|=0x00000002/*FILE_CREATE*/;
+        access|=DELETE;
+      }
+      else if(!!(flags & file_flags::Create))
+      {
+        creatdisp|=0x00000003/*FILE_OPEN_IF*/;
+        access|=DELETE;
+      }
       else if(!!(flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
       else creatdisp|=0x00000001/*FILE_OPEN*/;
       if(!!(flags & file_flags::OSDirect)) ntflags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
@@ -76,7 +84,6 @@ namespace detail {
       _path.Buffer=const_cast<path::value_type *>(path.c_str());
       _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
       oa.ObjectName=&_path;
-      // Should I bother with oa.RootDirectory? For now, no.
       LARGE_INTEGER AllocationSize={0};
       return std::make_pair(NtCreateFile(&h, access, &oa, &isb, &AllocationSize, attribs, fileshare,
           creatdisp, ntflags, NULL, 0), h);
@@ -101,9 +108,6 @@ namespace detail {
       windows_nt_kernel::init();
       using namespace windows_nt_kernel;
       HANDLE temph=h ? h->native_handle() : nullptr;
-#if 1
-      bool isHex=true;
-#else
       bool isHex=leafname.empty();
       if(leafname.size()==38 && !leafname.compare(0, 6, L".afiod"))
       {
@@ -118,7 +122,6 @@ namespace detail {
           }
         }
       }
-#endif
       if(isHex)
       {
         NTSTATUS ntstat;
@@ -147,7 +150,7 @@ namespace detail {
       return false;
     }
     static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h) { return isDeletedFile(std::move(h), path::string_type(), std::shared_ptr<async_io_handle>()); }
-    //static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
+    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
     
     static inline path MountPointFromHandle(HANDLE h)
     {
@@ -281,10 +284,14 @@ namespace detail
             BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, [&path]{return path;});
             return h;
         }
-        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _SyncOnClose=false, HANDLE _h=nullptr);
+        async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags) : async_io_handle(_parent, flags),
+          myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
+        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
         void int_safeunlink()
         {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a closed file by handle."));
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
 #if 1
@@ -296,7 +303,7 @@ namespace detail
             UNICODE_STRING _path;
             path::value_type c=0;
             _path.Buffer=&c;
-            _path.MaximumLength=(_path.Length=(USHORT) sizeof(path::value_type))+sizeof(path::value_type);
+            _path.MaximumLength=(_path.Length=0)+sizeof(path::value_type);
             oa.ObjectName=&_path;
             BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [this]{return path();});
 #else
@@ -304,15 +311,15 @@ namespace detail
             BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
             FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
             fni->ReplaceIfExists=false;
-            fni->RootDirectory=nullptr;
-            auto randompath(".afiod"+random_string(32 /* 128 bits */));
-            fni->FileNameLength=randompath.size()*sizeof(path::value_type);
+            fni->RootDirectory=nullptr;  // rename to the same directory
+            auto randompath(".afiod"+async_file_io_dispatcher_base::random_string(32 /* 128 bits */));
+            fni->FileNameLength=randompath.size();
             for(size_t n=0; n<randompath.size(); n++)
               fni->FileName[n]=randompath[n];
             fni->FileName[randompath.size()]=0;
-            BOOST_AFIO_ERRHNT(NtSetInformationFile(h, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation));
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
             FILE_DISPOSITION_INFORMATION fdi={true};
-            BOOST_AFIO_ERRHNT(NtSetInformationFile(h, &isb, &fdi, sizeof(fdi), FileDispositionInformation));
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
 #endif
         }
         void int_close()
@@ -614,8 +621,7 @@ namespace detail
               oa.ObjectName=&_path;
               BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [&req]{return req.path;});
             }
-            auto ret=std::make_shared<async_io_handle_windows>(this, req.path, req.flags);
-            return std::make_pair(true, ret);
+            return std::make_pair(true, op.get());
         }
         // Called in unknown thread
         completion_returntype dormdir(size_t id, async_io_op op, async_path_op_req req)
@@ -1149,8 +1155,8 @@ namespace detail
                         if(1==length || '.'==ffdi->FileName[1])
                             continue;
                     path::string_type leafname(ffdi->FileName, length);
-                    //if(isDeletedFile(leafname, h))
-                    //  continue;
+                    if(isDeletedFile(leafname, h))
+                      continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
                     item.stat.st_type=to_st_type(ffdi->FileAttributes);

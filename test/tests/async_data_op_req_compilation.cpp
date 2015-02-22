@@ -423,10 +423,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
           last=dispatcher->write(make_async_data_op_req(last, out, 0));
           last.get();
         }
+        last=dispatcher->rmfile(last);
+        last.get();
         last=dispatcher->close(last);
         last.get();
-        auto rmfile(dispatcher->rmfile(last));
-        rmfile.get();
     }
     try { filesystem::remove_all("testdir"); } catch(...) {}
 }

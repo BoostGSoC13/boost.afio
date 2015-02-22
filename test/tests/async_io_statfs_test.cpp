@@ -8,8 +8,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_statfs, "Tests statfs", 20)
     auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
     auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "foo", file_flags::Create | file_flags::ReadWrite)));
     auto statfs_(dispatcher->statfs(mkfile, fs_metadata_flags::All));
-    auto closefile=dispatcher->close(statfs_.second);
-    auto delfile(dispatcher->rmfile(closefile));
+    auto delfile(dispatcher->rmfile(statfs_.second));
+    auto closefile=dispatcher->close(delfile);
     BOOST_CHECK_NO_THROW(when_all({ mkdir, mkfile, statfs_.second, closefile, delfile }).get());
     auto deldir(dispatcher->rmdir(mkdir));
     BOOST_CHECK_NO_THROW(when_all(deldir).wait());  // virus checkers sometimes make this spuriously fail
