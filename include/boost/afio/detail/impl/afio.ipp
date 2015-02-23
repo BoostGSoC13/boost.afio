@@ -3328,7 +3328,7 @@ namespace utils
       if(-1==randomfd)
       {
         lock_guard<decltype(lock)> g(lock);
-        BOOST_AFIO_ERRHOS((randomfd=::open("/dev/urandom", O_RDONLY));
+        BOOST_AFIO_ERRHOS((randomfd=::open("/dev/urandom", O_RDONLY)));
       }
       BOOST_AFIO_ERRHOS(::read(randomfd, buffer, bytes));
 #endif
