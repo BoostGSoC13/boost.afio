@@ -108,6 +108,7 @@ namespace detail {
       windows_nt_kernel::init();
       using namespace windows_nt_kernel;
       HANDLE temph=h ? h->native_handle() : nullptr;
+#if 0 // int_safeunlink() is using direct delete via a very unsupported unofficial method
       bool isHex=leafname.empty();
       if(leafname.size()==38 && !leafname.compare(0, 6, L".afiod"))
       {
@@ -123,6 +124,7 @@ namespace detail {
         }
       }
       if(isHex)
+#endif
       {
         NTSTATUS ntstat;
         if(!temph)
@@ -150,7 +152,7 @@ namespace detail {
       return false;
     }
     static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h) { return isDeletedFile(std::move(h), path::string_type(), std::shared_ptr<async_io_handle>()); }
-    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
+//    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
     
     static inline path MountPointFromHandle(HANDLE h)
     {
@@ -260,7 +262,42 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
     std::sort(dosmountpoints.begin(), dosmountpoints.end(), [](const path::string_type &a, const path::string_type &b){return a.size()<b.size();});
     filesystem::path ret(dosmountpoints.front());
     ret/=p.native().substr(mountpoint.native().size()+1);
-    if(ret.native().size()>=260)
+    bool needsExtendedPrefix=(ret.native().size()>=260);
+    // Are there any illegal Win32 characters in here?
+    static BOOST_CONSTEXPR_OR_CONST char reserved_chars[]="\"*/:<>?|";
+    for(size_t n=0; !needsExtendedPrefix && n<ret.native().size(); n++)
+    {
+      if(ret.native()[n]>=1 && ret.native()[n]<=31)
+        needsExtendedPrefix=true;
+      for(size_t x=0; x<sizeof(reserved_chars); x++)
+        if(ret.native()[n]==reserved_chars[x])
+        {
+          needsExtendedPrefix=true;
+          break;
+        }
+    }
+    // Are any segments of the filename a reserved name?
+    static BOOST_CONSTEXPR_OR_CONST wchar_t *reserved_names[]={L"CON", L"PRN", L"AUX", L"NUL", L"COM1", L"COM2", L"COM3", L"COM4", L"COM5", L"COM6", L"COM7", L"COM8", L"COM9", L"LPT1", L"LPT2", L"LPT3", L"LPT4", L"LPT5", L"LPT6", L"LPT7", L"LPT8", L"LPT9"};
+    for(auto &i : ret)
+    {
+      auto s=i.stem().native();
+      if(s[0]==' ' || s[s.size()-1]=='.')
+      {
+        needsExtendedPrefix=true;
+        break;
+      }
+      for(size_t n=0; n<sizeof(reserved_names)/sizeof(reserved_names[0]); n++)
+      {
+        if(s==reserved_names[n])
+        {
+          needsExtendedPrefix=true;
+          break;
+        }
+      }
+      if(needsExtendedPrefix)
+        break;
+    }
+    if(needsExtendedPrefix)
       return filesystem::path("\\\\?")/ret;
     else
       return ret;
@@ -1155,8 +1192,8 @@ namespace detail
                         if(1==length || '.'==ffdi->FileName[1])
                             continue;
                     path::string_type leafname(ffdi->FileName, length);
-                    if(isDeletedFile(leafname, h))
-                      continue;
+//                    if(isDeletedFile(leafname, h))
+//                      continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
                     item.stat.st_type=to_st_type(ffdi->FileAttributes);
@@ -1451,7 +1488,7 @@ namespace detail
         }
 
     public:
-        async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask), pagesize(page_sizes().front())
+        async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask), pagesize(utils::page_sizes().front())
         {
         }
 

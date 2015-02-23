@@ -742,7 +742,7 @@ static std::ostream &operator<<(std::ostream &s, const chrono::system_clock::tim
     }
     //len -= ret - 1;
 
-    sprintf(&buf[strlen(buf)], ".%09ld", (long) remainder.count());
+    sprintf(&buf[strlen(buf)], ".%.6f", remainder.count()/((double) chrono::system_clock::period::den / chrono::system_clock::period::num));
     s << buf;
 
     return s;

@@ -397,215 +397,6 @@ BOOST_AFIO_V1_NAMESPACE_END
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
-#endif
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> async_file_io_dispatcher_base::page_sizes(bool only_actually_available) BOOST_NOEXCEPT_OR_NOTHROW
-{
-    static spinlock<bool> lock;
-    static std::vector<size_t> pagesizes, pagesizes_available;
-    lock_guard<decltype(lock)> g(lock);
-    if(pagesizes.empty())
-    {
-#ifdef WIN32
-        typedef size_t (WINAPI *GetLargePageMinimum_t)(void);
-        SYSTEM_INFO si={ 0 };
-        GetSystemInfo(&si);
-        pagesizes.push_back(si.dwPageSize);
-        pagesizes_available.push_back(si.dwPageSize);
-        GetLargePageMinimum_t GetLargePageMinimum_ = (GetLargePageMinimum_t) GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetLargePageMinimum");
-        if(GetLargePageMinimum_)
-        {
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-            pagesizes.push_back(GetLargePageMinimum_());
-            /* Attempt to enable SeLockMemoryPrivilege */
-            HANDLE token;
-            if(OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token))
-            {
-                auto untoken=detail::Undoer([&token]{CloseHandle(token);});
-                TOKEN_PRIVILEGES privs={1};
-                if(LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &privs.Privileges[0].Luid))
-                {
-                    privs.Privileges[0].Attributes=SE_PRIVILEGE_ENABLED;
-                    if(AdjustTokenPrivileges(token, FALSE, &privs, 0, NULL, NULL) && GetLastError()==S_OK)
-                        pagesizes_available.push_back(GetLargePageMinimum_());
-                }
-            }
-        }
-#elif defined(__FreeBSD__)
-        pagesizes.resize(32);
-        int out;
-        if(-1==(out=getpagesizes(pagesizes.data(), 32)))
-        {
-          pagesizes.clear();
-          pagesizes.push_back(getpagesize());
-          pagesizes_available.push_back(getpagesize());
-        }
-        else
-        {
-          pagesizes.resize(out);
-          pagesizes_available=pagesizes;
-        }
-#elif defined(__APPLE__)
-      // I can't find how to determine what the super page size is on OS X programmatically
-      // It appears to be hard coded into mach/vm_statistics.h which says that it's always 2Mb
-      // Therefore, we hard code 2Mb
-      pagesizes.push_back(getpagesize());
-      pagesizes_available.push_back(getpagesize());
-      pagesizes.push_back(2*1024*1024);
-      pagesizes_available.push_back(2*1024*1024);      
-#elif defined(__linux__)
-      pagesizes.push_back(getpagesize());
-      pagesizes_available.push_back(getpagesize());
-      int ih=::open("/proc/meminfo", O_RDONLY);
-      if(-1!=ih)
-      {
-        char buffer[4096], *hugepagesize, *hugepages;
-        buffer[::read(ih, buffer, sizeof(buffer)-1)]=0;
-        ::close(ih);
-        hugepagesize=strstr(buffer, "Hugepagesize:");
-        hugepages=strstr(buffer, "HugePages_Total:");
-        if(hugepagesize && hugepages)
-        {
-          unsigned _hugepages=0, _hugepagesize=0;
-          while(*++hugepagesize!=' ');
-          while(*++hugepages!=' ');
-          while(*++hugepagesize==' ');
-          while(*++hugepages==' ');
-          sscanf(hugepagesize, "%u", &_hugepagesize);
-          sscanf(hugepages, "%u", &_hugepages);
-          if(_hugepagesize)
-          {
-            pagesizes.push_back(((size_t)_hugepagesize)*1024);
-            if(_hugepages)
-              pagesizes_available.push_back(((size_t)_hugepagesize)*1024);
-          }
-        }
-      }
-#else
-        pagesizes.push_back(getpagesize());
-        pagesizes_available.push_back(getpagesize());
-#endif
-    }
-    return only_actually_available ? pagesizes_available : pagesizes;
-}
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::random_fill(char *buffer, size_t bytes)
-{
-#ifdef WIN32
-    windows_nt_kernel::init();
-    using namespace windows_nt_kernel;
-    BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, (ULONG) bytes));
-#else
-    static spinlock<bool> lock;
-    static std::random_device device;
-    lock_guard<decltype(lock)> g(lock);
-    std::random_device::result_type *b=(std::random_device::result_type *) buffer;
-    while(bytes>=sizeof(std::random_device::result_type))
-    {
-      *b++=device();
-      bytes-=sizeof(std::random_device::result_type);
-    }
-    if(bytes)
-    {
-      buffer=(char *) b;
-      auto t=device();
-      *b++=t&0xff; bytes--;
-      while(bytes)
-      {
-        t>>=8;
-        *b++=t&0xff;
-        bytes--;
-      }
-    }
-#endif
-}
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
-#endif
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string async_file_io_dispatcher_base::random_string(size_t length)
-{
-    static BOOST_CONSTEXPR_OR_CONST char table[]="0123456789abcdef";
-    std::string ret;
-    ret.resize(length);
-    random_fill(const_cast<char *>(ret.data()), length/2);
-    for(size_t n=(length-1)/2; n<=(length-1)/2; n--)
-    {
-      ret[n*2+1]=table[(ret[n]>>4)&0xf];
-      ret[n*2]=table[ret[n]&0xf];
-    }
-    return ret;
-}
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-namespace detail
-{
-  large_page_allocation allocate_large_pages(size_t bytes)
-  {
-    large_page_allocation ret(calculate_large_page_allocation(bytes));
-#ifdef WIN32
-    DWORD type=MEM_COMMIT|MEM_RESERVE;
-    if(ret.page_size_used>65536)
-      type|=MEM_LARGE_PAGES;
-    if(!(ret.p=VirtualAlloc(nullptr, ret.actual_size, type, PAGE_READWRITE)))
-    {
-      if(ERROR_NOT_ENOUGH_MEMORY==GetLastError())
-        if((ret.p=VirtualAlloc(nullptr, ret.actual_size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE)))
-          return ret;
-      BOOST_AFIO_ERRHWIN(0);
-    }
-#ifndef NDEBUG
-    else
-      std::cout << "afio: Large page allocation successful" << std::endl;
-#endif
-#else
-    int flags=MAP_SHARED|MAP_ANON;
-    if(ret.page_size_used>65536)
-    {
-#ifdef MAP_HUGETLB
-      flags|=MAP_HUGETLB;
-#endif
-#ifdef MAP_ALIGNED_SUPER
-      flags|=MAP_ALIGNED_SUPER;
-#endif
-#ifdef VM_FLAGS_SUPERPAGE_SIZE_ANY
-      flags|=VM_FLAGS_SUPERPAGE_SIZE_ANY;
-#endif
-    }
-    if(!(ret.p=mmap(nullptr, ret.actual_size, PROT_WRITE, flags, -1, 0)))
-    {
-      if(ENOMEM==errno)
-        if((ret.p=mmap(nullptr, ret.actual_size, PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0)))
-          return ret;
-      BOOST_AFIO_ERRHOS(-1);
-    }
-#ifndef NDEBUG
-    else
-      std::cout << "afio: Large page allocation successful" << std::endl;
-#endif
-#endif
-    return ret;
-  }
-  void deallocate_large_pages(void *p, size_t bytes)
-  {
-#ifdef WIN32
-    BOOST_AFIO_ERRHWIN(VirtualFree(p, 0, MEM_RELEASE));
-#else
-    BOOST_AFIO_ERRHOS(munmap(p, bytes));
-#endif
-  }
-}
-
-
 std::shared_ptr<std_thread_pool> process_threadpool()
 {
     // This is basically how many file i/o operations can occur at once
@@ -931,7 +722,7 @@ namespace detail {
               afio::path newpath;
 #if defined(__linux__)
               // Linux keeps a symlink at /proc/self/fd/n
-              char in[PATH_MAX+1], out[PATH_MAX+1];
+              char in[PATH_MAX+1], out[32769];
               sprintf(in, "/proc/self/fd/%d", fd);
               ssize_t len;
               if((len = readlink(in, out, sizeof(out)-1)) == -1)
@@ -2564,7 +2355,7 @@ namespace detail {
             // Fall back onto a write of zeros
             if(!done)
             {
-              std::vector<char, file_buffer_allocator<char>> buffer(file_buffer_default_size());
+              std::vector<char, utils::file_buffer_allocator<char>> buffer(utils::file_buffer_default_size());
               for(auto &i: ranges)
               {
                 ssize_t byteswritten=0;
@@ -3422,6 +3213,188 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_ba
     return std::make_shared<detail::async_file_io_dispatcher_compat>(threadpool, flagsforce, flagsmask);
 #endif
 }
+
+namespace utils
+{
+  // Stupid MSVC ...
+  namespace detail { using namespace BOOST_AFIO_V1_NAMESPACE::detail; }
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
+#endif
+  std::vector<size_t> page_sizes(bool only_actually_available) BOOST_NOEXCEPT_OR_NOTHROW
+  {
+      static spinlock<bool> lock;
+      static std::vector<size_t> pagesizes, pagesizes_available;
+      lock_guard<decltype(lock)> g(lock);
+      if(pagesizes.empty())
+      {
+#ifdef WIN32
+          typedef size_t (WINAPI *GetLargePageMinimum_t)(void);
+          SYSTEM_INFO si={ 0 };
+          GetSystemInfo(&si);
+          pagesizes.push_back(si.dwPageSize);
+          pagesizes_available.push_back(si.dwPageSize);
+          GetLargePageMinimum_t GetLargePageMinimum_ = (GetLargePageMinimum_t) GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetLargePageMinimum");
+          if(GetLargePageMinimum_)
+          {
+              windows_nt_kernel::init();
+              using namespace windows_nt_kernel;
+              pagesizes.push_back(GetLargePageMinimum_());
+              /* Attempt to enable SeLockMemoryPrivilege */
+              HANDLE token;
+              if(OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token))
+              {
+                  auto untoken=detail::Undoer([&token]{CloseHandle(token);});
+                  TOKEN_PRIVILEGES privs={1};
+                  if(LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &privs.Privileges[0].Luid))
+                  {
+                      privs.Privileges[0].Attributes=SE_PRIVILEGE_ENABLED;
+                      if(AdjustTokenPrivileges(token, FALSE, &privs, 0, NULL, NULL) && GetLastError()==S_OK)
+                          pagesizes_available.push_back(GetLargePageMinimum_());
+                  }
+              }
+          }
+#elif defined(__FreeBSD__)
+          pagesizes.resize(32);
+          int out;
+          if(-1==(out=getpagesizes(pagesizes.data(), 32)))
+          {
+            pagesizes.clear();
+            pagesizes.push_back(getpagesize());
+            pagesizes_available.push_back(getpagesize());
+          }
+          else
+          {
+            pagesizes.resize(out);
+            pagesizes_available=pagesizes;
+          }
+#elif defined(__APPLE__)
+        // I can't find how to determine what the super page size is on OS X programmatically
+        // It appears to be hard coded into mach/vm_statistics.h which says that it's always 2Mb
+        // Therefore, we hard code 2Mb
+        pagesizes.push_back(getpagesize());
+        pagesizes_available.push_back(getpagesize());
+        pagesizes.push_back(2*1024*1024);
+        pagesizes_available.push_back(2*1024*1024);      
+#elif defined(__linux__)
+        pagesizes.push_back(getpagesize());
+        pagesizes_available.push_back(getpagesize());
+        int ih=::open("/proc/meminfo", O_RDONLY);
+        if(-1!=ih)
+        {
+          char buffer[4096], *hugepagesize, *hugepages;
+          buffer[::read(ih, buffer, sizeof(buffer)-1)]=0;
+          ::close(ih);
+          hugepagesize=strstr(buffer, "Hugepagesize:");
+          hugepages=strstr(buffer, "HugePages_Total:");
+          if(hugepagesize && hugepages)
+          {
+            unsigned _hugepages=0, _hugepagesize=0;
+            while(*++hugepagesize!=' ');
+            while(*++hugepages!=' ');
+            while(*++hugepagesize==' ');
+            while(*++hugepages==' ');
+            sscanf(hugepagesize, "%u", &_hugepagesize);
+            sscanf(hugepages, "%u", &_hugepages);
+            if(_hugepagesize)
+            {
+              pagesizes.push_back(((size_t)_hugepagesize)*1024);
+              if(_hugepages)
+                pagesizes_available.push_back(((size_t)_hugepagesize)*1024);
+            }
+          }
+        }
+#else
+          pagesizes.push_back(getpagesize());
+          pagesizes_available.push_back(getpagesize());
+#endif
+      }
+      return only_actually_available ? pagesizes_available : pagesizes;
+  }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
+  void random_fill(char *buffer, size_t bytes)
+  {
+#ifdef WIN32
+      windows_nt_kernel::init();
+      using namespace windows_nt_kernel;
+      BOOST_AFIO_ERRHWIN(RtlGenRandom(buffer, (ULONG) bytes));
+#else
+      static spinlock<bool> lock;
+      static int randomfd=-1;
+      if(-1==randomfd)
+      {
+        lock_guard<decltype(lock)> g(lock);
+        BOOST_AFIO_ERRHOS((randomfd=::open("/dev/urandom", O_RDONLY));
+      }
+      BOOST_AFIO_ERRHOS(::read(randomfd, buffer, bytes));
+#endif
+  }
+
+
+  namespace detail
+  {
+    large_page_allocation allocate_large_pages(size_t bytes)
+    {
+      large_page_allocation ret(calculate_large_page_allocation(bytes));
+#ifdef WIN32
+      DWORD type=MEM_COMMIT|MEM_RESERVE;
+      if(ret.page_size_used>65536)
+        type|=MEM_LARGE_PAGES;
+      if(!(ret.p=VirtualAlloc(nullptr, ret.actual_size, type, PAGE_READWRITE)))
+      {
+        if(ERROR_NOT_ENOUGH_MEMORY==GetLastError())
+          if((ret.p=VirtualAlloc(nullptr, ret.actual_size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE)))
+            return ret;
+        BOOST_AFIO_ERRHWIN(0);
+      }
+#ifndef NDEBUG
+      else if(ret.page_size_used>65536)
+        std::cout << "afio: Large page allocation successful" << std::endl;
+#endif
+#else
+      int flags=MAP_SHARED|MAP_ANON;
+      if(ret.page_size_used>65536)
+      {
+#ifdef MAP_HUGETLB
+        flags|=MAP_HUGETLB;
+#endif
+#ifdef MAP_ALIGNED_SUPER
+        flags|=MAP_ALIGNED_SUPER;
+#endif
+#ifdef VM_FLAGS_SUPERPAGE_SIZE_ANY
+        flags|=VM_FLAGS_SUPERPAGE_SIZE_ANY;
+#endif
+      }
+      if(!(ret.p=mmap(nullptr, ret.actual_size, PROT_WRITE, flags, -1, 0)))
+      {
+        if(ENOMEM==errno)
+          if((ret.p=mmap(nullptr, ret.actual_size, PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0)))
+            return ret;
+        BOOST_AFIO_ERRHOS(-1);
+      }
+#ifndef NDEBUG
+      else if(ret.page_size_used>65536)
+        std::cout << "afio: Large page allocation successful" << std::endl;
+#endif
+#endif
+      return ret;
+    }
+    void deallocate_large_pages(void *p, size_t bytes)
+    {
+#ifdef WIN32
+      BOOST_AFIO_ERRHWIN(VirtualFree(p, 0, MEM_RELEASE));
+#else
+      BOOST_AFIO_ERRHOS(munmap(p, bytes));
+#endif
+    }
+  }
+
+}
+
 
 BOOST_AFIO_V1_NAMESPACE_END
 

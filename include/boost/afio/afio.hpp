@@ -612,7 +612,9 @@ On Windows AFIO exclusively uses NT kernel paths which are not necessarily trivi
 to Win32 paths. As an example, the Win32 path `C:\\Foo` might be `\\??\\C:\\Foo` or even
 `\\Device\\HarddiskVolume1\\Foo`. This function will convert any NT kernel path into
 something which can be fed to normal Win32 APIs - a drive letter if available, else a GUID volume
-path, and with an extended path prefix if the path is sufficiently long.
+path, and with an extended path prefix if the path is sufficiently long. It also scans the path
+for characters illegal under Win32 or paths which begin with a space or end with a period, and
+will extended path prefix such paths as well.
 
 \ingroup normalise_path
 \param p Path to be normalised
@@ -2103,61 +2105,6 @@ public:
     */
     inline async_io_op depends(async_io_op precondition, async_io_op op);
 
-    /*! \brief Returns the page sizes of this architecture which is useful for calculating direct i/o multiples.
-    
-    \param only_actually_available Only return page sizes actually available to the user running this process
-    \return The page sizes of this architecture.
-    \ingroup async_file_io_dispatcher_base__misc
-    \complexity{Whatever the system API takes (one would hope constant time).}
-    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
-    */
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available=true) BOOST_NOEXCEPT_OR_NOTHROW;
-
-    /*! \brief Returns a reasonable default size for file_buffer_allocator, typically the closest page size from
-    page_sizes() to 1Mb.
-    
-    \return A value of a TLB large page size close to 1Mb.
-    \ingroup async_file_io_dispatcher_base__misc
-    \complexity{Whatever the system API takes (one would hope constant time).}
-    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
-    */
-    static inline size_t file_buffer_default_size() BOOST_NOEXCEPT_OR_NOTHROW
-    {
-      static size_t size;
-      if(!size)
-      {
-        std::vector<size_t> sizes(page_sizes(true));
-        for(auto &i : sizes)
-          if(i>=1024*1024)
-          {
-            size=i;
-            break;
-          }
-        if(!size)
-          size=1024*1024;
-      }
-      return size;
-    }
-
-    /*! \brief Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API.
-    
-    \param buffer A buffer to fill
-    \param bytes How many bytes to fill
-    \ingroup async_file_io_dispatcher_base__misc
-    \complexity{Whatever the system API takes.}
-    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
-    */
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void random_fill(char *buffer, size_t bytes);
-
-    /*! \brief Returns a cryptographically strong random hexadecimal string.
-    
-    \param length How many characters to return
-    \ingroup async_file_io_dispatcher_base__misc
-    \complexity{Whatever the system API takes.}
-    \exceptionmodel{Any error from the operating system or std::bad_alloc.}
-    */
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::string random_string(size_t length);
-    
     /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
 
     \ingroup async_file_io_dispatcher_base__misc
@@ -3500,126 +3447,394 @@ inline async_io_op async_file_io_dispatcher_base::depends(async_io_op preconditi
     return std::move(completion(r, i).front());
 }
 
-namespace detail
+//! Utility routines often useful when using AFIO
+namespace utils
 {
-  struct large_page_allocation
+  /*! \brief Returns the page sizes of this architecture which is useful for calculating direct i/o multiples.
+
+  \param only_actually_available Only return page sizes actually available to the user running this process
+  \return The page sizes of this architecture.
+  \ingroup utils
+  \complexity{Whatever the system API takes (one would hope constant time).}
+  \exceptionmodel{Any error from the operating system or std::bad_alloc.}
+  */
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available = true) BOOST_NOEXCEPT_OR_NOTHROW;
+
+  /*! \brief Returns a reasonable default size for file_buffer_allocator, typically the closest page size from
+  page_sizes() to 1Mb.
+
+  \return A value of a TLB large page size close to 1Mb.
+  \ingroup utils
+  \complexity{Whatever the system API takes (one would hope constant time).}
+  \exceptionmodel{Any error from the operating system or std::bad_alloc.}
+  */
+  inline size_t file_buffer_default_size() BOOST_NOEXCEPT_OR_NOTHROW
   {
-    void *p;
-    size_t page_size_used;
-    size_t actual_size;
-    large_page_allocation() : p(nullptr), page_size_used(0), actual_size(0) { }
-    large_page_allocation(void *_p, size_t pagesize, size_t actual) : p(_p), page_size_used(pagesize), actual_size(actual) { }
-  };
-  inline large_page_allocation calculate_large_page_allocation(size_t bytes)
-  {
-    large_page_allocation ret;
-    auto pagesizes(async_file_io_dispatcher_base::page_sizes());
-    do
+    static size_t size;
+    if (!size)
     {
-      ret.page_size_used=pagesizes.back();
-      pagesizes.pop_back();
-    } while(!pagesizes.empty() && !(bytes/ret.page_size_used));
-    ret.actual_size=(bytes+ret.page_size_used-1)&~(ret.page_size_used-1);
-    return ret;    
+      std::vector<size_t> sizes(page_sizes(true));
+      for (auto &i : sizes)
+        if (i >= 1024 * 1024)
+        {
+          size = i;
+          break;
+        }
+      if (!size)
+        size = 1024 * 1024;
+    }
+    return size;
   }
-  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC large_page_allocation allocate_large_pages(size_t bytes);
-  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void deallocate_large_pages(void *p, size_t bytes);
+
+  /*! \brief Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API.
+
+  \param buffer A buffer to fill
+  \param bytes How many bytes to fill
+  \ingroup utils
+  \complexity{Whatever the system API takes.}
+  \exceptionmodel{Any error from the operating system.}
+  */
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void random_fill(char *buffer, size_t bytes);
+
+  /*! \brief Converts a number to a hex string. Out buffer can be same as in buffer.
+
+  Note that the character range used is a 16 item table of:
+
+  0123456789abcdef
+
+  This lets one pack one byte of input into two bytes of output.
+
+  \ingroup utils
+  \complexity{O(N) where N is the length of the number.}
+  \exceptionmodel{Throws exception if output buffer is too small for input.}
+  */
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
+#endif
+  inline size_t to_hex_string(char *__restrict out, size_t outlen, const char *__restrict in, size_t inlen)
+  {
+    static BOOST_CONSTEXPR_OR_CONST char table[] = "0123456789abcdef";
+    if(outlen<inlen*2)
+      BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
+    for (size_t n = inlen - 1; n <= inlen - 1; n--)
+    {
+      out[n * 2 + 1] = table[(in[n] >> 4) & 0xf];
+      out[n * 2] = table[in[n] & 0xf];
+    }
+    return inlen*2;
+  }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+  //! \overload
+  inline std::string to_hex_string(std::string in)
+  {
+    std::string out(in.size() * 2, ' ');
+    to_hex_string(const_cast<char *>(out.data()), out.size(), in.data(), in.size());
+    return std::move(out);
+  }
+
+  /*! \brief Converts a hex string to a number. Out buffer can be same as in buffer.
+
+  \ingroup utils
+  \complexity{O(N) where N is the length of the string.}
+  \exceptionmodel{Throws exception if output buffer is too small for input or input size is not multiple of two.}
+  */
+  inline size_t from_hex_string(char *__restrict out, size_t outlen, const char *__restrict in, size_t inlen)
+  {
+    if (inlen % 2)
+      BOOST_AFIO_THROW(std::invalid_argument("Input buffer not multiple of two."));
+    if (outlen<inlen / 2)
+      BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
+    auto fromhex = [](char c) -> char
+    {
+      if(c>='0' && c<='9')
+        return c-'0';
+      if(c>='a' && c<='f')
+        return c-'a'+10;
+      if(c>='A' && c<='F')
+        return c-'A'+10;
+      BOOST_AFIO_THROW(std::invalid_argument("Input is not hexadecimal."));
+    };
+    for (size_t n = 0; n<inlen/2; n++)
+    {
+      char c1 = fromhex(in[n * 2]), c2 = fromhex(in[n * 2 + 1]);
+      out[n]=(c2<<4)|c1;
+    }
+    return inlen/2;
+  }
+
+  /*! \brief Converts a number to a very compact barely legal filename, one which may use characters that only AFIO
+  based programs are capable of working with (i.e. users may not be able to delete these files normally).
+  Out buffer can be same as in buffer.
+
+  Note that the character range used is a 64 item table of:
+
+  !#$%&'()*+,-.0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`{|}~
+
+  This lets one pack three bytes of input into four bytes of output. The above table is probably about as big
+  as is case insensitive, doesn't cause unicode conversion errors, and is fairly portable across filing systems.
+  Note that the above table contains characters illegal under Win32 and therefore Win32 API functions will not
+  be able to work with the above file names without escaping.
+
+  \ingroup utils
+  \complexity{O(N) where N is the length of the number.}
+  \exceptionmodel{Throws exception if output buffer is too small for input.}
+  */
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
+#endif
+  inline size_t to_compact_string(char *__restrict out, size_t outlen, const char *__restrict _in, size_t inlen)
+  {
+    unsigned const char *__restrict in = (unsigned const char *__restrict) _in;
+    static BOOST_CONSTEXPR_OR_CONST char table[] = "!#$%&'()*+,-.0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`{|}~";
+    if (outlen<(2+inlen * 4) / 3)
+      BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
+    size_t r = inlen % 3;
+    for (size_t n = inlen-r-3; n <= inlen-r-3; n-=3)
+    {
+      size_t i = n * 4 / 3;
+      out[i + 3] = table[(in[n+2]>>2) & 0x3f];                 // +3 6 bits
+      out[i + 2] = table[((in[n+2]<<4)|(in[n+1]>>4)) & 0x3f];  // +2 2 bits +1 4 bits
+      out[i + 1] = table[((in[n+1]<<2)|(in[n]>>6)) & 0x3f];    // +1 4 bits +0 2 bits 
+      out[i] = table[in[n] & 0x3f];                            // +0 6 bits
+    }
+    switch(r)
+    {
+      size_t i;
+      case 0:
+        break;
+      case 1:
+        i = (inlen-r) * 4 / 3;
+        out[i + 1] = table[(in[inlen-1]>>6) & 0x3f];
+        out[i] = table[in[inlen-1] & 0x3f];
+        break;
+      case 2:
+        i = (inlen-r) * 4 / 3;
+        out[i + 2] = table[(in[inlen-1]>>4) & 0x3f];
+        out[i + 1] = table[((in[inlen-1]<<2)|(in[inlen-2]>>6)) & 0x3f];
+        out[i] = table[in[inlen-2] & 0x3f];
+        break;
+    }
+    return (2+inlen * 4) / 3;
+  }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+  //! \overload
+  inline std::string to_compact_string(std::string in)
+  {
+    std::string out(in.size() * 4 / 3, ' ');
+    to_compact_string(const_cast<char *>(out.data()), out.size(), in.data(), in.size());
+    return std::move(out);
+  }
+
+  /*! \brief Converts a very compact barely legal filename to a number.
+
+  \ingroup utils
+  \complexity{O(N) where N is the length of the string.}
+  \exceptionmodel{Throws exception if output buffer is too small for input.}
+  */
+  inline size_t from_compact_string(char *__restrict _out, size_t outlen, const char *__restrict in, size_t inlen)
+  {
+    unsigned char *__restrict out = (unsigned char *__restrict) _out;
+    //     ASCII starting from 33 is !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+    // Our table starting from 33 is ! #$%&'()*+,-. 0123456789 ;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[ ]^_`                          {|}~
+    //                               0 1            13         23                                56                            60
+    if (outlen<(inlen * 3) / 4)
+      BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
+    auto from_c = [](char c) -> unsigned char
+    {
+      if(c>='{' && c<='~')
+        return c-'{'+60;
+      if(c>=']' && c<='`')
+        return c-']'+56;
+      if(c>='a' && c<='z')
+        c=c-'a'+'A';
+      if (c >= ';' && c <= '[')
+        return c-';'+23;
+      if(c>='0' && c<='9')
+        return c-'0'+13;
+      if(c>='#' && c<='.')
+        return c-'#'+1;
+      if(c=='!')
+        return 0;
+      BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
+    };
+    for (size_t n = 0; n < inlen / 4; n++)
+    {
+      unsigned char c[4];
+      c[0] = from_c(in[n*4]);
+      c[1] = from_c(in[n*4+1]);
+      c[2] = from_c(in[n*4+2]);
+      c[3] = from_c(in[n*4+3]);
+      out[n*3]=((c[1]<<6)|c[0]) & 0xff;         // +1 2 bits +0 6 bits
+      out[n*3+1]=((c[2]<<4)|(c[1]>>2)) & 0xff;  // +2 4 bits +1 4 bits
+      out[n*3+2]=((c[3]<<2)|(c[2]>>4)) & 0xff;  // +3 6 bits +2 2 bits
+    }
+    switch(inlen%4)
+    {
+      unsigned char c[4];
+    case 0:
+    case 1:
+      break;
+    case 2:
+      c[0] = from_c(in[inlen-2]);
+      c[1] = from_c(in[inlen-1]);
+      out[(inlen/4)*3]=((c[1]<<6)|c[0]) & 0xff;
+      break;
+    case 3:
+      c[0] = from_c(in[inlen-3]);
+      c[1] = from_c(in[inlen-2]);
+      c[2] = from_c(in[inlen-1]);
+      out[(inlen/4)*3]=((c[1]<<6)|c[0]) & 0xff;
+      out[(inlen/4)*3+1]=((c[2]<<4)|(c[1]>>2)) & 0xff;
+      break;
+    }
+    return (inlen * 3) / 4;
+  }
+
+  /*! \brief Returns a cryptographically random string capable of being used as a filename. Essentially random_fill() + to_compact_string().
+
+  \param randomlen The number of bytes of randomness to use for the string.
+  \return A string representing the randomness at a 4/3 ratio, so if 32 bytes were requested, this string would be 43 bytes long.
+  \ingroup utils
+  \complexity{Whatever the system API takes.}
+  \exceptionmodel{Any error from the operating system.}
+  */
+  inline std::string random_string(size_t randomlen)
+  {
+    size_t outlen = (2+randomlen*4)/3;
+    std::string ret(outlen, 0);
+    random_fill(const_cast<char *>(ret.data()), randomlen);
+    to_compact_string(const_cast<char *>(ret.data()), outlen, ret.data(), randomlen);
+    return std::move(ret);
+  }
+
+  namespace detail
+  {
+    struct large_page_allocation
+    {
+      void *p;
+      size_t page_size_used;
+      size_t actual_size;
+      large_page_allocation() : p(nullptr), page_size_used(0), actual_size(0) { }
+      large_page_allocation(void *_p, size_t pagesize, size_t actual) : p(_p), page_size_used(pagesize), actual_size(actual) { }
+    };
+    inline large_page_allocation calculate_large_page_allocation(size_t bytes)
+    {
+      large_page_allocation ret;
+      auto pagesizes(page_sizes());
+      do
+      {
+        ret.page_size_used=pagesizes.back();
+        pagesizes.pop_back();
+      } while(!pagesizes.empty() && !(bytes/ret.page_size_used));
+      ret.actual_size=(bytes+ret.page_size_used-1)&~(ret.page_size_used-1);
+      return ret;    
+    }
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC large_page_allocation allocate_large_pages(size_t bytes);
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void deallocate_large_pages(void *p, size_t bytes);
+  }
+  /*! \class file_buffer_allocator
+  \brief An STL allocator which allocates large TLB page memory.
+  \ingroup utils
+
+  If the operating system is configured to allow it, this type of memory is particularly efficient for doing
+  large scale file i/o. This is because the kernel must normally convert the scatter gather buffers you pass
+  into extended scatter gather buffers as the memory you see as contiguous may not, and probably isn't, actually be
+  contiguous in physical memory. Regions returned by this allocator \em may be allocated contiguously in physical
+  memory and therefore the kernel can pass through your scatter gather buffers unmodified.
+
+  A particularly useful combination with this allocator is with the page_sizes() member function of __afio_dispatcher__.
+  This will return which pages sizes are possible, and which page sizes are enabled for this user. If writing a
+  file copy routine for example, using this allocator with the largest page size as the copy chunk makes a great
+  deal of sense.
+
+  Be aware that as soon as the allocation exceeds a large page size, most systems allocate in multiples of the large
+  page size, so if the large page size were 2Mb and you allocate 2Mb + 1 byte, 4Mb is actually consumed.
+  */
+  template <typename T>
+  class file_buffer_allocator
+  {
+  public:
+      typedef T         value_type;
+      typedef T*        pointer;
+      typedef const T*  const_pointer;
+      typedef T& reference;
+      typedef const T&  const_reference;
+      typedef size_t    size_type;
+      typedef ptrdiff_t difference_type;
+      typedef std::true_type propagate_on_container_move_assignment;
+      typedef std::true_type is_always_equal;
+
+      template <class U>
+      struct rebind { typedef file_buffer_allocator<U> other; };
+
+      file_buffer_allocator() BOOST_NOEXCEPT_OR_NOTHROW
+      {}
+
+      template <class U>
+      file_buffer_allocator(const file_buffer_allocator<U>&) BOOST_NOEXCEPT_OR_NOTHROW
+      {}
+
+      size_type
+      max_size() const BOOST_NOEXCEPT_OR_NOTHROW
+      { return size_type(~0) / sizeof(T); }
+
+      pointer
+      address(reference x) const BOOST_NOEXCEPT_OR_NOTHROW
+      { return std::addressof(x); }
+
+      const_pointer
+      address(const_reference x) const BOOST_NOEXCEPT_OR_NOTHROW
+      { return std::addressof(x); }
+
+      pointer
+      allocate(size_type n, const void *hint = 0)
+      {
+          if(n>max_size())
+              throw std::bad_alloc();
+          auto mem(detail::allocate_large_pages(n * sizeof(T)));
+          if (mem.p == nullptr)
+              throw std::bad_alloc();
+          return reinterpret_cast<pointer>(mem.p);
+      }
+
+      void
+      deallocate(pointer p, size_type n)
+      {
+          if(n>max_size())
+              throw std::bad_alloc();
+          detail::deallocate_large_pages(p, n * sizeof(T));
+      }
+
+      template <class U, class ...Args>
+      void
+      construct(U* p, Args&&... args)
+      { ::new(reinterpret_cast<void*>(p)) U(std::forward<Args>(args)...); }
+
+      template <class U> void
+      destroy(U* p)
+      { p->~U(); }
+  };
+  template <>
+  class file_buffer_allocator<void>
+  {
+  public:
+      typedef void         value_type;
+      typedef void*        pointer;
+      typedef const void*  const_pointer;
+      typedef std::true_type propagate_on_container_move_assignment;
+      typedef std::true_type is_always_equal;
+
+      template <class U>
+      struct rebind { typedef file_buffer_allocator<U> other; };
+  };
+
 }
-/*! \class file_buffer_allocator
-\brief An STL allocator which allocates large TLB page memory.
-
-If the operating system is configured to allow it, this type of memory is particularly efficient for doing
-large scale file i/o. This is because the kernel must normally convert the scatter gather buffers you pass
-into extended scatter gather buffers as the memory you see as contiguous may not, and probably isn't, actually be
-contiguous in physical memory. Regions returned by this allocator \em may be allocated contiguously in physical
-memory and therefore the kernel can pass through your scatter gather buffers unmodified.
-
-A particularly useful combination with this allocator is with the page_sizes() member function of __afio_dispatcher__.
-This will return which pages sizes are possible, and which page sizes are enabled for this user. If writing a
-file copy routine for example, using this allocator with the largest page size as the copy chunk makes a great
-deal of sense.
-
-Be aware that as soon as the allocation exceeds a large page size, most systems allocate in multiples of the large
-page size, so if the large page size were 2Mb and you allocate 2Mb + 1 byte, 4Mb is actually consumed.
-*/
-template <typename T>
-class file_buffer_allocator
-{
-public:
-    typedef T         value_type;
-    typedef T*        pointer;
-    typedef const T*  const_pointer;
-    typedef T& reference;
-    typedef const T&  const_reference;
-    typedef size_t    size_type;
-    typedef ptrdiff_t difference_type;
-    typedef std::true_type propagate_on_container_move_assignment;
-    typedef std::true_type is_always_equal;
-
-    template <class U>
-    struct rebind { typedef file_buffer_allocator<U> other; };
-
-    file_buffer_allocator() BOOST_NOEXCEPT_OR_NOTHROW
-    {}
-
-    template <class U>
-    file_buffer_allocator(const file_buffer_allocator<U>&) BOOST_NOEXCEPT_OR_NOTHROW
-    {}
-
-    size_type
-    max_size() const BOOST_NOEXCEPT_OR_NOTHROW
-    { return size_type(~0) / sizeof(T); }
-
-    pointer
-    address(reference x) const BOOST_NOEXCEPT_OR_NOTHROW
-    { return std::addressof(x); }
-
-    const_pointer
-    address(const_reference x) const BOOST_NOEXCEPT_OR_NOTHROW
-    { return std::addressof(x); }
-
-    pointer
-    allocate(size_type n, const void *hint = 0)
-    {
-        if(n>max_size())
-            throw std::bad_alloc();
-        auto mem(detail::allocate_large_pages(n * sizeof(T)));
-        if (mem.p == nullptr)
-            throw std::bad_alloc();
-        return reinterpret_cast<pointer>(mem.p);
-    }
-
-    void
-    deallocate(pointer p, size_type n)
-    {
-        if(n>max_size())
-            throw std::bad_alloc();
-        detail::deallocate_large_pages(p, n * sizeof(T));
-    }
-
-    template <class U, class ...Args>
-    void
-    construct(U* p, Args&&... args)
-    { ::new(reinterpret_cast<void*>(p)) U(std::forward<Args>(args)...); }
-
-    template <class U> void
-    destroy(U* p)
-    { p->~U(); }
-};
-template <>
-class file_buffer_allocator<void>
-{
-public:
-    typedef void         value_type;
-    typedef void*        pointer;
-    typedef const void*  const_pointer;
-    typedef std::true_type propagate_on_container_move_assignment;
-    typedef std::true_type is_always_equal;
-
-    template <class U>
-    struct rebind { typedef file_buffer_allocator<U> other; };
-};
-
 
 
 BOOST_AFIO_V1_NAMESPACE_END
