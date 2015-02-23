@@ -3538,7 +3538,7 @@ namespace utils
 
   /*! \brief Converts a hex string to a number. Out buffer can be same as in buffer.
 
-  This routine is about 30% slower than to_hex_string().
+  Note that this routine is about 43% slower than to_hex_string(), half of which is due to input validation.
   
   \ingroup utils
   \complexity{O(N) where N is the length of the string.}
@@ -3550,7 +3550,8 @@ namespace utils
       BOOST_AFIO_THROW(std::invalid_argument("Input buffer not multiple of two."));
     if (outlen<inlen / 2)
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
-    auto fromhex = [](char c) -> unsigned char
+    bool is_invalid=false;
+    auto fromhex = [&is_invalid](char c) -> unsigned char
     {
 #if 1
       // ASCII starting from 48 is 0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
@@ -3564,8 +3565,8 @@ namespace utils
       unsigned char r=255;
       if(c>=48 && c<=102)
         r=table[c-48];
-      if(c==255)
-        BOOST_AFIO_THROW(std::invalid_argument("Input is not hexadecimal."));
+      if(r==255)
+        is_invalid=true;
       return r;
 #else
       if(c>='0' && c<='9')
@@ -3598,6 +3599,8 @@ namespace utils
       unsigned char c1 = fromhex(in[n * 2]), c2 = fromhex(in[n * 2 + 1]);
       out[n]=(c2<<4)|c1;
     }
+    if(is_invalid)
+      BOOST_AFIO_THROW(std::invalid_argument("Input is not hexadecimal."));
     return inlen/2;
   }
 
@@ -3614,7 +3617,8 @@ namespace utils
   Note that the above table contains characters illegal under Win32 and therefore Win32 API functions will not
   be able to work with the above file names without escaping.
   
-  The performance penalty of this over to_hex_string() is 25% for a 33% reduction in size.
+  The performance penalty of this over to_hex_string() is 25% for a 33% reduction in size, making it a good
+  option. Note that from_compact_string() is not as similarly blessed.
 
   \ingroup utils
   \complexity{O(N) where N is the length of the number.}
@@ -3671,8 +3675,8 @@ namespace utils
 
   /*! \brief Converts a very compact barely legal filename to a number.
 
-  This routine is about 26% slower than to_compact_string() and about 24% than from_hex_string(),
-  thus making it still a fair option considering the 33% space reduction.
+  This routine is about 36% slower than to_compact_string() and about 15% than from_hex_string(),
+  thus making it a poor option considering the 33% space reduction.
 
   \ingroup utils
   \complexity{O(N) where N is the length of the string.}
@@ -3686,7 +3690,8 @@ namespace utils
     //                               0 1            13         23                                56                            60
     if (outlen<(inlen * 3) / 4)
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
-    auto from_c = [](char c) -> unsigned char
+    bool is_invalid=false;
+    auto from_c = [&is_invalid](char c) -> unsigned char
     {
 #if 1
       static BOOST_CONSTEXPR_OR_CONST unsigned char table[] = { 0,
@@ -3704,8 +3709,8 @@ namespace utils
       unsigned char r=255;
       if(c>='!' && c<='~')
         r=table[c-'!'];
-      if(c==255)
-        BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
+      if(r==255)
+        is_invalid=true;
       return r;
 #else
       if(c>='{' && c<='~')
@@ -3755,6 +3760,8 @@ namespace utils
       out[(inlen/4)*3+1]=((c[2]<<4)|(c[1]>>2)) & 0xff;
       break;
     }
+    if(is_invalid)
+      BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
     return (inlen * 3) / 4;
   }
 
