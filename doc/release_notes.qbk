@@ -213,9 +213,6 @@ protection disappear.
 
 TODO BEFORE RELEASE
 
-1a. Move the page sizes, random and hex filenames stuff into a utils namespace. Add a non-hex file name converter. Add
-converters converting hex into numbers. Add benchmarks for all utils.
-
 1b. Add unit test swapping two directories
 each with an open file in them and make sure it doesn't get confused.
 

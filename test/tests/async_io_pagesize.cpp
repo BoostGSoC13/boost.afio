@@ -26,7 +26,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     BOOST_CHECK(randomstring.size()==43);
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
-    static const size_t ITEMS=500000;
+    static const size_t ITEMS=1000000;
     std::vector<char> buffer(32*ITEMS, ' ');
     begin=chrono::high_resolution_clock::now();
     for(size_t n=0; n<buffer.size()/32; n++)
@@ -35,7 +35,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     auto diff=chrono::duration_cast<secs_type>(end-begin);
     std::cout << "\n\nKernel can generate " << (buffer.size()/diff.count()/1024/1024) << " Mb/sec of 256 bit cryptographic randomness" << std::endl;
 
-    std::vector<std::string> filenames1(ITEMS, std::string(64, ' '));
+    std::vector<std::vector<char>> filenames1(ITEMS, std::vector<char>(64, ' '));
     begin=chrono::high_resolution_clock::now();
     for(size_t n=0; n<ITEMS; n++)
       utils::to_hex_string(const_cast<char *>(filenames1[n].data()), 64, buffer.data()+n*32, 32);
@@ -43,7 +43,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     diff=chrono::duration_cast<secs_type>(end-begin);
     std::cout << "\n\nto_hex_string can convert " << (ITEMS*64/diff.count()/1024/1024) << " Mb/sec of 256 bit numbers to hex" << std::endl;
 
-    std::vector<std::string> filenames2(ITEMS, std::string(43, ' '));
+    std::vector<std::vector<char>> filenames2(ITEMS, std::vector<char>(43, ' '));
     begin=chrono::high_resolution_clock::now();
     for(size_t n=0; n<ITEMS; n++)
       utils::to_compact_string(const_cast<char *>(filenames2[n].data()), 43, buffer.data()+n*32, 32);

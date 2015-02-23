@@ -3512,8 +3512,9 @@ namespace utils
 #pragma warning(push)
 #pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
 #endif
-  inline size_t to_hex_string(char *__restrict out, size_t outlen, const char *__restrict in, size_t inlen)
+  inline size_t to_hex_string(char *out, size_t outlen, const char *_in, size_t inlen)
   {
+    unsigned const char *in = (unsigned const char *) _in;
     static BOOST_CONSTEXPR_OR_CONST char table[] = "0123456789abcdef";
     if(outlen<inlen*2)
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
@@ -3537,18 +3538,36 @@ namespace utils
 
   /*! \brief Converts a hex string to a number. Out buffer can be same as in buffer.
 
+  This routine is about 30% slower than to_hex_string().
+  
   \ingroup utils
   \complexity{O(N) where N is the length of the string.}
   \exceptionmodel{Throws exception if output buffer is too small for input or input size is not multiple of two.}
   */
-  inline size_t from_hex_string(char *__restrict out, size_t outlen, const char *__restrict in, size_t inlen)
+  inline size_t from_hex_string(char *out, size_t outlen, const char *in, size_t inlen)
   {
     if (inlen % 2)
       BOOST_AFIO_THROW(std::invalid_argument("Input buffer not multiple of two."));
     if (outlen<inlen / 2)
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
-    auto fromhex = [](char c) -> char
+    auto fromhex = [](char c) -> unsigned char
     {
+#if 1
+      // ASCII starting from 48 is 0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+      //                           48               65                              97
+      static BOOST_CONSTEXPR_OR_CONST unsigned char table[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,                                                    // +10 = 58
+        255, 255, 255, 255, 255, 255, 255,                                                                                                      // +7  = 65
+        10, 11, 12, 13, 14, 15,                                                                                                                 // +6  = 71
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,       // +26 = 97
+        10, 11, 12, 13, 14, 15
+      };
+      unsigned char r=255;
+      if(c>=48 && c<=102)
+        r=table[c-48];
+      if(c==255)
+        BOOST_AFIO_THROW(std::invalid_argument("Input is not hexadecimal."));
+      return r;
+#else
       if(c>='0' && c<='9')
         return c-'0';
       if(c>='a' && c<='f')
@@ -3556,10 +3575,27 @@ namespace utils
       if(c>='A' && c<='F')
         return c-'A'+10;
       BOOST_AFIO_THROW(std::invalid_argument("Input is not hexadecimal."));
+#endif
     };
-    for (size_t n = 0; n<inlen/2; n++)
+    for (size_t n = 0; n<inlen/2; n+=4)
     {
-      char c1 = fromhex(in[n * 2]), c2 = fromhex(in[n * 2 + 1]);
+      unsigned char c[8];
+      c[0]= fromhex(in[n * 2]);
+      c[1]= fromhex(in[n * 2 + 1]);
+      c[2]= fromhex(in[n * 2 + 2]);
+      c[3]= fromhex(in[n * 2 + 3]);
+      out[n]=(c[1]<<4)|c[0];
+      c[4]= fromhex(in[n * 2 + 4]);
+      c[5]= fromhex(in[n * 2 + 5]);
+      out[n+1]=(c[3]<<4)|c[2];
+      c[6]= fromhex(in[n * 2 + 6]);
+      c[7]= fromhex(in[n * 2 + 7]);
+      out[n+2]=(c[5]<<4)|c[4];
+      out[n+3]=(c[7]<<4)|c[6];
+    }
+    for (size_t n = inlen/2-(inlen/2)%4; n<inlen/2; n++)
+    {
+      unsigned char c1 = fromhex(in[n * 2]), c2 = fromhex(in[n * 2 + 1]);
       out[n]=(c2<<4)|c1;
     }
     return inlen/2;
@@ -3577,6 +3613,8 @@ namespace utils
   as is case insensitive, doesn't cause unicode conversion errors, and is fairly portable across filing systems.
   Note that the above table contains characters illegal under Win32 and therefore Win32 API functions will not
   be able to work with the above file names without escaping.
+  
+  The performance penalty of this over to_hex_string() is 25% for a 33% reduction in size.
 
   \ingroup utils
   \complexity{O(N) where N is the length of the number.}
@@ -3586,9 +3624,9 @@ namespace utils
 #pragma warning(push)
 #pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
 #endif
-  inline size_t to_compact_string(char *__restrict out, size_t outlen, const char *__restrict _in, size_t inlen)
+  inline size_t to_compact_string(char *out, size_t outlen, const char *_in, size_t inlen)
   {
-    unsigned const char *__restrict in = (unsigned const char *__restrict) _in;
+    unsigned const char *in = (unsigned const char *) _in;
     static BOOST_CONSTEXPR_OR_CONST char table[] = "!#$%&'()*+,-.0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`{|}~";
     if (outlen<(2+inlen * 4) / 3)
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
@@ -3633,13 +3671,16 @@ namespace utils
 
   /*! \brief Converts a very compact barely legal filename to a number.
 
+  This routine is about 26% slower than to_compact_string() and about 24% than from_hex_string(),
+  thus making it still a fair option considering the 33% space reduction.
+
   \ingroup utils
   \complexity{O(N) where N is the length of the string.}
   \exceptionmodel{Throws exception if output buffer is too small for input.}
   */
-  inline size_t from_compact_string(char *__restrict _out, size_t outlen, const char *__restrict in, size_t inlen)
+  inline size_t from_compact_string(char *_out, size_t outlen, const char *in, size_t inlen)
   {
-    unsigned char *__restrict out = (unsigned char *__restrict) _out;
+    unsigned char *out = (unsigned char *) _out;
     //     ASCII starting from 33 is !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
     // Our table starting from 33 is ! #$%&'()*+,-. 0123456789 ;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[ ]^_`                          {|}~
     //                               0 1            13         23                                56                            60
@@ -3647,6 +3688,26 @@ namespace utils
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
     auto from_c = [](char c) -> unsigned char
     {
+#if 1
+      static BOOST_CONSTEXPR_OR_CONST unsigned char table[] = { 0,
+        255,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+        255,
+        13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+        255,
+        23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55,
+        255,
+        56, 57, 58, 59,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        60, 61, 62, 63
+      };
+      unsigned char r=255;
+      if(c>='!' && c<='~')
+        r=table[c-'!'];
+      if(c==255)
+        BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
+      return r;
+#else
       if(c>='{' && c<='~')
         return c-'{'+60;
       if(c>=']' && c<='`')
@@ -3662,6 +3723,7 @@ namespace utils
       if(c=='!')
         return 0;
       BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
+#endif
     };
     for (size_t n = 0; n < inlen / 4; n++)
     {

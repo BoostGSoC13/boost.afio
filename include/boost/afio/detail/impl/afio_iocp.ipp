@@ -249,6 +249,45 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
   }
   else
   {
+    bool needsExtendedPrefix=false;
+    // Are there any illegal Win32 characters in here?
+    static BOOST_CONSTEXPR_OR_CONST char reserved_chars[]="\"*/:<>?|";
+    for(size_t n=0; !needsExtendedPrefix && n<p.native().size(); n++)
+    {
+      if(p.native()[n]>=1 && p.native()[n]<=31)
+        needsExtendedPrefix=true;
+      for(size_t x=0; x<sizeof(reserved_chars); x++)
+        if(p.native()[n]==reserved_chars[x])
+        {
+          needsExtendedPrefix=true;
+          break;
+        }
+    }
+    if(!needsExtendedPrefix)
+    {
+      // Are any segments of the filename a reserved name?
+      static BOOST_CONSTEXPR const wchar_t *reserved_names[]={L"CON", L"PRN", L"AUX", L"NUL", L"COM1", L"COM2", L"COM3", L"COM4", L"COM5", L"COM6", L"COM7", L"COM8", L"COM9", L"LPT1", L"LPT2", L"LPT3", L"LPT4", L"LPT5", L"LPT6", L"LPT7", L"LPT8", L"LPT9"};
+      for(auto &i : p)
+      {
+        auto s=i.stem().native();
+        if(s[0]==' ' || s[s.size()-1]=='.')
+        {
+          needsExtendedPrefix=true;
+          break;
+        }
+        for(size_t n=0; n<sizeof(reserved_names)/sizeof(reserved_names[0]); n++)
+        {
+          if(s==reserved_names[n])
+          {
+            needsExtendedPrefix=true;
+            break;
+          }
+        }
+        if(needsExtendedPrefix)
+          break;
+      }
+    }
+
     DWORD len;
     BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
     if(volumename.back()!='\\') volumename.push_back('\\');
@@ -262,41 +301,8 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
     std::sort(dosmountpoints.begin(), dosmountpoints.end(), [](const path::string_type &a, const path::string_type &b){return a.size()<b.size();});
     filesystem::path ret(dosmountpoints.front());
     ret/=p.native().substr(mountpoint.native().size()+1);
-    bool needsExtendedPrefix=(ret.native().size()>=260);
-    // Are there any illegal Win32 characters in here?
-    static BOOST_CONSTEXPR_OR_CONST char reserved_chars[]="\"*/:<>?|";
-    for(size_t n=0; !needsExtendedPrefix && n<ret.native().size(); n++)
-    {
-      if(ret.native()[n]>=1 && ret.native()[n]<=31)
-        needsExtendedPrefix=true;
-      for(size_t x=0; x<sizeof(reserved_chars); x++)
-        if(ret.native()[n]==reserved_chars[x])
-        {
-          needsExtendedPrefix=true;
-          break;
-        }
-    }
-    // Are any segments of the filename a reserved name?
-    static BOOST_CONSTEXPR_OR_CONST wchar_t *reserved_names[]={L"CON", L"PRN", L"AUX", L"NUL", L"COM1", L"COM2", L"COM3", L"COM4", L"COM5", L"COM6", L"COM7", L"COM8", L"COM9", L"LPT1", L"LPT2", L"LPT3", L"LPT4", L"LPT5", L"LPT6", L"LPT7", L"LPT8", L"LPT9"};
-    for(auto &i : ret)
-    {
-      auto s=i.stem().native();
-      if(s[0]==' ' || s[s.size()-1]=='.')
-      {
-        needsExtendedPrefix=true;
-        break;
-      }
-      for(size_t n=0; n<sizeof(reserved_names)/sizeof(reserved_names[0]); n++)
-      {
-        if(s==reserved_names[n])
-        {
-          needsExtendedPrefix=true;
-          break;
-        }
-      }
-      if(needsExtendedPrefix)
-        break;
-    }
+    if(ret.native().size()>=260)
+      needsExtendedPrefix=true;
     if(needsExtendedPrefix)
       return filesystem::path("\\\\?")/ret;
     else

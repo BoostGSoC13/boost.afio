@@ -27,12 +27,13 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     BOOST_CHECK(p.native().substr(4)==fp.native().substr(4));
     // Make sure it converts back perfectly via slow path
     fp=normalise_path(p);
-    auto a=fp.native(), b=filesystem::absolute("testfile").native();
+    auto a=fp.native();
+    auto b=filesystem::absolute("testfile").native();
     // Filesystem has been known to return lower case drive letters ...
     std::transform(a.begin(), a.end(), a.begin(), ::tolower);
     std::transform(b.begin(), b.end(), b.begin(), ::tolower);
-    std::cout << a << std::endl;
-    std::cout << b << std::endl;
+    std::cout << a << " (sized " << a.size() << ")" << std::endl;
+    std::cout << b << " (sized " << b.size() << ")" << std::endl;
     BOOST_CHECK(a==b);
     
     // Make sure it handles extended path inputs
