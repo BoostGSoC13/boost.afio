@@ -365,6 +365,36 @@ namespace detail
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
 #endif
         }
+        void int_saferename(std::shared_ptr<async_io_handle> newdirh, afio::path newpath)
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Cannot rename a closed file by handle."));
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
+            fni->FileNameLength=newpath.native().size();
+            memcpy(fni->FileName, newpath.c_str(), fni->FileNameLength);
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
+        }
+        void int_safehardlink(std::shared_ptr<async_io_handle> newdirh, afio::path newpath)
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Cannot rename a closed file by handle."));
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_LINK_INFORMATION *fni=(FILE_LINK_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
+            fni->FileNameLength=newpath.native().size();
+            memcpy(fni->FileName, newpath.c_str(), fni->FileNameLength);
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileLinkInformation), [this]{return path();});
+        }
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
@@ -570,9 +600,9 @@ namespace detail
             switch(rpd->ReparseTag)
             {
             case IO_REPARSE_TAG_MOUNT_POINT:
-                return path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type));
+                return afio::path(path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type)), afio::path::direct());
             case IO_REPARSE_TAG_SYMLINK:
-                return path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type));
+                return afio::path(path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type)), afio::path::direct());
             }
             BOOST_AFIO_THROW(std::runtime_error("Unknown type of symbolic link."));
         }
@@ -1677,6 +1707,28 @@ namespace detail
             }
 #endif
             return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dolock);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rename(const std::vector<async_path_op_req> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: reqs)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::rename, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dorename);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> hardlink(const std::vector<async_path_op_req> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: reqs)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::hardlink, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dohardlink);
         }
     };
 

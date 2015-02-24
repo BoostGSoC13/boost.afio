@@ -361,7 +361,17 @@ struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 struct async_lock_op_req;
-
+namespace detail {
+    struct async_io_handle_posix;
+    struct async_io_handle_windows;
+    struct async_file_io_dispatcher_base_p;
+    class async_file_io_dispatcher_compat;
+    class async_file_io_dispatcher_windows;
+    class async_file_io_dispatcher_linux;
+    class async_file_io_dispatcher_qnx;
+    struct immediate_async_ops;
+    template<bool for_writing> class async_data_op_req_impl;
+}
 
 //! \brief The types of path normalisation available
 enum class path_normalise
@@ -416,6 +426,7 @@ class path : protected filesystem::path
     }
 #endif
   }
+  friend struct detail::async_io_handle_windows;
   struct direct { };
   path(filesystem::path &&p, direct) : filesystem::path(std::move(p)) { }
 public:
@@ -667,7 +678,7 @@ enum class file_flags : size_t
     CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
     CreateCompressed=64,     //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
-    WillBeSequentiallyAccessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
+    WillBeSequentiallyAccessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirectDirect too.
     WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
     NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
@@ -707,16 +718,6 @@ enum class async_op_flags : size_t
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 
 namespace detail {
-    struct async_io_handle_posix;
-    struct async_io_handle_windows;
-    struct async_file_io_dispatcher_base_p;
-    class async_file_io_dispatcher_compat;
-    class async_file_io_dispatcher_windows;
-    class async_file_io_dispatcher_linux;
-    class async_file_io_dispatcher_qnx;
-    struct immediate_async_ops;
-    template<bool for_writing> class async_data_op_req_impl;
-
     /*! \enum OpType
     \brief The type of operation
     */
@@ -746,6 +747,8 @@ namespace detail {
         extents,
         statfs,
         lock,
+        rename,
+        link,
 
         Last
     };
@@ -769,7 +772,9 @@ namespace detail {
         "zero",
         "extents",
         "statfs",
-        "lock"
+        "lock",
+        "rename",
+        "link"
     };
     static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
 }
@@ -2071,6 +2076,60 @@ public:
     // Undocumented deliberately
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
+    /*! \brief Schedule a batch of asynchronous file entry renames after a precondition.
+
+    \ntkernelnamespacenote
+
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if renaming is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rename(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous file entry rename after a precondition.
+
+    \ntkernelnamespacenote
+
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if renaming is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op rename(const async_path_op_req &req);
+    /*! \brief Schedule a batch of asynchronous file entry hard links after a precondition.
+
+    \ntkernelnamespacenote
+
+    \return A batch of op handles.
+    \param reqs A batch of `async_path_op_req` structures.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, batch}
+    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if hard link creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> hardlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Schedule an asynchronous file entry hard link after a precondition.
+
+    \ntkernelnamespacenote
+
+    \return An op handle.
+    \param req An `async_path_op_req` structure.
+    \ingroup async_file_io_dispatcher_base__filedirops
+    \qbk{distinguish, single}
+    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if hard link creation is constant time.}
+    \exceptionmodelstd
+    \qexample{filedir_example}
+    */
+    inline async_io_op hardlink(const async_path_op_req &req);
+
+    
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
     
     If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations
@@ -3434,6 +3493,20 @@ inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::s
   i.push_back(req);
   auto ret = statfs(o, i);
   return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
+}
+inline async_io_op async_file_io_dispatcher_base::rename(const async_path_op_req &req)
+{
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(rename(i).front());
+}
+inline async_io_op async_file_io_dispatcher_base::hardlink(const async_path_op_req &req)
+{
+    std::vector<async_path_op_req> i;
+    i.reserve(1);
+    i.push_back(req);
+    return std::move(hardlink(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::depends(async_io_op precondition, async_io_op op)
 {

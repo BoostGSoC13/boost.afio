@@ -343,6 +343,13 @@ namespace windows_nt_kernel
       WCHAR   FileName[1];
     } FILE_RENAME_INFORMATION, *PFILE_RENAME_INFORMATION;
 
+    typedef struct _FILE_LINK_INFORMATION {
+      BOOLEAN ReplaceIfExists;
+      HANDLE  RootDirectory;
+      ULONG   FileNameLength;
+      WCHAR   FileName[1];
+    } FILE_LINK_INFORMATION, *PFILE_LINK_INFORMATION;
+
     typedef struct _FILE_DISPOSITION_INFORMATION {
       BOOLEAN DeleteFile;
     } FILE_DISPOSITION_INFORMATION, *PFILE_DISPOSITION_INFORMATION;

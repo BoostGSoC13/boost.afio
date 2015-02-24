@@ -212,6 +212,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_FSTAT(fd, s) _fstat64((fd), (s))
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), _wopen((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_CLOSE _close
+#define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) (check_fdcwd(olddirh), check_fdcwd(newdirh), _wrename((oldpath), (newpath)))
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), _wunlink(path))
 #define BOOST_AFIO_POSIX_FSYNC _commit
 #define BOOST_AFIO_POSIX_FTRUNCATE winftruncate
@@ -242,6 +243,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) ::openat((dirh), (path), (flags), (mode))
 #define BOOST_AFIO_POSIX_SYMLINKAT(from, dirh, to) ::symlinkat((from), (dirh), (to))
 #define BOOST_AFIO_POSIX_CLOSE ::close
+#define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) ::renameat((olddirh), (oldpath), (newdirh), (newpath))
+#define BOOST_AFIO_POSIX_LINKAT(olddirh, oldpath, newdirh, newpath, flags) ::linkat((olddirh), (oldpath), (newdirh), (newpath), (flags))
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) ::unlinkat((dirh), (path), (flags))
 #define BOOST_AFIO_POSIX_FSYNC ::fsync
 #define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
@@ -258,6 +261,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), ::open((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_SYMLINKAT(from, dirh, to) (check_fdcwd(dirh), ::symlink((from), (to)))
 #define BOOST_AFIO_POSIX_CLOSE ::close
+#define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) (check_fdcwd(olddirh), check_fdcwd(newdirh), ::rename((oldpath), (newpath)))
+#define BOOST_AFIO_POSIX_LINKAT(olddirh, oldpath, newdirh, newpath, flags) (check_fdcwd(olddirh), check_fdcwd(newdirh), ::link((oldpath), (newpath)))
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), ::unlink(path))
 #define BOOST_AFIO_POSIX_FSYNC ::fsync
 #define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
@@ -674,6 +679,89 @@ namespace detail {
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
           }
         }
+        void int_saferename(std::shared_ptr<async_io_handle> newdirh, afio::path newpath)
+        {
+          if(-999==fd && !opened_as_symlink())
+            BOOST_AFIO_THROW(std::invalid_argument("Cannot rename a closed file by handle."));
+          if(!(flags() & file_flags::NoRaceProtection))
+          {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+            auto dirh(int_verifymyinode());
+            if(!dirh)
+            {
+              errno=ENOENT;
+              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+            }
+            afio::path leaf(path().filename());
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, newpath.c_str()), [this]{return path();});
+#else
+            // At least check if what I am about to delete matches myself
+            BOOST_AFIO_POSIX_STAT_STRUCT s={0};
+            afio::path p(path(true));
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
+            if(s.st_dev!=st_dev || s.st_ino!=st_ino)
+            {
+              errno=ENOENT;
+              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+            }
+            // Could of course still race between the lstat() and the unlink() so still unsafe ...
+            if(newdirh)
+              newpath=newdirh->path(true)/newpath;
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, p.c_str(), at_fdcwd, newpath.c_str()), [this]{return path();});
+#endif
+          }
+          else
+          {
+            if(newdirh)
+              newpath=newdirh->path(true)/newpath;
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, path(true).c_str(), at_fdcwd, newpath.c_str()), [this]{return path();});
+          }
+        }
+#ifndef WIN32
+        void int_safehardlink(std::shared_ptr<async_io_handle> newdirh, afio::path newpath)
+        {
+          if(-999==fd && !opened_as_symlink())
+            BOOST_AFIO_THROW(std::invalid_argument("Cannot hardlink a closed file by handle."));
+          if(!(flags() & file_flags::NoRaceProtection))
+          {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+            // Some platforms may allow direct hard linking of file handles, in which we are done
+#ifdef AT_EMPTY_PATH
+            if(fd>=0 && -1!=BOOST_AFIO_POSIX_LINKAT(fd, "", newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, newpath.c_str(), AT_EMPTY_PATH))
+              return;
+#endif
+            auto dirh(int_verifymyinode());
+            if(!dirh)
+            {
+              errno=ENOENT;
+              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+            }
+            afio::path leaf(path().filename());
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, newpath.c_str()), [this]{return path();});
+#else
+            // At least check if what I am about to delete matches myself
+            BOOST_AFIO_POSIX_STAT_STRUCT s={0};
+            afio::path p(path(true));
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
+            if(s.st_dev!=st_dev || s.st_ino!=st_ino)
+            {
+              errno=ENOENT;
+              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+            }
+            // Could of course still race between the lstat() and the unlink() so still unsafe ...
+            if(newdirh)
+              newpath=newdirh->path(true)/newpath;
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, p.c_str(), at_fdcwd, newpath.c_str()), [this]{return path();});
+#endif
+          }
+          else
+          {
+            if(newdirh)
+              newpath=newdirh->path(true)/newpath;
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, path(true).c_str(), at_fdcwd, newpath.c_str()), [this]{return path();});
+          }
+        }
+#endif
         void int_close()
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
@@ -2893,6 +2981,29 @@ namespace detail {
             return p->lockfile->lock(id, std::move(op), std::move(req));
 #endif
         }
+        // Called in unknown thread
+        completion_returntype dorename(size_t id, async_io_op op, async_path_op_req req)
+        {
+            req.flags=fileflags(req.flags);
+            // Renaming the input op?
+            if(req.path.empty())
+            {
+              std::shared_ptr<async_io_handle> h(op.get());
+              async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
+              p->int_saferename(req.);
+            }
+            else
+            {
+              auto dirh=decode_relative_path(op, req);
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
+            }
+            return std::make_pair(true, op.get());
+        }
+        // Called in unknown thread
+        completion_returntype dohardlink(size_t id, async_io_op op, async_path_op_req req)
+        {
+          return dounlink(false, id, std::move(op), std::move(req));
+        }
 
     public:
         async_file_io_dispatcher_compat(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask)
@@ -3077,6 +3188,28 @@ namespace detail {
             }
 #endif
             return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dolock);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rename(const std::vector<async_path_op_req> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: reqs)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::rename, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dorename);
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> hardlink(const std::vector<async_path_op_req> &reqs) override final
+        {
+#if BOOST_AFIO_VALIDATE_INPUTS
+            for(auto &i: reqs)
+            {
+                if(!i.validate())
+                    BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+            }
+#endif
+            return chain_async_ops((int) detail::OpType::hardlink, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dohardlink);
         }
     };
 
