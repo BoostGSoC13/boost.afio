@@ -361,7 +361,17 @@ struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
 struct async_lock_op_req;
-
+namespace detail {
+    struct async_io_handle_posix;
+    struct async_io_handle_windows;
+    struct async_file_io_dispatcher_base_p;
+    class async_file_io_dispatcher_compat;
+    class async_file_io_dispatcher_windows;
+    class async_file_io_dispatcher_linux;
+    class async_file_io_dispatcher_qnx;
+    struct immediate_async_ops;
+    template<bool for_writing> class async_data_op_req_impl;
+}
 
 //! \brief The types of path normalisation available
 enum class path_normalise
@@ -416,6 +426,7 @@ class path : protected filesystem::path
     }
 #endif
   }
+  friend struct detail::async_io_handle_windows;
   struct direct { };
   path(filesystem::path &&p, direct) : filesystem::path(std::move(p)) { }
 public:

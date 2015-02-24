@@ -570,9 +570,9 @@ namespace detail
             switch(rpd->ReparseTag)
             {
             case IO_REPARSE_TAG_MOUNT_POINT:
-                return path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type));
+                return afio::path(path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type)), afio::path::direct());
             case IO_REPARSE_TAG_SYMLINK:
-                return path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type));
+                return afio::path(path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type)), afio::path::direct());
             }
             BOOST_AFIO_THROW(std::runtime_error("Unknown type of symbolic link."));
         }
