@@ -252,7 +252,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
     bool needsExtendedPrefix=false;
     // Are there any illegal Win32 characters in here?
     static BOOST_CONSTEXPR_OR_CONST char reserved_chars[]="\"*/:<>?|";
-    for(size_t n=0; !needsExtendedPrefix && n<p.native().size(); n++)
+    for(size_t n=isSymlinkedDosPath ? p.native().find('\\', 5) : 0; !needsExtendedPrefix && n<p.native().size(); n++)
     {
       if(p.native()[n]>=1 && p.native()[n]<=31)
         needsExtendedPrefix=true;
