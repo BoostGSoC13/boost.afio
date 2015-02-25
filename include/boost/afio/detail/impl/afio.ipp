@@ -2299,7 +2299,7 @@ namespace detail {
                 BOOST_AFIO_ERRHOSFN(::posix_fadvise(fd, 0, 0, advice), [&req]{return req.path;});
 #endif
 #if defined(__FreeBSD__)
-                size_t readaheadsize=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? file_buffer_default_size() : 0;
+                size_t readaheadsize=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? utils::file_buffer_default_size() : 0;
                 BOOST_AFIO_ERRHOSFN(::fcntl(fd, F_READAHEAD, readaheadsize), [&req]{return req.path;});
 #elif defined(__APPLE__)
                 size_t readahead=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? 1 : 0;
