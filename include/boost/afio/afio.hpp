@@ -576,7 +576,11 @@ public:
   friend inline std::ostream &operator<<(std::ostream &s, const path &p);
   friend struct path_hash;
 #ifdef WIN32
+#ifdef _MSC_VER
   friend BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_normalise type);
+#else
+  friend filesystem::path normalise_path(path p, path_normalise type);
+#endif
 #else
   friend inline filesystem::path normalise_path(path p, path_normalise type);
 #endif
