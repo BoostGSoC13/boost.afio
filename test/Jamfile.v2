@@ -208,6 +208,7 @@ else # run actual tests
         test-suite afio
           : [ run test_all.cpp test_functions spooky : $(VALGRIND_ARGS) --log_format=XML --log_sink=results_all.xml --log_level=all --report_level=no : : $(launcher) ] 
         ;
+        PRECIOUS test_all ;
     }
     else if "--test-each" in $(.argv) # run just the individual tests
     {
