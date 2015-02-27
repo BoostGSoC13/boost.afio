@@ -47,7 +47,7 @@ namespace detail {
                 ntflags|=0x00000800/*FILE_RANDOM_ACCESS*/;
             if(!!(flags & file_flags::TemporaryFile))
                 attribs|=FILE_ATTRIBUTE_TEMPORARY;
-            if(!!(flags & file_flags::DeleteOnClose) && !!(flags & file_flags::CreateOnlyIfNotExist))
+            if(!!(flags & file_flags::DeleteOnClose) && (!!(flags & file_flags::CreateOnlyIfNotExist) || !!(flags & file_flags::int_file_share_delete)))
             {
                 ntflags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
                 access|=DELETE;
@@ -104,55 +104,33 @@ namespace detail {
     };
     
     // Two modes of calling, either a handle or a leafname + dir handle
-    // Overloads below call this
-    static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h, path::string_type leafname, std::shared_ptr<async_io_handle> dirh)
+    static inline bool isDeletedFile(path::string_type leafname)
     {
-      windows_nt_kernel::init();
-      using namespace windows_nt_kernel;
-      HANDLE temph=h ? h->native_handle() : nullptr;
-      bool isHex=leafname.empty();
-      if(leafname.size()==38 && !leafname.compare(0, 6, L".afiod"))
+      if(leafname.size()==64+6 && !leafname.compare(0, 6, L".afiod"))
       {
         // Could be one of our "deleted" files, is he ".afiod" + all hex?
-        for(size_t n=5; n<37; n++)
+        for(size_t n=5; n<leafname.size(); n++)
         {
           auto c=leafname[n];
           if(!((c>='1' && c<='9') || (c>='a' && c<='f')))
-          {
-            isHex=false;
-            break;
-          }
+            return false;
         }
       }
-      if(isHex)
-      {
-        NTSTATUS ntstat;
-        if(!temph)
-        {
-          // Ask to open with no rights at all, this should succeed even if perms deny any access
-          std::tie(ntstat, temph)=ntcreatefile(dirh, leafname, file_flags::None, false);
-          if(ntstat)
-          {
-            // Couldn't open the file
-            if((NTSTATUS) 0xC000000F/*STATUS_NO_SUCH_FILE*/==ntstat || (NTSTATUS) 0xC000003A/*STATUS_OBJECT_PATH_NOT_FOUND*/==ntstat)
-              return true;
-            else
-              return false;
-          }
-        }
-        IO_STATUS_BLOCK isb={ 0 };
-        BOOST_AFIO_TYPEALIGNMENT(8) FILE_ALL_INFORMATION fai;
-        ntstat=NtQueryInformationFile(temph, &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
-        if(!h)
-          CloseHandle(temph);
-        // If the query succeeded and delete is pending, filter out this entry
-        if(!ntstat && fai.StandardInformation.DeletePending)
-          return true;
-      }
-      return false;
+      return true;
     }
-    static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h) { return isDeletedFile(std::move(h), path::string_type(), std::shared_ptr<async_io_handle>()); }
-    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
+    static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h)
+    {
+      windows_nt_kernel::init();
+      using namespace windows_nt_kernel;
+      IO_STATUS_BLOCK isb={ 0 };
+      BOOST_AFIO_TYPEALIGNMENT(8) FILE_ALL_INFORMATION fai;
+      ntstat=NtQueryInformationFile(h->native_handle(), &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
+      // If the query succeeded and delete is pending, filter out this entry
+      if(!ntstat && fai.StandardInformation.DeletePending)
+        return true;
+      else
+        return false;
+    }
     
     static inline path MountPointFromHandle(HANDLE h)
     {
@@ -399,6 +377,12 @@ namespace detail
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             int_close();
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const override final
+        {
+          if(!myid)
+            return open_states::closed;
+          return available_to_directory_cache() ? open_states::opendir : open_states::open;
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return myid; }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
@@ -651,26 +635,51 @@ namespace detail
             // Deleting the input op?
             if(req.path.empty())
             {
-	            std::shared_ptr<async_io_handle> h(op.get());
-	            async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
-              p->int_safeunlink();
+              std::shared_ptr<async_io_handle> h(op.get());
+              async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
+              if(p->is_open()!=async_io_handle::open_states::closed)
+              {
+                p->int_safeunlink();
+                return std::make_pair(true, op.get());
+              }
             }
-            else
-            {
-              windows_nt_kernel::init();
-              using namespace windows_nt_kernel;
-              auto dirh=decode_relative_path(op, req);
-              OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
-              oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
-              UNICODE_STRING _path;
-              // If relative path, or symlinked DOS path, use case insensitive
-              bool isSymlinkedDosPath=(req.path.native()[0]=='\\' && req.path.native()[1]=='?' && req.path.native()[2]=='?' && req.path.native()[3]=='\\');
-              oa.Attributes=(req.path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
-              _path.Buffer=const_cast<path::value_type *>(req.path.c_str());
-              _path.MaximumLength=(_path.Length=(USHORT) (req.path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
-              oa.ObjectName=&_path;
-              BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [&req]{return req.path;});
-            }
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            auto dirh=decode_relative_path(op, req);
+#if 0
+            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+            oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
+            UNICODE_STRING _path;
+            // If relative path, or symlinked DOS path, use case insensitive
+            bool isSymlinkedDosPath=(req.path.native()[0]=='\\' && req.path.native()[1]=='?' && req.path.native()[2]=='?' && req.path.native()[3]=='\\');
+            oa.Attributes=(req.path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
+            _path.Buffer=const_cast<path::value_type *>(req.path.c_str());
+            _path.MaximumLength=(_path.Length=(USHORT) (req.path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
+            oa.ObjectName=&_path;
+            BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [&req]{return req.path;});
+#else
+            // Open the file with DeleteOnClose, renaming it before closing the handle.
+            NTSTATUS ntstat;
+            HANDLE temph;
+            req.flags=req.flags|file_flags::DeleteOnClose|file_flags::int_file_share_delete;
+            std::tie(ntstat, temph)=ntcreatefile(dirh, req.path, req.flags, false);
+            BOOST_AFIO_ERRHNTFN(ntstat, [&req]{return req.path;});
+            auto untemph=detail::Undoer([&temph]{if(temph) CloseHandle(temph);});
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=nullptr;  // same directory
+            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
+            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
+            for(size_t n=0; n<randompath.size(); n++)
+              fni->FileName[n]=randompath[n];
+            fni->FileName[randompath.size()]=0;
+            ntstat=NtSetInformationFile(temph, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
+            // Access denied may come back if the directory contains any files with open handles
+            // If that happens, ignore and mark to delete anyway
+            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
+#endif
             return std::make_pair(true, op.get());
         }
         // Called in unknown thread
@@ -1205,7 +1214,7 @@ namespace detail
                         if(1==length || '.'==ffdi->FileName[1])
                             continue;
                     path::string_type leafname(ffdi->FileName, length);
-                    if(isDeletedFile(leafname, h))
+                    if(req.filtering==async_enumerate_op_req::filter::fastdeleted && isDeletedFile(leafname))
                       continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;

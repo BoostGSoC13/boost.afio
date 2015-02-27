@@ -1163,6 +1163,14 @@ public:
     async_file_io_dispatcher_base *parent() const { return _parent; }
     //! Returns a handle to the directory containing this handle. Only works if `file_flags::HoldParentOpen` was specified when this handle was opened.
     std::shared_ptr<async_io_handle> container() const { return dirh; }
+    //! In which way this handle is opened or not
+    enum class open_states
+    {
+      closed, //!< This handle is closed.
+      open,   //!< This handle is open as a normal handle.
+      opendir //!< This handle is open as a cached directory handle, and therefore closing it explicitly has no effect.
+    };
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the native handle of this io handle. On POSIX, you can cast this to a fd using `(int)(size_t) native_handle()`. On Windows it's a simple `(HANDLE) native_handle()`.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns when this handle was opened
@@ -1619,7 +1627,9 @@ public:
     /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
-    a new handle unless file_flags::UniqueDirectoryHandle is specified.
+    a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
+    is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
+    happen.
     
     \ntkernelnamespacenote
 
@@ -1635,7 +1645,9 @@ public:
     /*! \brief Schedule an asynchronous directory creation and open after an optional precondition.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
-    a new handle unless file_flags::UniqueDirectoryHandle is specified.
+    a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
+    is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
+    happen.
 
     \ntkernelnamespacenote
 
@@ -1650,6 +1662,18 @@ public:
     inline async_io_op dir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
 
+    You may get errors here on Windows particularly due to trying to delete a directory which is not empty. This especially
+    happens on Windows as deletions only actually occur on the close of the last handle in the system. A particular gotcha
+    here is if you delete a directory, and then try to delete the directory which contained it, probably AFIO will hold
+    open the handle to the inner directory due to the directory cache, and therefore any inner directory doesn't actually
+    get immediately deleted. The workaround is to ensure that all handles and ops referring to the inner directory are
+    destroyed, this reduces the shared count to zero and actually closes the inner directory handle. Only then can you
+    delete the outer directory, though note that any other process - including virus checkers, Windows Explorer, TortoiseGit
+    or indeed anything - which have open handles into your directory will still cause the deletion to fail.
+    
+    Because of this feature of Windows, you may wish to rearchitect your program to handle directories not deleting e.g.
+    use a delayed cleanup.
+    
     \ntkernelnamespacenote
     
     \return A batch of op handles.
@@ -1663,6 +1687,18 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
 
+    You may get errors here on Windows particularly due to trying to delete a directory which is not empty. This especially
+    happens on Windows as deletions only actually occur on the close of the last handle in the system. A particular gotcha
+    here is if you delete a directory, and then try to delete the directory which contained it, probably AFIO will hold
+    open the handle to the inner directory due to the directory cache, and therefore any inner directory doesn't actually
+    get immediately deleted. The workaround is to ensure that all handles and ops referring to the inner directory are
+    destroyed, this reduces the shared count to zero and actually closes the inner directory handle. Only then can you
+    delete the outer directory, though note that any other process - including virus checkers, Windows Explorer, TortoiseGit
+    or indeed anything - which have open handles into your directory will still cause the deletion to fail.
+    
+    Because of this feature of Windows, you may wish to rearchitect your program to handle directories not deleting e.g.
+    use a delayed cleanup.
+    
     \ntkernelnamespacenote
     
     \return An op handle.
@@ -1868,6 +1904,8 @@ public:
     inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
     
+    Note this is ignored for handles where available_to_directory_cache() is true as those cannot be explicitly closed.
+    
     Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
     by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
@@ -1881,6 +1919,8 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file or directory handle close after a preceding operation.
+    
+    Note this is ignored for handles where available_to_directory_cache() is true as those cannot be explicitly closed.
     
     Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count
     by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
@@ -3174,8 +3214,15 @@ struct async_enumerate_op_req
     bool restart;                //!< Restarts the enumeration for this open directory handle.
     path glob;                   //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     metadata_flags metadata;     //!< The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    //! How to do deleted file elimination on Windows
+    enum class filter
+    {
+      none,        //!< Do no filtering at all
+      fastdeleted  //!< Filter out AFIO deleted files based on their filename (fast and fairly reliable)
+    };
+    filter filtering;            //!< Any filtering you want AFIO to do for you.
     //! \constr
-    async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None) { }
+    async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None), filtering(filter::fastdeleted) { }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3183,8 +3230,9 @@ struct async_enumerate_op_req
     \param _restart Restarts the enumeration for this open directory handle.
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3192,8 +3240,9 @@ struct async_enumerate_op_req
     \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
     \param _restart Restarts the enumeration for this open directory handle.
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
+    \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(async_io_op _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3201,8 +3250,9 @@ struct async_enumerate_op_req
     \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
     \param _restart Restarts the enumeration for this open directory handle.
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
+    \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path()) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata) { _validate(); }
+    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path(), filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     //! Validates contents
     bool validate() const
     {

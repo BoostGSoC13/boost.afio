@@ -211,6 +211,8 @@ protection disappear.
 
 * Implemented WillBeSequentiallyAccessed and WillBeRandomlyAccessed for POSIX.
 
+* Added is_open() to async_io_handle. Made pseudo deleted file filtering optional in enumerate().
+
 TODO BEFORE RELEASE
 
 1a. Add unit test for to_compact_string(), as it definitely doesn't work on Windows.
@@ -631,17 +633,59 @@ On POSIX you are allowed to call `unlink()` on a file which is open for use __da
 this is a very convenient way of creating an anonymous private temporary file whose storage will be
 deallocated on the last file handle close. Ordinarily Windows does not permit deletion or renaming of
 files still in use, but if all open handles to that file were opened with `FILE_SHARE_DELETE` then
-it does permit renames and deletions, BUT with an enormous caveat: creation of files with the
-same name as a recently deleted file will be refused where ["recently] is a random period dependant
-on the filing system's present mood. This turns out to be a major source on unexpected and random
-errors for even AFIO's unit tests where the same file name tends to be reused across tests.
+it ['can] permit renames and deletions of open files under some circumstances.
 
-AFIO solves this by taking a dual step to deleting files. Firstly, it renames the file to a 128
-bit cryptographically strong random name prefixed by [".afio], and only then does it delete the file. As AFIO always
+There are however some gotchas with this, and it is worth listing them here. Firstly, Windows
+never allows you to really delete an open file, rather it is flagged as delete pending, its entry
+in its directory remains visible (though no new file handles may be opened to it) and when
+the very last open handle to the file in the system is closed, only then is it truly deleted. Well,
+actually only ['sort of truly deleted], because Windows only ['appears] to remove the file entry from the directory, but
+in fact that entry is merely hidden and actually still exists and attempting to create a file with the
+same name will return an access denied error. How long it silently exists for depends on a range
+of factors, but put it this way: if your code loops creating and deleting the same file name, you're
+going to see lots of random spurious access denied errors.
+
+Note that this lazy file deletion is different from ["file tunnelling] whereby a file created with
+the same name as a recently deleted file silently inherits its creation time and other metadata. I
+mention this because this feature also gets in the way of POSIX file semantics, but for other reasons.
+
+AFIO works around these un-POSIX file semantics by taking a dual step to deleting files. Firstly, it renames the file to a 128
+bit cryptographically strong random name prefixed by [".afiod], and only then does it request the deletion of the file. As AFIO always
 opens files with `FILE_SHARE_DELETE` permission enabled, with that flag Windows permits renaming
 and deletion, and because the name was changed to a very random name before deletion, you don't
 see those unexpected and random errors when creating files with the same name as a recently deleted
 file as you do anywhere else on Windows. Handy eh?
+
+However, while this workaround is pretty good at emulating POSIX semantics on Windows for ordinary
+files, it doesn't work so well for directories. Windows provides no method for renaming a directory
+containing any open file handles __dash__ it can't be done. Furthermore, Windows provides no method
+for requesting the deletion of a directory containing any open file or directory handles either.
+
+Unfortunately, these problems with deleting directories have a particular issue with AFIO because
+AFIO by default caches all read-only directory handles in a central table, and by default will
+return an already open directory handle if one is available. This makes `file_flags::HoldParentOpen`
+very fast, and that in turn is particularly useful for fast metadata requests because AFIO can
+avoid opening file handles which is very slow on Windows and instead enumerate the containing directory
+with an exact match glob. It also has major benefits for any future file change watching facility
+in AFIO. However because these cached directory handles are a shared resource, explicitly calling
+`close()` on them has no effect, and therefore if you try to delete a tree of directories on Windows
+you almost certainly will find that the base directories refuse to delete because the directory
+cache is still holding open handles to the directories inside the tree.
+
+There are several ways around this. The first naive way is to always use `file_flags::UniqueDirectoryHandle`,
+this inhibits the directory cache. A better way is to enumerate the directory tree, deleting all the
+files but not the directories whose relative paths to the root you append to a list. You now ensure
+that all op handles to anything inside the tree are destroyed, this will reduce the reference count
+for any of the handles to directories to zero and therefore close them. You now sort the list of
+relative paths, deepest nesting of path segments first. You now send a batch `rmdir()`
+to AFIO using the handle to the base directory as the root, and all the relative paths of all the
+directories, this ought to delete all the leaf directories first, then the next layer, then the next
+in turn, and with a bit of luck most of those entries will be truly deleted rather than hanging
+around as hidden zombie entries (and therefore preventing the deletion of the containing directory)
+by the time you get to the next level up of directories to delete.
+
+If in fact you simply loop the above algorithm until everything is deleted sinking any errors, that
+ought to work well.
 
 [endsect] [/deleting_open_files]
 

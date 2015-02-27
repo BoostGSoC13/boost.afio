@@ -703,6 +703,12 @@ namespace detail {
         {
             int_close();
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const override final
+        {
+          if(-999==fd)
+            return open_states::closed;
+          return available_to_directory_cache() ? open_states::opendir : open_states::open;
+        }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
         {
