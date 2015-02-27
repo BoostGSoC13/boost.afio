@@ -2520,7 +2520,7 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T, typename=typename std::enable_if<!std::is_trivially_convertible<afio::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? std::forward<T>(_path) : afio::path::make_absolute(std::forward<T>(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_convertible<afio::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? afio::path(std::forward<T>(_path)) : afio::path(afio::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! \overload
     async_path_op_req(bool _is_relative, async_io_op _precondition, afio::path _path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
@@ -3791,17 +3791,17 @@ namespace utils
   /*! \brief Returns a cryptographically random string capable of being used as a filename. Essentially random_fill() + to_compact_string().
 
   \param randomlen The number of bytes of randomness to use for the string.
-  \return A string representing the randomness at a 4/3 ratio, so if 32 bytes were requested, this string would be 43 bytes long.
+  \return A string representing the randomness at a 2x ratio, so if 32 bytes were requested, this string would be 64 bytes long.
   \ingroup utils
   \complexity{Whatever the system API takes.}
   \exceptionmodel{Any error from the operating system.}
   */
   inline std::string random_string(size_t randomlen)
   {
-    size_t outlen = (2+randomlen*4)/3;
+    size_t outlen = randomlen*2;
     std::string ret(outlen, 0);
     random_fill(const_cast<char *>(ret.data()), randomlen);
-    to_compact_string(const_cast<char *>(ret.data()), outlen, ret.data(), randomlen);
+    to_hex_string(const_cast<char *>(ret.data()), outlen, ret.data(), randomlen);
     return std::move(ret);
   }
 

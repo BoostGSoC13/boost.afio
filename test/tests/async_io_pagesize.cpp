@@ -23,7 +23,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     
     auto randomstring(utils::random_string(32));
     std::cout << "\n\n256 bits of random string might be: " << randomstring << " which is " << randomstring.size() << " bytes long." << std::endl;
-    BOOST_CHECK(randomstring.size()==43);
+    BOOST_CHECK(randomstring.size()==64);
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
     static const size_t ITEMS=1000000;

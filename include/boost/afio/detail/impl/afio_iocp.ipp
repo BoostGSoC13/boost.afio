@@ -81,6 +81,8 @@ namespace detail {
       // If relative path, or symlinked DOS path, use case insensitive
       bool isSymlinkedDosPath=(path.native()[0]=='\\' && path.native()[1]=='?' && path.native()[2]=='?' && path.native()[3]=='\\');
       oa.Attributes=(path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
+      //if(!!(flags & file_flags::int_opening_link))
+      //  oa.Attributes|=0x100/*OBJ_OPENLINK*/;
       _path.Buffer=const_cast<path::value_type *>(path.c_str());
       _path.MaximumLength=(_path.Length=(USHORT) (path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
       oa.ObjectName=&_path;
@@ -108,7 +110,6 @@ namespace detail {
       windows_nt_kernel::init();
       using namespace windows_nt_kernel;
       HANDLE temph=h ? h->native_handle() : nullptr;
-#if 0 // int_safeunlink() is using direct delete via a very unsupported unofficial method
       bool isHex=leafname.empty();
       if(leafname.size()==38 && !leafname.compare(0, 6, L".afiod"))
       {
@@ -124,7 +125,6 @@ namespace detail {
         }
       }
       if(isHex)
-#endif
       {
         NTSTATUS ntstat;
         if(!temph)
@@ -152,7 +152,7 @@ namespace detail {
       return false;
     }
     static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h) { return isDeletedFile(std::move(h), path::string_type(), std::shared_ptr<async_io_handle>()); }
-//    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
+    static inline bool isDeletedFile(path::string_type leafname, std::shared_ptr<async_io_handle> dirh) { return isDeletedFile(std::shared_ptr<async_io_handle>(), std::move(leafname), std::move(dirh)); }
     
     static inline path MountPointFromHandle(HANDLE h)
     {
@@ -337,10 +337,9 @@ namespace detail
               BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a closed file by handle."));
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
-#if 1
-            // NtDeleteFile deletes immediately, no hanging the filename
-            // around. Plus it conveniently accepts a file handle when
-            // combined with an empty leafname, handy.
+#if 0
+            // Despite what is claimed on the internet, NtDeleteFile does NOT delete the file immediately.
+            // Moreover, it cannot delete directories not junction points, so we'll go the more proper path.
             OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
             oa.RootDirectory=myid;
             UNICODE_STRING _path;
@@ -348,19 +347,27 @@ namespace detail
             _path.Buffer=&c;
             _path.MaximumLength=(_path.Length=0)+sizeof(path::value_type);
             oa.ObjectName=&_path;
-            BOOST_AFIO_ERRHNTFN(NtDeleteFile(&oa), [this]{return path();});
+            //if(opened_as_symlink())
+            //  oa.Attributes=0x100/*OBJ_OPENLINK*/;  // Seems to dislike deleting junctions points without this
+            NTSTATUS ntstat=NtDeleteFile(&oa);
+            // Returns this error if we are deleting a junction point
+            if(ntstat!=0xC0000278/*STATUS_IO_REPARSE_DATA_INVALID*/)
+              BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
 #else
             IO_STATUS_BLOCK isb={ 0 };
             BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
             FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
             fni->ReplaceIfExists=false;
             fni->RootDirectory=nullptr;  // rename to the same directory
-            auto randompath(".afiod"+async_file_io_dispatcher_base::random_string(32 /* 128 bits */));
-            fni->FileNameLength=randompath.size();
+            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
+            fni->FileNameLength=randompath.size()*sizeof(path::value_type);
             for(size_t n=0; n<randompath.size(); n++)
               fni->FileName[n]=randompath[n];
             fni->FileName[randompath.size()]=0;
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
+            NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
+            // Access denied may come back if the directory contains any files with open handles
+            // If that happens, ignore and mark to delete anyway
+            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
             FILE_DISPOSITION_INFORMATION fdi={true};
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
 #endif
@@ -1198,8 +1205,8 @@ namespace detail
                         if(1==length || '.'==ffdi->FileName[1])
                             continue;
                     path::string_type leafname(ffdi->FileName, length);
-//                    if(isDeletedFile(leafname, h))
-//                      continue;
+                    if(isDeletedFile(leafname, h))
+                      continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
                     item.stat.st_type=to_st_type(ffdi->FileAttributes);
