@@ -406,15 +406,19 @@ class path : protected filesystem::path
 #endif
 #ifdef WIN32
     // Need to strip off any win32 prefixing, and instead prefix any drive letters
-#ifndef NDEBUG
-    if(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\')
+    bool isExtendedPath=false, isDevicePath=false, hasDriveLetter=false;
+    if(native().size()>=4)
     {
-      assert(!(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\'));
-    }
+#ifndef NDEBUG
+      if(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\')
+      {
+        assert(!(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\'));
+      }
 #endif
-    bool isExtendedPath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='?' && native()[3]=='\\');
-    bool isDevicePath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='.' && native()[3]=='\\');
-    bool hasDriveLetter=(isalpha(native()[((int) isExtendedPath+(int) isDevicePath)*4+0]) && native()[((int) isExtendedPath+(int) isDevicePath)*4+1]==':');
+      isExtendedPath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='?' && native()[3]=='\\');
+      isDevicePath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='.' && native()[3]=='\\');
+      hasDriveLetter=(isalpha(native()[((int) isExtendedPath+(int) isDevicePath)*4+0]) && native()[((int) isExtendedPath+(int) isDevicePath)*4+1]==':');
+    }
     if(hasDriveLetter && (isExtendedPath || isDevicePath))
     {
       filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
@@ -3631,7 +3635,11 @@ namespace utils
   based programs are capable of working with (i.e. users may not be able to delete these files normally).
   Out buffer can be same as in buffer.
 
-  Note that the character range used is a 64 item table of:
+  The NT kernel rejects any of these characters:
+
+  0-31 & * . / : < > ? \ |
+
+  Therefore the character range used is a 64 item table of:
 
   !#$%&'()*+,-.0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`{|}~
 

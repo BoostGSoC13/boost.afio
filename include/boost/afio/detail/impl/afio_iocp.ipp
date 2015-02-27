@@ -360,7 +360,7 @@ namespace detail
             fni->ReplaceIfExists=false;
             fni->RootDirectory=nullptr;  // rename to the same directory
             auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
-            fni->FileNameLength=randompath.size()*sizeof(path::value_type);
+            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
             for(size_t n=0; n<randompath.size(); n++)
               fni->FileName[n]=randompath[n];
             fni->FileName[randompath.size()]=0;
