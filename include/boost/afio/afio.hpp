@@ -406,7 +406,7 @@ class path : protected filesystem::path
 #endif
 #ifdef WIN32
     // Need to strip off any win32 prefixing, and instead prefix any drive letters
-    bool isExtendedPath=false, isDevicePath=false, hasDriveLetter=false;
+    bool isExtendedPath=false, isDevicePath=false;
     if(native().size()>=4)
     {
 #ifndef NDEBUG
@@ -417,8 +417,8 @@ class path : protected filesystem::path
 #endif
       isExtendedPath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='?' && native()[3]=='\\');
       isDevicePath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='.' && native()[3]=='\\');
-      hasDriveLetter=(isalpha(native()[((int) isExtendedPath+(int) isDevicePath)*4+0]) && native()[((int) isExtendedPath+(int) isDevicePath)*4+1]==':');
     }
+    bool hasDriveLetter=(isalpha(native()[((int) isExtendedPath+(int) isDevicePath)*4+0]) && native()[((int) isExtendedPath+(int) isDevicePath)*4+1]==':');
     if(hasDriveLetter && (isExtendedPath || isDevicePath))
     {
       filesystem::path::string_type &me=const_cast<filesystem::path::string_type &>(native());
