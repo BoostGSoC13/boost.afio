@@ -13,7 +13,7 @@ namespace {
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
         // A special allocator of highly efficient file i/o memory
-        typedef std::vector<char, file_buffer_allocator<char>> file_buffer_type;
+        typedef std::vector<char, utils::file_buffer_allocator<char>> file_buffer_type;
         // Schedule the opening of the output file for writing
         auto oh=dispatcher->file(async_path_op_req(dest, file_flags::Create|file_flags::Write));
         // Schedule the opening of all the input files for reading
