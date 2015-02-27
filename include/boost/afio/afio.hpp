@@ -406,6 +406,12 @@ class path : protected filesystem::path
 #endif
 #ifdef WIN32
     // Need to strip off any win32 prefixing, and instead prefix any drive letters
+#ifndef NDEBUG
+    if(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\')
+    {
+      assert(!(native()[0]=='\\' && native()[1]=='?' && native()[2]=='?' && native()[3]=='\\'));
+    }
+#endif
     bool isExtendedPath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='?' && native()[3]=='\\');
     bool isDevicePath=(native()[0]=='\\' && native()[1]=='\\' && native()[2]=='.' && native()[3]=='\\');
     bool hasDriveLetter=(isalpha(native()[((int) isExtendedPath+(int) isDevicePath)*4+0]) && native()[((int) isExtendedPath+(int) isDevicePath)*4+1]==':');
@@ -605,7 +611,7 @@ struct path::make_absolute : public path
     if(native()[0]!=preferred_separator)
       *this=filesystem::absolute(std::move(*this));
   }
-  template<class T, typename=typename std::enable_if<std::is_constructible<filesystem::path, T>::value>::type> make_absolute(T &&p) : path(filesystem::absolute(std::forward<T>(p))) { }
+  template<class T, typename=typename std::enable_if<std::is_constructible<filesystem::path, T>::value>::type> make_absolute(T &&p) : path(std::move(filesystem::absolute(std::forward<T>(p)))) { }
 };
 /*! \brief A hasher for path
 */
@@ -2514,7 +2520,9 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? std::forward<T>(_path) : /*afio::path::make_absolute*/(std::forward<T>(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_trivially_convertible<afio::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? std::forward<T>(_path) : afio::path::make_absolute(std::forward<T>(_path))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    //! \overload
+    async_path_op_req(bool _is_relative, async_io_op _precondition, afio::path _path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
@@ -2562,7 +2570,7 @@ struct async_path_op_req::absolute : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(false, std::move(_precondition), afio::path::make_absolute(std::forward<T>(_path)), _flags) { _validate(); }
+  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(false, std::move(_precondition), std::move(afio::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
 };
 inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }

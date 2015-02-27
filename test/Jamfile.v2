@@ -213,12 +213,17 @@ else # run actual tests
     else if "--test-each" in $(.argv) # run just the individual tests
     {
         for local file in $(test_files)
-        { run $(file) test_functions spooky : $(VALGRIND_ARGS) --log_format=XML --log_sink=results_$(file).xml --log_level=all --report_level=no : : $(launcher) ; }
+        {
+            run $(file) test_functions spooky : $(VALGRIND_ARGS) --log_format=XML --log_sink=results_$(file).xml --log_level=all --report_level=no : : $(launcher) ;
+            PRECIOUS $(file) ;
+        }
     }
     else        # otherwise run individual tests and the whole lot at once as a separate test
     {
         for local file in $(test_files_all)
-        { run $(file) test_functions spooky : $(VALGRIND_ARGS) --log_format=XML --log_sink=results_$(file).xml --log_level=all --report_level=no : : $(launcher) ; }
-
+        {
+            run $(file) test_functions spooky : $(VALGRIND_ARGS) --log_format=XML --log_sink=results_$(file).xml --log_level=all --report_level=no : : $(launcher) ;
+            PRECIOUS $(file) ;
+        }
     }
 }
