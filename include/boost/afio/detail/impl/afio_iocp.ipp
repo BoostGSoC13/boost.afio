@@ -109,14 +109,15 @@ namespace detail {
       if(leafname.size()==64+6 && !leafname.compare(0, 6, L".afiod"))
       {
         // Could be one of our "deleted" files, is he ".afiod" + all hex?
-        for(size_t n=5; n<leafname.size(); n++)
+        for(size_t n=6; n<leafname.size(); n++)
         {
           auto c=leafname[n];
           if(!((c>='1' && c<='9') || (c>='a' && c<='f')))
             return false;
         }
+        return true;
       }
-      return true;
+      return false;
     }
     static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h)
     {
