@@ -53,7 +53,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     BOOST_CHECK(!memcmp(buffer.data(), buffer1.data(), buffer.size()));    
 
 #ifndef _MSC_VER
-#if defined(__i386__) || defined(__x64__)
+#if defined(__i386__) || defined(__x86_64__)
       static int have_popcnt=[]{
         size_t cx, dx;
         asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1));
@@ -81,16 +81,14 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
         return (unsigned long long) __rdtsc();
       };
 #else
-#if defined(__i386__) || defined(__x64__)
-      auto rdtsc=[]
-      {
 #ifdef __rdtsc
         return (unsigned long long) __rdtsc();
-#else
+#elif defined(__i386__) || defined(__x86_64__)
+      auto rdtsc=[]
+      {
         unsigned count;
         asm volatile ("rdtsc" : "=a"(count));
         return (unsigned long long) count;
-#endif
       };
 #endif
 #if __ARM_ARCH>=6

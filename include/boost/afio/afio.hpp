@@ -3758,7 +3758,7 @@ namespace utils
     static BOOST_CXX14_CONSTEXPR bool _is_single_bit_set(result_type x)
     {
 #ifndef _MSC_VER
-#if defined(__i386__) || defined(__x64__)
+#if defined(__i386__) || defined(__x86_64__)
       static int have_popcnt=[]{
         size_t cx, dx;
         asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1));
