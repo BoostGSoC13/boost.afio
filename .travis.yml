@@ -44,7 +44,7 @@ before_install:
  - git submodule update --init --recursive
 
 script:
- - CCFLAGS="$CCFLAGS -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
+ - CCFLAGS="$CCFLAGS -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
  - if [ $GCOV -eq 1 ]; then LINKFLAGS="$LINKFLAGS -lgcov"; fi
  - cd test
  - bash ./test_file_glob.sh

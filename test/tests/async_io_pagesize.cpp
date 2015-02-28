@@ -52,6 +52,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     std::cout << "\n\nfrom_hex_string can convert " << (ITEMS*64/diff.count()/1024/1024) << " Mb/sec of hex to 256 bit numbers" << std::endl;
     BOOST_CHECK(!memcmp(buffer.data(), buffer1.data(), buffer.size()));    
 
+#if !RUNNING_ON_SANITIZER
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x86_64__)
       static int have_popcnt=[]{
@@ -199,6 +200,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       if(foo)
         std::cout << "Checking and fixing is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec" << std::endl;
     }
+#endif
     
     auto dispatcher=make_async_file_io_dispatcher();
     std::cout << "\n\nThread source use count is: " << dispatcher->threadsource().use_count() << std::endl;

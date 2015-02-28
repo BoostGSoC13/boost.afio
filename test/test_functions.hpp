@@ -194,7 +194,7 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
         timeout*=3;                                                     \
     }                                                                   \
     if(RUNNING_ON_SANITIZER) {                                           \
-        VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in thread sanitiser so tripling timeout\n"); \
+        BOOST_TEST_MESSAGE("BOOST.AFIO TEST INVOKER: Unit test running in thread sanitiser so tripling timeout"); \
         timeout*=3;                                                     \
     }                                                                   \
     /*boost::unit_test::unit_test_monitor_t::instance().p_timeout.set(timeout);*/ \
@@ -224,7 +224,7 @@ CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)           
         timeout*=3;                                                     \
     }                                                                   \
     if(RUNNING_ON_SANITIZER) {                                           \
-        VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in thread sanitiser so tripling timeout\n"); \
+        BOOST_TEST_MESSAGE("BOOST.AFIO TEST INVOKER: Unit test running in thread sanitiser so tripling timeout"); \
         timeout*=3;                                                     \
     }                                                                   \
     BOOST_TEST_MESSAGE(__desc);                                           \
