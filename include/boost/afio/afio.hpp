@@ -65,6 +65,7 @@ DEALINGS IN THE SOFTWARE.
 #include <exception>
 #include <iostream>
 #include <algorithm> // Boost.ASIO needs std::min and std::max
+#include <bitset>
 
 /*! \brief Validate inputs at the point of instantiation.
 
@@ -3595,10 +3596,17 @@ namespace utils
     static BOOST_CONSTEXPR_OR_CONST char table[] = "0123456789abcdef";
     if(outlen<inlen*2)
       BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
-    for (size_t n = inlen - 1; n <= inlen - 1; n--)
+    for (size_t n = inlen - 2; n <= inlen - 2; n-=2)
     {
+      out[n * 2 + 3] = table[(in[n+1] >> 4) & 0xf];
+      out[n * 2 + 2] = table[in[n+1] & 0xf];
       out[n * 2 + 1] = table[(in[n] >> 4) & 0xf];
-      out[n * 2] = table[in[n] & 0xf];
+      out[n * 2 + 0] = table[in[n] & 0xf];
+    }
+    if(inlen&1)
+    {
+      out[1] = table[(in[0] >> 4) & 0xf];
+      out[0] = table[in[0] & 0xf];
     }
     return inlen*2;
   }
@@ -3681,172 +3689,7 @@ namespace utils
     return inlen/2;
   }
 
-  /*! \brief Converts a number to a very compact barely legal filename, one which may use characters that only AFIO
-  based programs are capable of working with (i.e. users may not be able to delete these files normally).
-  Out buffer can be same as in buffer.
-
-  The NT kernel rejects any of these characters:
-
-  0-31 & * . / : < > ? \ |
-
-  Therefore the character range used is a 64 item table of:
-
-  !#$%&'()*+,-.0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`{|}~
-
-  This lets one pack three bytes of input into four bytes of output. The above table is probably about as big
-  as is case insensitive, doesn't cause unicode conversion errors, and is fairly portable across filing systems.
-  Note that the above table contains characters illegal under Win32 and therefore Win32 API functions will not
-  be able to work with the above file names without escaping.
-  
-  The performance penalty of this over to_hex_string() is 25% for a 33% reduction in size, making it a good
-  option. Note that from_compact_string() is not as similarly blessed.
-
-  \ingroup utils
-  \complexity{O(N) where N is the length of the number.}
-  \exceptionmodel{Throws exception if output buffer is too small for input.}
-  */
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 6293) // MSVC sanitiser warns that we wrap n in the for loop
-#endif
-  inline size_t to_compact_string(char *out, size_t outlen, const char *_in, size_t inlen)
-  {
-    unsigned const char *in = (unsigned const char *) _in;
-    static BOOST_CONSTEXPR_OR_CONST char table[] = "!#$%&'()*+,-.0123456789;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`{|}~";
-    if (outlen<(2+inlen * 4) / 3)
-      BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
-    size_t r = inlen % 3;
-    for (size_t n = inlen-r-3; n <= inlen-r-3; n-=3)
-    {
-      size_t i = n * 4 / 3;
-      out[i + 3] = table[(in[n+2]>>2) & 0x3f];                 // +3 6 bits
-      out[i + 2] = table[((in[n+2]<<4)|(in[n+1]>>4)) & 0x3f];  // +2 2 bits +1 4 bits
-      out[i + 1] = table[((in[n+1]<<2)|(in[n]>>6)) & 0x3f];    // +1 4 bits +0 2 bits 
-      out[i] = table[in[n] & 0x3f];                            // +0 6 bits
-    }
-    switch(r)
-    {
-      size_t i;
-      case 0:
-        break;
-      case 1:
-        i = (inlen-r) * 4 / 3;
-        out[i + 1] = table[(in[inlen-1]>>6) & 0x3f];
-        out[i] = table[in[inlen-1] & 0x3f];
-        break;
-      case 2:
-        i = (inlen-r) * 4 / 3;
-        out[i + 2] = table[(in[inlen-1]>>4) & 0x3f];
-        out[i + 1] = table[((in[inlen-1]<<2)|(in[inlen-2]>>6)) & 0x3f];
-        out[i] = table[in[inlen-2] & 0x3f];
-        break;
-    }
-    return (2+inlen * 4) / 3;
-  }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-  //! \overload
-  inline std::string to_compact_string(std::string in)
-  {
-    std::string out(in.size() * 4 / 3, ' ');
-    to_compact_string(const_cast<char *>(out.data()), out.size(), in.data(), in.size());
-    return std::move(out);
-  }
-
-  /*! \brief Converts a very compact barely legal filename to a number.
-
-  This routine is about 36% slower than to_compact_string() and about 15% than from_hex_string(),
-  thus making it a poor option considering the 33% space reduction.
-
-  \ingroup utils
-  \complexity{O(N) where N is the length of the string.}
-  \exceptionmodel{Throws exception if output buffer is too small for input.}
-  */
-  inline size_t from_compact_string(char *_out, size_t outlen, const char *in, size_t inlen)
-  {
-    unsigned char *out = (unsigned char *) _out;
-    //     ASCII starting from 33 is !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
-    // Our table starting from 33 is ! #$%&'()*+,-. 0123456789 ;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[ ]^_`                          {|}~
-    //                               0 1            13         23                                56                            60
-    if (outlen<(inlen * 3) / 4)
-      BOOST_AFIO_THROW(std::invalid_argument("Output buffer too small."));
-    bool is_invalid=false;
-    auto from_c = [&is_invalid](char c) -> unsigned char
-    {
-#if 1
-      static BOOST_CONSTEXPR_OR_CONST unsigned char table[] = { 0,
-        255,
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-        255,
-        13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-        255,
-        23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55,
-        255,
-        56, 57, 58, 59,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        60, 61, 62, 63
-      };
-      unsigned char r=255;
-      if(c>='!' && c<='~')
-        r=table[c-'!'];
-      if(r==255)
-        is_invalid=true;
-      return r;
-#else
-      if(c>='{' && c<='~')
-        return c-'{'+60;
-      if(c>=']' && c<='`')
-        return c-']'+56;
-      if(c>='a' && c<='z')
-        c=c-'a'+'A';
-      if (c >= ';' && c <= '[')
-        return c-';'+23;
-      if(c>='0' && c<='9')
-        return c-'0'+13;
-      if(c>='#' && c<='.')
-        return c-'#'+1;
-      if(c=='!')
-        return 0;
-      BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
-#endif
-    };
-    for (size_t n = 0; n < inlen / 4; n++)
-    {
-      unsigned char c[4];
-      c[0] = from_c(in[n*4]);
-      c[1] = from_c(in[n*4+1]);
-      c[2] = from_c(in[n*4+2]);
-      c[3] = from_c(in[n*4+3]);
-      out[n*3]=((c[1]<<6)|c[0]) & 0xff;         // +1 2 bits +0 6 bits
-      out[n*3+1]=((c[2]<<4)|(c[1]>>2)) & 0xff;  // +2 4 bits +1 4 bits
-      out[n*3+2]=((c[3]<<2)|(c[2]>>4)) & 0xff;  // +3 6 bits +2 2 bits
-    }
-    switch(inlen%4)
-    {
-      unsigned char c[4];
-    case 0:
-    case 1:
-      break;
-    case 2:
-      c[0] = from_c(in[inlen-2]);
-      c[1] = from_c(in[inlen-1]);
-      out[(inlen/4)*3]=((c[1]<<6)|c[0]) & 0xff;
-      break;
-    case 3:
-      c[0] = from_c(in[inlen-3]);
-      c[1] = from_c(in[inlen-2]);
-      c[2] = from_c(in[inlen-1]);
-      out[(inlen/4)*3]=((c[1]<<6)|c[0]) & 0xff;
-      out[(inlen/4)*3+1]=((c[2]<<4)|(c[1]>>2)) & 0xff;
-      break;
-    }
-    if(is_invalid)
-      BOOST_AFIO_THROW(std::invalid_argument("Input is not a compact string."));
-    return (inlen * 3) / 4;
-  }
-
-  /*! \brief Returns a cryptographically random string capable of being used as a filename. Essentially random_fill() + to_compact_string().
+  /*! \brief Returns a cryptographically random string capable of being used as a filename. Essentially random_fill() + to_hex_string().
 
   \param randomlen The number of bytes of randomness to use for the string.
   \return A string representing the randomness at a 2x ratio, so if 32 bytes were requested, this string would be 64 bytes long.
@@ -3863,6 +3706,239 @@ namespace utils
     return std::move(ret);
   }
 
+#ifndef BOOST_AFIO_SECDEC_INTRINSICS
+# if defined(__GCC__) || defined(__clang__)
+#  define BOOST_AFIO_SECDEC_INTRINSICS 1
+# elif defined(_MSC_VER) && (defined(_M_X64) || _M_IX86_FP==1)
+#  define BOOST_AFIO_SECDEC_INTRINSICS 1
+# endif
+#endif
+#ifndef BOOST_AFIO_SECDEC_INTRINSICS
+# define BOOST_AFIO_SECDEC_INTRINSICS 0
+#endif
+  /*! \class secded_ecc
+  \brief Calculates the single error correcting double error detecting (SECDED) Hamming Error Correcting Code for a \em blocksize block of bytes. For example, a secdec_ecc<8> would be the very common 72,64 Hamming code used in ECC RAM, or secdec_ecc<4096> would be for a 32784,32768 Hamming code.
+
+  After construction during which lookup tables are built, no state is modified and therefore this class is safe for static
+  storage. The maximum number of bits in a code is a good four billion, I did try limiting it to 65536 for performance but
+  it wasn't worth it, and one might want > 8Kb blocks maybe.
+  As with all SECDED ECC, undefined behaviour occurs when more than two bits of error are present or the ECC supplied
+  is incorrect. You should combine this SECDED with a robust hash which can tell you definitively if a buffer is error
+  free or not rather than relying on this to correctly do so.
+  
+  The main intended use case for this routine is calculating the ECC on data being written to disc, and hence that is
+  where performance has been maximised. It is not expected that this routine will be frequently called on data being read
+  from disc i.e. only when its hash doesn't match its contents which should be very rare, and then a single bit heal using this routine is attempted
+  before trying again with the hash. Care was taken that really enormous SECDEDs are fast, in fact tuning was mostly
+  done for the 32784,32768 code which can heal one bad bit per 4Kb page as the main thing we have in mind is achieving
+  reliable filing system code on computers without ECC RAM and in which sustained large quantities of random disc i/o produce
+  a worrying number of flipped bits in a 24 hour period (anywhere between 0 and 3 on my hardware here, average is about 0.8).
+  
+  Performance of the fixed block size routine where you supply whole chunks of \em blocksize is therefore particularly excellent: an
+  amazing 22 cycles per byte for the 32784,32768 code, which is a testament to modern out of order CPUs (remember SECDED inherently must work a bit
+  at a time, so that's just 2.75 amortised CPU cycles per bit which includes a table load, a bit test, and a conditional XOR)
+  i.e. it's pushing about 1.5 ops per clock cycle. On my 3.9Ghz i7-3770K here, I see about 170Mb/sec per CPU core.
+  
+  The variable length routine is necessarily much slower, but can still achieve X cycles per bit.
+
+  \ingroup utils
+  \complexity{O(N) where N is the blocksize}
+  \exceptionmodel{Throws constexpr exceptions in constructor only.}
+  */
+  template<size_t blocksize> class secded_ecc
+  {
+  public:
+    typedef unsigned int result_type; //!< The largest ECC which can be calculated
+  private:
+    static BOOST_CONSTEXPR_OR_CONST size_t bits_per_byte=8;
+    typedef unsigned char unit_type;  // The batch unit of processing
+    result_type bitsvalid;
+    // Many CPUs (x86) are slow doing variable bit shifts, so keep a table
+    result_type ecc_twospowers[sizeof(result_type)*bits_per_byte];
+    unsigned short ecc_table[blocksize*bits_per_byte];
+    static BOOST_CXX14_CONSTEXPR bool _is_single_bit_set(result_type x)
+    {
+      // Not Dinkumware will use the SSE4 popcnt instruction here.
+#ifndef _MSC_VER
+      std::bitset<bits_per_byte*sizeof(x)> b(x);
+      return b.count()==1;
+#elif 1
+      x -= (x >> 1) & 0x55555555;
+      x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+      x = (x + (x >> 4)) & 0x0f0f0f0f;
+      unsigned int count=(x * 0x01010101)>>24;
+      return count==1;
+#else
+      x -= (x >> 1) & 0x5555555555555555ULL;
+      x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
+      x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0fULL;
+      unsigned long long count=(x * 0x0101010101010101ULL)>>56;
+      return count==1;
+#endif
+    }
+  public:
+    //! Constructs an instance, configuring the necessary lookup tables
+    BOOST_CXX14_CONSTEXPR secded_ecc()
+    {
+      for(size_t n=0; n<sizeof(result_type)*bits_per_byte; n++)
+        ecc_twospowers[n]=((result_type)1<<n);
+      result_type length=blocksize*bits_per_byte;
+      // This is (data bits + parity bits + 1) <= 2^(parity bits)
+      for(result_type p=1; p<sizeof(result_type)*bits_per_byte; p++)
+        if((length+p+1)<=ecc_twospowers[p])
+        {
+          bitsvalid=p;
+          break;
+        }
+      if((bits_per_byte-1+bitsvalid)/bits_per_byte>sizeof(result_type))
+        BOOST_AFIO_THROW(std::runtime_error("ECC would exceed the size of result_type!"));
+      for(result_type i=0; i<blocksize*bits_per_byte; i++)
+      {
+        // Make a code bit
+        result_type b=i+1;
+#if BOOST_AFIO_SECDEC_INTRINSICS
+        result_type topbit=bits_per_byte*sizeof(result_type)-__builtin_clz(b);
+        b+=topbit;
+        if(b>=ecc_twospowers[topbit]) b++;
+        //while(b>ecc_twospowers(_topbit+1)) _topbit++;
+        //b+=_topbit;
+        //if(b>=ecc_twospowers(_topbit)) b++;
+#else
+        for(size_t p=0; ecc_twospowers[p]<(b+1); p++)
+          b++;
+#endif
+        ecc_table[i]=b;
+        if(b>(unsigned short)-1)
+          BOOST_AFIO_THROW(std::runtime_error("Precalculated table has exceeded its bounds"));
+      }
+    }
+    //! The number of bits valid in result_type
+    BOOST_CONSTEXPR size_t result_bits_valid() const BOOST_NOEXCEPT
+    {
+      return bitsvalid;
+    }
+    //! Accumulate ECC from fixed size buffer
+    result_type operator()(result_type ecc, const char *buffer) const BOOST_NOEXCEPT
+    {
+      if(blocksize<sizeof(unit_type)*8)
+        return (*this)(ecc, buffer, blocksize);
+      // Process in lumps of eight
+      const unit_type *_buffer=(const unit_type *) buffer;
+//#pragma omp parallel for reduction(^:ecc)
+      for(size_t i=0; i<blocksize; i+=sizeof(unit_type)*8)
+      {
+        union { unsigned long long v; unit_type c[8]; };
+        result_type prefetch[8];
+        v=*(unsigned long long *)(&_buffer[0+i/sizeof(unit_type)]); // min 1 cycle
+#define BOOST_AFIO_ROUND(n) \
+          prefetch[0]=ecc_table[(i+0)*8+n]; \
+          prefetch[1]=ecc_table[(i+1)*8+n]; \
+          prefetch[2]=ecc_table[(i+2)*8+n]; \
+          prefetch[3]=ecc_table[(i+3)*8+n]; \
+          prefetch[4]=ecc_table[(i+4)*8+n]; \
+          prefetch[5]=ecc_table[(i+5)*8+n]; \
+          prefetch[6]=ecc_table[(i+6)*8+n]; \
+          prefetch[7]=ecc_table[(i+7)*8+n]; \
+          if(c[0]&((unit_type)1<<n))\
+            ecc^=prefetch[0];\
+          if(c[1]&((unit_type)1<<n))\
+            ecc^=prefetch[1];\
+          if(c[2]&((unit_type)1<<n))\
+            ecc^=prefetch[2];\
+          if(c[3]&((unit_type)1<<n))\
+            ecc^=prefetch[3];\
+          if(c[4]&((unit_type)1<<n))\
+            ecc^=prefetch[4];\
+          if(c[5]&((unit_type)1<<n))\
+            ecc^=prefetch[5];\
+          if(c[6]&((unit_type)1<<n))\
+            ecc^=prefetch[6];\
+          if(c[7]&((unit_type)1<<n))\
+            ecc^=prefetch[7];
+        BOOST_AFIO_ROUND(0)                                                    // prefetch = min 8, bit test and xor = min 16, total = 24
+        BOOST_AFIO_ROUND(1)
+        BOOST_AFIO_ROUND(2)
+        BOOST_AFIO_ROUND(3)
+        BOOST_AFIO_ROUND(4)
+        BOOST_AFIO_ROUND(5)
+        BOOST_AFIO_ROUND(6)
+        BOOST_AFIO_ROUND(7)
+  #undef BOOST_AFIO_ROUND                                                      // total should be 1+(8*24/3)=65
+      }
+      return ecc;
+    }
+    result_type operator()(const char *buffer) const BOOST_NOEXCEPT { return (*this)(0, buffer); }
+    //! Accumulate ECC from partial buffer where \em length <= \em blocksize
+    result_type operator()(result_type ecc, const char *buffer, size_t length) const BOOST_NOEXCEPT
+    {
+      const unit_type *_buffer=(const unit_type *) buffer;
+//#pragma omp parallel for reduction(^:ecc)
+      for(size_t i=0; i<length; i+=sizeof(unit_type))
+      {
+        unit_type c=_buffer[i/sizeof(unit_type)];                 // min 1 cycle
+        if(!c)                                                    // min 1 cycle
+          continue;
+        char bitset[bits_per_byte*sizeof(unit_type)];
+        result_type prefetch[bits_per_byte*sizeof(unit_type)];
+        // Most compilers will roll this out
+        for(size_t n=0; n<bits_per_byte*sizeof(unit_type); n++)   // min 16 cycles
+        {
+          bitset[n]=!!(c&((unit_type)1<<n));
+          prefetch[n]=ecc_table[i*bits_per_byte+n];               // min 8 cycles
+        }
+        result_type localecc=0;
+        for(size_t n=0; n<bits_per_byte*sizeof(unit_type); n++)
+        {
+          if(bitset[n])                                           // min 8 cycles
+            localecc^=prefetch[n];                                // min 8 cycles
+        }
+        ecc^=localecc;                                            // min 1 cycle. Total cycles = min 43 cycles/byte
+      }
+      return ecc;
+    }
+    result_type operator()(const char *buffer, size_t length) const BOOST_NOEXCEPT { return (*this)(0, buffer, length); }
+    //! Given the original ECC and the new ECC for a buffer, find the bad bit. Return (size_t)-1 if not found (e.g. ECC corrupt)
+    size_t find_bad_bit(result_type good_ecc, result_type bad_ecc) const BOOST_NOEXCEPT
+    {
+      result_type length=blocksize*bits_per_byte, eccdiff=good_ecc^bad_ecc;
+      if(_is_single_bit_set(eccdiff))
+        return (size_t)-1;
+      for(result_type i=0, b=1; i<length; i++, b++)
+      {
+        // Skip parity bits
+        while(_is_single_bit_set(b))
+          b++;
+        if(b==eccdiff)
+          return i;
+      }
+      return (size_t)-1;
+    }
+    //! The outcomes from verify()
+    enum verify_status
+    {
+      corrupt=0,  //!< The buffer had more than a single bit corrupted or the ECC was invalid
+      okay=1,     //!< The buffer had no errors
+      healed=2    //!< The buffer was healed
+    };
+    //! Verifies and heals when possible a buffer, returning non zero if the buffer is error free
+    verify_status verify(char *buffer, result_type good_ecc) const BOOST_NOEXCEPT
+    {
+      result_type this_ecc=(*this)(0, buffer);
+      if(this_ecc==good_ecc)
+        return verify_status::okay; // no errors
+      size_t badbit=find_bad_bit(good_ecc, this_ecc);
+      if((size_t)-1==badbit)
+        return verify_status::corrupt; // parity corrupt?
+      buffer[badbit/bits_per_byte]^=(unsigned char) ecc_twospowers[badbit%bits_per_byte];
+      this_ecc=(*this)(0, buffer);
+      if(this_ecc==good_ecc)
+        return healed; // error healed
+      // Put the bit back
+      buffer[badbit/bits_per_byte]^=(unsigned char) ecc_twospowers[badbit%bits_per_byte];
+      return verify_status::corrupt; // more than one bit was corrupt
+    }
+  };
+ 
   namespace detail
   {
     struct large_page_allocation

@@ -124,7 +124,7 @@ namespace detail {
       using namespace windows_nt_kernel;
       IO_STATUS_BLOCK isb={ 0 };
       BOOST_AFIO_TYPEALIGNMENT(8) FILE_ALL_INFORMATION fai;
-      ntstat=NtQueryInformationFile(h->native_handle(), &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
+      NTSTATUS ntstat=NtQueryInformationFile(h->native_handle(), &isb, &fai.StandardInformation, sizeof(fai.StandardInformation), FileStandardInformation);
       // If the query succeeded and delete is pending, filter out this entry
       if(!ntstat && fai.StandardInformation.DeletePending)
         return true;

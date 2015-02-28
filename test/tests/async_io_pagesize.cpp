@@ -1,6 +1,6 @@
 #include "test_functions.hpp"
 
-BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions work", 30)
+BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions work", 120)
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
     namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
@@ -43,14 +43,6 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     diff=chrono::duration_cast<secs_type>(end-begin);
     std::cout << "\n\nto_hex_string can convert " << (ITEMS*64/diff.count()/1024/1024) << " Mb/sec of 256 bit numbers to hex" << std::endl;
 
-    std::vector<std::vector<char>> filenames2(ITEMS, std::vector<char>(43, ' '));
-    begin=chrono::high_resolution_clock::now();
-    for(size_t n=0; n<ITEMS; n++)
-      utils::to_compact_string(const_cast<char *>(filenames2[n].data()), 43, buffer.data()+n*32, 32);
-    end=chrono::high_resolution_clock::now();
-    diff=chrono::duration_cast<secs_type>(end-begin);
-    std::cout << "\n\nto_compact_string can convert " << (ITEMS*43/diff.count()/1024/1024) << " Mb/sec of 256 bit numbers to compact" << std::endl;
-
     std::vector<char> buffer1(32*ITEMS, ' ');
     begin=chrono::high_resolution_clock::now();
     for(size_t n=0; n<ITEMS; n++)
@@ -58,18 +50,128 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     end=chrono::high_resolution_clock::now();
     diff=chrono::duration_cast<secs_type>(end-begin);
     std::cout << "\n\nfrom_hex_string can convert " << (ITEMS*64/diff.count()/1024/1024) << " Mb/sec of hex to 256 bit numbers" << std::endl;
-
-    std::vector<char> buffer2(32*ITEMS, ' ');
-    begin=chrono::high_resolution_clock::now();
-    for(size_t n=0; n<ITEMS; n++)
-      utils::from_compact_string(buffer2.data()+n*32, 32, filenames2[n].data(), 43);
-    end=chrono::high_resolution_clock::now();
-    diff=chrono::duration_cast<secs_type>(end-begin);
-    std::cout << "\n\nfrom_compact_string can convert " << (ITEMS*43/diff.count()/1024/1024) << " Mb/sec of compact to 256 bit numbers" << std::endl;
-
     BOOST_CHECK(!memcmp(buffer.data(), buffer1.data(), buffer.size()));    
-    BOOST_CHECK(!memcmp(buffer.data(), buffer2.data(), buffer.size()));    
 
+    {
+      static BOOST_CONSTEXPR_OR_CONST size_t bytes=4096;
+      std::vector<char> buffer(bytes);
+      utils::random_fill(buffer.data(), bytes);
+      utils::secded_ecc<bytes> engine;
+      size_t eccbits=engine.result_bits_valid();
+      std::cout << "\n\nECC will be " << eccbits << " bits long" << std::endl;
+      size_t ecc=engine(buffer.data());
+      std::cout << "ECC was calculated to be " << std::hex << ecc << std::dec << std::endl;
+     
+      auto end=std::chrono::high_resolution_clock::now(), begin=std::chrono::high_resolution_clock::now();  
+      auto diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+#if __ARM_ARCH>=6
+      auto __rdtsc=[]
+      {
+        unsigned count;
+        asm volatile ("MRC p15, 0, %0, c9, c13, 0" : "=r"(count));
+        return (unsigned long long) count * 64;
+      };
+#endif
+      unsigned long long _begin=__rdtsc(), _end;
+#if 1
+      do
+      {
+        end=std::chrono::high_resolution_clock::now();
+      } while(std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin).count()<1);
+      _end=__rdtsc();
+      std::cout << "There are " << (_end-_begin) << " TSCs in 1 second." << std::endl;  
+#endif
+     
+      std::cout << "Flipping every bit in the buffer to see if it is correctly detected ..." << std::endl;  
+      begin=std::chrono::high_resolution_clock::now();  
+      for(size_t toflip=0; toflip<bytes*8; toflip++)
+      {
+        buffer[toflip/8]^=((size_t)1<<(toflip%8));
+        size_t newecc=engine(buffer.data());
+        if(ecc==newecc)
+        {
+          std::cerr << "ERROR: Flipping bit " << toflip << " not detected!" << std::endl;
+          BOOST_CHECK(ecc!=newecc);
+        }
+        else
+        {
+          size_t badbit=engine.find_bad_bit(ecc, newecc);
+          if(badbit!=toflip)
+          {
+            std::cerr << "ERROR: Bad bit " << badbit << " is not the bit " << toflip << " we flipped!" << std::endl;
+            BOOST_CHECK(badbit==toflip);
+          }
+    //      else
+    //        std::cout << "SUCCESS: Bit flip " << toflip << " correctly detected" << std::endl;
+        }
+        if(2!=engine.verify(buffer.data(), ecc))
+        {
+          std::cerr << "ERROR: verify() did not heal the buffer!" << std::endl;
+          BOOST_CHECK(false);
+        }
+      }
+      end=std::chrono::high_resolution_clock::now();
+      diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+      std::cout << "Checking and fixing is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec" << std::endl;
+      
+      std::cout << "\nFlipping two bits in the buffer to see if it is correctly detected ..." << std::endl;  
+      buffer[0]^=1;
+      begin=std::chrono::high_resolution_clock::now();  
+      for(size_t toflip=1; toflip<bytes*8; toflip++)
+      {
+        buffer[toflip/8]^=((size_t)1<<(toflip%8));
+        size_t newecc=engine(buffer.data());
+        if(ecc==newecc)
+        {
+          std::cerr << "ERROR: Flipping bits 0 and " << toflip << " not detected!" << std::endl;
+          BOOST_CHECK(ecc!=newecc);
+        }
+        buffer[toflip/8]^=((size_t)1<<(toflip%8));
+      }
+      end=std::chrono::high_resolution_clock::now();
+      diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+      std::cout << "Calculating is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec" << std::endl;
+     
+      std::cout << "\nCalculating speeds ..." << std::endl;
+      size_t foo=0;
+      begin=std::chrono::high_resolution_clock::now();
+      _begin=__rdtsc();
+      for(size_t n=0; n<10000; n++)
+      {
+        buffer[0]=(char)n;
+        foo+=engine(buffer.data());
+      }
+      _end=__rdtsc();
+      end=std::chrono::high_resolution_clock::now();
+      diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+      if(foo)
+        std::cout << "Fixed buffer size calculating is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec, or " << ((_end-_begin)/10000.0/4096) << " cycles/byte" << std::endl;
+      foo=0;
+      begin=std::chrono::high_resolution_clock::now();
+      _begin=__rdtsc();
+      for(size_t n=0; n<10000; n++)
+      {
+        buffer[0]=(char)n;
+        foo+=engine(buffer.data(), bytes);
+      }
+      _end=__rdtsc();
+      end=std::chrono::high_resolution_clock::now();
+      diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+      if(foo)
+        std::cout << "Variable buffer size calculating is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec, or " << ((_end-_begin)/10000.0/4096) << " cycles/byte" << std::endl;
+      foo=0;
+      begin=std::chrono::high_resolution_clock::now();  
+      for(size_t n=0; n<10000; n++)
+      {
+        buffer[0]=(char)n;
+        foo+=engine.verify(buffer.data(), ecc);
+      }
+      end=std::chrono::high_resolution_clock::now();
+      diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+      if(foo)
+        std::cout << "Checking and fixing is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec" << std::endl;
+    }
+    
     auto dispatcher=make_async_file_io_dispatcher();
     std::cout << "\n\nThread source use count is: " << dispatcher->threadsource().use_count() << std::endl;
     BOOST_AFIO_CHECK_THROWS(dispatcher->op_from_scheduled_id(78));
