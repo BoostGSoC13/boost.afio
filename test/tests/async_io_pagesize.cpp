@@ -1,5 +1,9 @@
 #include "test_functions.hpp"
 
+#if defined(__GNUC__) && (defined(__i386__) || defined(__x64))
+#include <x86intrin.h>
+#endif
+
 BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions work", 120)
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;

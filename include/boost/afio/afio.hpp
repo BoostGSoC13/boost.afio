@@ -65,7 +65,6 @@ DEALINGS IN THE SOFTWARE.
 #include <exception>
 #include <iostream>
 #include <algorithm> // Boost.ASIO needs std::min and std::max
-#include <bitset>
 
 /*! \brief Validate inputs at the point of instantiation.
 
