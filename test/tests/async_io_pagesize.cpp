@@ -190,7 +190,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
         std::cout << "Variable buffer size calculating is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec, or " << ((_end-_begin)/10000.0/4096) << " cycles/byte" << std::endl;
       foo=0;
       begin=std::chrono::high_resolution_clock::now();  
-      for(size_t n=0; n<10000; n++)
+      for(size_t n=0; n<1000; n++)
       {
         buffer[0]=(char)n;
         foo+=engine.verify(buffer.data(), ecc);
@@ -198,7 +198,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       end=std::chrono::high_resolution_clock::now();
       diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
       if(foo)
-        std::cout << "Checking and fixing is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec" << std::endl;
+        std::cout << "Checking and fixing is approximately " << (bytes*1000/diff.count()/1024/1024) << " Mb/sec" << std::endl;
     }
 #endif
     
