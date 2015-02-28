@@ -3733,12 +3733,14 @@ namespace utils
   reliable filing system code on computers without ECC RAM and in which sustained large quantities of random disc i/o produce
   a worrying number of flipped bits in a 24 hour period (anywhere between 0 and 3 on my hardware here, average is about 0.8).
   
-  Performance of the fixed block size routine where you supply whole chunks of \em blocksize is therefore particularly excellent: an
+  Performance of the fixed block size routine where you supply whole chunks of \em blocksize is therefore \b particularly excellent
+  as I spent a lot of time tuning it for Ivy Bridge and later out of order architectures: an
   amazing 22 cycles per byte for the 32784,32768 code, which is a testament to modern out of order CPUs (remember SECDED inherently must work a bit
   at a time, so that's just 2.75 amortised CPU cycles per bit which includes a table load, a bit test, and a conditional XOR)
   i.e. it's pushing about 1.5 ops per clock cycle. On my 3.9Ghz i7-3770K here, I see about 170Mb/sec per CPU core.
   
-  The variable length routine is necessarily much slower, but can still achieve X cycles per bit.
+  The variable length routine is necessarily much slower as it must work in single bytes, and achieves 72 cycles per byte,
+  or 9 cycles per bit (64Mb/sec per CPU core).
 
   \ingroup utils
   \complexity{O(N) where N is the blocksize}
@@ -3917,7 +3919,7 @@ namespace utils
       return ecc;
     }
     result_type operator()(const char *buffer, size_t length) const BOOST_NOEXCEPT { return (*this)(0, buffer, length); }
-    //! Given the original ECC and the new ECC for a buffer, find the bad bit. Return (size_t)-1 if not found (e.g. ECC corrupt)
+    //! Given the original ECC and the new ECC for a buffer, find the bad bit. Return (result_type)-1 if not found (e.g. ECC corrupt)
     result_type find_bad_bit(result_type good_ecc, result_type bad_ecc) const BOOST_NOEXCEPT
     {
       result_type length=blocksize*bits_per_byte, eccdiff=good_ecc^bad_ecc;
@@ -3946,8 +3948,8 @@ namespace utils
       result_type this_ecc=(*this)(0, buffer);
       if(this_ecc==good_ecc)
         return verify_status::okay; // no errors
-      size_t badbit=find_bad_bit(good_ecc, this_ecc);
-      if((size_t)-1==badbit)
+      result_type badbit=find_bad_bit(good_ecc, this_ecc);
+      if((result_type)-1==badbit)
         return verify_status::corrupt; // parity corrupt?
       buffer[badbit/bits_per_byte]^=(unsigned char) ecc_twospowers[badbit%bits_per_byte];
       this_ecc=(*this)(0, buffer);

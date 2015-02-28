@@ -84,7 +84,14 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
 #else
 #ifdef __rdtsc
         return (unsigned long long) __rdtsc();
-#elif defined(__i386__) || defined(__x86_64__)
+#elif defined(__x86_64__)
+      auto rdtsc=[]
+      {
+        unsigned lo, hi;
+        asm volatile ("rdtsc" : "=a"(lo), "=d"(hi));
+        return (unsigned long long) lo | ((unsigned long long) hi<<32);
+      };
+#elif defined(__i386__)
       auto rdtsc=[]
       {
         unsigned count;

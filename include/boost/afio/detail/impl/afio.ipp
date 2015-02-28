@@ -2192,13 +2192,14 @@ namespace detail {
             {
               std::shared_ptr<async_io_handle> h(op.get());
               async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
-              p->int_safeunlink();
+              if(p->is_open()!=async_io_handle::open_states::closed)
+              {
+                p->int_safeunlink();
+                return std::make_pair(true, op.get());
+              }
             }
-            else
-            {
-              auto dirh=decode_relative_path(op, req);
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
-            }
+            auto dirh=decode_relative_path(op, req);
+            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
             return std::make_pair(true, op.get());
         }
         // Called in unknown thread
