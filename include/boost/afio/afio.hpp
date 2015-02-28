@@ -3760,8 +3760,8 @@ namespace utils
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x64__)
       static int have_popcnt=[]{
-        size_t ax, bx, cx, dx, i=1;
-        asm("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (i));
+        size_t cx, dx;
+        asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
       if(have_popcnt)
@@ -3809,9 +3809,9 @@ namespace utils
         result_type b=i+1;
 #if BOOST_AFIO_SECDEC_INTRINSICS
 #ifdef _MSC_VER
-        result_type topbit;
+        unsigned long _topbit;
         _BitScanReverse(&topbit, b);
-        topbit=bits_per_byte*sizeof(result_type)-topbit;
+        result_type topbit=bits_per_byte*sizeof(result_type)-_topbit;
 #else
         result_type topbit=bits_per_byte*sizeof(result_type)-__builtin_clz(b);
 #endif
