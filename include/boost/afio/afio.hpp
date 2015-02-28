@@ -3755,16 +3755,19 @@ namespace utils
     // Many CPUs (x86) are slow doing variable bit shifts, so keep a table
     result_type ecc_twospowers[sizeof(result_type)*bits_per_byte];
     unsigned short ecc_table[blocksize*bits_per_byte];
-    static BOOST_CXX14_CONSTEXPR bool _is_single_bit_set(result_type x)
+    static bool _is_single_bit_set(result_type x)
     {
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x86_64__)
+#ifndef __SSE4_2__
+      // Do a once off runtime check
       static int have_popcnt=[]{
         size_t cx, dx;
         asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
       if(have_popcnt)
+#endif
       {
         unsigned count;
         asm("popcnt %1,%0" : "=r"(count) : "rm"(x) : "cc");
