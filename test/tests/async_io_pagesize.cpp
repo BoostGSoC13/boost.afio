@@ -59,8 +59,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x64__)
       static int have_popcnt=[]{
-        unsigned ax, bx, cx, dx;
-        __asm__ __volatile__ ("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (1));
+        unsigned ax, bx, cx, dx, i=1;
+        asm("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (i));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
       std::cout << "\n\nThis CPU has the popcnt instruction: " << have_popcnt << std::endl;
@@ -71,9 +71,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       std::vector<char> buffer(bytes);
       utils::random_fill(buffer.data(), bytes);
       utils::secded_ecc<bytes> engine;
-      size_t eccbits=engine.result_bits_valid();
+      typedef utils::secded_ecc<bytes>::result_type ecc_type;
+      ecc_type eccbits=engine.result_bits_valid();
       std::cout << "\n\nECC will be " << eccbits << " bits long" << std::endl;
-      size_t ecc=engine(buffer.data());
+      ecc_type ecc=engine(buffer.data());
       std::cout << "ECC was calculated to be " << std::hex << ecc << std::dec << std::endl;
      
       auto end=std::chrono::high_resolution_clock::now(), begin=std::chrono::high_resolution_clock::now();  
@@ -101,7 +102,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       for(size_t toflip=0; toflip<bytes*8; toflip++)
       {
         buffer[toflip/8]^=((size_t)1<<(toflip%8));
-        size_t newecc=engine(buffer.data());
+        ecc_type newecc=engine(buffer.data());
         if(ecc==newecc)
         {
           std::cerr << "ERROR: Flipping bit " << toflip << " not detected!" << std::endl;
@@ -109,7 +110,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
         }
         else
         {
-          size_t badbit=engine.find_bad_bit(ecc, newecc);
+          ecc_type badbit=engine.find_bad_bit(ecc, newecc);
           if(badbit!=toflip)
           {
             std::cerr << "ERROR: Bad bit " << badbit << " is not the bit " << toflip << " we flipped!" << std::endl;
@@ -134,7 +135,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       for(size_t toflip=1; toflip<bytes*8; toflip++)
       {
         buffer[toflip/8]^=((size_t)1<<(toflip%8));
-        size_t newecc=engine(buffer.data());
+        ecc_type newecc=engine(buffer.data());
         if(ecc==newecc)
         {
           std::cerr << "ERROR: Flipping bits 0 and " << toflip << " not detected!" << std::endl;

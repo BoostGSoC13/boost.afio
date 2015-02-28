@@ -3760,8 +3760,8 @@ namespace utils
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x64__)
       static int have_popcnt=[]{
-        unsigned ax, bx, cx, dx;
-        __asm__ __volatile__ ("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (1));
+        unsigned ax, bx, cx, dx, i=1;
+        asm("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (i));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
       if(have_popcnt)
@@ -3808,7 +3808,12 @@ namespace utils
         // Make a code bit
         result_type b=i+1;
 #if BOOST_AFIO_SECDEC_INTRINSICS
-        result_type topbit=bits_per_byte*sizeof(result_type)-__builtin_clz(b);
+        result_type topbit=bits_per_byte*sizeof(result_type)-
+#ifdef _MSC_VER
+          _BitScanReverse(b);
+#else
+          __builtin_clz(b);
+#endif
         b+=topbit;
         if(b>=ecc_twospowers[topbit]) b++;
         //while(b>ecc_twospowers(_topbit+1)) _topbit++;
