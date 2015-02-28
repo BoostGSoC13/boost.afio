@@ -59,7 +59,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x64__)
       static int have_popcnt=[]{
-        unsigned ax, bx, cx, dx, i=1;
+        size_t ax, bx, cx, dx, i=1;
         asm("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (i));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();

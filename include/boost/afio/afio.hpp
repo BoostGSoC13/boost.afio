@@ -3760,7 +3760,7 @@ namespace utils
 #ifndef _MSC_VER
 #if defined(__i386__) || defined(__x64__)
       static int have_popcnt=[]{
-        unsigned ax, bx, cx, dx, i=1;
+        size_t ax, bx, cx, dx, i=1;
         asm("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (i));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
@@ -3808,11 +3808,12 @@ namespace utils
         // Make a code bit
         result_type b=i+1;
 #if BOOST_AFIO_SECDEC_INTRINSICS
-        result_type topbit=bits_per_byte*sizeof(result_type)-
 #ifdef _MSC_VER
-          _BitScanReverse(b);
+        result_type topbit;
+        _BitScanReverse(&topbit, b);
+        topbit=bits_per_byte*sizeof(result_type)-topbit;
 #else
-          __builtin_clz(b);
+        result_type topbit=bits_per_byte*sizeof(result_type)-__builtin_clz(b);
 #endif
         b+=topbit;
         if(b>=ecc_twospowers[topbit]) b++;
@@ -3829,7 +3830,7 @@ namespace utils
       }
     }
     //! The number of bits valid in result_type
-    BOOST_CONSTEXPR size_t result_bits_valid() const BOOST_NOEXCEPT
+    BOOST_CONSTEXPR result_type result_bits_valid() const BOOST_NOEXCEPT
     {
       return bitsvalid;
     }
@@ -3914,11 +3915,11 @@ namespace utils
     }
     result_type operator()(const char *buffer, size_t length) const BOOST_NOEXCEPT { return (*this)(0, buffer, length); }
     //! Given the original ECC and the new ECC for a buffer, find the bad bit. Return (size_t)-1 if not found (e.g. ECC corrupt)
-    size_t find_bad_bit(result_type good_ecc, result_type bad_ecc) const BOOST_NOEXCEPT
+    result_type find_bad_bit(result_type good_ecc, result_type bad_ecc) const BOOST_NOEXCEPT
     {
       result_type length=blocksize*bits_per_byte, eccdiff=good_ecc^bad_ecc;
       if(_is_single_bit_set(eccdiff))
-        return (size_t)-1;
+        return (result_type)-1;
       for(result_type i=0, b=1; i<length; i++, b++)
       {
         // Skip parity bits
@@ -3927,7 +3928,7 @@ namespace utils
         if(b==eccdiff)
           return i;
       }
-      return (size_t)-1;
+      return (result_type)-1;
     }
     //! The outcomes from verify()
     enum verify_status
