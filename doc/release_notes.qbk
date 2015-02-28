@@ -215,8 +215,6 @@ protection disappear.
 
 TODO BEFORE RELEASE
 
-1a. Add unit test for to_compact_string(), as it definitely doesn't work on Windows.
-
 1b. Add unit test swapping two directories
 each with an open file in them and make sure it doesn't get confused.
 

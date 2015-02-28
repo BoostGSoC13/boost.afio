@@ -1,9 +1,5 @@
 #include "test_functions.hpp"
 
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x64))
-#include <x86intrin.h>
-#endif
-
 BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions work", 120)
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
@@ -56,6 +52,16 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     std::cout << "\n\nfrom_hex_string can convert " << (ITEMS*64/diff.count()/1024/1024) << " Mb/sec of hex to 256 bit numbers" << std::endl;
     BOOST_CHECK(!memcmp(buffer.data(), buffer1.data(), buffer.size()));    
 
+#ifndef _MSC_VER
+#if defined(__i386__) || defined(__x64__)
+      static int have_popcnt=[]{
+        unsigned ax, bx, cx, dx;
+        __asm__ __volatile__ ("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (1));
+        return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
+      }();
+      std::cout << "\n\nThis CPU has the popcnt instruction: " << have_popcnt << std::endl;
+#endif
+#endif
     {
       static BOOST_CONSTEXPR_OR_CONST size_t bytes=4096;
       std::vector<char> buffer(bytes);

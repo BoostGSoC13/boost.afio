@@ -3759,11 +3759,21 @@ namespace utils
     static BOOST_CXX14_CONSTEXPR bool _is_single_bit_set(result_type x)
     {
 #ifndef _MSC_VER
-      // Does runtime cpuid for SSE4.1 popcnt, quite neat this
-      static int have_popcnt=__builtin_cpu_supports("popcnt");
+#if defined(__i386__) || defined(__x64__)
+      static int have_popcnt=[]{
+        unsigned ax, bx, cx, dx;
+        __asm__ __volatile__ ("cpuid": "=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (1));
+        return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
+      }();
       if(have_popcnt)
-        return __builtin_popcount(x)==1;
+      {
+        unsigned count;
+        asm("popcnt %1,%0" : "=r"(count) : "rm"(x) : "cc");
+        return count==1;
+      }
 #endif
+      return __builtin_popcount(x)==1;
+#else
       x -= (x >> 1) & 0x55555555;
       x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
       x = (x + (x >> 4)) & 0x0f0f0f0f;
@@ -3775,6 +3785,7 @@ namespace utils
       x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0fULL;
       unsigned long long count=(x * 0x0101010101010101ULL)>>56;
       return count==1;
+#endif
 #endif
     }
   public:
