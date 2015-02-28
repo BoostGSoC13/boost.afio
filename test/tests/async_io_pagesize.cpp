@@ -1,9 +1,5 @@
 #include "test_functions.hpp"
 
-#if defined(__GNUC__) && (defined(__i386__) || defined(__x64))
-#include <x86intrin.h>
-#endif
-
 BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions work", 120)
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
@@ -79,21 +75,40 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
      
       auto end=std::chrono::high_resolution_clock::now(), begin=std::chrono::high_resolution_clock::now();  
       auto diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
+#ifdef _MSC_VER
+      auto rdtsc=[]
+      {
+        return (unsigned long long) __rdtsc();
+      };
+#else
+#if defined(__i386__) || defined(__x64__)
+      auto rdtsc=[]
+      {
+#ifdef __rdtsc
+        return (unsigned long long) __rdtsc();
+#else
+        unsigned count;
+        asm volatile ("rdtsc" : "=a"(count));
+        return (unsigned long long) count;
+#endif
+      };
+#endif
 #if __ARM_ARCH>=6
-      auto __rdtsc=[]
+      auto rdtsc=[]
       {
         unsigned count;
         asm volatile ("MRC p15, 0, %0, c9, c13, 0" : "=r"(count));
         return (unsigned long long) count * 64;
       };
 #endif
-      unsigned long long _begin=__rdtsc(), _end;
+#endif
+      unsigned long long _begin=rdtsc(), _end;
 #if 1
       do
       {
         end=std::chrono::high_resolution_clock::now();
       } while(std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin).count()<1);
-      _end=__rdtsc();
+      _end=rdtsc();
       std::cout << "There are " << (_end-_begin) << " TSCs in 1 second." << std::endl;  
 #endif
      
@@ -150,26 +165,26 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       std::cout << "\nCalculating speeds ..." << std::endl;
       size_t foo=0;
       begin=std::chrono::high_resolution_clock::now();
-      _begin=__rdtsc();
+      _begin=rdtsc();
       for(size_t n=0; n<10000; n++)
       {
         buffer[0]=(char)n;
         foo+=engine(buffer.data());
       }
-      _end=__rdtsc();
+      _end=rdtsc();
       end=std::chrono::high_resolution_clock::now();
       diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
       if(foo)
         std::cout << "Fixed buffer size calculating is approximately " << (bytes*10000/diff.count()/1024/1024) << " Mb/sec, or " << ((_end-_begin)/10000.0/4096) << " cycles/byte" << std::endl;
       foo=0;
       begin=std::chrono::high_resolution_clock::now();
-      _begin=__rdtsc();
+      _begin=rdtsc();
       for(size_t n=0; n<10000; n++)
       {
         buffer[0]=(char)n;
         foo+=engine(buffer.data(), bytes);
       }
-      _end=__rdtsc();
+      _end=rdtsc();
       end=std::chrono::high_resolution_clock::now();
       diff=std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(end-begin);
       if(foo)

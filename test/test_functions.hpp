@@ -39,6 +39,15 @@ extern "C" void tzset(void);
 #include "boost/afio/detail/valgrind/valgrind.h"
 #include <time.h>
 
+#if defined(__has_feature)
+#  if __has_feature(thread_sanitizer)
+#    define RUNNING_ON_SANITIZER 1
+#  endif
+#endif
+#ifndef RUNNING_ON_SANITIZER
+# define RUNNING_ON_SANITIZER 0
+#endif
+
 //if we're building the tests all together don't define the test main
 #ifndef BOOST_AFIO_TEST_ALL
 # define BOOST_TEST_MAIN  //must be defined before unit_test.hpp is included
@@ -184,6 +193,10 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
         VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in valgrind so tripling timeout\n"); \
         timeout*=3;                                                     \
     }                                                                   \
+    if(RUNNING_ON_SANITIZER) {                                           \
+        VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in thread sanitiser so tripling timeout\n"); \
+        timeout*=3;                                                     \
+    }                                                                   \
     /*boost::unit_test::unit_test_monitor_t::instance().p_timeout.set(timeout);*/ \
     BOOST_TEST_MESSAGE(desc);                                           \
     std::cout << std::endl << desc << std::endl;                        \
@@ -208,6 +221,10 @@ CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)           
     size_t timeout=__timeout;                                           \
     if(RUNNING_ON_VALGRIND) {                                           \
         VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in valgrind so tripling timeout\n"); \
+        timeout*=3;                                                     \
+    }                                                                   \
+    if(RUNNING_ON_SANITIZER) {                                           \
+        VALGRIND_PRINTF("BOOST.AFIO TEST INVOKER: Unit test running in thread sanitiser so tripling timeout\n"); \
         timeout*=3;                                                     \
     }                                                                   \
     BOOST_TEST_MESSAGE(__desc);                                           \
