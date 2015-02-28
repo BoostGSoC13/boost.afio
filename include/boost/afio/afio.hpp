@@ -3758,17 +3758,18 @@ namespace utils
     unsigned short ecc_table[blocksize*bits_per_byte];
     static BOOST_CXX14_CONSTEXPR bool _is_single_bit_set(result_type x)
     {
-      // Not Dinkumware will use the SSE4 popcnt instruction here.
 #ifndef _MSC_VER
-      std::bitset<bits_per_byte*sizeof(x)> b(x);
-      return b.count()==1;
-#elif 1
+      // Does runtime cpuid for SSE4.1 popcnt, quite neat this
+      static int have_popcnt=__builtin_cpu_supports("popcnt");
+      if(have_popcnt)
+        return __builtin_popcount(x)==1;
+#endif
       x -= (x >> 1) & 0x55555555;
       x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
       x = (x + (x >> 4)) & 0x0f0f0f0f;
       unsigned int count=(x * 0x01010101)>>24;
       return count==1;
-#else
+#if 0
       x -= (x >> 1) & 0x5555555555555555ULL;
       x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
       x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0fULL;
