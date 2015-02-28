@@ -3810,7 +3810,7 @@ namespace utils
 #if BOOST_AFIO_SECDEC_INTRINSICS
 #ifdef _MSC_VER
         unsigned long _topbit;
-        _BitScanReverse(&topbit, b);
+        _BitScanReverse(&_topbit, b);
         result_type topbit=bits_per_byte*sizeof(result_type)-_topbit;
 #else
         result_type topbit=bits_per_byte*sizeof(result_type)-__builtin_clz(b);
