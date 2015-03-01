@@ -212,7 +212,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_FSTAT(fd, s) _fstat64((fd), (s))
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), _wopen((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_CLOSE _close
-#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), _wunlink(path))
+#define AT_REMOVEDIR 0x200
+#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), (flags&AT_REMOVEDIR) ? _wrmdir(path) : _wunlink(path))
 #define BOOST_AFIO_POSIX_FSYNC _commit
 #define BOOST_AFIO_POSIX_FTRUNCATE winftruncate
 #define BOOST_AFIO_POSIX_MMAP(addr, size, prot, flags, fd, offset) (-1)
@@ -258,7 +259,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), ::open((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_SYMLINKAT(from, dirh, to) (check_fdcwd(dirh), ::symlink((from), (to)))
 #define BOOST_AFIO_POSIX_CLOSE ::close
-#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), ::unlink(path))
+#define AT_REMOVEDIR 0x200
+#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), (flags&AT_REMOVEDIR) ? ::rmdir(path) : ::unlink(path))
 #define BOOST_AFIO_POSIX_FSYNC ::fsync
 #define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
 #define BOOST_AFIO_POSIX_MMAP ::mmap
