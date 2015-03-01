@@ -3816,7 +3816,7 @@ namespace utils
 #ifdef _MSC_VER
         unsigned long _topbit;
         _BitScanReverse(&_topbit, b);
-        result_type topbit=bits_per_byte*sizeof(result_type)-_topbit;
+        result_type topbit=_topbit;
 #else
         result_type topbit=bits_per_byte*sizeof(result_type)-__builtin_clz(b);
 #endif
