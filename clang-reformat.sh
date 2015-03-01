@@ -6,7 +6,6 @@ find include/boost/afio/detail -name *.ipp | xargs clang-format-3.6 -i
 find test -name *.hpp | xargs clang-format-3.6 -i
 find test -name *.cpp | xargs clang-format-3.6 -i
 
-exit 0
 find example -name *.cpp | xargs scripts/IndentCmacros.py
 scripts/IndentCmacros.py include/boost/afio/afio.hpp
 scripts/IndentCmacros.py include/boost/afio/config.hpp

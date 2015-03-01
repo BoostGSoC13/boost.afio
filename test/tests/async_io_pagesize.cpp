@@ -57,7 +57,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
 #if defined(__i386__) || defined(__x86_64__)
       static int have_popcnt=[]{
         size_t cx, dx;
-        asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1));
+        asm("pushl %%ebx\n\tcpuid\n\tpopl %%ebx\n\t": "=c" (cx), "=d" (dx) : "a" (1), "c" (0), "d" (0));
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
       std::cout << "\n\nThis CPU has the popcnt instruction: " << have_popcnt << std::endl;
