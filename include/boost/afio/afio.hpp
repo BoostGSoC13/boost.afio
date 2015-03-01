@@ -3816,7 +3816,7 @@ namespace utils
       {
         // Make a code bit
         result_type b=i+1;
-#if BOOST_AFIO_SECDEC_INTRINSICS
+#if BOOST_AFIO_SECDEC_INTRINSICS && 0 // let constexpr do its thing
 #ifdef _MSC_VER
         unsigned long _topbit;
         _BitScanReverse(&_topbit, b);
