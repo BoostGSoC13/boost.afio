@@ -1390,7 +1390,8 @@ namespace detail
                 }
                 else
                   ol.release();
-            } while(false);
+                break;
+            } while(true);
 
             // Indicate we're not finished yet
             return std::make_pair(false, h);
