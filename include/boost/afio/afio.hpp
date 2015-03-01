@@ -3766,7 +3766,7 @@ namespace utils
       static int have_popcnt=[]{
         size_t cx, dx;
 #if defined(__x86_64__)
-        asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1), "c" (0), "d" (0));
+        asm("cpuid": "=c" (cx), "=d" (dx) : "a" (1), "b" (0), "c" (0), "d" (0));
 #else
         asm("pushl %%ebx\n\tcpuid\n\tpopl %%ebx\n\t": "=c" (cx), "=d" (dx) : "a" (1), "c" (0), "d" (0));
 #endif
