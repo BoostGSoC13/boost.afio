@@ -3765,7 +3765,11 @@ namespace utils
       // Do a once off runtime check
       static int have_popcnt=[]{
         size_t cx, dx;
+#if defined(__x86_64__)
+        asm("pushq %%ebx\n\tcpuid\n\tpopq %%ebx\n\t": "=c" (cx), "=d" (dx) : "a" (1), "c" (0), "d" (0));
+#else
         asm("pushl %%ebx\n\tcpuid\n\tpopl %%ebx\n\t": "=c" (cx), "=d" (dx) : "a" (1), "c" (0), "d" (0));
+#endif
         return (dx&(1<<26))!=0/*SSE2*/ && (cx&(1<<23))!=0/*POPCNT*/;
       }();
       if(have_popcnt)
