@@ -4,8 +4,20 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
     namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
-    if(filesystem::exists("testdir"))
-        filesystem::remove_all("testdir");
+    // Oh Windows, oh Windows, how strange you are ...
+    for (size_t n = 0; n < 10; n++)
+    {
+      try
+      {
+        if (filesystem::exists("testdir"))
+          filesystem::remove("testdir");
+        break;
+      }
+      catch (...)
+      {
+        this_thread::sleep_for(chrono::milliseconds(10));
+      }
+    }
 
     auto dispatcher=make_async_file_io_dispatcher();
     auto test(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));

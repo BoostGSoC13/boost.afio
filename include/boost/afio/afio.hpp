@@ -3833,7 +3833,7 @@ namespace utils
         for(size_t p=0; ecc_twospowers[p]<(b+1); p++)
           b++;
 #endif
-        ecc_table[i]=b;
+        ecc_table[i]=(unsigned short) b;
         if(b>(unsigned short)-1)
           BOOST_AFIO_THROW(std::runtime_error("Precalculated table has exceeded its bounds"));
       }

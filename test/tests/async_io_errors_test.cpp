@@ -6,10 +6,22 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
     using namespace BOOST_AFIO_V1_NAMESPACE;
     namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 
-    if(filesystem::exists("testdir/a"))
-        try { filesystem::remove("testdir/a"); } catch(...) { }
-    if(filesystem::exists("testdir"))
-        try { filesystem::remove("testdir"); } catch(...) { }
+    // Oh Windows, oh Windows, how strange you are ...
+    for (size_t n = 0; n < 10; n++)
+    {
+      try
+      {
+        if (filesystem::exists("testdir/a"))
+          filesystem::remove("testdir/a");
+        if (filesystem::exists("testdir"))
+          filesystem::remove("testdir");
+        break;
+      }
+      catch (...)
+      {
+        this_thread::sleep_for(chrono::milliseconds(10));
+      }
+    }
     {
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_async_file_io_dispatcher();
@@ -45,9 +57,14 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                     this_thread::sleep_for(chrono::milliseconds(1));
                 // Unfortunately Windows does not behave here, and deleting the file if a handle is still
                 // open to it appears to no op
-                for(size_t n=0; filesystem::exists("testdir/a") && n<100; n++)
+                for(size_t n=0; n<100; n++)
                 {
-                    try { filesystem::remove("testdir/a"); } catch(...) { }
+                    try
+                    {
+                      if (!filesystem::exists("testdir/a"))
+                        break;
+                      filesystem::remove("testdir/a");
+                    } catch(...) { }
                     if(n>10) this_thread::sleep_for(chrono::milliseconds(1));
                 }
                 if(filesystem::exists("testdir/a"))
@@ -128,10 +145,21 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
             } while(false);
         }
     }
-    if(filesystem::exists("testdir/a"))
-        filesystem::remove("testdir/a");
-    if(filesystem::exists("testdir"))
-        filesystem::remove("testdir");
+    for (size_t n = 0; n < 10; n++)
+    {
+      try
+      {
+        if (filesystem::exists("testdir/a"))
+          filesystem::remove("testdir/a");
+        if (filesystem::exists("testdir"))
+          filesystem::remove("testdir");
+        break;
+      }
+      catch (...)
+      {
+        this_thread::sleep_for(chrono::milliseconds(10));
+      }
+    }
 #endif
     // Add a single output to validate the test
     BOOST_CHECK(true);
