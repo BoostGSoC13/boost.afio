@@ -27,7 +27,7 @@ File Created: Mar 2013
 
 // Define this to have every allocated op take a backtrace from where it was allocated
 #ifndef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-  #ifndef NDEBUG
+  #if !defined(NDEBUG) || defined(BOOST_AFIO_RUNNING_IN_CI)
     #define BOOST_AFIO_OP_STACKBACKTRACEDEPTH 8
   #endif
 #endif
@@ -695,13 +695,10 @@ namespace detail {
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void print_fatal_exception_message_to_stderr(const char *msg)
     {
         std::cerr << "FATAL EXCEPTION: " << msg << std::endl;
-#if !defined(BOOST_AFIO_COMPILING_FOR_GCOV) && defined(__linux__) && !defined(__ANDROID__)
-        void *array[20];
-        size_t size=backtrace(array, 20);
-        char **strings=backtrace_symbols(array, size);
-        for(size_t i=0; i<size; i++)
-            std::cerr << "   " << strings[i] << std::endl;
-        free(strings);
+#ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+        stack_type stack;
+        collect_stack(stack);
+        print_stack(std::cerr, stack);
 #endif
     }
     
