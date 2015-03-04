@@ -9,6 +9,25 @@ File Created: Nov 2012
 #include <locale>
 #include <cstring>
 
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+namespace detail {
+  inline void push_exception(std::string name) BOOST_NOEXCEPT
+  {
+#ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+    try
+    {
+      if(!afio_exception_stack)
+        afio_exception_stack=new afio_exception_stack_t;
+      afio_exception_stack_entry se;
+      se.name=std::move(name);
+      collect_stack(se.stack);
+      afio_exception_stack->push_back(std::move(se));
+    } catch(...) { }
+#endif
+  }
+}
+BOOST_AFIO_V1_NAMESPACE_END
+
 #ifdef WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN 1
@@ -62,6 +81,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                     }
                 }
                 BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
+                push_exception(errstr);
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
@@ -128,6 +148,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                     }
                 }
                 BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
+                push_exception(errstr);
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
@@ -165,6 +186,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                     }
                 }
                 BOOST_AFIO_DEBUG_PRINT("! %s\n", errstr.c_str());
+                push_exception(errstr);
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }// end int_throwOSError
   }// namespace detail

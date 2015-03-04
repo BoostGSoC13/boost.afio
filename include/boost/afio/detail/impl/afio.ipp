@@ -26,11 +26,15 @@ File Created: Mar 2013
 #endif
 
 // Define this to have every allocated op take a backtrace from where it was allocated
-//#ifndef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-//#ifndef NDEBUG
-//#define BOOST_AFIO_OP_STACKBACKTRACEDEPTH 8
-//#endif
-//#endif
+#ifndef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+  #ifndef NDEBUG
+    #define BOOST_AFIO_OP_STACKBACKTRACEDEPTH 8
+  #endif
+#endif
+// Right now only Windows and glibc supported
+#if (!defined(__linux__) && !defined(WIN32)) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
+#  undef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+#endif
 
 // Define this to have every part of AFIO print, in extremely terse text, what it is doing and why.
 #if (defined(BOOST_AFIO_DEBUG_PRINTING) && BOOST_AFIO_DEBUG_PRINTING)
@@ -59,25 +63,8 @@ File Created: Mar 2013
 #define _GNU_SOURCE
 #endif
 
-#ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-#include <dlfcn.h>
-// Set to 1 to use libunwind instead of glibc's stack backtracer
-#if 0
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
-#else
-#ifndef __linux__
-#undef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-#endif
-#endif
-#endif
-#if defined(__linux__) && !defined(__ANDROID__)
-#include <execinfo.h>
-#endif
-
 #include "../../afio.hpp"
 #include "../valgrind/memcheck.h"
-#include "ErrorHandling.ipp"
 
 #include <limits>
 #include <random>
@@ -323,6 +310,129 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
 }
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
+
+#ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+#  ifdef WIN32
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+typedef std::vector<void *> stack_type;
+inline void collect_stack(stack_type &stack)
+{
+  windows_nt_kernel::init();
+  using namespace windows_nt_kernel;
+  stack.resize(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
+  stack.resize(RtlCaptureStackBackTrace(0, stack.size(), &stack.front(), nullptr));
+}
+inline void print_stack(std::ostream &s, const stack_type &stack)
+{
+  windows_nt_kernel::init();
+  using namespace windows_nt_kernel;
+  size_t n=0;
+  for(void *addr: stack)
+  {
+      DWORD displ;
+      IMAGEHLP_LINE64 ihl={ sizeof(IMAGEHLP_LINE64) };
+      s << "    " << ++n << ". 0x" << std::hex << addr << std::dec << ": ";
+      if(SymGetLineFromAddr64 && SymGetLineFromAddr64(GetCurrentProcess(), (size_t) addr, &displ, &ihl))
+      {
+          if(ihl.FileName[0])
+          {
+              char buffer[32769];
+              int len=WideCharToMultiByte(CP_UTF8, 0, ihl.FileName, -1, buffer, sizeof(buffer), nullptr, nullptr);
+              s.write(buffer, len-1);
+              s << ":" << ihl.LineNumber << " (+0x" << std::hex << displ << ")" << std::dec;
+          }
+          else
+              s << "unknown:0";
+      }
+      else
+          s << "completely unknown";
+      s << std::endl;
+  }
+}
+BOOST_AFIO_V1_NAMESPACE_END
+#  else
+#    include <dlfcn.h>
+// Set to 1 to use libunwind instead of glibc's stack backtracer
+#    if 0
+#      define UNW_LOCAL_ONLY
+#      include <libunwind.h>
+#    else
+#      if defined(__linux__) && !defined(__ANDROID__)
+#        include <execinfo.h>
+#      endif
+#    endif
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+typedef std::vector<void *> stack_type;
+inline void collect_stack(stack_type &stack)
+{
+#ifdef UNW_LOCAL_ONLY
+  // libunwind seems a bit more accurate than glibc's backtrace()
+  unw_context_t uc;
+  unw_cursor_t cursor;
+  unw_getcontext(&uc);
+  stack.reserve(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
+  unw_init_local(&cursor, &uc);
+  size_t n=0;
+  while(unw_step(&cursor)>0 && n++<BOOST_AFIO_OP_STACKBACKTRACEDEPTH)
+  {
+      unw_word_t ip;
+      unw_get_reg(&cursor, UNW_REG_IP, &ip);
+      stack.push_back((void *) ip);
+  }
+#else
+  stack.resize(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
+  stack.resize(backtrace(&stack.front(), stack.size()));
+#endif
+}
+inline void print_stack(std::ostream &s, const stack_type &stack)
+{
+  size_t n=0;
+  for(void *addr: stack)
+  {
+      Dl_info info;
+      s << "    " << ++n << ". 0x" << std::hex << addr << std::dec << ": ";
+      if(dladdr(addr, &info))
+      {
+          // This is hacky ...
+          if(info.dli_fname)
+          {
+              char buffer2[4096];
+              sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e %s %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
+              FILE *ih=popen(buffer2, "r");
+              auto unih=detail::Undoer([&ih]{ if(ih) pclose(ih); });
+              if(ih)
+              {
+                  size_t length=fread(buffer2, 1, sizeof(buffer2), ih);
+                  buffer2[length]=0;
+                  std::string buffer(buffer2, length-1);
+                  boost::replace_all(buffer, "\n", "\n       ");
+                  s << buffer << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
+              }
+              else s << info.dli_fname << ":0 (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ")" << std::dec;
+          }
+          else s << "unknown:0";
+      }
+      else
+          s << "completely unknown";
+      s << std::endl;
+  }
+}
+BOOST_AFIO_V1_NAMESPACE_END
+#endif
+
+BOOST_AFIO_V1_NAMESPACE_BEGIN
+struct afio_exception_stack_entry
+{
+  std::string name;
+  stack_type stack;
+};
+typedef std::vector<afio_exception_stack_entry> afio_exception_stack_t;
+extern BOOST_AFIO_THREAD_LOCAL afio_exception_stack_t *afio_exception_stack;
+BOOST_AFIO_THREAD_LOCAL afio_exception_stack_t *afio_exception_stack;
+BOOST_AFIO_V1_NAMESPACE_END
+#endif
+
+#include "ErrorHandling.ipp"
 
 #ifdef WIN32
 #ifndef IOV_MAX
@@ -949,29 +1059,8 @@ namespace detail {
         std::vector<completion_t> completions;
         const shared_future<std::shared_ptr<async_io_handle>> &h() const { return enqueuement.get_future(); }
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-        std::vector<void *> stack;
-        void fillStack()
-        {
-#ifdef UNW_LOCAL_ONLY
-            // libunwind seems a bit more accurate than glibc's backtrace()
-            unw_context_t uc;
-            unw_cursor_t cursor;
-            unw_getcontext(&uc);
-            stack.reserve(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
-            unw_init_local(&cursor, &uc);
-            size_t n=0;
-            while(unw_step(&cursor)>0 && n++<BOOST_AFIO_OP_STACKBACKTRACEDEPTH)
-            {
-                unw_word_t ip;
-                unw_get_reg(&cursor, UNW_REG_IP, &ip);
-                stack.push_back((void *) ip);
-            }
-#else
-            stack.reserve(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
-            stack.resize(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
-            stack.resize(backtrace(&stack.front(), stack.size()));
-#endif
-        }
+        stack_type stack;
+        void fillStack() { collect_stack(stack); }
 #else
         void fillStack() { }
 #endif
@@ -1343,36 +1432,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_
                                 std::cerr << std::endl;
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
                                 std::cerr << "  Allocation backtrace:" << std::endl;
-                                size_t n=0;
-                                for(void *addr: op.second.stack)
-                                {
-                                    Dl_info info;
-                                    std::cerr << "    " << ++n << ". 0x" << std::hex << addr << std::dec << ": ";
-                                    if(dladdr(addr, &info))
-                                    {
-                                        // This is hacky ...
-                                        if(info.dli_fname)
-                                        {
-                                            char buffer2[4096];
-                                            sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e %s %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
-                                            FILE *ih=popen(buffer2, "r");
-                                            auto unih=detail::Undoer([&ih]{ if(ih) pclose(ih); });
-                                            if(ih)
-                                            {
-                                                size_t length=fread(buffer2, 1, sizeof(buffer2), ih);
-                                                buffer2[length]=0;
-                                                std::string buffer(buffer2, length-1);
-                                                boost::replace_all(buffer, "\n", "\n       ");
-                                                std::cerr << buffer << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
-                                            }
-                                            else std::cerr << info.dli_fname << ":0 (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ")" << std::dec;
-                                        }
-                                        else std::cerr << "unknown:0";
-                                    }
-                                    else
-                                        std::cerr << "completely unknown";
-                                    std::cerr << std::endl;
-                                }
+                                print_stack(std::cerr, op.second->stack);
 #endif
                             }
                         }
@@ -1691,6 +1751,39 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     // Early set future
     if(e)
     {
+#ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+        auto unexception_stack=detail::Undoer([]{
+          delete afio_exception_stack;
+          afio_exception_stack=nullptr;
+        });
+        if(afio_exception_stack)
+        {
+          std::string originalmsg;
+          std::error_code ec;
+          bool is_runtime_error=false, is_system_error=false;
+          try { rethrow_exception(e); }
+          catch(const std::system_error &r) { ec=r.code(); originalmsg=r.what(); is_system_error=true; }
+          catch(const std::runtime_error &r) { originalmsg=r.what(); is_runtime_error=true; }
+          catch(...) { }
+          if(is_runtime_error || is_system_error)
+          {
+            // Append the stack to the runtime error message
+            std::ostringstream buffer;
+            buffer << originalmsg << ". Op was scheduled at:\n";
+            print_stack(buffer, thisop->stack);
+            buffer << "Exceptions were thrown within the engine at:\n";
+            for(auto &i : *afio_exception_stack)
+            {
+              //buffer << i.name << " Backtrace:\n";
+              print_stack(buffer, i.stack);
+            }
+            if(is_system_error)
+              e=make_exception_ptr(std::system_error(ec, buffer.str()));
+            else
+              e=make_exception_ptr(std::runtime_error(buffer.str()));
+          }
+        }
+#endif
         thisop->enqueuement.set_future_exception(e);
         /*if(!thisop->enqueuement.get_future().is_ready())
         {

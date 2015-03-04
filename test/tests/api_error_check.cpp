@@ -4,7 +4,9 @@ BOOST_AFIO_AUTO_TEST_CASE(api_error_check, "Tests that every API returns errors 
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
     auto dispatcher = make_async_file_io_dispatcher();
-#define BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(call, errcode) try { BOOST_TEST_MESSAGE("Testing " #call); call; BOOST_FAIL("Exception not thrown by " #call); } catch(const system_error &e) { BOOST_CHECK(e.code().value()==errcode); } catch(...) { BOOST_FAIL("Exception thrown by " #call " was not a system_error"); }
+#define BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(call, errcode) try { BOOST_TEST_MESSAGE("Testing " #call); call; BOOST_FAIL("Exception not thrown by " #call); } \
+  catch(const system_error &e) { BOOST_CHECK(e.code().value()==errcode); std::cout << "\nsystem_error message was: " << e.what() << std::endl; } \
+  catch(...) { BOOST_FAIL("Exception thrown by " #call " was not a system_error"); }
 #ifdef WIN32
 # define BOOST_AFIO_FILE_NOT_FOUND_ERRCODE ERROR_FILE_NOT_FOUND
 # define BOOST_AFIO_BAD_FD ERROR_INVALID_HANDLE

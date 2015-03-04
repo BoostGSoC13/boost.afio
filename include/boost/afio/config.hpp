@@ -400,5 +400,16 @@ BOOST_AFIO_V1_NAMESPACE_END
 # endif
 #endif
 
+#ifndef BOOST_AFIO_THREAD_LOCAL
+# ifdef __cpp_thread_local
+#  define BOOST_AFIO_THREAD_LOCAL thread_local
+# elif defined(_MSC_VER)
+#  define BOOST_AFIO_THREAD_LOCAL __declspec(thread)
+# else
+#  error Unknown compiler, cannot set BOOST_AFIO_THREAD_LOCAL
+# endif
+#endif
+
+
 #endif  // BOOST_AFIO_NEED_DEFINE
 

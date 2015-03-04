@@ -139,6 +139,13 @@ namespace windows_nt_kernel
       IN ULONG Reserved
       );
 
+    typedef struct _IMAGEHLP_LINE64 {
+      DWORD   SizeOfStruct;
+      PVOID   Key;
+      DWORD   LineNumber;
+      PTSTR   FileName;
+      DWORD64 Address;
+    } IMAGEHLP_LINE64, *PIMAGEHLP_LINE64;
 
     // From https://msdn.microsoft.com/en-us/library/bb432383%28v=vs.85%29.aspx
     typedef NTSTATUS (NTAPI *NtQueryObject_t)(
@@ -290,6 +297,26 @@ namespace windows_nt_kernel
           /*_Out_opt_*/  PTOKEN_PRIVILEGES PreviousState,
           /*_Out_opt_*/  PDWORD ReturnLength
         );
+
+    typedef USHORT (WINAPI *RtlCaptureStackBackTrace_t)(
+      /*_In_*/       ULONG FramesToSkip,
+      /*_In_*/       ULONG FramesToCapture,
+      /*_Out_*/      PVOID *BackTrace,
+      /*_Out_opt_*/  PULONG BackTraceHash
+      );
+
+    typedef BOOL (WINAPI *SymInitialize_t)(
+      /*_In_*/      HANDLE hProcess,
+      /*_In_opt_*/  PCTSTR UserSearchPath,
+      /*_In_*/      BOOL fInvadeProcess
+      );
+
+    typedef BOOL (WINAPI *SymGetLineFromAddr64_t)(
+      /*_In_*/   HANDLE hProcess,
+      /*_In_*/   DWORD64 dwAddr,
+      /*_Out_*/  PDWORD pdwDisplacement,
+      /*_Out_*/  PIMAGEHLP_LINE64 Line
+      );
 
     typedef struct _FILE_BASIC_INFORMATION {
       LARGE_INTEGER CreationTime;
@@ -457,6 +484,9 @@ namespace windows_nt_kernel
     static OpenProcessToken_t OpenProcessToken;
     static LookupPrivilegeValue_t LookupPrivilegeValue;
     static AdjustTokenPrivileges_t AdjustTokenPrivileges;
+    static SymInitialize_t SymInitialize;
+    static SymGetLineFromAddr64_t SymGetLineFromAddr64;
+    static RtlCaptureStackBackTrace_t RtlCaptureStackBackTrace;
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -464,8 +494,10 @@ namespace windows_nt_kernel
 #endif
     static inline void doinit()
     {
-      if(AdjustTokenPrivileges)
+      if(RtlCaptureStackBackTrace)
         return;
+      static spinlock<bool> lock;
+      lock_guard<decltype(lock)> g(lock);
       if(!NtQueryObject)
           if(!(NtQueryObject=(NtQueryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryObject")))
               abort();
@@ -518,6 +550,21 @@ namespace windows_nt_kernel
       if(!AdjustTokenPrivileges)
           if(!(AdjustTokenPrivileges=(AdjustTokenPrivileges_t) GetProcAddress(advapi32, "AdjustTokenPrivileges")))
               abort();
+      HMODULE dbghelp = LoadLibraryA("DBGHELP.DLL");
+#ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+      if (dbghelp)
+      {
+        if (!(SymInitialize = (SymInitialize_t) GetProcAddress(dbghelp, "SymInitializeW")))
+          abort();
+        if(!SymInitialize(GetCurrentProcess(), nullptr, true))
+          abort();
+        if (!(SymGetLineFromAddr64 = (SymGetLineFromAddr64_t) GetProcAddress(dbghelp, "SymGetLineFromAddrW64")))
+          abort();
+      }
+#endif
+      if (!RtlCaptureStackBackTrace)
+        if (!(RtlCaptureStackBackTrace = (RtlCaptureStackBackTrace_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "RtlCaptureStackBackTrace")))
+          abort();
       // MAKE SURE you update the early exit check at the top to whatever the last of these is!
     }
 #ifdef _MSC_VER
