@@ -384,33 +384,48 @@ inline void collect_stack(stack_type &stack)
   stack.resize(backtrace(&stack.front(), stack.size()));
 #endif
 }
+extern "C" const char *__progname;
 inline void print_stack(std::ostream &s, const stack_type &stack)
 {
   size_t n=0;
   for(void *addr: stack)
   {
       Dl_info info;
-      s << "    " << ++n << ". 0x" << std::hex << addr << std::dec << ": ";
+      s << "    " << ++n << ". " << std::hex << addr << std::dec << ": ";
       if(dladdr(addr, &info))
       {
-          // This is hacky ...
-          if(info.dli_fname)
+          if(info.dli_fbase)
           {
-              char buffer2[4096];
-              sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e %s %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
-              FILE *ih=popen(buffer2, "r");
-              auto unih=detail::Undoer([&ih]{ if(ih) pclose(ih); });
-              if(ih)
-              {
-                  size_t length=fread(buffer2, 1, sizeof(buffer2), ih);
-                  buffer2[length]=0;
-                  std::string buffer(buffer2, length-1);
-                  boost::replace_all(buffer, "\n", "\n       ");
+            // This is hacky ...
+            char buffer2[4096];
+            sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e %s %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
+            //std::cout << buffer2 << std::endl;
+            FILE *ih=popen(buffer2, "r");
+            auto unih=detail::Undoer([&ih]{ if(ih) pclose(ih); });
+            bool done=false;
+            if(ih)
+            {
+                size_t length=fread(buffer2, 1, sizeof(buffer2), ih);
+                buffer2[length]=0;
+                std::string buffer;
+                for(size_t n=0; n<length-1; n++)
+                {
+                  if(buffer2[n]=='\n')
+                    buffer.append("\n       ");
+                  else
+                    buffer.push_back(buffer2[n]);
+                }
+                if(buffer[0]!='?' && buffer[1]!='?')
+                {
                   s << buffer << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
-              }
-              else s << info.dli_fname << ":0 (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ")" << std::dec;
+                  done=true;
+                }
+            }
+            if(!done)
+              s << info.dli_fname << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ")" << std::dec;
           }
-          else s << "unknown:0";
+          else
+              s << "unknown:0";
       }
       else
           s << "completely unknown";

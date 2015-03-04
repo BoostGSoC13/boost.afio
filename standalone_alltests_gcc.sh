@@ -6,10 +6,14 @@ if [ -z "$CXX" ]; then
     CXX=g++
   fi
 fi
-if [ "$CXX" != "${CXX#clang++}" ] && [ "$NODE_NAME" = "linux-gcc-clang" ]; then
-  LIBATOMIC=-latomic
+HOSTOS=$(uname)
+if [ "$HOSTOS" = "Linux" ]; then
+  LIBATOMIC="-ldl"
+  if [ "$CXX" != "${CXX#clang++}" ] && [ "$NODE_NAME" = "linux-gcc-clang" ]; then
+    LIBATOMIC="$LIBATOMIC -latomic"
+  fi
 fi
-if [ "$HOSTTYPE" = "FreeBSD" ] || [ "$NODE_NAME" = "freebsd10-clang3.3" ]; then
+if [ "$HOSTOS" = "FreeBSD" ]; then
   LIBATOMIC="-I/usr/local/include -L/usr/local/lib"
 fi
 if [ ! -d asio ]; then
@@ -19,4 +23,4 @@ cd test
 sh ./test_file_glob.sh
 cd ..
 rm -rf test_all
-$CXX -o test_all -g -O3 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -Iasio/asio/include -DSPINLOCK_STANDALONE=1 -DASIO_STANDALONE=1  -DBOOST_AFIO_RUNNING_IN_CI=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread $LIBATOMIC
+$CXX -o test_all -g -O3 -std=c++11 -rdynamic -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fasynchronous-unwind-tables test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -Iasio/asio/include -DSPINLOCK_STANDALONE=1 -DASIO_STANDALONE=1  -DBOOST_AFIO_RUNNING_IN_CI=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread $LIBATOMIC
