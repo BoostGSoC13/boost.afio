@@ -1150,6 +1150,7 @@ protected:
     std::shared_ptr<async_io_handle> dirh;
     atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
     async_io_handle(async_file_io_dispatcher_base *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    //! Calling this directly can cause misoperation. Best to avoid unless you have inspected the source code for the consequences.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
@@ -1202,14 +1203,42 @@ public:
         directory_entry de(direntry(wanted));
         return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
     }
-    /*! Returns the target path of this handle if it is a symbolic link.
+    /*! \brief Returns the target path of this handle if it is a symbolic link.
 
     \ntkernelnamespacenote
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Hard links the file to a new location on the same volume.
     
+    On Linux and Windows this can be used to "resurrect a file from its grave" by giving a new name to an otherwise
+    inaccessible file. This can be especially useful for fully preparing a file's content before making it visible
+    to other processes, though using a random temporary name and then relink() works as well on all platforms.
+    Linking to an already existing filename will fail.
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Unlinks the file from its present location. Other links may remain to the same file.
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Links the file to a new location and unlinks the file from its present location, <em>atomically overwriting
+    any file entry at the new location</em>. Very useful for preparing file content elsewhere and once ready, atomically
+    making it visible at some named location to other processes.
+
+    Note that not all filing systems guarantee the atomicity of the relink itself (i.e. the file may appear at two locations
+    in the filing system for a period of time), though all supported platforms do
+    guarantee the atomicity of the replaced location i.e. the location you are relinking to will always refer to
+    some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink if power
+    is lost close to the relinking operation.
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+
 #if 0
     // Undocumented deliberately
     enum class change_flags : size_t
@@ -1363,6 +1392,7 @@ namespace detail
     // Disable C being a const std::vector<std::function<R()>> &callables
     template<class T, class... Args> struct vs2013_variadic_overload_resolution_workaround<std::vector<T>, Args...>;
 #endif
+    template<class Impl, class Handle> std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false);
 }
 
 /*! \class async_file_io_dispatcher_base
@@ -1387,6 +1417,7 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_from_this<async_file_io_dispatcher_base>
 {
     //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
+    template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
     friend class detail::async_file_io_dispatcher_compat;
@@ -1398,7 +1429,6 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
-    template<class Impl, class Handle> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
 
 protected:
@@ -2129,59 +2159,6 @@ public:
 
     // Undocumented deliberately
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-
-    /*! \brief Schedule a batch of asynchronous file entry renames after a precondition.
-
-    \ntkernelnamespacenote
-
-    \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, batch}
-    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if renaming is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rename(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous file entry rename after a precondition.
-
-    \ntkernelnamespacenote
-
-    \return An op handle.
-    \param req An `async_path_op_req` structure.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if renaming is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    inline async_io_op rename(const async_path_op_req &req);
-    /*! \brief Schedule a batch of asynchronous file entry hard links after a precondition.
-
-    \ntkernelnamespacenote
-
-    \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, batch}
-    \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if hard link creation is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> hardlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous file entry hard link after a precondition.
-
-    \ntkernelnamespacenote
-
-    \return An op handle.
-    \param req An `async_path_op_req` structure.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if hard link creation is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    inline async_io_op hardlink(const async_path_op_req &req);
 
     
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
@@ -3559,20 +3536,6 @@ inline std::pair<future<statfs_t>, async_io_op> async_file_io_dispatcher_base::s
   i.push_back(req);
   auto ret = statfs(o, i);
   return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
-}
-inline async_io_op async_file_io_dispatcher_base::rename(const async_path_op_req &req)
-{
-    std::vector<async_path_op_req> i;
-    i.reserve(1);
-    i.push_back(req);
-    return std::move(rename(i).front());
-}
-inline async_io_op async_file_io_dispatcher_base::hardlink(const async_path_op_req &req)
-{
-    std::vector<async_path_op_req> i;
-    i.reserve(1);
-    i.push_back(req);
-    return std::move(hardlink(i).front());
 }
 inline async_io_op async_file_io_dispatcher_base::depends(async_io_op precondition, async_io_op op)
 {

@@ -40,6 +40,15 @@ struct test_handle : async_io_handle
     {
         return nullptr;
     }
+    virtual void link(const async_path_op_req &req) override final
+    {
+    }
+    virtual void unlink() override final
+    {
+    }
+    virtual void atomic_relink(const async_path_op_req &req) override final
+    {
+    }
 };
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_adopt, "Tests foreign fd adoption", 5)

@@ -310,78 +310,7 @@ namespace detail
           myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
         inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
-        void int_safeunlink()
-        {
-            if(!myid)
-              BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a closed file by handle."));
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-#if 0
-            // Despite what is claimed on the internet, NtDeleteFile does NOT delete the file immediately.
-            // Moreover, it cannot delete directories not junction points, so we'll go the more proper path.
-            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
-            oa.RootDirectory=myid;
-            UNICODE_STRING _path;
-            path::value_type c=0;
-            _path.Buffer=&c;
-            _path.MaximumLength=(_path.Length=0)+sizeof(path::value_type);
-            oa.ObjectName=&_path;
-            //if(opened_as_symlink())
-            //  oa.Attributes=0x100/*OBJ_OPENLINK*/;  // Seems to dislike deleting junctions points without this
-            NTSTATUS ntstat=NtDeleteFile(&oa);
-            // Returns this error if we are deleting a junction point
-            if(ntstat!=0xC0000278/*STATUS_IO_REPARSE_DATA_INVALID*/)
-              BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
-#else
-            IO_STATUS_BLOCK isb={ 0 };
-            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
-            fni->ReplaceIfExists=false;
-            fni->RootDirectory=nullptr;  // rename to the same directory
-            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
-            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
-            for(size_t n=0; n<randompath.size(); n++)
-              fni->FileName[n]=randompath[n];
-            fni->FileName[randompath.size()]=0;
-            NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
-            // Access denied may come back if the directory contains any files with open handles
-            // If that happens, ignore and mark to delete anyway
-            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
-            FILE_DISPOSITION_INFORMATION fdi={true};
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
-#endif
-        }
-        void int_saferename(std::shared_ptr<async_io_handle> newdirh, afio::path newpath)
-        {
-            if(!myid)
-              BOOST_AFIO_THROW(std::invalid_argument("Cannot rename a closed file by handle."));
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-            IO_STATUS_BLOCK isb={ 0 };
-            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
-            fni->ReplaceIfExists=false;
-            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
-            fni->FileNameLength=newpath.native().size();
-            memcpy(fni->FileName, newpath.c_str(), fni->FileNameLength);
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
-        }
-        void int_safehardlink(std::shared_ptr<async_io_handle> newdirh, afio::path newpath)
-        {
-            if(!myid)
-              BOOST_AFIO_THROW(std::invalid_argument("Cannot rename a closed file by handle."));
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-            IO_STATUS_BLOCK isb={ 0 };
-            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-            FILE_LINK_INFORMATION *fni=(FILE_LINK_INFORMATION *) buffer;
-            fni->ReplaceIfExists=false;
-            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
-            fni->FileNameLength=newpath.native().size();
-            memcpy(fni->FileName, newpath.c_str(), fni->FileNameLength);
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileLinkInformation), [this]{return path();});
-        }
-        void int_close()
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
             if(mapaddr)
@@ -404,10 +333,6 @@ namespace detail
                 has_been_added=false;
             }
             myid=nullptr;
-        }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
-        {
-            int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const override final
         {
@@ -497,7 +422,7 @@ namespace detail
         }
         ~async_io_handle_windows()
         {
-            int_close();
+            async_io_handle_windows::close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) override final
         {
@@ -614,6 +539,81 @@ namespace detail
             }
             return mapaddr;
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &_req) override final
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Currently cannot hard link a closed file by handle."));
+            async_path_op_req req(_req);
+            auto newdirh=decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req);
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_LINK_INFORMATION *fni=(FILE_LINK_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
+            fni->FileNameLength=(ULONG)(req.path.native().size()*sizeof(path::value_type));
+            memcpy(fni->FileName, req.path.c_str(), fni->FileNameLength);
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileLinkInformation), [this]{return path();});
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() override final
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Currently cannot unlink a closed file by handle."));
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+#if 0
+            // Despite what is claimed on the internet, NtDeleteFile does NOT delete the file immediately.
+            // Moreover, it cannot delete directories not junction points, so we'll go the more proper path.
+            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+            oa.RootDirectory=myid;
+            UNICODE_STRING _path;
+            path::value_type c=0;
+            _path.Buffer=&c;
+            _path.MaximumLength=(_path.Length=0)+sizeof(path::value_type);
+            oa.ObjectName=&_path;
+            //if(opened_as_symlink())
+            //  oa.Attributes=0x100/*OBJ_OPENLINK*/;  // Seems to dislike deleting junctions points without this
+            NTSTATUS ntstat=NtDeleteFile(&oa);
+            // Returns this error if we are deleting a junction point
+            if(ntstat!=0xC0000278/*STATUS_IO_REPARSE_DATA_INVALID*/)
+              BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
+#else
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=nullptr;  // rename to the same directory
+            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
+            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
+            for(size_t n=0; n<randompath.size(); n++)
+              fni->FileName[n]=randompath[n];
+            fni->FileName[randompath.size()]=0;
+            NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
+            // Access denied may come back if the directory contains any files with open handles
+            // If that happens, ignore and mark to delete anyway
+            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
+            FILE_DISPOSITION_INFORMATION fdi={true};
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
+#endif
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &_req) override final
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Currently cannot relink a closed file by handle."));
+            async_path_op_req req(_req);
+            auto newdirh=decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req);
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=true;
+            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
+            fni->FileNameLength=(ULONG)(req.path.native().size()*sizeof(path::value_type));
+            memcpy(fni->FileName, req.path.c_str(), fni->FileNameLength);
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
+        }
     };
     inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
       const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
@@ -627,14 +627,15 @@ namespace detail
 
     class async_file_io_dispatcher_windows : public async_file_io_dispatcher_base
     {
+        template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
         friend class async_file_io_dispatcher_base;
         friend class directory_entry;
         friend void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
         friend struct async_io_handle_windows;
         size_t pagesize;
-        std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
+        std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false)
         {
-          return async_file_io_dispatcher_base::int_decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(op, req, force_absolute);
+          return detail::decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req, force_absolute);
         }
 
         // Called in unknown thread
@@ -646,7 +647,7 @@ namespace detail
             {
               async_path_op_req req2(req);
               // Return a copy of the one in the dir cache if available as a fast path
-              decode_relative_path(op, req2, true);
+              decode_relative_path(req2, true);
               try
               {
                 return std::make_pair(true, p->get_handle_to_dir(this, id, req2, &async_file_io_dispatcher_windows::dofile));
@@ -670,13 +671,13 @@ namespace detail
               async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
               if(p->is_open()!=async_io_handle::open_states::closed)
               {
-                p->int_safeunlink();
+                p->unlink();
                 return std::make_pair(true, op.get());
               }
             }
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
-            auto dirh=decode_relative_path(op, req);
+            auto dirh=decode_relative_path(req);
 #if 0
             OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
             oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
@@ -726,7 +727,7 @@ namespace detail
             NTSTATUS status=0;
             HANDLE h=nullptr;
             req.flags=fileflags(req.flags);
-            std::shared_ptr<async_io_handle> dirh=decode_relative_path(op, req);
+            std::shared_ptr<async_io_handle> dirh=decode_relative_path(req);
             std::tie(status, h)=ntcreatefile(dirh, req.path, req.flags);
             if(dirh)
               req.path=dirh->path()/req.path;
@@ -1725,28 +1726,6 @@ namespace detail
             }
 #endif
             return chain_async_ops((int) detail::OpType::lock, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dolock);
-        }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rename(const std::vector<async_path_op_req> &reqs) override final
-        {
-#if BOOST_AFIO_VALIDATE_INPUTS
-            for(auto &i: reqs)
-            {
-                if(!i.validate())
-                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
-            }
-#endif
-            return chain_async_ops((int) detail::OpType::rename, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dorename);
-        }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> hardlink(const std::vector<async_path_op_req> &reqs) override final
-        {
-#if BOOST_AFIO_VALIDATE_INPUTS
-            for(auto &i: reqs)
-            {
-                if(!i.validate())
-                    BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
-            }
-#endif
-            return chain_async_ops((int) detail::OpType::hardlink, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dohardlink);
         }
     };
 
