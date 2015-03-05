@@ -11,6 +11,10 @@ struct test_handle : async_io_handle
     {
         // Do nothing
     }
+    virtual async_io_handle::open_states is_open() const override final
+    {
+      return async_io_handle::open_states::open;
+    }
     virtual void *native_handle() const override final
     {
         return nullptr;

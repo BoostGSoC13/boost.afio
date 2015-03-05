@@ -32,8 +32,10 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     // Filesystem has been known to return lower case drive letters ...
     std::transform(a.begin(), a.end(), a.begin(), ::tolower);
     std::transform(b.begin(), b.end(), b.begin(), ::tolower);
-    std::cout << a << " (sized " << a.size() << ")" << std::endl;
-    std::cout << b << " (sized " << b.size() << ")" << std::endl;
+    if(b.size()>=260)
+      b=L"\\\\?\\"+b;
+    std::wcout << a << " (sized " << a.size() << ")" << std::endl;
+    std::wcout << b << " (sized " << b.size() << ")" << std::endl;
     BOOST_CHECK(a==b);
     
     // Make sure it handles extended path inputs
@@ -54,7 +56,10 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     filesystem::rename("testfile", "hellobaby");
     print_stat(h);
     auto afterrename=h->path();
+#ifndef __FreeBSD__
+    // FreeBSD kernel currently has a bug in reading paths for files
     BOOST_CHECK((originalpath.parent_path()/"hellobaby")==afterrename);
+#endif
     std::cout << "\nDeleting hellobaby file using OS ..." << std::endl;
     filesystem::remove("hellobaby");
     auto afterdelete=print_stat(h);

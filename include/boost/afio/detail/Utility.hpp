@@ -210,9 +210,11 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 #if BOOST_AFIO_USE_BOOST_THREAD
     typedef boost::exception_ptr exception_ptr;
     using boost::current_exception;
+    using boost::rethrow_exception;
 #else
     typedef std::exception_ptr exception_ptr;
     using std::current_exception;
+    using std::rethrow_exception;
 #endif
     // Get an exception ptr from a future
     template<typename T> inline exception_ptr get_exception_ptr(future<T> &f)

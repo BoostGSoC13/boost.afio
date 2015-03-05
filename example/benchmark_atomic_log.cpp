@@ -39,14 +39,14 @@ int main(int argc, const char *argv[])
     {
       auto dispatcher = make_async_file_io_dispatcher();
       auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-      auto mkdir1(dispatcher->dir(async_path_op_req(mkdir, "testdir/1", file_flags::Create)));
-      auto mkdir2(dispatcher->dir(async_path_op_req(mkdir, "testdir/2", file_flags::Create)));
-      auto mkdir3(dispatcher->dir(async_path_op_req(mkdir, "testdir/3", file_flags::Create)));
-      auto mkdir4(dispatcher->dir(async_path_op_req(mkdir, "testdir/4", file_flags::Create)));
-      auto mkdir5(dispatcher->dir(async_path_op_req(mkdir, "testdir/5", file_flags::Create)));
-      auto mkdir6(dispatcher->dir(async_path_op_req(mkdir, "testdir/6", file_flags::Create)));
-      auto mkdir7(dispatcher->dir(async_path_op_req(mkdir, "testdir/7", file_flags::Create)));
-      auto mkdir8(dispatcher->dir(async_path_op_req(mkdir, "testdir/8", file_flags::Create)));
+      auto mkdir1(dispatcher->dir(async_path_op_req::relative(mkdir, "1", file_flags::Create)));
+      auto mkdir2(dispatcher->dir(async_path_op_req::relative(mkdir, "2", file_flags::Create)));
+      auto mkdir3(dispatcher->dir(async_path_op_req::relative(mkdir, "3", file_flags::Create)));
+      auto mkdir4(dispatcher->dir(async_path_op_req::relative(mkdir, "4", file_flags::Create)));
+      auto mkdir5(dispatcher->dir(async_path_op_req::relative(mkdir, "5", file_flags::Create)));
+      auto mkdir6(dispatcher->dir(async_path_op_req::relative(mkdir, "6", file_flags::Create)));
+      auto mkdir7(dispatcher->dir(async_path_op_req::relative(mkdir, "7", file_flags::Create)));
+      auto mkdir8(dispatcher->dir(async_path_op_req::relative(mkdir, "8", file_flags::Create)));
       auto statfs_(dispatcher->statfs(mkdir, fs_metadata_flags::All));
       auto statfs(statfs_.first.get());
       std::cout << "The filing system holding our test directory is " << statfs.f_fstypename << " and has features:" << std::endl;

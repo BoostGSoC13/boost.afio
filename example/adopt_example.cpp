@@ -5,11 +5,14 @@ struct test_handle : boost::afio::async_io_handle
 {
     test_handle(boost::afio::async_file_io_dispatcher_base *parent) :
         boost::afio::async_io_handle(parent,
-        std::shared_ptr<boost::afio::async_io_handle>(),
         boost::afio::file_flags::None) {}
     virtual void close() override final
     {
         // Do nothing
+    }
+    virtual async_io_handle::open_states is_open() const override final
+    {
+        return async_io_handle::open_states::open;
     }
     virtual void *native_handle() const override final
     {
@@ -24,11 +27,11 @@ struct test_handle : boost::afio::async_io_handle
         return boost::afio::path();
     }
     virtual boost::afio::directory_entry direntry(boost::afio::metadata_flags
-        wanted=boost::afio::directory_entry::metadata_fastpath()) const override final
+        wanted=boost::afio::directory_entry::metadata_fastpath()) override final
     {
         return boost::afio::directory_entry();
     }
-    virtual boost::afio::path target() const override final
+    virtual boost::afio::path target() override final
     {
         return boost::afio::path();
     }

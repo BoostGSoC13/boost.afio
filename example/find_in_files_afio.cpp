@@ -174,7 +174,7 @@ public:
                   boost::afio::filesystem::file_type::directory)
 #endif
                 {
-                    auto dir_open=dispatcher->dir(async_path_op_req(lastdir, h->path()/entry.name()));
+                    auto dir_open=dispatcher->dir(async_path_op_req::absolute(lastdir, h->path()/entry.name()));
                     auto dir_opened=dispatcher->completion(dir_open, dir_openedf);
                     doscheduled({ dir_open, dir_opened });
                     lastdir=dir_opened;
@@ -229,7 +229,7 @@ public:
 #ifdef USE_MMAPS
                         if(length>16384) flags=flags|file_flags::OSMMap;
 #endif
-                        auto file_open=dispatcher->file(async_path_op_req(lastdir, h->path()/entry.name(), flags));
+                        auto file_open=dispatcher->file(async_path_op_req::absolute(lastdir, h->path()/entry.name(), flags));
                         auto file_opened=dispatcher->completion(file_open, 
                             std::make_pair(async_op_flags::none, 
                                 std::function<async_file_io_dispatcher_base::completion_t>(

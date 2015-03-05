@@ -5,7 +5,7 @@ import sys
 if(len(sys.argv))<2:
   print("Usage: "+sys.argv[0]+" <file>", file=sys.stderr)
   sys.exit(1)
-with open(sys.argv[1], 'rt') as h:
+with open(sys.argv[1], 'r') as h:
   lines=h.readlines();
 
 indent=0
@@ -38,7 +38,7 @@ for n in range(0, len(lines)):
       elif command!='else':
         stack.append('  /* '+' '.join(trimmedline.split()[1:])+' */')
 
-#with open('tempfile.hpp', 'wt') as h:
-with open(sys.argv[1], 'wt') as h:
+#with open('tempfile.hpp', 'w') as h:
+with open(sys.argv[1], 'w') as h:
   h.writelines(lines)
   

@@ -50,8 +50,18 @@ for row in matrixrows:
       col.set('valign', 'top')
       outrow+=etree.tostring(col).decode('utf-8')
     elif len(atags)!=0 and len(imgs)==0:
+      # Format: <div><a class="model-link inside" href="CPPSTD=c++11,CXX=clang++-3.5,LINKTYPE=shared,label=linux64-gcc-clang/"><img height="24" alt="Success" width="24" src="/static/5585b9ed/images/24x24/blue.png" tooltip="Success" /></a></div>
       #col=col[:]
-      col.getchildren()[-1].getchildren()[-1].tail=columntocompiler[len(columntocompiler)-(len(cols)-x)]
+      # Replace img src with something dynamic
+      # Form: https://ci.nedprod.com/job/Maidsafe%20CRUX/CPPSTD=c++11,CXX=g++-4.9,LINKTYPE=shared,label=arm-gcc-clang/badge/icon
+      joburl=atags[0].get("href")
+      imgs=atags[0].xpath("img")
+      del imgs[0].attrib["width"]
+      del imgs[0].attrib["height"]
+      imgs[0].set('src', joburl+"badge/icon")
+      imgs[0].set('align', "top")
+      # Insert target name just inside end of div
+      col.getchildren()[-1].getchildren()[-1].tail=" "+columntocompiler[len(columntocompiler)-(len(cols)-x)]
       outrow+=etree.tostring(col).decode('utf-8')
       count+=1
   if count==0.5:

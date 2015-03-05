@@ -12,24 +12,22 @@ int main(void)
         auto mkdir(dispatcher->dir(boost::afio::async_path_op_req("testdir",
             boost::afio::file_flags::Create)));
         // Schedule creating a file called testfile in testdir only when testdir has been created
-        auto mkfile(dispatcher->file(boost::afio::async_path_op_req(mkdir,
-            "testdir/testfile", boost::afio::file_flags::Create)));
+        auto mkfile(dispatcher->file(boost::afio::async_path_op_req::relative(mkdir,
+            "testfile", boost::afio::file_flags::Create)));
         // Schedule creating a symbolic link called linktodir to the item referred to by the precondition
-        // i.e. testdir. Note that on Windows you can only symbolic link directories.
-        auto mklink(dispatcher->symlink(boost::afio::async_path_op_req(mkdir,
+        // i.e. testdir. Note that on Windows you can only symbolic link directories. Note that creating
+        // symlinks must *always* be as an absolute path, as that is how they are stored.
+        auto mklink(dispatcher->symlink(boost::afio::async_path_op_req::absolute(mkdir,
             "testdir/linktodir", boost::afio::file_flags::Create)));
 
         // Schedule deleting the symbolic link only after when it has been created
-        auto rmlink(dispatcher->rmsymlink(boost::afio::async_path_op_req(
-            dispatcher->close(mklink), "testdir/linktodir")));
+        auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));
         // Schedule deleting the file only after when it has been created
-        auto rmfile(dispatcher->rmfile(boost::afio::async_path_op_req(
-            dispatcher->close(mkfile), "testdir/testfile")));
+        auto rmfile(dispatcher->close(dispatcher->rmfile(mkfile)));
         // Schedule waiting until both the preceding operations have finished
         auto barrier(dispatcher->barrier({rmlink, rmfile}));
         // Schedule deleting the directory only after the barrier completes
-        auto rmdir(dispatcher->rmdir(boost::afio::async_path_op_req(barrier.front(),
-            "testdir")));
+        auto rmdir(dispatcher->rmdir(dispatcher->depends(barrier.front(), mkdir)));
         // Check ops for errors
         boost::afio::when_all({mkdir, mkfile, mklink, rmlink, rmfile, rmdir}).wait();
     }
