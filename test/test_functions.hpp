@@ -149,12 +149,15 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
 #define BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(callable) \
   try { callable; } \
   catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
-  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
-  catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; }
+  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; }
+#if BOOST_AFIO_USE_BOOST_UNIT_TEST
 template<class T> inline void wrap_test_method(T &t)
 {
-  BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(t.test_method());
+  BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(t.test_method())
+  catch(const boost::execution_aborted &) { throw; }
+  catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; throw; }
 }
+#endif
 
 BOOST_AFIO_V1_NAMESPACE_END
 
@@ -240,7 +243,8 @@ CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)           
         BOOST_AFIO_V1_NAMESPACE::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
       ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
     } __deleter(cv, BOOST_AFIO_V1_NAMESPACE::thread(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv));         \
-    BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(__test_name ## _impl());         \
+    BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(__test_name ## _impl())         \
+    catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; throw; } \
 }                                                                       \
 static void __test_name ## _impl()                                      \
 

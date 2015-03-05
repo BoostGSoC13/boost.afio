@@ -1774,10 +1774,10 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
         if(afio_exception_stack())
         {
           std::string originalmsg;
-          std::error_code ec;
+          asio::error_code ec;
           bool is_runtime_error=false, is_system_error=false;
           try { rethrow_exception(e); }
-          catch(const std::system_error &r) { ec=r.code(); originalmsg=r.what(); is_system_error=true; }
+          catch(const system_error &r) { ec=r.code(); originalmsg=r.what(); is_system_error=true; }
           catch(const std::runtime_error &r) { originalmsg=r.what(); is_runtime_error=true; }
           catch(...) { }
           if(is_runtime_error || is_system_error)
@@ -1793,7 +1793,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
               print_stack(buffer, i.stack);
             }
             if(is_system_error)
-              e=make_exception_ptr(std::system_error(ec, buffer.str()));
+              e=make_exception_ptr(system_error(ec, buffer.str()));
             else
               e=make_exception_ptr(std::runtime_error(buffer.str()));
           }
