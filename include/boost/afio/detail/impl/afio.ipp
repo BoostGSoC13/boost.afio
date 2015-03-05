@@ -31,8 +31,8 @@ File Created: Mar 2013
     #define BOOST_AFIO_OP_STACKBACKTRACEDEPTH 8
   #endif
 #endif
-// Right now only Windows and glibc supported
-#if (!defined(__linux__) && !defined(WIN32)) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
+// Right now only Windows, Linux and FreeBSD supported
+#if (!defined(__linux__) && !defined(__FreeBSD__) && !defined(WIN32)) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
 #  undef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
 #endif
 
@@ -357,8 +357,9 @@ BOOST_AFIO_V1_NAMESPACE_END
 #      define UNW_LOCAL_ONLY
 #      include <libunwind.h>
 #    else
-#      if defined(__linux__) && !defined(__ANDROID__)
+#      if defined(__linux__) || defined(__FreeBSD__) && !defined(__ANDROID__)
 #        include <execinfo.h>
+#        include <cxxabi.h>
 #      endif
 #    endif
 BOOST_AFIO_V1_NAMESPACE_BEGIN
@@ -390,8 +391,8 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
   size_t n=0;
   for(void *addr: stack)
   {
-      Dl_info info;
       s << "    " << ++n << ". " << std::hex << addr << std::dec << ": ";
+      Dl_info info;
       if(dladdr(addr, &info))
       {
           if(info.dli_fbase)
@@ -422,7 +423,22 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
                 }
             }
             if(!done)
-              s << info.dli_fname << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ")" << std::dec;
+            {
+              s << info.dli_fname << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ") ";
+              if(info.dli_saddr)
+              {
+                char *demangled=nullptr;
+                auto undemangled=detail::Undoer([&demangled]{ if(demangled) free(demangled); });
+                int status;
+                if((demangled=abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status)))
+                {
+                  s << demangled << " (0x" << info.dli_saddr << "+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
+                  done=true;
+                }
+              }
+              if(!done)
+                s << info.dli_sname << " (0x" << info.dli_saddr << "+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
+            }
           }
           else
               s << "unknown:0";

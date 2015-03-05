@@ -14,7 +14,7 @@ if [ "$HOSTOS" = "Linux" ]; then
   fi
 fi
 if [ "$HOSTOS" = "FreeBSD" ]; then
-  LIBATOMIC="-I/usr/local/include -L/usr/local/lib"
+  LIBATOMIC="-I/usr/local/include -L/usr/local/lib -lexecinfo"
 fi
 if [ ! -d asio ]; then
   sh -c "git clone https://github.com/chriskohlhoff/asio.git"
