@@ -1100,6 +1100,7 @@ namespace detail {
     struct async_file_io_dispatcher_base_p
     {
         std::shared_ptr<thread_source> pool;
+        unit_testing_flags testing_flags;
         file_flags flagsforce, flagsmask;
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters_buffers;
@@ -1121,7 +1122,7 @@ namespace detail {
         dircachelock_t dircachelock; std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash> dirhcache;
 
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
-            flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
+            testing_flags(unit_testing_flags::none), flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
         {
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
             // concurrent_unordered_map doesn't lock, so we actually don't need many buckets for max performance
@@ -1413,6 +1414,11 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t directory_entry::compatibility_maxim
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : p(new detail::async_file_io_dispatcher_base_p(threadpool, flagsforce, flagsmask))
 {
+}
+
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::testing_flags(detail::unit_testing_flags flags)
+{
+  p->testing_flags=flags;
 }
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
@@ -1771,7 +1777,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
           delete afio_exception_stack();
           afio_exception_stack()=nullptr;
         });
-        if(afio_exception_stack())
+        if(afio_exception_stack() && !(p->testing_flags & detail::unit_testing_flags::no_symbol_lookup))
         {
           std::string originalmsg;
           asio::error_code ec;
