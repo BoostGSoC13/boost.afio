@@ -320,7 +320,7 @@ inline void collect_stack(stack_type &stack)
   windows_nt_kernel::init();
   using namespace windows_nt_kernel;
   stack.resize(BOOST_AFIO_OP_STACKBACKTRACEDEPTH);
-  stack.resize(RtlCaptureStackBackTrace(0, stack.size(), &stack.front(), nullptr));
+  stack.resize(RtlCaptureStackBackTrace(0, (ULONG) stack.size(), &stack.front(), nullptr));
 }
 inline void print_stack(std::ostream &s, const stack_type &stack)
 {
@@ -442,8 +442,11 @@ struct afio_exception_stack_entry
   stack_type stack;
 };
 typedef std::vector<afio_exception_stack_entry> afio_exception_stack_t;
-extern BOOST_AFIO_THREAD_LOCAL afio_exception_stack_t *afio_exception_stack;
-BOOST_AFIO_THREAD_LOCAL afio_exception_stack_t *afio_exception_stack;
+inline afio_exception_stack_t *&afio_exception_stack()
+{
+  static BOOST_AFIO_THREAD_LOCAL afio_exception_stack_t *s;
+  return s;
+}
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
 
@@ -1765,10 +1768,10 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
     {
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
         auto unexception_stack=detail::Undoer([]{
-          delete afio_exception_stack;
-          afio_exception_stack=nullptr;
+          delete afio_exception_stack();
+          afio_exception_stack()=nullptr;
         });
-        if(afio_exception_stack)
+        if(afio_exception_stack())
         {
           std::string originalmsg;
           std::error_code ec;
@@ -1784,7 +1787,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
             buffer << originalmsg << ". Op was scheduled at:\n";
             print_stack(buffer, thisop->stack);
             buffer << "Exceptions were thrown within the engine at:\n";
-            for(auto &i : *afio_exception_stack)
+            for(auto &i : *afio_exception_stack())
             {
               //buffer << i.name << " Backtrace:\n";
               print_stack(buffer, i.stack);

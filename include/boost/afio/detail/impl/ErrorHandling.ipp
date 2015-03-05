@@ -16,12 +16,12 @@ namespace detail {
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
     try
     {
-      if(!afio_exception_stack)
-        afio_exception_stack=new afio_exception_stack_t;
+      if(!afio_exception_stack())
+        afio_exception_stack()=new afio_exception_stack_t;
       afio_exception_stack_entry se;
       se.name=std::move(name);
       collect_stack(se.stack);
-      afio_exception_stack->push_back(std::move(se));
+      afio_exception_stack()->push_back(std::move(se));
     } catch(...) { }
 #endif
   }
