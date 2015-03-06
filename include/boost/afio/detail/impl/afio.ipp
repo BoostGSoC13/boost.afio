@@ -31,8 +31,8 @@ File Created: Mar 2013
     #define BOOST_AFIO_OP_STACKBACKTRACEDEPTH 8
   #endif
 #endif
-// Right now only Windows and glibc supported
-#if (!defined(__linux__) && !defined(WIN32)) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
+// Right now only Windows, Linux and FreeBSD supported
+#if (!defined(__linux__) && !defined(__FreeBSD__) && !defined(WIN32)) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
 #  undef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
 #endif
 
@@ -366,8 +366,9 @@ BOOST_AFIO_V1_NAMESPACE_END
 #      define UNW_LOCAL_ONLY
 #      include <libunwind.h>
 #    else
-#      if defined(__linux__) && !defined(__ANDROID__)
+#      if defined(__linux__) || defined(__FreeBSD__) && !defined(__ANDROID__)
 #        include <execinfo.h>
+#        include <cxxabi.h>
 #      endif
 #    endif
 BOOST_AFIO_V1_NAMESPACE_BEGIN
@@ -399,8 +400,8 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
   size_t n=0;
   for(void *addr: stack)
   {
-      Dl_info info;
       s << "    " << ++n << ". " << std::hex << addr << std::dec << ": ";
+      Dl_info info;
       if(dladdr(addr, &info))
       {
           if(info.dli_fbase)
@@ -431,7 +432,22 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
                 }
             }
             if(!done)
-              s << info.dli_fname << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ")" << std::dec;
+            {
+              s << info.dli_fname << " (+0x" << std::hex << ((size_t) addr - (size_t) info.dli_fbase) << ") ";
+              if(info.dli_saddr)
+              {
+                char *demangled=nullptr;
+                auto undemangled=detail::Undoer([&demangled]{ if(demangled) free(demangled); });
+                int status;
+                if((demangled=abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status)))
+                {
+                  s << demangled << " (0x" << info.dli_saddr << "+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
+                  done=true;
+                }
+              }
+              if(!done)
+                s << info.dli_sname << " (0x" << info.dli_saddr << "+0x" << std::hex << ((size_t) addr - (size_t) info.dli_saddr) << ")" << std::dec;
+            }
           }
           else
               s << "unknown:0";
@@ -1225,6 +1241,7 @@ namespace detail {
     struct async_file_io_dispatcher_base_p
     {
         std::shared_ptr<thread_source> pool;
+        unit_testing_flags testing_flags;
         file_flags flagsforce, flagsmask;
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
         std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters_buffers;
@@ -1246,7 +1263,7 @@ namespace detail {
         dircachelock_t dircachelock; std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash> dirhcache;
 
         async_file_io_dispatcher_base_p(std::shared_ptr<thread_source> _pool, file_flags _flagsforce, file_flags _flagsmask) : pool(_pool),
-            flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
+            testing_flags(unit_testing_flags::none), flagsforce(_flagsforce), flagsmask(_flagsmask), monotoniccount(0)
         {
 #ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
             // concurrent_unordered_map doesn't lock, so we actually don't need many buckets for max performance
@@ -1538,6 +1555,11 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t directory_entry::compatibility_maxim
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : p(new detail::async_file_io_dispatcher_base_p(threadpool, flagsforce, flagsmask))
 {
+}
+
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::testing_flags(detail::unit_testing_flags flags)
+{
+  p->testing_flags=flags;
 }
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::~async_file_io_dispatcher_base()
@@ -1848,13 +1870,13 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
           delete afio_exception_stack();
           afio_exception_stack()=nullptr;
         });
-        if(afio_exception_stack())
+        if(afio_exception_stack() && !(p->testing_flags & detail::unit_testing_flags::no_symbol_lookup))
         {
           std::string originalmsg;
-          std::error_code ec;
+          asio::error_code ec;
           bool is_runtime_error=false, is_system_error=false;
           try { rethrow_exception(e); }
-          catch(const std::system_error &r) { ec=r.code(); originalmsg=r.what(); is_system_error=true; }
+          catch(const system_error &r) { ec=r.code(); originalmsg=r.what(); is_system_error=true; }
           catch(const std::runtime_error &r) { originalmsg=r.what(); is_runtime_error=true; }
           catch(...) { }
           if(is_runtime_error || is_system_error)
@@ -1870,7 +1892,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
               print_stack(buffer, i.stack);
             }
             if(is_system_error)
-              e=make_exception_ptr(std::system_error(ec, buffer.str()));
+              e=make_exception_ptr(system_error(ec, buffer.str()));
             else
               e=make_exception_ptr(std::runtime_error(buffer.str()));
           }
