@@ -456,6 +456,8 @@ public:
   path(const char *p) : filesystem::path(p) { int_regularise(); }
 #ifdef WIN32
   //! Converts a filesystem::path to AFIO format
+  path(const wchar_t *p) : filesystem::path(p) { int_regularise(); }
+  //! Converts a filesystem::path to AFIO format
   path(const std::string &p) : filesystem::path(p) { int_regularise(); }
 #endif
   //! Converts a filesystem::path to AFIO format
@@ -1311,7 +1313,7 @@ struct async_io_op
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id(0) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
+    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
@@ -1662,6 +1664,10 @@ public:
     a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
+
+    Note that on Windows for some odd reason if you open a directory with write access, any operations involving creating or
+    renaming anything inside that directory will fail for no good reason. You should therefore only open directories with
+    write access very rarely.
     
     \ntkernelnamespacenote
 
@@ -1680,6 +1686,10 @@ public:
     a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
+
+    Note that on Windows for some odd reason if you open a directory with write access, any operations involving creating or
+    renaming anything inside that directory will fail for no good reason. You should therefore only open directories with
+    write access very rarely.
 
     \ntkernelnamespacenote
 

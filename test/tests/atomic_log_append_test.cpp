@@ -1,5 +1,9 @@
 #include "test_functions.hpp"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4201)  // nameless struct union
+#endif
 BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shared log file works as expected", 60)
 {
     std::cout << "\n\nTesting atomic append to a shared log file\n";
@@ -141,3 +145,6 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
     }
     filesystem::remove_all("testdir");
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

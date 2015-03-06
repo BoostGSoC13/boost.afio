@@ -28,7 +28,8 @@ namespace detail {
             ntflags|=0x01/*FILE_DIRECTORY_FILE*/;
             access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
             if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
-            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
+            // Write access probably means he wants to delete self and files
+            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|FILE_DELETE_CHILD|DELETE;
             // Windows doesn't like opening directories without buffering.
             if(!!(flags & file_flags::OSDirect)) flags=flags & ~file_flags::OSDirect;
         }
@@ -59,12 +60,12 @@ namespace detail {
       if(!!(flags & file_flags::CreateOnlyIfNotExist))
       {
         creatdisp|=0x00000002/*FILE_CREATE*/;
-        access|=DELETE;
+//        access|=FILE_DELETE_CHILD|DELETE;
       }
       else if(!!(flags & file_flags::Create))
       {
         creatdisp|=0x00000003/*FILE_OPEN_IF*/;
-        access|=DELETE;
+//        access|=FILE_DELETE_CHILD|DELETE;
       }
       else if(!!(flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
       else creatdisp|=0x00000001/*FILE_OPEN*/;
@@ -112,7 +113,7 @@ namespace detail {
         for(size_t n=6; n<leafname.size(); n++)
         {
           auto c=leafname[n];
-          if(!((c>='1' && c<='9') || (c>='a' && c<='f')))
+          if(!((c>='0' && c<='9') || (c>='a' && c<='f')))
             return false;
         }
         return true;
@@ -554,7 +555,7 @@ namespace detail
             fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
             fni->FileNameLength=(ULONG)(req.path.native().size()*sizeof(path::value_type));
             memcpy(fni->FileName, req.path.c_str(), fni->FileNameLength);
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileLinkInformation), [this]{return path();});
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(FILE_LINK_INFORMATION)+fni->FileNameLength, FileLinkInformation), [this]{return path();});
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() override final
         {
@@ -612,7 +613,7 @@ namespace detail
             fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
             fni->FileNameLength=(ULONG)(req.path.native().size()*sizeof(path::value_type));
             memcpy(fni->FileName, req.path.c_str(), fni->FileNameLength);
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(fni)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
         }
     };
     inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
@@ -1265,7 +1266,11 @@ namespace detail
                 {
                     for(auto &i: _ret)
                     {
+                      try
+                      {
                         i.fetch_metadata(h, req.metadata);
+                      }
+                      catch(...) { } // Windows will refuse to open a file marked for close, so can't fetch the extra metadata
                     }
                 }
                 ret->set_value(std::make_pair(std::move(_ret), !thisbatchdone));
@@ -1307,7 +1312,7 @@ namespace detail
                 void *ApcContext=ol.get();
 #ifndef _WIN64
                 BOOL isWow64=false;
-                if(IsWow64Process(GetCurrentProcess(), &isWow64), !isWow64)
+                if(IsWow64Process(GetCurrentProcess(), &isWow64), isWow64)
                   ApcContext=nullptr;
 #endif
                 ntstat=NtQueryDirectoryFile(p->native_handle(), ol.get()->hEvent, NULL, ApcContext, (PIO_STATUS_BLOCK) ol.get(),
