@@ -34,12 +34,12 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
          * was for the good anyway, but still painful). So, let's really hammer this API
          * such that it never, ever slightly fails to function ever again!
          */
-#if defined(BOOST_AFIO_RUNNING_IN_CI) || defined(BOOST_AFIO_COMPILING_FOR_GCOV) || (defined(BOOST_MSVC) && BOOST_MSVC < 1700) /* <= VS2010 */
-        // Throwing exceptions in VS2010 randomly causes segfaults :(
+#if defined(BOOST_AFIO_RUNNING_IN_CI) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
+#if defined(WIN32)
+        for(size_t n=0; n<200; n++)
+#else
         for(size_t n=0; n<500; n++)
-#elif defined(BOOST_MSVC) && BOOST_MSVC < 1800 /* <= VS2012 */ && (defined(DEBUG) || defined(_DEBUG))
-        // Throwing exceptions is unbelievably slow on VS2012 and earlier if running inside a debugger
-        for(size_t n=0; n<5000; n++)
+#endif
 #else
         for(size_t n=0; n<50000; n++)
 #endif
