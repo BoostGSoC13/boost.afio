@@ -334,7 +334,7 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
       s << "    " << ++n << ". 0x" << std::hex << addr << std::dec << ": ";
       if(SymGetLineFromAddr64 && SymGetLineFromAddr64(GetCurrentProcess(), (size_t) addr, &displ, &ihl))
       {
-          if(ihl.FileName[0])
+          if(ihl.FileName && ihl.FileName[0])
           {
               char buffer[32769];
               int len=WideCharToMultiByte(CP_UTF8, 0, ihl.FileName, -1, buffer, sizeof(buffer), nullptr, nullptr);
