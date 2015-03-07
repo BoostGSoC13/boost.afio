@@ -213,6 +213,10 @@ protection disappear.
 
 * Added is_open() to async_io_handle. Made pseudo deleted file filtering optional in enumerate().
 
+* Stack backtraces are now retained per exception throw as well as per op schedule if BOOST_AFIO_OP_STACKBACKTRACEDEPTH
+is defined (defaults to yes if NDEBUG is not defined). Also added MSVC support, and exceptions returned by the future
+handle now provide stack backtraces.
+
 TODO BEFORE RELEASE
 
 1b. Add unit test swapping two directories

@@ -105,7 +105,7 @@ project boost/afio/test
       <toolset>msvc:<define>UNICODE
       <toolset>msvc:<define>_UNICODE
       <target-os>linux:<linkflags>"-lpthread -ldl -lrt"
-      <target-os>freebsd:<linkflags>"-lpthread"
+      <target-os>freebsd:<linkflags>"-lpthread -lexecinfo"
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1
       <library>../../system/build//boost_system
       <library>../../filesystem/build//boost_filesystem

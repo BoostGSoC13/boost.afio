@@ -797,6 +797,13 @@ namespace detail {
         "lock"
     };
     static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
+
+    enum class unit_testing_flags : size_t
+    {
+        none=0,                  //!< No flags set
+        no_symbol_lookup=(1<<0)  //!< Don't bother looking up symbols in stack backtracing as it's horribly slow on POSIX especially
+    };
+    BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(unit_testing_flags)
 }
 
 class async_io_handle;
@@ -1414,6 +1421,7 @@ protected:
         return std::make_pair(true, h);
     }
 public:
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void testing_flags(detail::unit_testing_flags flags);
     //! Destroys the dispatcher, blocking inefficiently if any ops are still in flight.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_file_io_dispatcher_base();
 

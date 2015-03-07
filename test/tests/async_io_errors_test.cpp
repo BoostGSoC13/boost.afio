@@ -25,6 +25,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
     {
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_async_file_io_dispatcher();
+        dispatcher->testing_flags(detail::unit_testing_flags::no_symbol_lookup);
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
         std::vector<async_path_op_req> filereqs;
 
