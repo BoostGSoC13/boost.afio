@@ -23,8 +23,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
     auto test(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
     {
       auto mkdir(dispatcher->dir(async_path_op_req::relative(test, "dir", file_flags::Create|file_flags::HoldParentOpen)));
-      auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "file", file_flags::Create)));
-      auto mklink(dispatcher->symlink(async_path_op_req::absolute(mkdir, "testdir/linktodir", file_flags::Create)));
+      auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "file", file_flags::Create|file_flags::Write)));
+      auto mklink(dispatcher->symlink(async_path_op_req::absolute(mkdir, "testdir/linktodir", file_flags::Create|file_flags::Write)));
 
       auto mkdirstat=print_stat(when_all(mkdir).get().front());
       auto mkfilestat=print_stat(when_all(mkfile).get().front());
@@ -48,9 +48,14 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
 
       auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));
       auto rmfile(dispatcher->close(dispatcher->rmfile(dispatcher->depends(rmlink, mkfile))));
-      auto rmdir(dispatcher->close(dispatcher->rmdir(dispatcher->depends(rmfile, mkdir))));
-      when_all({rmlink, rmfile, rmdir}).get();
+      when_all({rmlink, rmfile}).get();
     }
-    auto rmtest(dispatcher->close(dispatcher->rmdir(test)));
-    rmtest.get();
+    // Need write access to delete a dir by handle, so the above context should have closed the
+    // dir handle and we instead delete via indirecting through parent directory
+    dispatcher->rmdir(async_path_op_req::relative(test, "dir")).get();    
+    // Similar thing here, cannot close by handle without write privs, but here we'll reopen
+    // with write privs in order to unlink
+    test=dispatcher->dir(async_path_op_req("testdir", file_flags::Write));
+    // Directly unlink now it's closed
+    test.get()->unlink();
 }

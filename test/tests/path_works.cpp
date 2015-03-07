@@ -74,7 +74,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       auto afterdelete = print_stat(h);
       BOOST_CHECK(h->path() == BOOST_AFIO_V1_NAMESPACE::path());
       std::cout << "\nEnumerating directory to make sure hellobaby is not there ..." << std::endl;
-      auto contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 5)).first.get().first;
+      auto contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
       for (auto &i : contents)
       {
         std::cout << "  " << i.name() << std::endl;
@@ -91,10 +91,11 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     h->link(async_path_op_req::relative(dirh, "testfile2"));
     h->link(async_path_op_req::relative(dirh, "testfile3"));
     dispatcher->truncate(op, 78).get();
+    dispatcher->sync(op).get();
     this_thread::sleep_for(chrono::seconds(1));
     auto entry = h->lstat();
     BOOST_CHECK(entry.st_size == 78);
-    auto contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 5)).first.get().first;
+    auto contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 3);
     for (auto &i : contents)
     {
@@ -107,10 +108,11 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     std::cout << "\nRelinking hard links ..." << std::endl;
     h->atomic_relink(async_path_op_req::relative(dirh, foostr));
     dispatcher->truncate(op, 79).get();
+    dispatcher->sync(op).get();
     this_thread::sleep_for(chrono::seconds(1));
     entry = h->lstat();
     BOOST_CHECK(entry.st_size == 79);
-    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 5)).first.get().first;
+    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 3);
     for (auto &i : contents)
     {
@@ -123,7 +125,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 
     std::cout << "\nUnlinking hard links ..." << std::endl;
     h->unlink();
-    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 5)).first.get().first;
+    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 2);
     for (auto &i : contents)
     {
@@ -133,7 +135,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     }
     op = async_io_op();
     h.reset(); // Should actually cause the unlink to really happen on Windows
-    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 5)).first.get().first;
+    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 2);
     for (auto &i : contents)
     {
@@ -143,7 +145,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     }
     dispatcher->rmfile(async_path_op_req::relative(dirh, "testfile2")).get();
     dispatcher->rmfile(async_path_op_req::relative(dirh, "testfile3")).get();
-    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 5)).first.get().first;
+    contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 0);
 
     // Reopen with write privs in order to unlink

@@ -48,24 +48,22 @@ namespace detail {
                 ntflags|=0x00000800/*FILE_RANDOM_ACCESS*/;
             if(!!(flags & file_flags::TemporaryFile))
                 attribs|=FILE_ATTRIBUTE_TEMPORARY;
-            if(!!(flags & file_flags::DeleteOnClose) && (!!(flags & file_flags::CreateOnlyIfNotExist) || !!(flags & file_flags::int_file_share_delete)))
-            {
-                ntflags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
-                access|=DELETE;
-            }
-            if(!!(flags & file_flags::int_file_share_delete))
-                access|=DELETE;
         }
+        if(!!(flags & file_flags::DeleteOnClose) && (!!(flags & file_flags::CreateOnlyIfNotExist) || !!(flags & file_flags::int_file_share_delete)))
+        {
+            ntflags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
+            access|=DELETE;
+        }
+        if(!!(flags & file_flags::int_file_share_delete))
+            access|=DELETE;
       }
       if(!!(flags & file_flags::CreateOnlyIfNotExist))
       {
         creatdisp|=0x00000002/*FILE_CREATE*/;
-//        access|=FILE_DELETE_CHILD|DELETE;
       }
       else if(!!(flags & file_flags::Create))
       {
         creatdisp|=0x00000003/*FILE_OPEN_IF*/;
-//        access|=FILE_DELETE_CHILD|DELETE;
       }
       else if(!!(flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
       else creatdisp|=0x00000001/*FILE_OPEN*/;
@@ -718,6 +716,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dormdir(size_t id, async_io_op op, async_path_op_req req)
         {
+          req.flags=fileflags(req.flags)|file_flags::int_opening_dir;
           return dounlink(true, id, std::move(op), std::move(req));
         }
       public:
@@ -870,6 +869,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dormsymlink(size_t id, async_io_op op, async_path_op_req req)
         {
+          req.flags=fileflags(req.flags)|file_flags::int_opening_link;
           return dounlink(true, id, std::move(op), std::move(req));
         }
         // Called in unknown thread
@@ -1270,7 +1270,7 @@ namespace detail
                       {
                         i.fetch_metadata(h, req.metadata);
                       }
-                      catch(...) { } // Windows will refuse to open a file marked for close, so can't fetch the extra metadata
+                      catch(...) { } // File may have vanished between enumerate and now
                     }
                 }
                 ret->set_value(std::make_pair(std::move(_ret), !thisbatchdone));

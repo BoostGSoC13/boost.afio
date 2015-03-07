@@ -3370,8 +3370,9 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         }
         else
         {
-            // No choice here, open a handle and stat it.
-            async_path_op_req::relative req(dirh, name(), file_flags::Read);
+            // No choice here, open a handle and stat it. Make sure you open with no flags, else
+            // files with delete pending will refuse to open
+            async_path_op_req::relative req(dirh, name(), file_flags::None);
             auto fileh=dispatcher->dofile(0, async_io_op(), req).second;
             auto direntry=fileh->direntry(wanted);
             wanted=wanted & direntry.metadata_ready(); // direntry() can fail to fill some entries on Win XP
