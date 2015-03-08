@@ -214,29 +214,15 @@ protection disappear.
 * Added is_open() to async_io_handle. Made pseudo deleted file filtering optional in enumerate().
 
 * Stack backtraces are now retained per exception throw as well as per op schedule if BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-is defined (defaults to yes if NDEBUG is not defined). Also added MSVC support, and exceptions returned by the future
+is defined (defaults to yes if NDEBUG is not defined). Also added MSVC and FreeBSD support, and exceptions returned by the future
 handle now provide stack backtraces.
 
 TODO BEFORE RELEASE
 
-1b. Add unit test swapping two directories
+2. Add unit test swapping two directories
 each with an open file in them and make sure it doesn't get confused.
 
-2. Implement rename and delete on the handle. Get rmfile() et al to use a generate rename + delete routine.
-
-2a. Look into a "add hardlink to open handle" function i.e. an undelete function. Linux can do this, but
-can the other OSs?
-
-Windows: NtSetInformationFile(FileLinkInformation)
-
-Linux: snprintf(path, PATH_MAX,  "/proc/self/fd/%d", fd);
-       linkat(AT_FDCWD, path, AT_FDCWD, "/path/for/file", AT_SYMLINK_FOLLOW);
-       
-FreeBSD: I don't believe this can.
-
-3. Add unit test making sure that file renaming and deletion works as expected, probably to path_works.
-
-3a. Write tutorial section on tracking files over time.
+3. Write tutorial section on tracking files over time.
 
 4. clang-reformat everything.
 

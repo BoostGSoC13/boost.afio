@@ -7,6 +7,7 @@ if(len(sys.argv))<2:
   sys.exit(1)
 with open(sys.argv[1], 'r') as h:
   lines=h.readlines();
+print("Processing %s of %d lines" % (sys.argv[1], len(lines)))
 
 indent=0
 stack=[]
