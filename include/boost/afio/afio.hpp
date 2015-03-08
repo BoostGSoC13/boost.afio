@@ -694,7 +694,7 @@ enum class file_flags : size_t
     CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
     CreateCompressed=64,     //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
-    WillBeSequentiallyAccessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirectDirect too.
+    WillBeSequentiallyAccessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
     WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
     NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
@@ -763,8 +763,6 @@ namespace detail {
         extents,
         statfs,
         lock,
-        rename,
-        link,
 
         Last
     };
@@ -788,9 +786,7 @@ namespace detail {
         "zero",
         "extents",
         "statfs",
-        "lock",
-        "rename",
-        "link"
+        "lock"
     };
     static_assert(static_cast<size_t>(OpType::Last)==sizeof(optypes)/sizeof(*optypes), "You forgot to fix up the strings matching OpType");
 
@@ -1220,11 +1216,10 @@ public:
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Hard links the file to a new location on the same volume.
-    
-    On Linux and Windows this can be used to "resurrect a file from its grave" by giving a new name to an otherwise
-    inaccessible file. This can be especially useful for fully preparing a file's content before making it visible
-    to other processes, though using a random temporary name and then relink() works as well on all platforms.
-    Linking to an already existing filename will fail.
+
+    If you wish to make a temporary file whose contents are ready appear at a location and error out if
+    a file entry is already there, use link() and if success, unlink() on the former location. If you wish
+    to always overwrite the destination, use atomic_relink() instead.    
 
     \ntkernelnamespacenote
     */
@@ -1241,8 +1236,8 @@ public:
     Note that not all filing systems guarantee the atomicity of the relink itself (i.e. the file may appear at two locations
     in the filing system for a period of time), though all supported platforms do
     guarantee the atomicity of the replaced location i.e. the location you are relinking to will always refer to
-    some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink if power
-    is lost close to the relinking operation.
+    some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink
+    if power is lost close to the relinking operation.
 
     \ntkernelnamespacenote
     */

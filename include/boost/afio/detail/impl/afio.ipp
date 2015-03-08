@@ -1109,7 +1109,7 @@ namespace detail {
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
               afio::path leaf(path().filename());
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str()), [this]{return path();});
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str(), 0), [this]{return path();});
 #else
               // At least check if what I am about to delete matches myself
               BOOST_AFIO_POSIX_STAT_STRUCT s={0};
@@ -1121,13 +1121,13 @@ namespace detail {
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
               // Could of course still race between the lstat() and the unlink() so still unsafe ...
-              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, p.c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, p.c_str(), at_fdcwd, req.path.c_str(), 0), [this]{return path();});
 #endif
               return;
             }
           }
           decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, true);
-          BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
+          BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str(), 0), [this]{return path();});
 #endif
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() override final
