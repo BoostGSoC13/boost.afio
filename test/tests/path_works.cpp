@@ -5,6 +5,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     using namespace BOOST_AFIO_V1_NAMESPACE;
     auto dispatcher = make_async_file_io_dispatcher();
     auto dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::Create | file_flags::Read));
+    dirh.get();
 #ifdef WIN32
 #define BOOST_AFIO_PATH_WORKS_STR(s) L ## s
 #else
