@@ -249,14 +249,10 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), ::open((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_SYMLINKAT(from, dirh, to) (check_fdcwd(dirh), ::symlink((from), (to)))
 #define BOOST_AFIO_POSIX_CLOSE ::close
-<<<<<<< HEAD
 #define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) (check_fdcwd(olddirh), check_fdcwd(newdirh), ::rename((oldpath), (newpath)))
 #define BOOST_AFIO_POSIX_LINKAT(olddirh, oldpath, newdirh, newpath, flags) (check_fdcwd(olddirh), check_fdcwd(newdirh), ::link((oldpath), (newpath)))
-#define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), ::unlink(path))
-=======
 #define AT_REMOVEDIR 0x200
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), (flags&AT_REMOVEDIR) ? ::rmdir(path) : ::unlink(path))
->>>>>>> stack_backtracing
 #define BOOST_AFIO_POSIX_FSYNC ::fsync
 #define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
 #define BOOST_AFIO_POSIX_MMAP ::mmap
@@ -2421,9 +2417,15 @@ namespace detail {
             req.flags=fileflags(req.flags);
             std::shared_ptr<async_io_handle> dirh=decode_relative_path(req);
 
-            if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
-            else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
-            else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
+            // POSIX doesn't permit directories to be opened with write access
+            if(!!(req.flags & file_flags::int_opening_dir))
+              flags|=O_RDONLY;
+            else
+            {
+              if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
+              else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
+              else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
+            }
 #ifdef O_SYNC
             if(!!(req.flags & file_flags::AlwaysSync)) flags|=O_SYNC;
 #endif
