@@ -199,6 +199,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_FSTAT(fd, s) _fstat64((fd), (s))
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), _wopen((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_CLOSE _close
+#define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) (check_fdcwd(olddirh), check_fdcwd(newdirh), _wrename((oldpath), (newpath)))
 #define AT_REMOVEDIR 0x200
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), (flags&AT_REMOVEDIR) ? _wrmdir(path) : _wunlink(path))
 #define BOOST_AFIO_POSIX_FSYNC _commit
@@ -230,6 +231,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) ::openat((dirh), (path), (flags), (mode))
 #define BOOST_AFIO_POSIX_SYMLINKAT(from, dirh, to) ::symlinkat((from), (dirh), (to))
 #define BOOST_AFIO_POSIX_CLOSE ::close
+#define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) ::renameat((olddirh), (oldpath), (newdirh), (newpath))
+#define BOOST_AFIO_POSIX_LINKAT(olddirh, oldpath, newdirh, newpath, flags) ::linkat((olddirh), (oldpath), (newdirh), (newpath), (flags))
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) ::unlinkat((dirh), (path), (flags))
 #define BOOST_AFIO_POSIX_FSYNC ::fsync
 #define BOOST_AFIO_POSIX_FTRUNCATE ::ftruncate
@@ -246,6 +249,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_OPENAT(dirh, path, flags, mode) (check_fdcwd(dirh), ::open((path), (flags), (mode)))
 #define BOOST_AFIO_POSIX_SYMLINKAT(from, dirh, to) (check_fdcwd(dirh), ::symlink((from), (to)))
 #define BOOST_AFIO_POSIX_CLOSE ::close
+#define BOOST_AFIO_POSIX_RENAMEAT(olddirh, oldpath, newdirh, newpath) (check_fdcwd(olddirh), check_fdcwd(newdirh), ::rename((oldpath), (newpath)))
+#define BOOST_AFIO_POSIX_LINKAT(olddirh, oldpath, newdirh, newpath, flags) (check_fdcwd(olddirh), check_fdcwd(newdirh), ::link((oldpath), (newpath)))
 #define AT_REMOVEDIR 0x200
 #define BOOST_AFIO_POSIX_UNLINKAT(dirh, path, flags) (check_fdcwd(dirh), (flags&AT_REMOVEDIR) ? ::rmdir(path) : ::unlink(path))
 #define BOOST_AFIO_POSIX_FSYNC ::fsync
@@ -735,6 +740,54 @@ namespace detail {
         print_stack(std::cerr, stack);
 #endif
     }
+
+    // Returns a handle to the directory to be used as the base for the relative path fragment
+    template<class Impl, class Handle> std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute)
+    {
+      if(!req.is_relative)
+        return std::shared_ptr<async_io_handle>();
+      Handle *p=static_cast<Handle *>(req.precondition.get().get());
+      async_path_op_req parentpath(p->path(true));
+      if(!force_absolute)
+      {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS || defined(WIN32)
+        if(p->opened_as_dir())  // If base handle is a directory ...
+        {
+          if(req.path.empty())  // If path fragment means self, return containing directory and set path fragment to leafname
+          {
+            req.path=parentpath.path.filename();
+            parentpath.path=parentpath.path.parent_path();
+          }
+          else if(p->available_to_directory_cache())
+            return std::move(req.precondition.get());  // always valid and a directory
+          return p->parent()->p->get_handle_to_dir(static_cast<Impl *>(p->parent()), 0, parentpath, &Impl::dofile);
+        }
+        else
+        {
+          // If path fragment isn't empty or doesn't begin with ../, fail
+          if(req.path.empty())
+            req.path=parentpath.path.filename();
+          else
+          {
+            if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
+              BOOST_AFIO_THROW(std::invalid_argument("Cannot use a path fragment inside a file, try prepending a ../"));
+            // Trim the preceding ..
+            auto &nativepath=const_cast<afio::path::string_type &>(req.path.native());
+            nativepath=nativepath.substr(3);
+          }
+          std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
+          if(dirh)
+            return std::move(dirh);
+          else
+            return p->parent()->int_get_handle_to_containing_dir(static_cast<Impl *>(p->parent()), 0, parentpath, &Impl::dofile);
+        }
+    #endif
+      }
+      req.path=parentpath.path/req.path;
+      req.is_relative=false;
+      return std::shared_ptr<async_io_handle>();
+    }
+
     
     struct async_io_handle_posix : public async_io_handle
     {
@@ -772,52 +825,7 @@ namespace detail {
         }
         //! Returns the containing directory if my inode appears in it
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
-        void int_safeunlink()
-        {
-          if(-999==fd && !opened_as_symlink())
-            BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a closed file by handle."));
-          if(!(flags() & file_flags::NoRaceProtection))
-          {
-#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
-            // Some platforms may allow direct deletion of file handles, in which we are done
-#ifdef AT_EMPTY_PATH
-            if(fd>=0 && -1!=BOOST_AFIO_POSIX_UNLINKAT(fd, "", opened_as_dir() ? AT_EMPTY_PATH|AT_REMOVEDIR : AT_EMPTY_PATH))
-              return;
-#endif
-            // In order to be mostly race free, safely unlinking involves:
-            // 1. Open the containing directory
-            // 2. Find a file entry matching this inode as someone could have renamed it in between opening
-            //    the directory and now. If you don't find the inode error out now as otherwise you could
-            //    delete the wrong file.
-            // 3. Use unlinkat() to safely delete the file from its directory. THIS IS STILL RACY.
-            auto dirh(int_verifymyinode());
-            if(!dirh)
-            {
-              errno=ENOENT;
-              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
-            }
-            afio::path leaf(path().filename());
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
-#else
-            // At least check if what I am about to delete matches myself
-            BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-            afio::path p(path(true));
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
-            if(s.st_dev!=st_dev || s.st_ino!=st_ino)
-            {
-              errno=ENOENT;
-              BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
-            }
-            // Could of course still race between the lstat() and the unlink() so still unsafe ...
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, p.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
-#endif
-          }
-          else
-          {
-            BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
-          }
-        }
-        void int_close()
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
             if(mapaddr)
@@ -831,7 +839,7 @@ namespace detail {
                 if(SyncOnClose && write_count_since_fsync())
                     BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_FSYNC(fd), [this]{return path();});
                 if(DeleteOnClose)
-                    int_safeunlink();
+                    async_io_handle_posix::unlink();
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_CLOSE(fd), [this]{return path();});
                 fd=-999;
             }
@@ -841,10 +849,6 @@ namespace detail {
                 parent()->int_del_io_handle((void *) (size_t) _fd);
                 has_been_added=false;
             }
-        }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
-        {
-            int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const override final
         {
@@ -982,7 +986,7 @@ namespace detail {
         }
         ~async_io_handle_posix()
         {
-            int_close();
+            async_io_handle_posix::close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) override final
         {
@@ -1078,6 +1082,123 @@ namespace detail {
             }
 #endif
             return mapaddr;
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &_req) override final
+        {
+          async_path_op_req req(_req);
+#ifndef WIN32
+          if(-999!=fd)
+          {
+            auto newdirh=decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req);
+            if(!(flags() & file_flags::NoRaceProtection))
+            {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+              // Some platforms may allow direct hard linking of file handles, in which case we are done
+#ifdef AT_EMPTY_PATH
+              if(fd>=0 && -1!=BOOST_AFIO_POSIX_LINKAT(fd, "", newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str(), AT_EMPTY_PATH))
+                return;
+#endif
+              auto dirh(int_verifymyinode());
+              if(!dirh)
+              {
+                errno=ENOENT;
+                BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+              }
+              afio::path leaf(path().filename());
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str(), 0), [this]{return path();});
+#else
+              // At least check if what I am about to delete matches myself
+              BOOST_AFIO_POSIX_STAT_STRUCT s={0};
+              afio::path p(path(true));
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
+              if(s.st_dev!=st_dev || s.st_ino!=st_ino)
+              {
+                errno=ENOENT;
+                BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+              }
+              // Could of course still race between the lstat() and the unlink() so still unsafe ...
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, p.c_str(), at_fdcwd, req.path.c_str(), 0), [this]{return path();});
+#endif
+              return;
+            }
+          }
+          decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, true);
+          BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str(), 0), [this]{return path();});
+#endif
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() override final
+        {
+          if(-999!=fd)
+          {
+            if(!(flags() & file_flags::NoRaceProtection))
+            {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+              // Some platforms may allow direct deletion of file handles, in which case we are done
+#ifdef AT_EMPTY_PATH
+              if(fd>=0 && -1!=BOOST_AFIO_POSIX_UNLINKAT(fd, "", opened_as_dir() ? AT_EMPTY_PATH|AT_REMOVEDIR : AT_EMPTY_PATH))
+                return;
+#endif
+              auto dirh(int_verifymyinode());
+              if(!dirh)
+              {
+                errno=ENOENT;
+                BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+              }
+              afio::path leaf(path().filename());
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
+#else
+              // At least check if what I am about to delete matches myself
+              BOOST_AFIO_POSIX_STAT_STRUCT s={0};
+              afio::path p(path(true));
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
+              if(s.st_dev!=st_dev || s.st_ino!=st_ino)
+              {
+                errno=ENOENT;
+                BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+              }
+              // Could of course still race between the lstat() and the unlink() so still unsafe ...
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, p.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
+#endif
+              return;
+            }
+          }
+          BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &_req) override final
+        {
+          async_path_op_req req(_req);
+          if(-999!=fd)
+          {
+            auto newdirh=decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req);
+            if(!(flags() & file_flags::NoRaceProtection))
+            {
+#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
+              auto dirh(int_verifymyinode());
+              if(!dirh)
+              {
+                errno=ENOENT;
+                BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+              }
+              afio::path leaf(path().filename());
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str()), [this]{return path();});
+#else
+              // At least check if what I am about to delete matches myself
+              BOOST_AFIO_POSIX_STAT_STRUCT s={0};
+              afio::path p(path(true));
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
+              if(s.st_dev!=st_dev || s.st_ino!=st_ino)
+              {
+                errno=ENOENT;
+                BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
+              }
+              // Could of course still race between the lstat() and the unlink() so still unsafe ...
+              BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, p.c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
+#endif
+              return;
+            }
+          }
+          decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, true);
+          BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
         }
     };
 
@@ -1532,54 +1653,6 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_del
         lock_guard<decltype(p->fdslock)> g(p->fdslock);
         p->fds.erase(key);
     }
-}
-
-// Returns a handle for the op used as the base for the relative path fragment
-template<class Impl, class Handle> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> async_file_io_dispatcher_base::int_decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute)
-{
-  if(!req.is_relative)
-    return std::shared_ptr<async_io_handle>();
-  std::shared_ptr<async_io_handle> h(op.get());
-  Handle *p=static_cast<Handle *>(h.get());
-  async_path_op_req parentpath(p->path(true));
-  if(!force_absolute)
-  {
-#if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS || defined(WIN32)
-    if(p->opened_as_dir())
-    {
-      if(req.path.empty())
-      {
-        req.path=parentpath.path.filename();
-        parentpath.path=parentpath.path.parent_path();
-      }
-      else if(p->available_to_directory_cache())
-        return std::move(h);  // always valid and a directory
-      return this->p->get_handle_to_dir(static_cast<Impl *>(this), 0, parentpath, &Impl::dofile);
-    }
-    else
-    {
-      // If path fragment isn't empty or doesn't begin with ../, fail
-      if(req.path.empty())
-        req.path=parentpath.path.filename();
-      else
-      {
-        if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
-          BOOST_AFIO_THROW(std::invalid_argument("Cannot use a path fragment inside a file, try prepending a ../"));
-        // Trim the preceding ..
-        auto &nativepath=const_cast<afio::path::string_type &>(req.path.native());
-        nativepath=nativepath.substr(4);
-      }
-      std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
-      if(dirh)
-        return std::move(dirh);
-      else
-        return int_get_handle_to_containing_dir(static_cast<Impl *>(this), 0, parentpath, &Impl::dofile);
-    }
-#endif
-  }
-  req.path=parentpath.path/req.path;
-  req.is_relative=false;
-  return std::shared_ptr<async_io_handle>();
 }
 
 // Returns a handle to a containing directory from the cache, or creates a new directory handle.
@@ -2287,11 +2360,12 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> async_file_io_disp
 namespace detail {
     class async_file_io_dispatcher_compat : public async_file_io_dispatcher_base
     {
+        template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
         friend class async_file_io_dispatcher_base;
         friend struct async_io_handle_posix;
-        std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
+        std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false)
         {
-          return async_file_io_dispatcher_base::int_decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(op, req, force_absolute);
+          return detail::decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, force_absolute);
         }
         // Called in unknown thread
         completion_returntype dodir(size_t id, async_io_op op, async_path_op_req req)
@@ -2302,7 +2376,7 @@ namespace detail {
             {
               async_path_op_req req2(req);
               // Return a copy of the one in the dir cache if available as a fast path
-              decode_relative_path(op, req2, true);
+              decode_relative_path(req2, true);
               try
               {
                 return std::make_pair(true, p->get_handle_to_dir(this, id, req2, &async_file_io_dispatcher_compat::dofile));
@@ -2324,13 +2398,10 @@ namespace detail {
             {
               std::shared_ptr<async_io_handle> h(op.get());
               async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
-              if(p->is_open()!=async_io_handle::open_states::closed)
-              {
-                p->int_safeunlink();
-                return std::make_pair(true, op.get());
-              }
+              p->unlink();
+              return std::make_pair(true, op.get());
             }
-            auto dirh=decode_relative_path(op, req);
+            auto dirh=decode_relative_path(req);
             BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), is_dir ? AT_REMOVEDIR : 0), [&req]{return req.path;});
             return std::make_pair(true, op.get());
         }
@@ -2344,11 +2415,17 @@ namespace detail {
         {
             int flags=0, fd;
             req.flags=fileflags(req.flags);
-            std::shared_ptr<async_io_handle> dirh=decode_relative_path(op, req);
+            std::shared_ptr<async_io_handle> dirh=decode_relative_path(req);
 
-            if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
-            else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
-            else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
+            // POSIX doesn't permit directories to be opened with write access
+            if(!!(req.flags & file_flags::int_opening_dir))
+              flags|=O_RDONLY;
+            else
+            {
+              if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
+              else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
+              else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
+            }
 #ifdef O_SYNC
             if(!!(req.flags & file_flags::AlwaysSync)) flags|=O_SYNC;
 #endif
@@ -3295,8 +3372,9 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         }
         else
         {
-            // No choice here, open a handle and stat it.
-            async_path_op_req::relative req(dirh, name(), file_flags::Read);
+            // No choice here, open a handle and stat it. Make sure you open with no flags, else
+            // files with delete pending will refuse to open
+            async_path_op_req::relative req(dirh, name(), file_flags::None);
             auto fileh=dispatcher->dofile(0, async_io_op(), req).second;
             auto direntry=fileh->direntry(wanted);
             wanted=wanted & direntry.metadata_ready(); // direntry() can fail to fill some entries on Win XP

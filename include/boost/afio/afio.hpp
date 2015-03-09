@@ -456,6 +456,8 @@ public:
   path(const char *p) : filesystem::path(p) { int_regularise(); }
 #ifdef WIN32
   //! Converts a filesystem::path to AFIO format
+  path(const wchar_t *p) : filesystem::path(p) { int_regularise(); }
+  //! Converts a filesystem::path to AFIO format
   path(const std::string &p) : filesystem::path(p) { int_regularise(); }
 #endif
   //! Converts a filesystem::path to AFIO format
@@ -732,16 +734,6 @@ enum class async_op_flags : size_t
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(async_op_flags)
 
 namespace detail {
-    struct async_io_handle_posix;
-    struct async_io_handle_windows;
-    struct async_file_io_dispatcher_base_p;
-    class async_file_io_dispatcher_compat;
-    class async_file_io_dispatcher_windows;
-    class async_file_io_dispatcher_linux;
-    class async_file_io_dispatcher_qnx;
-    struct immediate_async_ops;
-    template<bool for_writing> class async_data_op_req_impl;
-
     /*! \enum OpType
     \brief The type of operation
     */
@@ -1163,6 +1155,7 @@ protected:
     std::shared_ptr<async_io_handle> dirh;
     atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
     async_io_handle(async_file_io_dispatcher_base *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    //! Calling this directly can cause misoperation. Best to avoid unless you have inspected the source code for the consequences.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
@@ -1215,14 +1208,41 @@ public:
         directory_entry de(direntry(wanted));
         return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
     }
-    /*! Returns the target path of this handle if it is a symbolic link.
+    /*! \brief Returns the target path of this handle if it is a symbolic link.
 
     \ntkernelnamespacenote
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    
+    /*! \brief Hard links the file to a new location on the same volume.
+
+    If you wish to make a temporary file whose contents are ready appear at a location and error out if
+    a file entry is already there, use link() and if success, unlink() on the former location. If you wish
+    to always overwrite the destination, use atomic_relink() instead.    
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Unlinks the file from its present location. Other links may remain to the same file.
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    /*! \brief Links the file to a new location and unlinks the file from its present location, <em>atomically overwriting
+    any file entry at the new location</em>. Very useful for preparing file content elsewhere and once ready, atomically
+    making it visible at some named location to other processes.
+
+    Note that not all filing systems guarantee the atomicity of the relink itself (i.e. the file may appear at two locations
+    in the filing system for a period of time), though all supported platforms do
+    guarantee the atomicity of the replaced location i.e. the location you are relinking to will always refer to
+    some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink
+    if power is lost close to the relinking operation.
+
+    \ntkernelnamespacenote
+    */
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+
 #if 0
     // Undocumented deliberately
     enum class change_flags : size_t
@@ -1288,7 +1308,7 @@ struct async_io_op
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id(0) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
+    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
@@ -1376,6 +1396,7 @@ namespace detail
     // Disable C being a const std::vector<std::function<R()>> &callables
     template<class T, class... Args> struct vs2013_variadic_overload_resolution_workaround<std::vector<T>, Args...>;
 #endif
+    template<class Impl, class Handle> std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false);
 }
 
 /*! \class async_file_io_dispatcher_base
@@ -1400,6 +1421,7 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_from_this<async_file_io_dispatcher_base>
 {
     //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
+    template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
     friend class detail::async_file_io_dispatcher_compat;
@@ -1411,7 +1433,6 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
-    template<class Impl, class Handle> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
 
 protected:
@@ -1638,6 +1659,10 @@ public:
     a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
+
+    Note that on Windows for some odd reason if you open a directory with write access, any operations involving creating or
+    renaming anything inside that directory will fail for no good reason. You should therefore only open directories with
+    write access very rarely.
     
     \ntkernelnamespacenote
 
@@ -1656,6 +1681,10 @@ public:
     a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
+
+    Note that on Windows for some odd reason if you open a directory with write access, any operations involving creating or
+    renaming anything inside that directory will fail for no good reason. You should therefore only open directories with
+    write access very rarely.
 
     \ntkernelnamespacenote
 
@@ -2144,6 +2173,7 @@ public:
     // Undocumented deliberately
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
+    
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
     
     If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations

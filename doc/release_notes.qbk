@@ -217,6 +217,10 @@ protection disappear.
 is defined (defaults to yes if NDEBUG is not defined). Also added MSVC and FreeBSD support, and exceptions returned by the future
 handle now provide stack backtraces.
 
+* Added virtual member functions link(), unlink() and atomic_relink() to async_io_handle, plus adjusted the engine to
+always call these instead of performing those operations unilaterally.
+
+
 TODO BEFORE RELEASE
 
 2. Add unit test swapping two directories

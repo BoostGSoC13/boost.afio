@@ -28,7 +28,8 @@ namespace detail {
             ntflags|=0x01/*FILE_DIRECTORY_FILE*/;
             access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
             if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
-            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
+            // Write access probably means he wants to delete self and files
+            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|FILE_DELETE_CHILD|DELETE;
             // Windows doesn't like opening directories without buffering.
             if(!!(flags & file_flags::OSDirect)) flags=flags & ~file_flags::OSDirect;
         }
@@ -47,24 +48,22 @@ namespace detail {
                 ntflags|=0x00000800/*FILE_RANDOM_ACCESS*/;
             if(!!(flags & file_flags::TemporaryFile))
                 attribs|=FILE_ATTRIBUTE_TEMPORARY;
-            if(!!(flags & file_flags::DeleteOnClose) && (!!(flags & file_flags::CreateOnlyIfNotExist) || !!(flags & file_flags::int_file_share_delete)))
-            {
-                ntflags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
-                access|=DELETE;
-            }
-            if(!!(flags & file_flags::int_file_share_delete))
-                access|=DELETE;
         }
+        if(!!(flags & file_flags::DeleteOnClose) && (!!(flags & file_flags::CreateOnlyIfNotExist) || !!(flags & file_flags::int_file_share_delete)))
+        {
+            ntflags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
+            access|=DELETE;
+        }
+        if(!!(flags & file_flags::int_file_share_delete))
+            access|=DELETE;
       }
       if(!!(flags & file_flags::CreateOnlyIfNotExist))
       {
         creatdisp|=0x00000002/*FILE_CREATE*/;
-        access|=DELETE;
       }
       else if(!!(flags & file_flags::Create))
       {
         creatdisp|=0x00000003/*FILE_OPEN_IF*/;
-        access|=DELETE;
       }
       else if(!!(flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
       else creatdisp|=0x00000001/*FILE_OPEN*/;
@@ -112,7 +111,7 @@ namespace detail {
         for(size_t n=6; n<leafname.size(); n++)
         {
           auto c=leafname[n];
-          if(!((c>='1' && c<='9') || (c>='a' && c<='f')))
+          if(!((c>='0' && c<='9') || (c>='a' && c<='f')))
             return false;
         }
         return true;
@@ -310,48 +309,7 @@ namespace detail
           myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
         inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
-        void int_safeunlink()
-        {
-            if(!myid)
-              BOOST_AFIO_THROW(std::invalid_argument("Cannot unlink a closed file by handle."));
-            windows_nt_kernel::init();
-            using namespace windows_nt_kernel;
-#if 0
-            // Despite what is claimed on the internet, NtDeleteFile does NOT delete the file immediately.
-            // Moreover, it cannot delete directories not junction points, so we'll go the more proper path.
-            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
-            oa.RootDirectory=myid;
-            UNICODE_STRING _path;
-            path::value_type c=0;
-            _path.Buffer=&c;
-            _path.MaximumLength=(_path.Length=0)+sizeof(path::value_type);
-            oa.ObjectName=&_path;
-            //if(opened_as_symlink())
-            //  oa.Attributes=0x100/*OBJ_OPENLINK*/;  // Seems to dislike deleting junctions points without this
-            NTSTATUS ntstat=NtDeleteFile(&oa);
-            // Returns this error if we are deleting a junction point
-            if(ntstat!=0xC0000278/*STATUS_IO_REPARSE_DATA_INVALID*/)
-              BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
-#else
-            IO_STATUS_BLOCK isb={ 0 };
-            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
-            fni->ReplaceIfExists=false;
-            fni->RootDirectory=nullptr;  // rename to the same directory
-            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
-            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
-            for(size_t n=0; n<randompath.size(); n++)
-              fni->FileName[n]=randompath[n];
-            fni->FileName[randompath.size()]=0;
-            NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
-            // Access denied may come back if the directory contains any files with open handles
-            // If that happens, ignore and mark to delete anyway
-            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
-            FILE_DISPOSITION_INFORMATION fdi={true};
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
-#endif
-        }
-        void int_close()
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
             if(mapaddr)
@@ -374,10 +332,6 @@ namespace detail
                 has_been_added=false;
             }
             myid=nullptr;
-        }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
-        {
-            int_close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const override final
         {
@@ -467,7 +421,7 @@ namespace detail
         }
         ~async_io_handle_windows()
         {
-            int_close();
+            async_io_handle_windows::close();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted) override final
         {
@@ -584,6 +538,81 @@ namespace detail
             }
             return mapaddr;
         }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &_req) override final
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Currently cannot hard link a closed file by handle."));
+            async_path_op_req req(_req);
+            auto newdirh=decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req);
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_LINK_INFORMATION *fni=(FILE_LINK_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
+            fni->FileNameLength=(ULONG)(req.path.native().size()*sizeof(path::value_type));
+            memcpy(fni->FileName, req.path.c_str(), fni->FileNameLength);
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(FILE_LINK_INFORMATION)+fni->FileNameLength, FileLinkInformation), [this]{return path();});
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() override final
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Currently cannot unlink a closed file by handle."));
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+#if 0
+            // Despite what is claimed on the internet, NtDeleteFile does NOT delete the file immediately.
+            // Moreover, it cannot delete directories not junction points, so we'll go the more proper path.
+            OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
+            oa.RootDirectory=myid;
+            UNICODE_STRING _path;
+            path::value_type c=0;
+            _path.Buffer=&c;
+            _path.MaximumLength=(_path.Length=0)+sizeof(path::value_type);
+            oa.ObjectName=&_path;
+            //if(opened_as_symlink())
+            //  oa.Attributes=0x100/*OBJ_OPENLINK*/;  // Seems to dislike deleting junctions points without this
+            NTSTATUS ntstat=NtDeleteFile(&oa);
+            // Returns this error if we are deleting a junction point
+            if(ntstat!=0xC0000278/*STATUS_IO_REPARSE_DATA_INVALID*/)
+              BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
+#else
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=false;
+            fni->RootDirectory=nullptr;  // rename to the same directory
+            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
+            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
+            for(size_t n=0; n<randompath.size(); n++)
+              fni->FileName[n]=randompath[n];
+            fni->FileName[randompath.size()]=0;
+            NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
+            // Access denied may come back if the directory contains any files with open handles
+            // If that happens, ignore and mark to delete anyway
+            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
+            FILE_DISPOSITION_INFORMATION fdi={true};
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
+#endif
+        }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &_req) override final
+        {
+            if(!myid)
+              BOOST_AFIO_THROW(std::invalid_argument("Currently cannot relink a closed file by handle."));
+            async_path_op_req req(_req);
+            auto newdirh=decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req);
+            windows_nt_kernel::init();
+            using namespace windows_nt_kernel;
+            IO_STATUS_BLOCK isb={ 0 };
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
+            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
+            fni->ReplaceIfExists=true;
+            fni->RootDirectory=newdirh ? newdirh->native_handle() : nullptr;
+            fni->FileNameLength=(ULONG)(req.path.native().size()*sizeof(path::value_type));
+            memcpy(fni->FileName, req.path.c_str(), fni->FileNameLength);
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
+        }
     };
     inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
       const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
@@ -597,14 +626,15 @@ namespace detail
 
     class async_file_io_dispatcher_windows : public async_file_io_dispatcher_base
     {
+        template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
         friend class async_file_io_dispatcher_base;
         friend class directory_entry;
         friend void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
         friend struct async_io_handle_windows;
         size_t pagesize;
-        std::shared_ptr<async_io_handle> decode_relative_path(async_io_op &op, async_path_op_req &req, bool force_absolute=false)
+        std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false)
         {
-          return async_file_io_dispatcher_base::int_decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(op, req, force_absolute);
+          return detail::decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req, force_absolute);
         }
 
         // Called in unknown thread
@@ -616,7 +646,7 @@ namespace detail
             {
               async_path_op_req req2(req);
               // Return a copy of the one in the dir cache if available as a fast path
-              decode_relative_path(op, req2, true);
+              decode_relative_path(req2, true);
               try
               {
                 return std::make_pair(true, p->get_handle_to_dir(this, id, req2, &async_file_io_dispatcher_windows::dofile));
@@ -640,13 +670,13 @@ namespace detail
               async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
               if(p->is_open()!=async_io_handle::open_states::closed)
               {
-                p->int_safeunlink();
+                p->unlink();
                 return std::make_pair(true, op.get());
               }
             }
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
-            auto dirh=decode_relative_path(op, req);
+            auto dirh=decode_relative_path(req);
 #if 0
             OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
             oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
@@ -686,6 +716,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dormdir(size_t id, async_io_op op, async_path_op_req req)
         {
+          req.flags=fileflags(req.flags)|file_flags::int_opening_dir;
           return dounlink(true, id, std::move(op), std::move(req));
         }
       public:
@@ -696,7 +727,7 @@ namespace detail
             NTSTATUS status=0;
             HANDLE h=nullptr;
             req.flags=fileflags(req.flags);
-            std::shared_ptr<async_io_handle> dirh=decode_relative_path(op, req);
+            std::shared_ptr<async_io_handle> dirh=decode_relative_path(req);
             std::tie(status, h)=ntcreatefile(dirh, req.path, req.flags);
             if(dirh)
               req.path=dirh->path()/req.path;
@@ -838,6 +869,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dormsymlink(size_t id, async_io_op op, async_path_op_req req)
         {
+          req.flags=fileflags(req.flags)|file_flags::int_opening_link;
           return dounlink(true, id, std::move(op), std::move(req));
         }
         // Called in unknown thread
@@ -1234,7 +1266,11 @@ namespace detail
                 {
                     for(auto &i: _ret)
                     {
+                      try
+                      {
                         i.fetch_metadata(h, req.metadata);
+                      }
+                      catch(...) { } // File may have vanished between enumerate and now
                     }
                 }
                 ret->set_value(std::make_pair(std::move(_ret), !thisbatchdone));
@@ -1276,7 +1312,7 @@ namespace detail
                 void *ApcContext=ol.get();
 #ifndef _WIN64
                 BOOL isWow64=false;
-                if(IsWow64Process(GetCurrentProcess(), &isWow64), !isWow64)
+                if(IsWow64Process(GetCurrentProcess(), &isWow64), isWow64)
                   ApcContext=nullptr;
 #endif
                 ntstat=NtQueryDirectoryFile(p->native_handle(), ol.get()->hEvent, NULL, ApcContext, (PIO_STATUS_BLOCK) ol.get(),
