@@ -12,7 +12,7 @@
 [section:path path]
 
 '''<indexterm><primary>path</primary></indexterm>'''
-An AFIO filesystem path, a thin wrapper of filesystem::path used to mark when a filesystem path has been prepared for AFIO usage. Note that on Windows this exclusively refers to a NT kernel path, not a Win32 path (Win32 paths are converted in the constructor) 
+An AFIO filesystem path, a thin wrapper of filesystem::path used to mark when a filesystem path has been prepared for AFIO usage. Note that on Windows this exclusively refers to a case sensitive NT kernel path, not a Win32 path (Win32 paths are converted in the constructor). 
 
 [heading Synopsis]
 ``class path
@@ -329,6 +329,7 @@ path & concat(InputIterator begin, InputIterator end)``
 `#include <boost/afio/afio.hpp>`
 
 [include generated/struct_path_1_1make_absolute.qbk]
+[include generated/group_normalise_path.qbk]
 [include generated/struct_path_hash.qbk]
 
 [endsect]

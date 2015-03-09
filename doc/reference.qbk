@@ -14,7 +14,6 @@
 [include generated/group_file_flags.qbk]
 [include generated/group_fs_metadata_flags.qbk]
 [include generated/group_metadata_flags.qbk]
-[include generated/group_normalise_path.qbk]
 [endsect]
 
 [section:structs Structures]
@@ -36,7 +35,6 @@
 [include generated/class_async_io_handle.qbk]
 [include generated/class_directory_entry.qbk]
 [include generated/class_enqueued_task_3_01_r_07_08_4.qbk]
-[include generated/class_file_buffer_allocator.qbk]
 [include generated/class_path.qbk]
 [include generated/class_thread_source.qbk]
 [include generated/class_std_thread_pool.qbk]
@@ -54,6 +52,16 @@
 [endsect]
 [section:when_all_ops when_all() (ops)]
 [include generated/group_when_all_ops.qbk]
+[endsect]
+[endsect]
+
+[section:utilities Utilities]
+[section:classes Classes]
+[include generated/class_utils_1_1file_buffer_allocator.qbk]
+[include generated/class_utils_1_1secded_ecc.qbk]
+[endsect]
+[section:function Functions in namespace utils]
+[include generated/group_utils.qbk]
 [endsect]
 [endsect]
 

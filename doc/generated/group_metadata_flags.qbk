@@ -43,7 +43,7 @@ Bitflags for availability of metadata from [^`struct ``stat_t`]
 
 [table
 [[Value] [Description] ]
-[[None] [No flags set. ]]
+[[None] []]
 [[dev] []]
 [[ino] []]
 [[type] []]

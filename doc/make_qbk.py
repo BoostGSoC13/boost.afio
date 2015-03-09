@@ -53,16 +53,20 @@ call_doxygen()
 
 # Add all classes
 for i in glob.glob("doxy/doxygen_output/xml/classboost_1_1afio_1_1*.xml"):
-    os.system(cmd % (i, "class_"+path2identifier("doxy/doxygen_output/xml/classboost_1_1afio_1_1", i)));
+    if "detail_1_1" not in i:
+        os.system(cmd % (i, "class_"+path2identifier("doxy/doxygen_output/xml/classboost_1_1afio_1_1", i)));
 # Add all structs
 for i in glob.glob("doxy/doxygen_output/xml/structboost_1_1afio_1_1*.xml"):
-    os.system(cmd % (i, "struct_"+path2identifier("doxy/doxygen_output/xml/structboost_1_1afio_1_1", i)));
+    if "detail_1_1" not in i:
+        os.system(cmd % (i, "struct_"+path2identifier("doxy/doxygen_output/xml/structboost_1_1afio_1_1", i)));
 # Add all namespaces
-for i in glob.glob("doxy/doxygen_output/xml/namespaceboost_1_1*.xml"):
-    os.system(cmd % (i, "namespace_"+path2identifier("doxy/doxygen_output/xml/namespaceboost_1_1", i)));
+#for i in glob.glob("doxy/doxygen_output/xml/namespaceboost_1_1afio_1_1*.xml"):
+#    if "detail" not in i:
+#        os.system(cmd % (i, "namespace_"+path2identifier("doxy/doxygen_output/xml/namespaceboost_1_1afio_1_1", i)));
 # Add all groups
 for i in glob.glob("doxy/doxygen_output/xml/group__*.xml"):
-    os.system(cmd % (i, "group_"+path2identifier("doxy/doxygen_output/xml/group__", i)));
+    if "detail_1_1" not in i:
+        os.system(cmd % (i, "group_"+path2identifier("doxy/doxygen_output/xml/group__", i)));
     
 # Patch broken index term generation
 for i in glob.glob("generated/struct_async_data_op_req_3_01*.qbk"):
@@ -127,6 +131,29 @@ for i in glob.glob("generated/class_enqueued_task*.qbk"):
         ih.seek(0)
         ih.truncate(0)
         ih.write(t)
+        
+# Patch failure to put in-class enums in the right section
+for i in glob.glob("generated/class_*.qbk")+glob.glob("generated/struct_*.qbk"):
+    with open(i, "r+b") as ih:
+        t=ih.readlines()
+    sections=[]
+    stack=[]
+    n=-1
+    for line in t:
+      n+=1
+      if line[:9]=="[section:":
+        stack.append(n)
+      elif line[:9]=="[endsect]":
+        if len(stack)==1:
+          sections.append((stack[0], n))
+        stack.pop()
+    if len(sections)>2:
+      print("There are more than two standalone sections in "+i+". This is bad.") 
+    elif len(sections)>1:
+      print("In "+i+" relocating "+t[sections[0][0]]+" into "+t[sections[1][0]])
+      t.insert(sections[0][0], t.pop(sections[1][0]))
+      with open(i, "w+b") as ih:
+          ih.writelines(t)
 
 # Use either bjam or b2 or ../../../b2 (the last should be done on Release branch)
 #os.system("..\\..\\b2.exe") 

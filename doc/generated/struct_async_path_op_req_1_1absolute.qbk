@@ -12,7 +12,7 @@
 [section:async_path_op_req_absolute async_path_op_req::absolute]
 
 '''<indexterm><primary>async_path_op_req</primary></indexterm><indexterm><primary>absolute</primary></indexterm>'''
-
+Convenience tag type constructing an absolute path async_path_op_req. 
 
 [heading Synopsis]
 ``struct async_path_op_req::absolute

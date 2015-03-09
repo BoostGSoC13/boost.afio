@@ -29,4 +29,5 @@
 \defgroup async_data_op_req x
 \defgroup make_async_data_op_req x
 \defgroup utils x
+\defgroup async_io_handle__ops x
 */

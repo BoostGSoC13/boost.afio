@@ -12,7 +12,7 @@
 [section:path_make_absolute path::make_absolute]
 
 '''<indexterm><primary>path</primary></indexterm><indexterm><primary>make_absolute</primary></indexterm>'''
-
+Makes a path absolute according to the current working directory. 
 
 [heading Synopsis]
 ``struct path::make_absolute

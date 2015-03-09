@@ -388,6 +388,7 @@ refers to a case sensitive NT kernel path, not a Win32 path (Win32 paths are con
 
 \qbk{
 [include generated/struct_path_1_1make_absolute.qbk]
+[include generated/group_normalise_path.qbk]
 [include generated/struct_path_hash.qbk]
 }
 */
@@ -605,6 +606,7 @@ inline bool operator==(const path& lhs, const path& rhs) { return filesystem::pa
 inline bool operator!=(const path& lhs, const path& rhs) { return filesystem::path(lhs)!=filesystem::path(rhs); }
 inline path operator/(const path& lhs, const path& rhs) { return path(filesystem::path(lhs)/filesystem::path(rhs), path::direct()); }
 inline std::ostream &operator<<(std::ostream &s, const path &p) { return s << filesystem::path(p); }
+//! Makes a path absolute according to the current working directory
 struct path::make_absolute : public path
 {
   make_absolute(const path &p) : path(p)
@@ -678,11 +680,7 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 \brief Bitwise file and directory open flags
 \ingroup file_flags
 */
-#ifdef DOXYGEN_NO_CLASS_ENUMS
-enum file_flags
-#else
 enum class file_flags : size_t
-#endif
 {
     None=0,             //!< No flags set
     Read=1,             //!< Read access
@@ -722,11 +720,7 @@ BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(file_flags)
 \brief Bitwise async_op_flags flags
 \ingroup async_op_flags
 */
-#ifdef DOXYGEN_NO_CLASS_ENUMS
-enum async_op_flags
-#else
 enum class async_op_flags : size_t
-#endif
 {
     none=0,                 //!< No flags set
     immediate=1             //!< Call chained completion immediately instead of scheduling for later. Make SURE your completion can not block!
@@ -737,11 +731,7 @@ namespace detail {
     /*! \enum OpType
     \brief The type of operation
     */
-#ifdef DOXYGEN_NO_CLASS_ENUMS
-    enum OpType
-#else
     enum class OpType
-#endif
     {
         Unknown,
         UserCompletion,
@@ -804,11 +794,7 @@ class async_io_handle;
 \brief Bitflags for availability of metadata from `struct stat_t`
 \ingroup metadata_flags
 */
-#ifdef DOXYGEN_NO_CLASS_ENUMS
-enum metadata_flags
-#else
 enum class metadata_flags : size_t
-#endif
 {
     None=0,
     dev=1<<0,
@@ -914,11 +900,7 @@ struct stat_t
 \brief Bitflags for availability of metadata from `struct statfs_t`
 \ingroup fs_metadata_flags
 */
-#ifdef DOXYGEN_NO_CLASS_ENUMS
-enum fs_metadata_flags
-#else
 enum class fs_metadata_flags : size_t
-#endif
 {
     None=0,
     flags=1<<1,
@@ -1137,6 +1119,10 @@ public:
 
 Note that failure to explicitly schedule closing a file handle in the dispatcher means it will be synchronously closed on last reference count
 by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
+
+\qbk{
+[include generated/group_async_io_handle__ops.qbk]
+}
 */
 class async_io_handle : public std::enable_shared_from_this<async_io_handle>
 {
@@ -1170,16 +1156,20 @@ public:
       open,   //!< This handle is open as a normal handle.
       opendir //!< This handle is open as a cached directory handle, and therefore closing it explicitly has no effect.
     };
+    //! Returns if this handle is opened or not
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC open_states is_open() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the native handle of this io handle. On POSIX, you can cast this to a fd using `(int)(size_t) native_handle()`. On Windows it's a simple `(HANDLE) native_handle()`.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns when this handle was opened
     const chrono::system_clock::time_point &opened() const { return _opened; }
-    /*! Returns the path of this i/o handle right now if \em refresh is true, else last known good. May be null if the file has been deleted.
+    /*! \brief Returns the path of this i/o handle right now if \em refresh is true, else last known good. May be null if the file has been deleted.
     
     Note the refreshed path completely dereferences any symbolic links to return a truly absolute canonical path, and therefore may look quite different to before.
     
     \ntkernelnamespacenote
+    \return The path of this i/o handle right now.
+    \param refresh Whether to ask the OS for the current path of this handle.
+    \ingroup async_io_handle__ops
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
@@ -1211,6 +1201,8 @@ public:
     /*! \brief Returns the target path of this handle if it is a symbolic link.
 
     \ntkernelnamespacenote
+    \return The path the symbolic link points to. May not exist or even be valid.
+    \ingroup async_io_handle__ops
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
@@ -1222,11 +1214,14 @@ public:
     to always overwrite the destination, use atomic_relink() instead.    
 
     \ntkernelnamespacenote
+    \param req The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.
+    \ingroup async_io_handle__ops
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Unlinks the file from its present location. Other links may remain to the same file.
 
     \ntkernelnamespacenote
+    \ingroup async_io_handle__ops
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Links the file to a new location and unlinks the file from its present location, <em>atomically overwriting
@@ -1240,6 +1235,8 @@ public:
     if power is lost close to the relinking operation.
 
     \ntkernelnamespacenote
+    \param req The absolute or relative (in which case precondition specifies a directory) path to relink to.
+    \ingroup async_io_handle__ops
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
@@ -2559,7 +2556,8 @@ inline future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_o
 }
 
 /*! \struct async_path_op_req
-\brief A convenience bundle of path and flags, with optional precondition
+\brief A convenience bundle of path and flags, with optional precondition. Paths may be a path fragment (relative to the precondition) or absolute, in which case
+if necessary they are made canonical and absolute in the constructor according to the current working directory.
 
 \qbk{
 [include generated/struct_async_path_op_req_1_1absolute.qbk]
@@ -2626,6 +2624,7 @@ protected:
 #endif
     }
 };
+//! Convenience tag type constructing a relative path async_path_op_req
 struct async_path_op_req::relative : async_path_op_req
 {
   /*! \brief Constructs an instance.
@@ -2643,6 +2642,7 @@ struct async_path_op_req::relative : async_path_op_req
   */
   relative(async_io_op _precondition, file_flags _flags=file_flags::None) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
 };
+//! Convenience tag type constructing an absolute path async_path_op_req
 struct async_path_op_req::absolute : async_path_op_req
 {
   /*! \brief Constructs an instance.

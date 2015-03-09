@@ -39,6 +39,14 @@ This is a reference counted instance with platform-specific implementation optio
 [heading Member Function(s)]
 [table
 [[Function] [Description] [Parameters]  [Returns]]
+[[``void testing_flags(detail::unit_testing_flags flags)``
+
+] [] [[* detail::unit_testing_flags]: ['flags]:  
+
+
+
+
+]]
 [[``std::shared_ptr< thread_source > threadsource()``
 
 ] [Returns the thread source used by this dispatcher. ] [
@@ -577,44 +585,6 @@ A batch of op handles.
 
 ][
 The op handle op. 
-
-
-]]
-[[``std::vector< size_t > page_sizes(bool only_actually_available = true)``
-
-] [Returns the page sizes of this architecture which is useful for calculating direct i/o multiples. ] [[* bool]: ['only_actually_available]:  Only return page sizes actually available to the user running this process 
-
-
-
-][
-The page sizes of this architecture.
-
-
-]]
-[[``size_t file_buffer_default_size()``
-
-] [Returns a reasonable default size for file_buffer_allocator, typically the closest page size from page_sizes() to 1Mb. ] [
-
-][
-A value of a TLB large page size close to 1Mb.
-
-
-]]
-[[``void random_fill(char * buffer, size_t bytes)``
-
-] [Fills the buffer supplied with cryptographically strong randomness. Uses the OS kernel API. ] [[* char *]: ['buffer]:  A buffer to fill 
-
-[* size_t]: ['bytes]:  How many bytes to fill
-
-
-
-
-]]
-[[``std::string random_string(size_t length)``
-
-] [Returns a cryptographically strong random hexadecimal string. ] [[* size_t]: ['length]:  How many characters to return
-
-
 
 
 ]]

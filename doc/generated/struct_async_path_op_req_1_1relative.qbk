@@ -12,7 +12,7 @@
 [section:async_path_op_req_relative async_path_op_req::relative]
 
 '''<indexterm><primary>async_path_op_req</primary></indexterm><indexterm><primary>relative</primary></indexterm>'''
-
+Convenience tag type constructing a relative path async_path_op_req. 
 
 [heading Synopsis]
 ``struct async_path_op_req::relative
