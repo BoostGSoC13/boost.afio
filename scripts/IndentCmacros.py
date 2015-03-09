@@ -15,6 +15,9 @@ for n in range(0, len(lines)):
   trimmedline=lines[n].strip()
   if len(trimmedline) and trimmedline[0]=='#':
     trimmedline=trimmedline[1:].strip()
+    while '/*_ ' in trimmedline and ' _*/' in trimmedline:
+      trimmedline=trimmedline[:trimmedline.find('/*_ ')]+trimmedline[trimmedline.rfind(' _*/')+3:]
+      trimmedline=trimmedline.strip()
     command=trimmedline.split()[0]
     thiscomment=''
     if command=='endif' or command=='elif' or command=='else':
@@ -33,11 +36,11 @@ for n in range(0, len(lines)):
     if command[0:2]=='if' or command=='elif' or command=='else':
       indent+=1
       if command=='ifdef':
-        stack.append('  /* defined('+trimmedline.split()[1]+') */')
+        stack.append('  /*_ defined('+trimmedline.split()[1]+') _*/')
       elif command=='ifndef':
-        stack.append('  /* !defined('+trimmedline.split()[1]+') */')
+        stack.append('  /*_ !defined('+trimmedline.split()[1]+') _*/')
       elif command!='else':
-        stack.append('  /* '+' '.join(trimmedline.split()[1:])+' */')
+        stack.append('  /*_ '+' '.join(trimmedline.split()[1:])+' _*/')
 
 #with open('tempfile.hpp', 'w') as h:
 with open(sys.argv[1], 'w') as h:
