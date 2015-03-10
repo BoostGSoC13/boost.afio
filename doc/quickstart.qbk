@@ -340,6 +340,17 @@ you might implement the techniques used above:
 
 [section:filesystem_races Handling races on the filing system]
 
+[raceguarantees
+  [raceguarantee Linux..For relative paths, race free up to the precondition location if and only if precondition is an open
+handle.]
+  [raceguarantee Windows..For relative paths, race free up to the precondition location if and only if precondition is an open
+handle.]
+  [raceguarantee OS X..None.]
+  [raceguarantee FreeBSD..For relative paths, race free up to the precondition location if and only if precondition is an open
+handle.]
+]
+
+
 Filing systems are a shared resource common to all processes on the system and sometimes the network,
 and are therefore as a globally shared resource inherently racy. Yet overwhelmingly even expert written programs singularly assume
 the filing system to be a static, constant and unchanging place only modifiable by the current program,

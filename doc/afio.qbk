@@ -56,6 +56,12 @@
 [def __afio_path_op_req__ [link afio.reference.structs.async_data_op_req.async_data_op_req `struct async_data_op_req`]]
 [def __afio_when_all__ [link afio.reference.functions.when_all_ops `when_all()`]]
 
+[/ Templates]
+[template raceguarantees[contents]
+'''<informaltable frame="all"><tgroup cols="2"><thead><row><entry>Operating system</entry><entry>Race guarantees under a changing file system</entry></row></thead><tbody>'''[contents]'''</tbody></tgroup></informaltable>'''
+]
+[template raceguarantee[os descr]'''<row><entry>'''[os]'''</entry><entry>'''[descr]'''</entry></row>''']
+
 [import ../example/adopt_example.cpp]
 [import ../example/barrier_example.cpp]
 [import ../example/benchmark_atomic_log.cpp]

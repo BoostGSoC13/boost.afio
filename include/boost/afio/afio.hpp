@@ -1746,8 +1746,9 @@ public:
     inline async_io_op rmdir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
     
-    Be aware that any files created are by default sparse if supported on the local filing system. Use
-    file_flags::NoSparse to prevent this on those filing systems which permit it.
+    Be aware that any files created are by default sparse if supported on the local filing system. On
+    Windows opening any file for writing converts it to sparse. Use file_flags::NoSparse to prevent
+    this on those filing systems which permit it.
 
     \ntkernelnamespacenote
     
@@ -1762,8 +1763,9 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
     
-    Be aware that any files created are by default sparse if supported on the local filing system. Use
-    file_flags::NoSparse to prevent this on those filing systems which permit it.
+    Be aware that any files created are by default sparse if supported on the local filing system. On
+    Windows opening any file for writing converts it to sparse. Use file_flags::NoSparse to prevent
+    this on those filing systems which permit it.
 
     \ntkernelnamespacenote
     

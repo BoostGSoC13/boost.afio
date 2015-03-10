@@ -38,6 +38,7 @@ TAB_SIZE               = 8
 # \return* for various return cases
 ALIASES                = qbk{1}="\xmlonly <qbk>\1</qbk> \endxmlonly" \
 			qbk{2}="\xmlonly <qbk.\1>\2</qbk.\1> \endxmlonly" \
+			raceguarantees{1}="\xmlonly <qbk>[heading Race Guarantees]\1</qbk> \endxmlonly" \
 			complexity{1}="\xmlonly <qbk>[heading Complexity]\1</qbk> \endxmlonly" \
 			exceptionmodel{1}="\xmlonly <qbk>[heading Exception Model]\1</qbk> \endxmlonly" \
             exceptionmodelstd="\xmlonly <qbk>[heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.</qbk> \endxmlonly" \
