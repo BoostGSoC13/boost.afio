@@ -85,12 +85,15 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       }
     }
 
-    std::cout << "\nCreating hard links ..." << std::endl;
+    std::cout << "\nCreating hard links testfile2 and testfile3 from testfile ..." << std::endl;
     std::shared_ptr<async_io_handle> h;
     async_io_op op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::Create | file_flags::ReadWrite));
     h = op.get();
+    BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
     h->link(async_path_op_req::relative(dirh, "testfile2"));
+    BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
     h->link(async_path_op_req::relative(dirh, "testfile3"));
+    BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
     dispatcher->truncate(op, 78).get();
     dispatcher->sync(op).get();
     this_thread::sleep_for(chrono::seconds(1));
@@ -106,8 +109,9 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       BOOST_CHECK(i.st_nlink() == 3);
     }
 
-    std::cout << "\nRelinking hard links ..." << std::endl;
+    std::cout << "\nRelinking hard link testfile to foo ..." << std::endl;
     h->atomic_relink(async_path_op_req::relative(dirh, foostr));
+    BOOST_CHECK(h->path(true)==dirh->path()/foostr);
     dispatcher->truncate(op, 79).get();
     dispatcher->sync(op).get();
     this_thread::sleep_for(chrono::seconds(1));
@@ -126,6 +130,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 
     std::cout << "\nUnlinking hard links ..." << std::endl;
     h->unlink();
+    BOOST_CHECK(h->path(true).empty());
     contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 2);
     for (auto &i : contents)

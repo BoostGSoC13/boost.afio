@@ -1,6 +1,6 @@
 #include "test_functions.hpp"
 
-BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handling works", 120)
+BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handling works", 300)
 {
 #ifndef BOOST_AFIO_THREAD_SANITIZING
     using namespace BOOST_AFIO_V1_NAMESPACE;

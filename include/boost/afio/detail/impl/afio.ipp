@@ -404,9 +404,9 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
           {
             // This is hacky ...
             char buffer2[4096];
-            sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e %s %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
+            sprintf(buffer2, "/usr/bin/addr2line -C -f -i -e \"%s\" %lx", info.dli_fname, (long)((size_t) addr - (size_t) info.dli_fbase));
             //std::cout << buffer2 << std::endl;
-            FILE *ih=popen(buffer2, "r");
+            FILE *ih=nullptr; // popen(buffer2, "r");  addr2line isn't currently working with my binaries on Linux nor FreeBSD, and it's very slow.
             auto unih=detail::Undoer([&ih]{ if(ih) pclose(ih); });
             bool done=false;
             if(ih)
