@@ -56,6 +56,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
     // Similar thing here, cannot close by handle without write privs, but here we'll reopen
     // with write privs in order to unlink
     test=dispatcher->dir(async_path_op_req("testdir", file_flags::Write));
+#ifdef WIN32
+    this_thread::sleep_for(chrono::seconds(1));
+#endif
     // Directly unlink now it's closed
     test.get()->unlink();
 }
