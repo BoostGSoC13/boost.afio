@@ -341,8 +341,7 @@ you might implement the techniques used above:
 [section:filesystem_races Handling races on the filing system]
 
 [raceguarantees
-  [raceguarantee Linux..For relative paths, race free up to the precondition location if and only if precondition is an open
-handle.]
+  [raceguarantee Linux Windows FreeBSD..For relative paths, race free up to the precondition location if and only if precondition is an open handle.]
   [raceguarantee Windows..For relative paths, race free up to the precondition location if and only if precondition is an open
 handle.]
   [raceguarantee OS X..None.]

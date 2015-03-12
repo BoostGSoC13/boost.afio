@@ -1170,6 +1170,7 @@ public:
     \return The path of this i/o handle right now.
     \param refresh Whether to ask the OS for the current path of this handle.
     \ingroup async_io_handle__ops
+    \raceguarantees [raceguarantee FreeBSD, OS X..Paths returned may permute e.g. if a new hard link is created][raceguarantee Linux, Windows..Paths returned are stable]
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
@@ -1190,9 +1191,15 @@ public:
     off_t write_count() const { return byteswritten; }
     //! Returns how many bytes have been written since this handle was last fsynced.
     off_t write_count_since_fsync() const { return byteswritten-byteswrittenatlastfsync; }
-    //! Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
+    /*! \brief Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
+
+    \return A directory entry for this handle.
+    \param wanted The metadata wanted.
+    \ingroup async_io_handle__ops
+    \raceguarantees [raceguarantee FreeBSD..Race free if handle open for directories and regular files only, else if handle closed or a symlink race free up to the containing directory. All metadata is fetched in a single shot.][raceguarantee Linux..Race free if handle open, else if handle closed race free up to the containing directory. All metadata is fetched in a single shot.][raceguarantee OS X..Race free if handle open for directories and regular files only. No guarantees if handle closed or a symlink.][raceguarantee Windows...Handle must be open and is always race free. Metadata may be fetched in a single shot if at least two categories requested, or else the following categories apply: (i) ino (ii) type, atim, mtim, ctim, birthtim, sparse, compressed (iii) nlink, size, allocated, blocks.]
+    */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
+    //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss. Calls direntry(), so same race guarantees as that call.
     stat_t lstat(metadata_flags wanted=directory_entry::metadata_fastpath())
     {
         directory_entry de(direntry(wanted));
@@ -1203,6 +1210,7 @@ public:
     \ntkernelnamespacenote
     \return The path the symbolic link points to. May not exist or even be valid.
     \ingroup async_io_handle__ops
+    \raceguarantees [raceguarantee FreeBSD..Race free up to the containing directory.][raceguarantee Linux, Windows..Race free if handle open, else up to the containing directory.][raceguarantee OS X..No guarantees.]
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
@@ -1216,12 +1224,14 @@ public:
     \ntkernelnamespacenote
     \param req The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.
     \ingroup async_io_handle__ops
+    \raceguarantees [raceguarantee FreeBSD..Race free up to the containing directory for both source and target.][raceguarantee Linux, Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.][raceguarantee OS X..No guarantees.]
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Unlinks the file from its present location. Other links may remain to the same file.
 
     \ntkernelnamespacenote
     \ingroup async_io_handle__ops
+    \raceguarantees [raceguarantee FreeBSD..Race free up to the containing directory.][raceguarantee Linux, Windows..Race free if handle open, else up to the containing directory.][raceguarantee OS X..No guarantees.]
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Links the file to a new location and unlinks the file from its present location, <em>atomically overwriting
@@ -1237,6 +1247,7 @@ public:
     \ntkernelnamespacenote
     \param req The absolute or relative (in which case precondition specifies a directory) path to relink to.
     \ingroup async_io_handle__ops
+    \raceguarantees [raceguarantee FreeBSD, Linux..Race free up to the containing directory for both source and target.][raceguarantee Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.][raceguarantee OS X..No guarantees.]
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
@@ -1667,6 +1678,7 @@ public:
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
+    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1689,6 +1701,7 @@ public:
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
+    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1714,6 +1727,7 @@ public:
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
+    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1739,6 +1753,7 @@ public:
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
+    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1756,6 +1771,7 @@ public:
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
+    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1773,6 +1789,7 @@ public:
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
+    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
