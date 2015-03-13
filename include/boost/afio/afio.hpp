@@ -2190,6 +2190,13 @@ public:
     \param reqs A batch of enumeration requests.
     \ingroup async_file_io_dispatcher_base__enumerate
     \qbk{distinguish, batch}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
+    many filing systems will recycle inodes such that a created file will get the inode of a just deleted file, so
+    comparing inodes for equivalence to a direntry() won't help you.]
+    [raceguarantee Windows..Race free per batch of up to ['maxitems] for ino, type, atim, mtim, ctim, size, allocated,
+    birthtim, sparse, compressed.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
     \exceptionmodelstd
     \qexample{enumerate_example}
@@ -2211,6 +2218,13 @@ public:
     \param req An enumeration request.
     \ingroup async_file_io_dispatcher_base__enumerate
     \qbk{distinguish, single}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
+    many filing systems will recycle inodes such that a created file will get the inode of a just deleted file, so
+    comparing inodes for equivalence to a direntry() won't help you.]
+    [raceguarantee Windows..Race free per batch of up to ['maxitems] for ino, type, atim, mtim, ctim, size, allocated,
+    birthtim, sparse, compressed.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of entries in each directory.}
     \exceptionmodelstd
     \qexample{enumerate_example}
@@ -2227,6 +2241,12 @@ public:
     \param ops A batch of op handles.
     \ingroup async_file_io_dispatcher_base__extents
     \qbk{distinguish, batch}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X..Very racy, even individual extent offset and length can race. The following filters are applied
+    before returning results: (i) Any extent whose end appears before its start is retried (ii) Sequences of contiguous extents are merged
+    into single extents.]
+    [raceguarantee Windows..Race free.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of extents in each file.}
     \exceptionmodelstd
     \qexample{extents_example}
@@ -2243,6 +2263,12 @@ public:
     \param op An op handle.
     \ingroup async_file_io_dispatcher_base__extents
     \qbk{distinguish, single}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X..Very racy, even individual extent offset and length can race. The following filters are applied
+    before returning results: (i) Any extent whose end appears before its start is retried (ii) Sequences of contiguous extents are merged
+    into single extents.]
+    [raceguarantee Windows..Race free.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of extents in each file.}
     \exceptionmodelstd
     \qexample{extents_example}
@@ -2255,6 +2281,13 @@ public:
     \param reqs A batch of metadata requests.
     \ingroup async_file_io_dispatcher_base__statfs
     \qbk{distinguish, batch}
+    \raceguarantees{
+    [raceguarantee FreeBSD, OS X..Race free.]
+    [raceguarantee Linux..The following items are fetched in a single snapshot: bsize, iosize, blocks, bfree, bavail, files, ffree, namemax, fsid,
+    flags.rdonly, flags.noexec, flags.nosuid.]
+    [raceguarantee Windows..The following snapshot categories apply: (i) flags, namemax, fstypename (ii) bsize, blocks, bfree, bavail. Everything else
+    is fetched separately.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of entries in each directory.}
     \exceptionmodelstd
     \qexample{statfs_example}
@@ -2267,6 +2300,13 @@ public:
     \param req A metadata request.
     \ingroup async_file_io_dispatcher_base__statfs
     \qbk{distinguish, single}
+    \raceguarantees{
+    [raceguarantee FreeBSD, OS X..Race free.]
+    [raceguarantee Linux..The following items are fetched in a single snapshot: bsize, iosize, blocks, bfree, bavail, files, ffree, namemax, fsid,
+    flags.rdonly, flags.noexec, flags.nosuid.]
+    [raceguarantee Windows..The following snapshot categories apply: (i) flags, namemax, fstypename (ii) bsize, blocks, bfree, bavail. Everything else
+    is fetched separately.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
     \exceptionmodelstd
     \qexample{statfs_example}
@@ -3863,8 +3903,8 @@ namespace utils
   \brief Calculates the single error correcting double error detecting (SECDED) Hamming Error Correcting Code for a \em blocksize block of bytes. For example, a secdec_ecc<8> would be the very common 72,64 Hamming code used in ECC RAM, or secdec_ecc<4096> would be for a 32784,32768 Hamming code.
 
   After construction during which lookup tables are built, no state is modified and therefore this class is safe for static
-  storage. The maximum number of bits in a code is a good four billion, I did try limiting it to 65536 for performance but
-  it wasn't worth it, and one might want > 8Kb blocks maybe.
+  storage (indeed if C++ 14 is available, the constructor is constexpr). The maximum number of bits in a code is a good four
+  billion, I did try limiting it to 65536 for performance but it wasn't worth it, and one might want > 8Kb blocks maybe.
   As with all SECDED ECC, undefined behaviour occurs when more than two bits of error are present or the ECC supplied
   is incorrect. You should combine this SECDED with a robust hash which can tell you definitively if a buffer is error
   free or not rather than relying on this to correctly do so.
@@ -3888,7 +3928,7 @@ namespace utils
 
   \ingroup utils
   \complexity{O(N) where N is the blocksize}
-  \exceptionmodel{Throws constexpr exceptions in constructor only.}
+  \exceptionmodel{Throws constexpr exceptions in constructor only, otherwise entirely noexcept.}
   */
   template<size_t blocksize> class secded_ecc
   {

@@ -100,6 +100,12 @@ A batch of future vectors of extents.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[heading Race Guarantees][raceguarantees 
+[raceguarantee FreeBSD, Linux, OS X..Very racy, even individual extent offset and length can race. The following filters are applied
+before returning results: (i) Any extent whose end appears before its start is retried (ii) Sequences of contiguous extents are merged
+into single extents.]
+[raceguarantee Windows..Race free.]
+ ]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool*M) to complete where M is the average number of extents in each file.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.
 [heading Example][extents_example]
@@ -132,6 +138,12 @@ A future vector of extents.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[heading Race Guarantees][raceguarantees 
+[raceguarantee FreeBSD, Linux, OS X..Very racy, even individual extent offset and length can race. The following filters are applied
+before returning results: (i) Any extent whose end appears before its start is retried (ii) Sequences of contiguous extents are merged
+into single extents.]
+[raceguarantee Windows..Race free.]
+ ]
 [heading Complexity]Amortised O(1) to dispatch. Amortised O(M) to complete where M is the average number of extents in each file.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.
 [heading Example][extents_example]
