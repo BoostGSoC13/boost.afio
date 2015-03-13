@@ -24,11 +24,6 @@ int main(int argc, const char *argv[])
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
     using BOOST_AFIO_V1_NAMESPACE::off_t;
-#if AFIO_STANDALONE
-    using std::to_string;
-#else
-    using boost::to_string;
-#endif
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
     double traditional_locks=0, atomic_log_locks=0;
     try { filesystem::remove_all("testdir"); } catch(...) {}

@@ -1162,19 +1162,23 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns when this handle was opened
     const chrono::system_clock::time_point &opened() const { return _opened; }
-    /*! \brief Returns the path of this i/o handle right now if \em refresh is true, else last known good. May be null if the file has been deleted.
+    /*! \brief Returns the path of this i/o handle right now if the handle is open and \em refresh is true, else last known good. May be null if the file has been deleted.
     
-    Note the refreshed path completely dereferences any symbolic links to return a truly absolute canonical path, and therefore may look quite different to before.
+    Note the refreshed path completely dereferences any intermediate symbolic links to return a truly absolute canonical path, and therefore may look quite different to before.
+    Some operating systems unfortunately also return any one of the hard links to the file, so if hard links is greater than one the path refreshed will randomly permute.
     
     \ntkernelnamespacenote
     \return The path of this i/o handle right now.
     \param refresh Whether to ask the OS for the current path of this handle.
     \ingroup async_io_handle__ops
-    \raceguarantees [raceguarantee FreeBSD, OS X..Paths returned may permute e.g. if a new hard link is created][raceguarantee Linux, Windows..Paths returned are stable]
+    \raceguarantees{
+    [raceguarantee FreeBSD, OS X..Paths returned may permute between hard links to the inode e.g. if a new hard link is created]
+    [raceguarantee Linux, Windows..Paths returned are stable]
+    }
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
     //! True if this handle was opened as a file
@@ -1196,7 +1200,12 @@ public:
     \return A directory entry for this handle.
     \param wanted The metadata wanted.
     \ingroup async_io_handle__ops
-    \raceguarantees [raceguarantee FreeBSD..Race free if handle open for directories and regular files only, else if handle closed or a symlink race free up to the containing directory. All metadata is fetched in a single shot.][raceguarantee Linux..Race free if handle open, else if handle closed race free up to the containing directory. All metadata is fetched in a single shot.][raceguarantee OS X..Race free if handle open for directories and regular files only. No guarantees if handle closed or a symlink.][raceguarantee Windows...Handle must be open and is always race free. Metadata may be fetched in a single shot if at least two categories requested, or else the following categories apply: (i) ino (ii) type, atim, mtim, ctim, birthtim, sparse, compressed (iii) nlink, size, allocated, blocks.]
+    \raceguarantees{
+    [raceguarantee FreeBSD..Race free if handle open for directories and regular files only, else if handle closed or a symlink race free up to the containing directory. All metadata is fetched in a single shot.]
+    [raceguarantee Linux..Race free if handle open, else if handle closed race free up to the containing directory. All metadata is fetched in a single shot.]
+    [raceguarantee OS X..Race free if handle open for directories and regular files only. No guarantees if handle closed or a symlink.]
+    [raceguarantee Windows..Handle must be open and is always race free. Metadata may be fetched in a single shot if at least two categories requested, or else the following categories apply: (i) ino (ii) type, atim, mtim, ctim, birthtim, sparse, compressed (iii) nlink, size, allocated, blocks.]
+    }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss. Calls direntry(), so same race guarantees as that call.
@@ -1210,9 +1219,13 @@ public:
     \ntkernelnamespacenote
     \return The path the symbolic link points to. May not exist or even be valid.
     \ingroup async_io_handle__ops
-    \raceguarantees [raceguarantee FreeBSD..Race free up to the containing directory.][raceguarantee Linux, Windows..Race free if handle open, else up to the containing directory.][raceguarantee OS X..No guarantees.]
+    \raceguarantees{
+    [raceguarantee FreeBSD..Race free up to the containing directory.]
+    [raceguarantee Linux, Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Hard links the file to a new location on the same volume.
@@ -1224,19 +1237,29 @@ public:
     \ntkernelnamespacenote
     \param req The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.
     \ingroup async_io_handle__ops
-    \raceguarantees [raceguarantee FreeBSD..Race free up to the containing directory for both source and target.][raceguarantee Linux, Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.][raceguarantee OS X..No guarantees.]
+    \raceguarantees{
+    [raceguarantee FreeBSD..Race free up to the containing directory for both source and target.]
+    [raceguarantee Linux, Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Unlinks the file from its present location. Other links may remain to the same file.
+    /*! \brief Unlinks the file from its present location as determined by path(true), which could be any hard link on
+    those operating systems with an unstable path(true). Other links may remain to the same file.
 
     \ntkernelnamespacenote
     \ingroup async_io_handle__ops
-    \raceguarantees [raceguarantee FreeBSD..Race free up to the containing directory.][raceguarantee Linux, Windows..Race free if handle open, else up to the containing directory.][raceguarantee OS X..No guarantees.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void unlink() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Links the file to a new location and unlinks the file from its present location, <em>atomically overwriting
-    any file entry at the new location</em>. Very useful for preparing file content elsewhere and once ready, atomically
-    making it visible at some named location to other processes.
+    /*! \brief Links the file to a new location and unlinks the file from its present location as determined by path(true),
+    <em>atomically overwriting any file entry at the new location</em>. Very useful for preparing file content elsewhere and once ready, atomically
+    making it visible at some named location to other processes. Note that operating systems with an unstable path(true) may
+    relink any hard link to the file to the new location.
 
     Note that not all filing systems guarantee the atomicity of the relink itself (i.e. the file may appear at two locations
     in the filing system for a period of time), though all supported platforms do
@@ -1247,7 +1270,11 @@ public:
     \ntkernelnamespacenote
     \param req The absolute or relative (in which case precondition specifies a directory) path to relink to.
     \ingroup async_io_handle__ops
-    \raceguarantees [raceguarantee FreeBSD, Linux..Race free up to the containing directory for both source and target.][raceguarantee Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.][raceguarantee OS X..No guarantees.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory for both source and target.]
+    [raceguarantee OS X..No guarantees.]
+    [raceguarantee Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.]
+    }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
@@ -1678,7 +1705,9 @@ public:
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
-    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1701,7 +1730,9 @@ public:
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
-    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1721,13 +1752,21 @@ public:
     Because of this feature of Windows, you may wish to rearchitect your program to handle directories not deleting e.g.
     use a delayed cleanup.
     
+    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+    portable code should delete by directory handle as the precondition and known leafname.
+    
     \ntkernelnamespacenote
     
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
-    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1747,13 +1786,21 @@ public:
     Because of this feature of Windows, you may wish to rearchitect your program to handle directories not deleting e.g.
     use a delayed cleanup.
     
+    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+    portable code should delete by directory handle as the precondition and known leafname.
+    
     \ntkernelnamespacenote
     
     \return An op handle.
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
-    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1771,7 +1818,9 @@ public:
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
-    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1789,7 +1838,9 @@ public:
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
-    \raceguarantees [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1801,12 +1852,21 @@ public:
     if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
     this). The actual file data will be deleted when the last handle is closed on the system.
     
+    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+    portable code should delete by directory handle as the precondition and known leafname.
+    
     \ntkernelnamespacenote
 
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1818,12 +1878,21 @@ public:
     if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
     this). The actual file data will be deleted when the last handle is closed on the system.
     
+    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+    portable code should delete by directory handle as the precondition and known leafname.
+    
     \ntkernelnamespacenote
 
     \return An op handle.
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1867,10 +1936,19 @@ public:
     inline async_io_op symlink(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
     
+    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+    portable code should delete by directory handle as the precondition and known leafname.
+    
     \return A batch of op handles.
     \param reqs A batch of `async_path_op_req` structures.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, batch}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if symlink deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -1878,12 +1956,21 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous symlink deletion after an optional precondition.
     
+    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+    portable code should delete by directory handle as the precondition and known leafname.
+    
     \ntkernelnamespacenote
 
     \return An op handle.
     \param req An `async_path_op_req` structure.
     \ingroup async_file_io_dispatcher_base__filedirops
     \qbk{distinguish, single}
+    \raceguarantees{
+    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+    [raceguarantee OS X..No guarantees.]
+    }
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if symlink deletion is constant time.}
     \exceptionmodelstd
     \qexample{filedir_example}
@@ -2586,7 +2673,7 @@ if necessary they are made canonical and absolute in the constructor according t
 struct async_path_op_req
 {
     bool is_relative;           //!< Whether the precondition is also where this path begins
-    afio::path path;            //!< The filing system path to be used for this operation
+    BOOST_AFIO_V1_NAMESPACE::path path;            //!< The filing system path to be used for this operation
     file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
     async_io_op precondition;   //!< An optional precondition for this operation
     //! \brief Tags the path as being absolute
@@ -2610,7 +2697,7 @@ struct async_path_op_req
     \param _flags The flags to be used.
     */
 
-    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<async_io_op, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::None) : is_relative(false), path(afio::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
+    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<async_io_op, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::None) : is_relative(false), path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
     \tparam "class T" The type of path to be used.
@@ -2619,9 +2706,9 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T, typename=typename std::enable_if<!std::is_convertible<afio::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? afio::path(std::forward<T>(_path)) : afio::path(afio::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V1_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V1_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V1_NAMESPACE::path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! \overload
-    async_path_op_req(bool _is_relative, async_io_op _precondition, afio::path _path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(bool _is_relative, async_io_op _precondition, BOOST_AFIO_V1_NAMESPACE::path _path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
@@ -2671,7 +2758,7 @@ struct async_path_op_req::absolute : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(false, std::move(_precondition), std::move(afio::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
+  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
 };
 inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }

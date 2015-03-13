@@ -243,7 +243,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
     {
 #if BOOST_AFIO_USE_BOOST_THREAD && BOOST_VERSION>=105500
         // Thanks to Vicente for adding this to Boost.Thread
-        return f.get_exception_ptr();
+        return const_cast<shared_future<T> &>(f).get_exception_ptr();
 #else
         // This seems excessive but I don't see any other legal way to extract the exception ...
         bool success=false;

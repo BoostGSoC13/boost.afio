@@ -290,9 +290,6 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
 {
     try {
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
-#if AFIO_STANDALONE
-        using std::to_string;
-#endif
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
         std::vector<char, detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
         assert(!(((size_t) &towrite.front()) & 4095));
@@ -420,9 +417,6 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
 {
     try {
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
-#if AFIO_STANDALONE
-    using std::to_string;
-#endif
 
     detail::aligned_allocator<char, 4096> aligned_allocator;
     std::vector<std::vector<char, detail::aligned_allocator<char, 4096>>> towrite(no);

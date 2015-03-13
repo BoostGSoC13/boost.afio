@@ -14,7 +14,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
 namespace detail {
     // Helper for opening files. Lightweight means open with no access, it can be faster.
-    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(std::shared_ptr<async_io_handle> dirh, afio::path path, file_flags flags, bool overlapped=true) BOOST_NOEXCEPT
+    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(std::shared_ptr<async_io_handle> dirh, BOOST_AFIO_V1_NAMESPACE::path path, file_flags flags, bool overlapped=true) BOOST_NOEXCEPT
     {
       DWORD access=FILE_READ_ATTRIBUTES|SYNCHRONIZE, attribs=FILE_ATTRIBUTE_NORMAL;
       DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
@@ -297,17 +297,17 @@ namespace detail
         bool has_been_added, SyncOnClose;
         void *mapaddr;
         typedef spinlock<bool> pathlock_t;
-        mutable pathlock_t pathlock; afio::path _path;
+        mutable pathlock_t pathlock; BOOST_AFIO_V1_NAMESPACE::path _path;
         std::unique_ptr<win_lock_file> lockfile;
 
-        static HANDLE int_checkHandle(HANDLE h, const afio::path &path)
+        static HANDLE int_checkHandle(HANDLE h, const BOOST_AFIO_V1_NAMESPACE::path &path)
         {
             BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, [&path]{return path;});
             return h;
         }
-        async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags) : async_io_handle(_parent, flags),
+        async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V1_NAMESPACE::path &path, file_flags flags) : async_io_handle(_parent, flags),
           myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
-        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
+        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V1_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
@@ -340,7 +340,7 @@ namespace detail
           return available_to_directory_cache() ? open_states::opendir : open_states::open;
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return myid; }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path(bool refresh=false) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path(bool refresh=false) override final
         {
           if(refresh)
           {
@@ -354,7 +354,7 @@ namespace detail
             }
             else
             {
-              afio::path newpath;
+              BOOST_AFIO_V1_NAMESPACE::path newpath;
               if(!isDeletedFile(shared_from_this()))
               {
                 windows_nt_kernel::init();
@@ -370,7 +370,7 @@ namespace detail
                 newpath=path::string_type(volumepath->Buffer, volumepath->Length/sizeof(path::value_type));
               }
               bool changed=false;
-              afio::path oldpath;
+              BOOST_AFIO_V1_NAMESPACE::path oldpath;
               {
                 lock_guard<pathlock_t> g(pathlock);
                 if((changed=(newpath!=_path)))
@@ -396,7 +396,7 @@ namespace detail
           lock_guard<pathlock_t> g(pathlock);
           return _path;
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path path() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path() const override final
         {
           lock_guard<pathlock_t> g(pathlock);
           return _path;
@@ -414,7 +414,7 @@ namespace detail
                 // If I'm the right sort of directory, register myself with the dircache. path(true) may have
                 // already done this, but it's not much harm to repeat myself.
                 if(available_to_directory_cache())
-                  parent()->int_directory_cached_handle_path_changed(afio::path(), newpath, shared_from_this());
+                  parent()->int_directory_cached_handle_path_changed(BOOST_AFIO_V1_NAMESPACE::path(), newpath, shared_from_this());
             }
             if(!!(flags() & file_flags::HoldParentOpen) && !(flags() & file_flags::int_hold_parent_open_nested))
               dirh=int_verifymyinode();
@@ -501,7 +501,7 @@ namespace detail
             if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
             return directory_entry(const_cast<async_io_handle_windows *>(this)->path(true).filename().native(), stat, wanted);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC afio::path target() override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path target() override final
         {
             if(!opened_as_symlink())
                 return path();
@@ -516,9 +516,9 @@ namespace detail
             switch(rpd->ReparseTag)
             {
             case IO_REPARSE_TAG_MOUNT_POINT:
-                return afio::path(path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type)), afio::path::direct());
+                return BOOST_AFIO_V1_NAMESPACE::path(path::string_type(rpd->MountPointReparseBuffer.PathBuffer+rpd->MountPointReparseBuffer.SubstituteNameOffset/sizeof(BOOST_AFIO_V1_NAMESPACE::path::value_type), rpd->MountPointReparseBuffer.SubstituteNameLength/sizeof(BOOST_AFIO_V1_NAMESPACE::path::value_type)), BOOST_AFIO_V1_NAMESPACE::path::direct());
             case IO_REPARSE_TAG_SYMLINK:
-                return afio::path(path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(afio::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(afio::path::value_type)), afio::path::direct());
+                return BOOST_AFIO_V1_NAMESPACE::path(path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(BOOST_AFIO_V1_NAMESPACE::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(BOOST_AFIO_V1_NAMESPACE::path::value_type)), BOOST_AFIO_V1_NAMESPACE::path::direct());
             }
             BOOST_AFIO_THROW(std::runtime_error("Unknown type of symbolic link."));
         }
@@ -615,7 +615,7 @@ namespace detail
         }
     };
     inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
-      const afio::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
+      const BOOST_AFIO_V1_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
       : async_io_handle(_parent, flags),
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
         has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr), _path(path)
@@ -1766,7 +1766,7 @@ namespace detail
         DWORD len_low=1, len_high=0;
         return UnlockFileEx(h, 0, len_low, len_high, &ol)!=0;
       }
-      win_actual_lock_file(afio::path p) : actual_lock_file(std::move(p)), h(nullptr)
+      win_actual_lock_file(BOOST_AFIO_V1_NAMESPACE::path p) : actual_lock_file(std::move(p)), h(nullptr)
       {
         memset(&ol, 0, sizeof(ol));
         bool done=false;

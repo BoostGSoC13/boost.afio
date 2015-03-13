@@ -33,10 +33,10 @@ configs=[
 ]
 for config in configs:
   print("\n\nConfig: "+config[0])
-  if config[0]=="standalone_singleabi" or config[1]=="standalone_multiabi":
+  if config[0]=="standalone_singleabi" or config[0]=="standalone_multiabi":
     if onWindows:
       test_all="test_all.exe"
-      tocall="alltests_msvc" if "msvc" in sys.argv[1] else "alltests_gcc"
+      tocall="alltests_msvc.bat" if "msvc" in sys.argv[1] else "alltests_gcc.bat"
     else:
       test_all="test_all"
       tocall="alltests_gcc.sh"
@@ -44,15 +44,20 @@ for config in configs:
       tocall="standalone_"+tocall
     else:
       tocall="multiabi_"+tocall
-    shutil.rmtree(test_all, True)
-    if subprocess.call(tocall):
-      config[1]="FAILED"
-      continue
-    shutil.rmtree(test_all, True)
-    print("\n\nStarting benchmark ...")
-    begin=time.clock()
-    subprocess.call(tocall)
-    end=time.clock()
+    basedir=os.getcwd()
+    try:
+      os.chdir("libs/afio")
+      shutil.rmtree(test_all, True)
+      if subprocess.call(tocall, shell=True):
+        config[1]="FAILED"
+        continue
+      shutil.rmtree(test_all, True)
+      print("\n\nStarting benchmark ...")
+      begin=time.clock()
+      subprocess.call(tocall, shell=True)
+      end=time.clock()
+    finally:
+      os.chdir(basedir)
   else:
     shutil.rmtree("bin.v2/libs/afio", True)
     if subprocess.call("b2 -j 8 toolset="+sys.argv[1]+" "+config[0]+" libs/afio/test"):
@@ -68,4 +73,7 @@ for config in configs:
   config[1]="%dm%ss" % (mins, secs)
   print("Config %s took %dm%ss" % (config[0], mins, secs))
 
-print("\n\n"+repr(configs))
+print("\n\n")
+for config in configs:
+  print(config)
+  

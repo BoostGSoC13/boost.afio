@@ -74,6 +74,7 @@ DEALINGS IN THE SOFTWARE.
 #undef BOOST_AFIO_V1_NAMESPACE
 #undef BOOST_AFIO_V1_NAMESPACE_BEGIN
 #undef BOOST_AFIO_V1_NAMESPACE_END
+#undef BOOST_SPINLOCK_V1_STL11_IMPL
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
 #if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR))
@@ -283,14 +284,28 @@ BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 // Map an error category
 BOOST_AFIO_V1_NAMESPACE_BEGIN
+using std::to_string;
 #if ASIO_STANDALONE
 using std::generic_category;
 using std::system_category;
 using std::system_error;
+using std::make_exception_ptr;
 #else
 using boost::system::generic_category;
 using boost::system::system_category;
 using boost::system::system_error;
+//using boost::make_exception_ptr;
+template<class T> inline boost::exception_ptr make_exception_ptr(T e)
+{
+  try
+  {
+    throw e;
+  }
+  catch(...)
+  {
+    return boost::current_exception();
+  }
+}
 #endif
 #if defined(_MSC_VER) && 0
 // Stupid MSVC doesn't resolve namespace binds correctly ...
@@ -316,6 +331,8 @@ BOOST_AFIO_V1_NAMESPACE_END
 #endif
 
 // TODO FIXME: Replace this with bindings
+#undef BOOST_SPINLOCK_HPP
+#undef BOOST_CONCURRENT_UNORDERED_MAP_HPP
 #include "spinlock/include/boost/spinlock/concurrent_unordered_map.hpp"
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   template<class Key, class T, class Hash, class Pred, class Alloc> using concurrent_unordered_map = BOOST_SPINLOCK_V1_NAMESPACE::concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;

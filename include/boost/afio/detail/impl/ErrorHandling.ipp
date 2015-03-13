@@ -40,9 +40,6 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
                 if(ERROR_NOT_ENOUGH_MEMORY==code || ERROR_OUTOFMEMORY==code) BOOST_AFIO_THROW(std::bad_alloc());
-#if AFIO_STANDALONE
-                using std::to_string;
-#endif
                 asio::error_code ec(code, system_category());
                 DWORD len;
                 char buffer[1024];
@@ -87,9 +84,6 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
-#if AFIO_STANDALONE
-                using std::to_string;
-#endif
                 // system_category needs a win32 code, not NT kernel code
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -163,9 +157,6 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
             {
                 if(ENOMEM==code) BOOST_AFIO_THROW(std::bad_alloc());
-#if AFIO_STANDALONE
-                using std::to_string;
-#endif
                 asio::error_code ec(code, generic_category());
                 std::string errstr(strerror(code));
                 errstr.append(" ("+to_string(code)+") in '"+std::string(file)+"':"+std::string(function)+":"+to_string(lineno));
