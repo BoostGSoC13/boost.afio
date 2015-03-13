@@ -285,15 +285,8 @@ BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END
 // Map an error category
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 using std::to_string;
-#if ASIO_STANDALONE
-using std::generic_category;
-using std::system_category;
-using std::system_error;
-using std::make_exception_ptr;
-#else
-using boost::system::generic_category;
-using boost::system::system_category;
-using boost::system::system_error;
+
+#if BOOST_AFIO_USE_BOOST_THREAD
 //using boost::make_exception_ptr;
 template<class T> inline boost::exception_ptr make_exception_ptr(T e)
 {
@@ -306,6 +299,18 @@ template<class T> inline boost::exception_ptr make_exception_ptr(T e)
     return boost::current_exception();
   }
 }
+#else
+using std::make_exception_ptr;
+#endif
+
+#if ASIO_STANDALONE
+using std::generic_category;
+using std::system_category;
+using std::system_error;
+#else
+using boost::system::generic_category;
+using boost::system::system_category;
+using boost::system::system_error;
 #endif
 #if defined(_MSC_VER) && 0
 // Stupid MSVC doesn't resolve namespace binds correctly ...
