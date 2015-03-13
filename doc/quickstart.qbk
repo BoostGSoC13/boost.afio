@@ -340,113 +340,40 @@ you might implement the techniques used above:
 
 [section:filesystem_races Handling races on the filing system]
 
-[raceguarantees
-  [raceguarantee Linux Windows FreeBSD..For relative paths, race free up to the precondition location if and only if precondition is an open handle.]
-  [raceguarantee Windows..For relative paths, race free up to the precondition location if and only if precondition is an open
-handle.]
-  [raceguarantee OS X..None.]
-  [raceguarantee FreeBSD..For relative paths, race free up to the precondition location if and only if precondition is an open
-handle.]
-]
-
-
 Filing systems are a shared resource common to all processes on the system and sometimes the network,
-and are therefore as a globally shared resource inherently racy. Yet overwhelmingly even expert written programs singularly assume
+and are therefore as a globally shared resource inherently racy. Yet overwhelmingly programs, even often those written
+by world expert programmers, singularly assume
 the filing system to be a static, constant and unchanging place only modifiable by the current program,
-as indeed does most unfortunately the POSIX API standard which defines the common API for Linux, FreeBSD,
+as indeed did until very recently the POSIX API standard which defines the common API for Linux, FreeBSD,
 Mac OS X and other Unices.
 When bug reports come in of data being lost, even very large professional corporations can make a real
-ham of testing that their ["fix] isn't worse at losing data than the previous more naive implementation.
-This is because when you program against a model of a static, unchanging filesystem you will become
-inevitably surprised when it happens to change at exactly the wrong moment.
+hash of testing that their ["fix] isn't worse at losing data than the previous more naive implementation.
+This is because when you program against a mental model of a static, unchanging filesystem you will become
+inevitably surprised when it happens to change at exactly the wrong moment __dash__ which of course is
+a moment you can never replicate on your developer workstation, thus making finding and fixing these
+sorts of bug highly non-trivial.
 
-[heading Some background]
-As an example, let us imagine a completely hypothetical multinational vendor of a popular office suite.
-This vendor started off needing to support a primitive filing system only capable of 11 character length
-filenames which barely retained data without corruption at the best of times, so they came up with a copy
-on write system implemented atop of the primitive filing system whereby the original file you opened was
-never touched, and instead a series of .tmp
-files were created which reflected every time some actor in the office suite wrote a change and required a new copy. On
-the user pressing Save, these .tmp files were coalesced into a new temp file which reflected the new
-document, fsync was issued, the old file was renamed to a .tmp file, the new .tmp file to the name of
-the old file, more fsyncs, and the .tmp files excluding the just renamed former copy deleted. A backup copy
-was saving onto the local machine's temporary directory just for good measure. The idea
-here was if anything went wrong at any point, that some working version of the document could be retrieved.
-This (effectively speaking) copy-on-write system with mirroring, whilst not without its flaws, worked very well in practice. Even if the user lost all their
-changes since the last time they successfully completed a save, it was quite rare that they lost everything __dash__
-well, except when the primitive filing system simply lost the correct extents for their files that is, whereupon only the initiated
-power users knew to look into the local temporary directory for backup copies.
+In case you don't realise how much user data and productivity is lost each year to filing system races,
+just look up ["corrupted Office file] on Google and weep. Even for us programmers, if you try keeping a
+Git repository on a Samba drive expect some interesting, and moreover quite strongly associated to specific
+combinations of client accessing the repo concurrently, object database corruption from time to time.
 
-Quite a few years passed, and a problem began to emerge. If one tried this copy-on-write scheme over a
-networked SMB share also being simultaneously used by many other users, some unexpected problems emerged.
-For one thing, the .tmp files only had a few letters of randomness in them due to the 11 character filename limit, so
-.tmp file naming could collide with other users regularly enough __dash__ not helped by the fact that the random number
-generator wasn't particularly random. Another problem was the many fsyncs and creation
-of many new temporary copy-on-write files holding data which really was genuinely temporary, and also often very large
-as it was intermediate transfer of say large bitmaps between one part of the office product and another via
-a copy and paste operation.
-All that had to be pushed and pulled from the network share over what was in those days typically a 10 Mbit coaxial
-ethernet cable (i.e. very slow). Finally, the earlier logic had no awareness
-of what ought to happen if two people open the same file concurrently, or two users try to write to the same
-file name concurrently (obviously someone sees their sequence of renames to fail), or indeed many other corner cases.
-As a quick fix to these issues, the multinational vendor in fact bolted on a simple detection of a file being already
-open by another user, and if so all writes were directed to the local copy in the local system temporary drive.
-
-This vendor was more than well aware of the shortcomings in its completely hypothetical premier office suite product.
-So they went ahead and substantially improved the support for concurrent users in networked filing
-systems. They did this by adding support for NT opportunistic locks more about which you can read
-[@http://www.osronline.com/article.cfm?id=90 here all the way back in 1996]. These naturally extended
-the very well designed VMS file locking design inherited by the NT kernel (the NT kernel was originally the
-next generation VMS kernel, and therefore is largely backwards API compatible with VMS), and were both hugely faster
-than NFS and didn't corrupt data like NFS at that time did. The hypothetical vendor tested this new support
-against their proprietary implementation of a networking filing system, and it worked, so they shipped the feature.
-
-Unfortunately, this turned out to be a case of what worked during testing not working so well in the field.
-NT opportunistic locks worked great, except when they didn't. If your network was heavily overloaded and was
-dropping packets, or your MTU path discovery was broken (dropping some packets not others without the proper
-ICMP response), or you had a faulty network card anywhere on the network, ['then] you saw data corruption due
-to the op locks getting out of sync with one another. You can read
-lots more about NT opportunistic locks [@https://www.samba.org/samba/docs/man/Samba-HOWTO-Collection/locking.html here].
-
-Furthermore, a large chunk of their user base doesn't use their proprietary network filing system
-implementation i.e. the one they did all their testing upon. Rather they use Samba which is an open source alternative. Samba runs atop of a mostly
-POSIX compliant file systems, and these provide a pale, and incommensurate to even other POSIX implementations,
-shadow of the locking facilities provided by the NT/VMS kernel. Samba
-is therefore in a very unfortunate position of having to emulate NT oplock semantics using the
-highly inferior, and indeed known-to-be-fundamentally-broken byte range advisory locking on POSIX
-(I won't start into just how braindead POSIX advisory locking is, but be happy that AFIO spends
-a lot of code working around it in the v1.4 engine onwards and the Austin Working Group may soon
-have POSIX not require such a foolish design). This is not to denigrate the Samba authors
-__dash__ after all, they were forced to emulate semantics which POSIX cannot allow, and in fact
-Linux ended up implementing NT oplocks in its kernel via the `F_SETLEASE` et al `fnctl()` extensions to help Samba
-replicate equivalent semantics.
-
-Nevertheless, cue a spate of file corruption and lost data by users of this hypothetical office suite when using
-network shares (a google search might find issues related to some office suite whose resemblance to the
-hypothetical one described is purely coincidental). As of the time
-of writing (Feb 2015), the still extant advice is to disable oplocks for all Samba shares which are not
-the user's personal home directory and therefore disables all caching in
-Samba for such non-exclusive i.e. actually shared network shares. This has calamitous effects on performance, sufficiently so that Samba shares
-now appear quite slow relative to modern NFS shares. This is unfortunate, and I doubt that the designer
-of the oplock based solution implemented by the office suite would have expected, and definitely not intended,
-the real world outcome of lost and corrupted user data combined with poor performance.
-
-Here is where AFIO comes into play. AFIO makes as many platform quirks as is possible go away, but
-otherwise provides you with a set of behaviour guarantees regarding the remaining platform quirks.
-With care, and through examining this quirks list below, by using AFIO it is possible to write high performance
-but ['correct] filing system manipulation logic __dash__ well, in so far as the quirks allow at least!
+Well, there is some good news: AFIO makes maximum use of host OS filing system race safeguards, so if you
+write your code against AFIO and take note of the race guarantees section in each individual per-API
+reference documentation page, you should hopefully avoid any possibility of experiencing filing system
+races.
 
 [heading What AFIO provides for managing filing system raciness]
 
-Firstly, the only operating system capable of providing completely race free filing system behaviour is Microsoft Windows,
-or rather the very well designed NT kernel API which AFIO uses directly.
+Firstly, readers will probably be quite surprised to learn that the only operating system capable of providing
+completely race free filing system behaviour is Microsoft Windows, or rather the very well designed NT kernel API which AFIO uses directly.
 Linux provides file descriptor path discovery and the `XXXat()` POSIX APIs, and with those AFIO can provide pretty
-good race condition safety on Linux. Mac OS X provides file descriptor path discovery, but does not provide the `XXXat()`
+good race condition safety on Linux. Mac OS X provides an unfortunately quite broken file descriptor path discovery, and additionally does not provide the `XXXat()`
 POSIX APIs and so AFIO cannot provide race protection, but can throw exceptions sometimes if it detects the filesystem
-has suddenly changed and you're about to delete the wrong file. FreeBSD provides the `XXXat()` POSIX APIs, but its file
+has suddenly changed and you're about to delete the wrong file (you shouldn't rely on this, it's racy). FreeBSD provides the `XXXat()` POSIX APIs, but its file
 descriptor path discovery only works correctly for directory not file handles due to a kernel bug (I've opened
-a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695) and therefore only quite
-limited race condition safety for directories only.
+a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695) and therefore AFIO
+can provide only quite limited race condition safety for directories only.
 
 Additionally, working with the filing system in a race safe way on POSIX requires opening a file descriptor to the
 containing directory for every operation. AFIO will keep a global cache of open file handles for containing directories
@@ -457,22 +384,8 @@ especially on OS X which is why it is disabled by default. The alternative if yo
 is to specify the `file_flags::NoRaceProtection` flag per dispatcher or per individual file handle open, this causes AFIO
 to use the same maximum performance code paths as used before the v1.3 engine.
 
-The APIs provided by AFIO which have potential file system races are as follows:
 
-[table:afio_racy_apis1 Potential races in APIs provided by AFIO:
-[[API][Context]]
-
-[[`afio::path::make_absolute()`][Where a relative path fragment is supplied and `filesystem::absolute()` must be called
-to convert it into an absolute path, this is racy on the process current working directory setting.][Either always
-supply absolute paths when not traversing from a precondition, or never change the current working directory (including
-any third party libraries).]]
-
-[[`async_io_handle::path(false)`][By default returns the last known good path. Calling it with true is much slower, but
-may return a path which is currently correct for some hard link __dash__ not necessarily the hard link you originally
-opened (platforms vary on this) __dash__ of the inode currently opened by the handle. Note that the returned path may
-become invalid at any moment if someone else changes the directory hierarchy underneath the file entry.]]
-
-]
+TODO FIXME
 
 Remember in the following table that __afio_path_op_req__ can be constructed via any of the following means:
 
