@@ -368,15 +368,17 @@ races.
 Firstly, readers will probably be quite surprised to learn that the only operating system capable of providing
 completely race free filing system behaviour is Microsoft Windows, or rather the very well designed NT kernel API which AFIO uses directly.
 Linux provides file descriptor path discovery and the `XXXat()` POSIX APIs, and with those AFIO can provide pretty
-good race condition safety on Linux. Mac OS X provides an unfortunately quite broken file descriptor path discovery, and additionally does not provide the `XXXat()`
+good race condition safety on Linux up to the final directory in the path.
+Mac OS X provides an unfortunately quite broken file descriptor path discovery, and additionally does not provide the `XXXat()`
 POSIX APIs and so AFIO cannot provide race protection, but can throw exceptions sometimes if it detects the filesystem
 has suddenly changed and you're about to delete the wrong file (you shouldn't rely on this, it's racy). FreeBSD provides the `XXXat()` POSIX APIs, but its file
 descriptor path discovery only works correctly for directory not file handles due to a kernel bug (I've opened
-a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695) and therefore AFIO
-can provide only quite limited race condition safety for directories only.
+a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=198570) and therefore AFIO
+can provide only race condition safety for directories only on FreeBSD.
 
 Additionally, working with the filing system in a race safe way on POSIX requires opening a file descriptor to the
-containing directory for every operation. AFIO will keep a global cache of open file handles for containing directories
+containing directory for every operation (some proprietary Linux extensions allow this to be avoided for some operations on
+newer Linux kernels). AFIO will keep a global cache of open file handles for containing directories
 on request using the `file_flags::HoldParentOpen` flag which can be enabled per dispatcher or per individual file handle open,
 this very significantly reduces the cost of race condition safety on POSIX ['for file entries only] as directories ignore
 the `file_flags::HoldParentOpen` flag, though at the cost of increased file descriptor usage, which has low hard limits
@@ -384,106 +386,40 @@ especially on OS X which is why it is disabled by default. The alternative if yo
 is to specify the `file_flags::NoRaceProtection` flag per dispatcher or per individual file handle open, this causes AFIO
 to use the same maximum performance code paths as used before the v1.3 engine.
 
+[heading How to implement filing system race safety on AFIO]
 
-TODO FIXME
+The essential rule for achieving maximum filing system race safety is to avoid using absolute paths where possible. If
+you want your code to also be safe on POSIX, you must additionally only assume race safety up to the final directory in
+a path __dash__ thereafter design your node to never behave racily within a single directory.
 
-Remember in the following table that __afio_path_op_req__ can be constructed via any of the following means:
+The core container type for specifying a location on the filing system to AFIO is __afio_path_op_req__ which looks like this:
 
-* Implicit conversion from a __afio_path__, which if not absolute is made absolute from the current working directory.
-* Boolean `is_relative`, precondition and path. If is relative, the precondition's path is used as the starting point
-for the path fragment and if the path fragment is empty, that means the path of the precondition.
-If is not relative, if the path is not absolute it is made absolute from the current working directory.
-* `async_path_op_req::relative` type markup for the preceding constructor with `is_relative=true`.
-* `async_path_op_req::absolute` type markup for the preceding constructor with `is_relative=false`.
+    struct async_path_op_req
+    {
+        bool is_relative;              // Whether the precondition is also where this path begins.
+        afio::path path;               // The filing system path to be used for this operation.
+        file_flags flags;              // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
+        async_io_op precondition;      // An optional precondition for this operation.
+        async_path_op_req(T &&);       // Converts T to a filesystem::path, makes it absolute, then converts to an afio::path
+        async_path_op_req(bool, T &&); // If the bool is true, converts T to an afio::path fragment. If false, same as above overload (i.e. make absolute).
+    };
+    
+For convenience, type markup is provided for the boolean taking constructor, these being `async_path_op_req::relative` and
+`async_path_op_req::absolute`.
 
-The essential rule for achieving maximum filing system race safety is to avoid using absolute paths where possible.
+If the path is relative, then the path of the precondition is used as the base from which the relative path fragment
+operates. On FreeBSD, Linux and Windows this base extension happens inside the kernel and so the current path of the precondition
+really doesn't matter __dash__ it could be changing a thousand times per second and it wouldn't matter. On OS X due
+to lack of the `XXXat()` POSIX APIs the path of the precondition is fetched and the extension done by hand.
 
-[table:afio_racy_apis2
-[[API][Race protection][Path op type][Microsoft Windows][Linux][Mac OS X][FreeBSD]]
+An AFIO extension allows you to specify a file as precondition. In this situation, if you specify an empty path
+then you mean the precondition itself which is very useful for deleting or renaming an open file handle. If you want
+a sibling file, this can be found via a path fragment starting with `../`, though note that this necessarily is racy
+(AFIO opens the containing directory of the file, ensuring the directory contains an inode matching the file, and
+then uses that directory handle as a base __dash__ the race here being if the file relocates after matching its
+containing directory).
 
-[[`dir/file(async_path_op_req)`][On][Absolute]
- [Unsafe on all platforms as may not open the directory or file expected if the filing system changes.]
-]
-[[][On][Relative]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Unsafe]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
-]
-[[][Off][Absolute]
- [Unsafe on all platforms as may not open the directory or file expected if the filing system changes.]
-]
-[[][Off][Relative]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
- [Unsafe]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
-]
-
-[[`rmdir/rmfile(async_path_op_req)`][On][Absolute]
- [Unsafe on all platforms as may not delete the directory or file expected if the filing system changes.]
-]
-[[][On][Relative]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Safe to precondition's containing directory. Unsafe within containing directory.]
- [Unsafe.]
- [Should return not found if unsafe.]
-]
-[[][Off][Absolute]
- [Unsafe on all platforms as may not delete the directory or file expected if the filing system changes.]
-]
-[[][Off][Relative]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
- [Unsafe.]
- [Should return not found if unsafe.]
-]
-
-[[`symlink(async_path_op_req)`][On][Absolute]
- [Unsafe on all platforms as may not open the symlink expected if the filing system changes.]
-]
-[[][On][Relative]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Unsafe]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
-]
-[[][Off][Absolute]
- [Unsafe on all platforms as may not open the symlink expected if the filing system changes.]
-]
-[[][Off][Relative]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
- [Unsafe]
- [Safe to precondition if that is a directory handle. Any path fragment from there may not be the one expected. Otherwise unsafe.]
-]
-
-[[`rmsymlink(async_path_op_req)`][On][Absolute]
- [Unsafe on all platforms as may not delete the symlink expected if the filing system changes.]
-]
-[[][On][Relative]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Unsafe.]
- [Throws exception if unsafe if link is not broken and refers to a distinct file. Otherwise unsafe.]
-]
-[[][Off][Absolute]
- [Unsafe on all platforms as may not delete the symlink expected if the filing system changes.]
-]
-[[][Off][Relative]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Safe to precondition. Any path fragment from there may not be the one expected.]
- [Unsafe.]
- [Should return not found if unsafe.]
-]
-
-
-
-]
-
-Detail what can be tracked and not tracked per OS and filing system.
-
-[endsect] [/rename_tracking]
+[endsect] [/filesystem_races]
 
 
 [section:so_what What benefit does asynchronous file i/o bring me? A demonstration of AFIO's power]

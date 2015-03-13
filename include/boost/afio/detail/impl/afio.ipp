@@ -898,37 +898,46 @@ namespace detail {
               // Unfortunately this call is broken on FreeBSD 10 where it is currently returning
               // null paths most of the time for regular files. Directories work perfectly. I've
               // logged a bug with test case at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=197695.
+              if(!opened_as_dir())
               {
-                lock_guard<pathlock_t> g(pathlock);
-                newpath=_path;
-              }
-              size_t len;
-              int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
-              BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
-              std::vector<char> buffer(len*2);
-              BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
-#if 0 //ndef NDEBUG
-              for(char *p=buffer.data(); p<buffer.data()+len;)
-              {
-                struct kinfo_file *kif=(struct kinfo_file *) p;
-                std::cout << kif->kf_type << " " << kif->kf_fd << " " << kif->kf_path << std::endl;
-                p+=kif->kf_structsize;
-              }
-#endif
-              for(char *p=buffer.data(); p<buffer.data()+len;)
-              {
-                struct kinfo_file *kif=(struct kinfo_file *) p;
-                if(kif->kf_fd==fd)
+                struct stat s;
+                BOOST_AFIO_ERRHOS(fstat(fd, &s));
+                if(s.st_nlink)
                 {
-                  struct stat s;
-                  BOOST_AFIO_ERRHOS(fstat(fd, &s));
-                  if(s.st_nlink && kif->kf_path[0])
-                    newpath=path::string_type(kif->kf_path);
-                  else if(!s.st_nlink)
-                    newpath.clear();
-                  break;
+                  lock_guard<pathlock_t> g(pathlock);
+                  newpath=_path;
                 }
-                p+=kif->kf_structsize;
+              }
+              else
+              {
+                size_t len;
+                int mib[4]={CTL_KERN, KERN_PROC, KERN_PROC_FILEDESC, getpid()};
+                BOOST_AFIO_ERRHOS(sysctl(mib, 4, NULL, &len, NULL, 0));
+                std::vector<char> buffer(len*2);
+                BOOST_AFIO_ERRHOS(sysctl(mib, 4, buffer.data(), &len, NULL, 0));
+#if 0 //ndef NDEBUG
+                for(char *p=buffer.data(); p<buffer.data()+len;)
+                {
+                  struct kinfo_file *kif=(struct kinfo_file *) p;
+                  std::cout << kif->kf_type << " " << kif->kf_fd << " " << kif->kf_path << std::endl;
+                  p+=kif->kf_structsize;
+                }
+#endif
+                for(char *p=buffer.data(); p<buffer.data()+len;)
+                {
+                  struct kinfo_file *kif=(struct kinfo_file *) p;
+                  if(kif->kf_fd==fd)
+                  {
+                    //struct stat s;
+                    //BOOST_AFIO_ERRHOS(fstat(fd, &s));
+                    //if(s.st_nlink && kif->kf_path[0])
+                      newpath=path::string_type(kif->kf_path);
+                    //else if(!s.st_nlink)
+                    //  newpath.clear();
+                    break;
+                  }
+                  p+=kif->kf_structsize;
+                }
               }
 #else
 #error Unknown system
@@ -1136,7 +1145,11 @@ namespace detail {
               // Some platforms may allow direct deletion of file handles, in which case we are done
 #ifdef AT_EMPTY_PATH
               if(fd>=0 && -1!=BOOST_AFIO_POSIX_UNLINKAT(fd, "", opened_as_dir() ? AT_EMPTY_PATH|AT_REMOVEDIR : AT_EMPTY_PATH))
+              {
+                lock_guard<pathlock_t> g(pathlock);
+                _path.clear();
                 return;
+              }
 #endif
               auto dirh(int_verifymyinode());
               if(!dirh)
@@ -1159,10 +1172,14 @@ namespace detail {
               // Could of course still race between the lstat() and the unlink() so still unsafe ...
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, p.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
 #endif
+              lock_guard<pathlock_t> g(pathlock);
+              _path.clear();
               return;
             }
           }
           BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
+          lock_guard<pathlock_t> g(pathlock);
+          _path.clear();
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &_req) override final
         {
@@ -1194,11 +1211,18 @@ namespace detail {
               // Could of course still race between the lstat() and the unlink() so still unsafe ...
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, p.c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
 #endif
+              lock_guard<pathlock_t> g(pathlock);
+              if(newdirh)
+                _path=newdirh->path(true)/req.path;
+              else
+                _path=req.path;
               return;
             }
           }
           decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, true);
           BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
+          lock_guard<pathlock_t> g(pathlock);
+          _path=req.path;
         }
     };
 
