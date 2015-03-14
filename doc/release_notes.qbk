@@ -68,6 +68,11 @@ last handle close do the file delete on POSIX.
 handle open of metadata per graph object read. Unsure if NTFS is any faster
 opening EA though, need to test.
 
+* AFIO's stable DLL ABI is intentionally C compatible, so all one needs is a libclang
+tool for generating C wrappers for the DLL ABI which massage C arrays into pseudo std::vector
+const lvalue refs. Such C bindings would be all batch and have none of the friendliness of
+programming AFIO in C++, but they ought to work quite well.
+
 * Kernel side file <=> socket data copying via sendfile and splice on Linux. Integrating
 splice as async with ASIO is unfortunately painful :(
 
