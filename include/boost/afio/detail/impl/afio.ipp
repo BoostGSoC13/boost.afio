@@ -825,6 +825,13 @@ namespace detail {
         }
         //! Returns the containing directory if my inode appears in it
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
+        void update_path(BOOST_AFIO_V1_NAMESPACE::path oldpath, BOOST_AFIO_V1_NAMESPACE::path newpath)
+        {
+          // For now, always zap the container
+          dirh.reset();
+          if(available_to_directory_cache())
+            parent()->int_directory_cached_handle_path_changed(oldpath, newpath, shared_from_this());
+        }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
@@ -953,17 +960,7 @@ namespace detail {
                 }
               }
               if(changed)
-              {
-                // Need to update the directory cache
-                if(available_to_directory_cache())
-                  parent()->int_directory_cached_handle_path_changed(oldpath, newpath, shared_from_this());
-#if 0
-                // Perhaps also need to update my container
-                auto containerh(container());
-                if(containerh)
-                  containerh->path(true);
-#endif
-              }
+                update_path(oldpath, newpath);
             }
 #endif
           }
@@ -1145,11 +1142,7 @@ namespace detail {
               // Some platforms may allow direct deletion of file handles, in which case we are done
 #ifdef AT_EMPTY_PATH
               if(fd>=0 && -1!=BOOST_AFIO_POSIX_UNLINKAT(fd, "", opened_as_dir() ? AT_EMPTY_PATH|AT_REMOVEDIR : AT_EMPTY_PATH))
-              {
-                lock_guard<pathlock_t> g(pathlock);
-                _path.clear();
-                return;
-              }
+                goto update_path;
 #endif
               auto dirh(int_verifymyinode());
               if(!dirh)
@@ -1172,14 +1165,17 @@ namespace detail {
               // Could of course still race between the lstat() and the unlink() so still unsafe ...
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, p.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
 #endif
-              lock_guard<pathlock_t> g(pathlock);
-              _path.clear();
-              return;
+              goto update_path;
             }
           }
           BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
-          lock_guard<pathlock_t> g(pathlock);
-          _path.clear();
+update_path:
+          BOOST_AFIO_V1_NAMESPACE::path oldpath, newpath;
+          {
+            lock_guard<pathlock_t> g(pathlock);
+            oldpath=std::move(_path);
+          }
+          update_path(oldpath, newpath);
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &_req) override final
         {
@@ -1211,18 +1207,21 @@ namespace detail {
               // Could of course still race between the lstat() and the unlink() so still unsafe ...
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, p.c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
 #endif
-              lock_guard<pathlock_t> g(pathlock);
               if(newdirh)
-                _path=newdirh->path(true)/req.path;
-              else
-                _path=req.path;
-              return;
+                req.path=newdirh->path(true)/req.path;
+              goto update_path;
             }
           }
           decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, true);
           BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
-          lock_guard<pathlock_t> g(pathlock);
-          _path=req.path;
+update_path:
+          BOOST_AFIO_V1_NAMESPACE::path oldpath;
+          {
+            lock_guard<pathlock_t> g(pathlock);
+            oldpath=std::move(_path);
+            _path=req.path;
+          }
+          update_path(oldpath, req.path);
         }
     };
 
@@ -3343,6 +3342,9 @@ namespace detail {
               return dirh;
           }
           // Didn't find an entry with my name, so sleep and retry
+#ifndef NDEBUG
+          std::cout << "WARNING: Did not find inode " << st_ino << " in directory " << dirh->path() << ", sleeping." << std::endl;
+#endif
           dirh.reset();
           this_thread::sleep_for(chrono::milliseconds(1));
         }

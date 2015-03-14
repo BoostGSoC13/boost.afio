@@ -381,6 +381,9 @@ namespace detail
               }
               if(changed)
               {
+                // Currently always zap the container if path changes
+                if(this->dirh)
+                  this->dirh.reset();
                 // Need to update the directory cache
                 if(available_to_directory_cache())
                   parent()->int_directory_cached_handle_path_changed(oldpath, newpath, shared_from_this());
