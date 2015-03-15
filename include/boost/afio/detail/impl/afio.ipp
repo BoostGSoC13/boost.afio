@@ -1328,8 +1328,8 @@ update_path:
             std::shared_ptr<async_io_handle> dirh;
             for(auto &i : torefresh)
             {
-              dirh=i.second.lock();
-              dirh->path(true);
+              if((dirh=i.second.lock()))
+                dirh->path(true);
             }
             lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
@@ -1337,8 +1337,17 @@ update_path:
                 std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash>::iterator it=dirhcache.find(req.path);
                 if(dirhcache.end()==it)
                 {
-                    auto result=(parent->*dofile)(id, async_io_op(), req); // should recurse in to insert itself
-                    if(!result.first) abort();
+                    async_file_io_dispatcher_base::completion_returntype result;
+                    try
+                    {
+                      result=(parent->*dofile)(id, async_io_op(), req); // should recurse in to insert itself
+                    }
+                    catch(...)
+                    {
+                    }
+                    // Path can become stale during attempt to open, so loop
+                    if(!result.first)
+                      continue;
                     dirh=std::move(result.second);
 #ifndef NDEBUG
                     if(dirh)
@@ -1358,8 +1367,8 @@ update_path:
                 {
                     dirh=it->second.lock();
 #ifndef NDEBUG
-                    if(dirh)
-                      std::cout << "afio: directory cached handle served for " << it->first << " (" << dirh.get() << ")" << std::endl;
+//                    if(dirh)
+//                      std::cout << "afio: directory cached handle served for " << it->first << " (" << dirh.get() << ")" << std::endl;
 #endif
                 }
             } while(!dirh);
@@ -1724,7 +1733,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::int_dir
     auto it=p->dirhcache.find(oldpath);
     if(it!=p->dirhcache.end())
     {
-      assert(it->second.lock()==h);
+      //assert(it->second.lock()==h);
       p->dirhcache.erase(it);
     }
   }
