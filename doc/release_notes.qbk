@@ -64,6 +64,11 @@ with lock file options.
 * Also related to locking files, DeleteOnClose should use advisory locks to have the
 last handle close do the file delete on POSIX.
 
+* Right now specifying an empty path with precondition to mean same as precondition is
+inefficient and racy: it opens the containing directory and uses the containing
+directory as the base with its leafname. What it should do is to duplicate the handle
+and use fnctl() etc to reopen the handle with the desired access and flags.
+
 * Extended attributes support. TripleGit could use this to avoid a second file
 handle open of metadata per graph object read. Unsure if NTFS is any faster
 opening EA though, need to test.
@@ -225,13 +230,10 @@ handle now provide stack backtraces.
 * Added virtual member functions link(), unlink() and atomic_relink() to async_io_handle, plus adjusted the engine to
 always call these instead of performing those operations unilaterally.
 
+* Added a race protection unit test.
+
 
 TODO BEFORE RELEASE
-
-2. Add unit test swapping two directories
-each with an open file in them and make sure it doesn't get confused.
-
-3. Write tutorial section on tracking files over time.
 
 4. clang-reformat everything.
 

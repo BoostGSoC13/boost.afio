@@ -25,11 +25,15 @@ namespace detail {
       {
         if(!!(flags & file_flags::int_opening_dir))
         {
+            /* NOTE TO SELF: Never, ever, ever again request FILE_DELETE_CHILD perms. It subtly breaks renaming, enumeration
+                             and a ton of other stuff in a really weird way. */
             ntflags|=0x01/*FILE_DIRECTORY_FILE*/;
-            access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;
+            access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;  // FILE_READ_DATA|FILE_EXECUTE
+            // Match POSIX where read perms are sufficient to use this handle as a relative base for creating new entries
+            access|=FILE_ADD_FILE|FILE_ADD_SUBDIRECTORY;  // FILE_WRITE_DATA|FILE_APPEND_DATA
             if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
-            // Write access probably means he wants to delete self and files
-            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|FILE_DELETE_CHILD|DELETE;
+            // Write access probably means he wants to delete or rename self
+            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
             // Windows doesn't like opening directories without buffering.
             if(!!(flags & file_flags::OSDirect)) flags=flags & ~file_flags::OSDirect;
         }

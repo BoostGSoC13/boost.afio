@@ -1,12 +1,16 @@
 #include "test_functions.hpp"
 
-BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection works", 600)
+BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection works", 300)
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
 #ifdef __FreeBSD__
     // ZFS really, really, really hates this test
     static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=10;
     static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=10;
+#elif defined(WIN32)
+    // NTFS is punished by very slow file handle opening
+    static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=100;
+    static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=100;
 #else
     static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=1000;
     static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=100;
@@ -34,14 +38,19 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
       auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::Create));
       async_io_op dirh;
 
+      try
       {
         // We can only reliably track directory renames on all platforms, so let's create 100 directories
         // which will be constantly renamed to something different by a worker thread
         std::vector<async_path_op_req> dirreqs;
         for(size_t n=0; n<ITEMS; n++)
-          dirreqs.push_back(async_path_op_req::relative(testdir, to_string(n), file_flags::Create));
-        auto dirs=dispatcher->dir(dirreqs);
+          dirreqs.push_back(async_path_op_req::relative(testdir, to_string(n), file_flags::Create|file_flags::ReadWrite));
+        // Windows needs write access to the directory to enable relinking, but opening a handle
+        // with write access causes any renames into that directory to fail. So mark the first
+        // directory which is always the destination for renames as non-writable
+        dirreqs.front().flags=file_flags::Create;
         std::cout << "Creating " << ITEMS << " directories ..." << std::endl;
+        auto dirs=dispatcher->dir(dirreqs);
         when_all(dirs).get();
         dirh=dirs.front();
         atomic<bool> done(false);
@@ -51,18 +60,24 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
           {
             for(size_t number=0; !done; number++)
             {
+#ifdef WIN32
+              for(size_t n=1; n<ITEMS; n++)
+#else
               for(size_t n=0; n<ITEMS; n++)
+#endif
               {
                 async_path_op_req::relative req(testdir, to_string(number)+"_"+to_string(n));
-                //std::cout << "Renaming " << dirs[n].get()->path() << " ..." << std::endl;
+                //std::cout << "Renaming " << dirs[n].get()->path(true) << " ..." << std::endl;
                 try
                 {
                   dirs[n].get()->atomic_relink(req);
                 }
-                catch(...)
+                catch(const system_error &e)
                 {
                   // Windows does not permit renaming a directory containing open file handles
-#ifndef WIN32
+#ifdef WIN32
+                  //std::cout << "NOTE: Failed to rename directory " << dirs[n]->path() << " due to " << e.what() << ", this is usual on Windows." << std::endl;
+#else
                   throw;
 #endif
                 }
@@ -70,9 +85,9 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
               std::cout << "Worker relinked all dirs to " << number << std::endl;
             }
           }
-          catch(const system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
-          catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; abort(); }
-          catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; abort(); }
+          catch(const system_error &e) { std::cerr << "ERROR: worker thread exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
+          catch(const std::exception &e) { std::cerr << "ERROR: worker thread exits via exception (" << e.what() << ")" << std::endl; abort(); }
+          catch(...) { std::cerr << "ERROR: worker thread exits via unknown exception" << std::endl; abort(); }
         });
         auto unworker=detail::Undoer([&done, &worker]{done=true; worker.join();});
         
@@ -81,7 +96,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         for(size_t n=0; n<ITEMS; n++)
         {
           dirreqs[n].precondition=dirs[n];
-          dirreqs[n].flags=file_flags::CreateOnlyIfNotExist|file_flags::Write;
+          dirreqs[n].flags=file_flags::CreateOnlyIfNotExist|file_flags::ReadWrite;
         }
         for(size_t i=0; i<ITERATIONS; i++)
         {
@@ -119,7 +134,10 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         } while(dispatcher->wait_queue_depth());
         // Close all handles opened during this context except for dirh
       }
-      
+      catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
+      catch(const std::exception &e) { std::cerr << "ERROR: test exits via exception (" << e.what() << ")" << std::endl; abort(); }
+      catch(...) { std::cerr << "ERROR: test exits via unknown exception" << std::endl; abort(); }
+
       // Check that everything is as it ought to be
       auto _contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 10*ITEMS*ITERATIONS)).first.get().first;
       testdir=async_io_op();  // Kick out AFIO now so NTFS has itself cleaned up by the end of the checks

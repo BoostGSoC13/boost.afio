@@ -1234,6 +1234,9 @@ public:
     a file entry is already there, use link() and if success, unlink() on the former location. If you wish
     to always overwrite the destination, use atomic_relink() instead.    
 
+    On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges (`file_flags::Write`)
+    anywhere in the system. This is an operating system limitation.
+ 
     \ntkernelnamespacenote
     \param req The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.
     \ingroup async_io_handle__ops
@@ -1266,6 +1269,9 @@ public:
     guarantee the atomicity of the replaced location i.e. the location you are relinking to will always refer to
     some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink
     if power is lost close to the relinking operation.
+    
+    On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges (`file_flags::Write`)
+    anywhere in the system. This is an operating system limitation.
 
     \ntkernelnamespacenote
     \param req The absolute or relative (in which case precondition specifies a directory) path to relink to.
@@ -1695,10 +1701,6 @@ public:
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
 
-    Note that on Windows for some odd reason if you open a directory with write access, any operations involving creating or
-    renaming anything inside that directory will fail for no good reason. You should therefore only open directories with
-    write access very rarely.
-    
     \ntkernelnamespacenote
 
     \return A batch of op handles.
@@ -1719,10 +1721,6 @@ public:
     a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
-
-    Note that on Windows for some odd reason if you open a directory with write access, any operations involving creating or
-    renaming anything inside that directory will fail for no good reason. You should therefore only open directories with
-    write access very rarely.
 
     \ntkernelnamespacenote
 

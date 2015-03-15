@@ -747,6 +747,7 @@ namespace detail {
       if(!req.is_relative)
         return std::shared_ptr<async_io_handle>();
       Handle *p=static_cast<Handle *>(req.precondition.get().get());
+retry:
       async_path_op_req parentpath(p->path(true));
       if(!force_absolute)
       {
@@ -760,7 +761,15 @@ namespace detail {
           }
           else if(p->available_to_directory_cache())
             return std::move(req.precondition.get());  // always valid and a directory
-          return p->parent()->p->get_handle_to_dir(static_cast<Impl *>(p->parent()), 0, parentpath, &Impl::dofile);
+          try
+          {
+            return p->parent()->p->get_handle_to_dir(static_cast<Impl *>(p->parent()), 0, parentpath, &Impl::dofile);
+          }
+          catch(...)
+          {
+            // Path of p is stale, so loop
+            goto retry;
+          }
         }
         else
         {
@@ -1331,23 +1340,16 @@ update_path:
               if((dirh=i.second.lock()))
                 dirh->path(true);
             }
+            dirh.reset();
             lock_guard<dircachelock_t> dircachelockh(dircachelock);
             do
             {
                 std::unordered_map<path, std::weak_ptr<async_io_handle>, path_hash>::iterator it=dirhcache.find(req.path);
-                if(dirhcache.end()==it)
+                if(dirhcache.end()!=it)
+                  dirh=it->second.lock();
+                if(!dirh)
                 {
-                    async_file_io_dispatcher_base::completion_returntype result;
-                    try
-                    {
-                      result=(parent->*dofile)(id, async_io_op(), req); // should recurse in to insert itself
-                    }
-                    catch(...)
-                    {
-                    }
-                    // Path can become stale during attempt to open, so loop
-                    if(!result.first)
-                      continue;
+                    async_file_io_dispatcher_base::completion_returntype result=(parent->*dofile)(id, async_io_op(), req); // should recurse in to insert itself
                     dirh=std::move(result.second);
 #ifndef NDEBUG
                     if(dirh)
@@ -1362,14 +1364,6 @@ update_path:
                     }
                     else
                         abort();
-                }
-                else
-                {
-                    dirh=it->second.lock();
-#ifndef NDEBUG
-//                    if(dirh)
-//                      std::cout << "afio: directory cached handle served for " << it->first << " (" << dirh.get() << ")" << std::endl;
-#endif
                 }
             } while(!dirh);
             return dirh;
