@@ -117,6 +117,8 @@ Hard links the file to a new location on the same volume.
 [heading Description]
 If you wish to make a temporary file whose contents are ready appear at a location and error out if a file entry is already there, use link() and if success, unlink() on the former location. If you wish to always overwrite the destination, use atomic\u005frelink() instead.
 
+On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges ([^`file_flags::Write`]) anywhere in the system. This is an operating system limitation.
+
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage. 
 
 [heading Synopsis]
@@ -179,6 +181,8 @@ Links the file to a new location and unlinks the file from its present location 
 
 [heading Description]
 Note that not all filing systems guarantee the atomicity of the relink itself (i.e. the file may appear at two locations in the filing system for a period of time), though all supported platforms do guarantee the atomicity of the replaced location i.e. the location you are relinking to will always refer to some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink if power is lost close to the relinking operation.
+
+On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges ([^`file_flags::Write`]) anywhere in the system. This is an operating system limitation.
 
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage. 
 

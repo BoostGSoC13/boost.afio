@@ -71,7 +71,6 @@
 [import ../example/completion_example1.cpp]
 [import ../example/completion_example2.cpp]
 [import ../example/enumerate_example.cpp]
-[import ../test/tests/atomic_log_append_test.cpp]
 [import ../example/filecopy_example.cpp]
 [import ../example/filedir_example.cpp]
 [import ../example/filter_example.cpp]
@@ -81,6 +80,8 @@
 [import ../example/readwrite_example.cpp]
 [import ../example/readwrite_example_traditional.cpp]
 [import ../example/statfs_example.cpp]
+[import ../test/tests/atomic_log_append_test.cpp]
+[import ../test/tests/race_protection_works.cpp]
 
 [section:introduction Introduction]
 __boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file

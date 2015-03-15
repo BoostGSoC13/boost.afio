@@ -367,7 +367,7 @@ races.
 
 Firstly, readers will probably be quite surprised to learn that the only operating system capable of providing
 completely race free filing system behaviour is Microsoft Windows, or rather the very well designed NT kernel API which AFIO uses directly.
-Linux provides file descriptor path discovery and the `XXXat()` POSIX APIs, and with those AFIO can provide pretty
+Linux provides robust file descriptor path discovery and the `XXXat()` POSIX APIs, and with those AFIO can provide pretty
 good race condition safety on Linux up to the final directory in the path.
 Mac OS X provides an unfortunately quite broken file descriptor path discovery, and additionally does not provide the `XXXat()`
 POSIX APIs and so AFIO cannot provide race protection, but can throw exceptions sometimes if it detects the filesystem
@@ -418,6 +418,22 @@ a sibling file, this can be found via a path fragment starting with `../`, thoug
 (AFIO opens the containing directory of the file, ensuring the directory contains an inode matching the file, and
 then uses that directory handle as a base __dash__ the race here being if the file relocates after matching its
 containing directory).
+
+Finally, there are some gotchas on Microsoft Windows, most importantly that the kernel gives you race safety on sources but
+not on destinations. Usefully if annoyingly, Windows will not permit you to relink or link a file or directory to a target directory
+which has any open handle in the system with the privileges to rename or delete that target or any base directory of that
+target (this is completely undocumented by Microsoft by the way, I only discovered this after a great deal of trial and error, but
+nevertheless it is correct). On AFIO, opening a directory with write access requests rename/delete privileges, whereas on POSIX
+the write access request is ignored for directories as POSIX doesn't allow it anyway. This allows you to write identical code
+which works universally.
+
+As an example of some programming AFIO safely on an extremely unstable filing system, below is the functional test which verifies AFIO
+for filing system race safety.
+As you will see, a worker thread is solely dedicated to renaming directories to unique names whilst the main thread creates files
+inside those constantly changing directories, and relinks them into another directory which is also constantly changing on POSIX, but
+is stable on Windows. This is iterated for a substantial period of time to verify that nothing goes wrong.
+
+[race_protection_example]
 
 [endsect] [/filesystem_races]
 
