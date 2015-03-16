@@ -7,9 +7,9 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
     // This test cannot pass on OS X currently, so exit immediately.
     return;
 #endif
-#ifdef __FreeBSD__
-    // ZFS really, really, really hates this test
-    static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=10;
+#if defined(__FreeBSD__) || defined(BOOST_AFIO_COMPILING_FOR_GCOV)
+    // ZFS is not a fan of this test
+    static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=50;
     static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=10;
 #elif defined(WIN32)
     // NTFS is punished by very slow file handle opening
@@ -127,7 +127,11 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
           // Split into two
           std::vector<async_path_op_req> front(dirreqs.begin(), dirreqs.begin()+ITEMS/2), back(dirreqs.begin()+ITEMS/2, dirreqs.end());
           std::cout << "Iteration " << i << ": Creating " << ITEMS << " files and directories inside the " << ITEMS << " constantly changing directories ..." << std::endl;
+#ifdef __FreeBSD__  // FreeBSD can only track directories not files when their parent directories change
+          newfiles=dispatcher->dir(front);
+#else          
           newfiles=dispatcher->file(front);
+#endif
           auto newfiles2=dispatcher->dir(back);
           newfiles.insert(newfiles.end(), std::make_move_iterator(newfiles2.begin()), std::make_move_iterator(newfiles2.end()));
           

@@ -910,19 +910,20 @@ retry:
                 // Apple also annoyingly returns some random hard link when nlink>1, so disable fetching new when that is the case
                 if(s.st_nlink>1)
                 {
-                  lock_guard<pathlock_t> g(pathlock);
-                  newpath=_path;
+                  {
+                    lock_guard<pathlock_t> g(pathlock);
+                    newpath=_path;
+                  }
+                  struct stat ls;
+                  bool exists=(-1!=::lstat(newpath.c_str(), &ls)) && s.st_dev==ls.st_dev && s.st_ino==ls.st_ino;
+                  if(!exists)
+                    newpath.clear();
                 }
                 else
                 {
                   char buffer[PATH_MAX+1];
                   BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
-                  // Apple returns the previous path when deleted, so lstat to be sure
-                  struct stat ls;
-                  bool exists=(-1!=::lstat(buffer, &ls));
-                  // File could have been replaced with another
-                  if(exists && (!!(flags() & file_flags::NoRaceProtection) || (ls.st_dev==st_dev && ls.st_ino==st_ino)))
-                    newpath=path::string_type(buffer);
+                  newpath=path::string_type(buffer);
                 }
               }
 #elif defined(__FreeBSD__)
@@ -938,6 +939,15 @@ retry:
                   lock_guard<pathlock_t> g(pathlock);
                   newpath=_path;
                 }
+#if 0  // We don't attempt refresh semantics as none are promised on FreeBSD for files
+                //if(s.st_nlink>1)
+                {
+                  struct stat ls;
+                  bool exists=(-1!=::lstat(newpath.c_str(), &ls)) && s.st_dev==ls.st_dev && s.st_ino==ls.st_ino;
+                  if(!exists)
+                    newpath.clear();
+                }
+#endif
               }
               else
               {

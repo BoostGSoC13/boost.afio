@@ -67,7 +67,9 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       filesystem::rename("testdir/testfile", "testdir/hellobaby");
       print_stat(h);
       auto afterrename = h->path();
+#ifndef __FreeBSD__  // FreeBSD can't track file renames
       BOOST_CHECK((originalpath.parent_path() / hellobabystr) == afterrename);
+#endif
       std::cout << "\nDeleting hellobaby file using OS ..." << std::endl;
       filesystem::remove("testdir/hellobaby");
       auto afterdelete = print_stat(h);
@@ -130,7 +132,9 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 
     std::cout << "\nUnlinking hard links ..." << std::endl;
     h->unlink();
+#ifndef __FreeBSD__  // FreeBSD will not notice a file with multiple hard links is deleted
     BOOST_CHECK(h->path(true).empty());
+#endif
     contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 2);
     for (auto &i : contents)
