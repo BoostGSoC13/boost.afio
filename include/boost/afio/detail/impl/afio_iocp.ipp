@@ -619,6 +619,10 @@ namespace detail
                 // and that directory contains open files. We can't tell the difference, so keep going
                 if(!ntstat)
                   success=true;
+#if 1
+                else
+                  std::wcout << "unlink() failed to rename to " << fri->FileName << " due to " << ntstat << std::endl;
+#endif
                 return ntstat;
               };
               if(try_rename())

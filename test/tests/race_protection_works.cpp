@@ -16,7 +16,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
     static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=50;
     static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=100;
 #else
-    static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=1000;
+    static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=100;
     static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=100;
 #endif
     // Oh Windows, oh Windows, how strange you are ...
