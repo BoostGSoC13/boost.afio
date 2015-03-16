@@ -3333,7 +3333,18 @@ namespace detail {
           {
             dirh=container();
             if(!dirh)
-              dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_compat *>(parent()), 0, req, &async_file_io_dispatcher_compat::dofile);
+            {
+              try
+              {
+                dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_compat *>(parent()), 0, req, &async_file_io_dispatcher_compat::dofile);
+              }
+              catch(...)
+              {
+                // Path to containing directory may have gone stale
+                this_thread::sleep_for(chrono::milliseconds(1));
+                continue;
+              }
+            }
           }
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
           if(-1!=BOOST_AFIO_POSIX_LSTATAT((int)(size_t)dirh->native_handle(), req.path.filename().c_str(), &s))

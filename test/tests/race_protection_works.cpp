@@ -56,9 +56,9 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         atomic<bool> done(false);
         std::cout << "Creating worker thread to constantly rename those " << ITEMS << " directories ..." << std::endl;
         thread worker([&done, &testdir, &dirs]{
-          try
+          for(size_t number=0; !done; number++)
           {
-            for(size_t number=0; !done; number++)
+            try
             {
 #ifdef WIN32
               for(size_t n=1; n<ITEMS; n++)
@@ -72,22 +72,25 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
                 {
                   dirs[n].get()->atomic_relink(req);
                 }
+#ifdef WIN32
                 catch(const system_error &e)
                 {
                   // Windows does not permit renaming a directory containing open file handles
-#ifdef WIN32
                   //std::cout << "NOTE: Failed to rename directory " << dirs[n]->path() << " due to " << e.what() << ", this is usual on Windows." << std::endl;
-#else
-                  throw;
-#endif
                 }
+#else
+                catch(...)
+                {
+                  throw;
+                }
+#endif
               }
               std::cout << "Worker relinked all dirs to " << number << std::endl;
             }
+            catch(const system_error &e) { std::cerr << "ERROR: worker thread exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_CHECK(false); }
+            catch(const std::exception &e) { std::cerr << "ERROR: worker thread exits via exception (" << e.what() << ")" << std::endl; BOOST_CHECK(false); }
+            catch(...) { std::cerr << "ERROR: worker thread exits via unknown exception" << std::endl; BOOST_CHECK(false); }
           }
-          catch(const system_error &e) { std::cerr << "ERROR: worker thread exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
-          catch(const std::exception &e) { std::cerr << "ERROR: worker thread exits via exception (" << e.what() << ")" << std::endl; abort(); }
-          catch(...) { std::cerr << "ERROR: worker thread exits via unknown exception" << std::endl; abort(); }
         });
         auto unworker=detail::Undoer([&done, &worker]{done=true; worker.join();});
         
@@ -134,9 +137,9 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         } while(dispatcher->wait_queue_depth());
         // Close all handles opened during this context except for dirh
       }
-      catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }
-      catch(const std::exception &e) { std::cerr << "ERROR: test exits via exception (" << e.what() << ")" << std::endl; abort(); }
-      catch(...) { std::cerr << "ERROR: test exits via unknown exception" << std::endl; abort(); }
+      catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; BOOST_REQUIRE(false); }
+      catch(const std::exception &e) { std::cerr << "ERROR: test exits via exception (" << e.what() << ")" << std::endl; BOOST_REQUIRE(false); }
+      catch(...) { std::cerr << "ERROR: test exits via unknown exception" << std::endl; BOOST_REQUIRE(false); }
 
       // Check that everything is as it ought to be
       auto _contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 10*ITEMS*ITERATIONS)).first.get().first;

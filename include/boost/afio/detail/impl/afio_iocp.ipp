@@ -30,7 +30,7 @@ namespace detail {
             ntflags|=0x01/*FILE_DIRECTORY_FILE*/;
             access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;  // FILE_READ_DATA|FILE_EXECUTE
             // Match POSIX where read perms are sufficient to use this handle as a relative base for creating new entries
-            access|=FILE_ADD_FILE|FILE_ADD_SUBDIRECTORY;  // FILE_WRITE_DATA|FILE_APPEND_DATA
+            //access|=FILE_ADD_FILE|FILE_ADD_SUBDIRECTORY;  // FILE_WRITE_DATA|FILE_APPEND_DATA  // Fails where user is not administrator
             if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
             // Write access probably means he wants to delete or rename self
             if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
