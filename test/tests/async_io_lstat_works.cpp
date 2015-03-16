@@ -20,9 +20,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
     }
 
     auto dispatcher=make_async_file_io_dispatcher();
-    auto test(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
+    auto test(dispatcher->dir(async_path_op_req("testdir", file_flags::Create|file_flags::Write)));
     {
-      auto mkdir(dispatcher->dir(async_path_op_req::relative(test, "dir", file_flags::Create|file_flags::HoldParentOpen)));
+      auto mkdir(dispatcher->dir(async_path_op_req::relative(test, "dir", file_flags::Create|file_flags::Write)));
       auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "file", file_flags::Create|file_flags::Write)));
       auto mklink(dispatcher->symlink(async_path_op_req::absolute(mkdir, "testdir/linktodir", file_flags::Create|file_flags::Write)));
 
@@ -44,21 +44,13 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
       BOOST_CHECK(mkfilestat.st_ino!=mklinkstat.st_ino);
       BOOST_CHECK(mkdirstat.st_ino!=mklinkstat.st_ino);
       BOOST_CHECK(mklink.get()->target()==mkdir.get()->path());
-      BOOST_CHECK(mkdir.get()->container()->native_handle()==test.get()->native_handle());
+//      BOOST_CHECK(mkdir.get()->container()->native_handle()==test.get()->native_handle());
 
       auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));
       auto rmfile(dispatcher->close(dispatcher->rmfile(dispatcher->depends(rmlink, mkfile))));
-      when_all({rmlink, rmfile}).get();
+      auto rmdir(dispatcher->close(dispatcher->rmdir(dispatcher->depends(rmfile, mkdir))));
+      when_all({rmlink, rmfile, rmdir}).get();
     }
-    // Need write access to delete a dir by handle, so the above context should have closed the
-    // dir handle and we instead delete via indirecting through parent directory
-    dispatcher->rmdir(async_path_op_req::relative(test, "dir")).get();    
-    // Similar thing here, cannot close by handle without write privs, but here we'll reopen
-    // with write privs in order to unlink
-    test=dispatcher->dir(async_path_op_req("testdir", file_flags::Write));
-#ifdef WIN32
-    this_thread::sleep_for(chrono::seconds(1));
-#endif
-    // Directly unlink now it's closed
-    test.get()->unlink();
+    // For the laugh, do it synchronously
+    test->unlink();
 }

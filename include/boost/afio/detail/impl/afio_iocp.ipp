@@ -1356,7 +1356,7 @@ namespace detail
                 void *ApcContext=ol.get();
 #ifndef _WIN64
                 BOOL isWow64=false;
-                if(IsWow64Process(GetCurrentProcess(), &isWow64), isWow64)
+                if(IsWow64Process(GetCurrentProcess(), &isWow64), !isWow64)
                   ApcContext=nullptr;
 #endif
                 ntstat=NtQueryDirectoryFile(p->native_handle(), ol.get()->hEvent, NULL, ApcContext, (PIO_STATUS_BLOCK) ol.get(),

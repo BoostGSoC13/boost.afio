@@ -149,8 +149,8 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
 
 #define BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(callable) \
   try { callable; } \
-  catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; } \
-  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; BOOST_FAIL("Unit test exits via exception"); throw; }
+  catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; throw; } \
+  catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; throw; }
 #if BOOST_AFIO_USE_BOOST_UNIT_TEST
 template<class T> inline void wrap_test_method(T &t)
 {
@@ -758,7 +758,9 @@ static std::ostream &operator<<(std::ostream &s, const chrono::system_clock::tim
     }
     //len -= ret - 1;
 
-    sprintf(&buf[strlen(buf)], ".%.6f", remainder.count()/((double) chrono::system_clock::period::den / chrono::system_clock::period::num));
+    size_t end=strlen(buf);
+    sprintf(&buf[end], "%f", remainder.count()/((double) chrono::system_clock::period::den / chrono::system_clock::period::num));
+    memmove(&buf[end], &buf[end+1], strlen(&buf[end]));
     s << buf;
 
     return s;

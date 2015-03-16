@@ -23,4 +23,4 @@ cd test
 sh ./test_file_glob.sh
 cd ..
 rm -rf test_all
-$CXX -o test_all -g -O3 -std=c++11 -rdynamic -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fasynchronous-unwind-tables test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -Iasio/asio/include -DSPINLOCK_STANDALONE=1 -DASIO_STANDALONE=1  -DBOOST_AFIO_RUNNING_IN_CI=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread $LIBATOMIC
+$CXX -o test_all -g -O3 -DNDEBUG -std=c++11 -rdynamic -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fasynchronous-unwind-tables test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -Iasio/asio/include -DSPINLOCK_STANDALONE=1 -DASIO_STANDALONE=1  -DBOOST_AFIO_RUNNING_IN_CI=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread $LIBATOMIC
