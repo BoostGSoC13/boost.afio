@@ -48,6 +48,7 @@ lib boost_afio_dyn_asio
     : afio.cpp 
 	: <define>BOOST_ASIO_SEPARATE_COMPILATION
 	  <define>BOOST_ASIO_DYN_LINK
+      <define>BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION
 ;
 explicit boost_afio_dyn_asio ;
 
