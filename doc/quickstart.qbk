@@ -419,11 +419,28 @@ a sibling file, this can be found via a path fragment starting with `../`, thoug
 then uses that directory handle as a base __dash__ the race here being if the file relocates after matching its
 containing directory).
 
-Finally, there are some gotchas on Microsoft Windows, most importantly that the kernel gives you race safety on sources but
-not on destinations. Usefully if annoyingly, Windows will not permit you to relink or link a file or directory to a target directory
-which has any open handle in the system with the privileges to rename or delete that target or any base directory of that
-target (this is completely undocumented by Microsoft by the way, I only discovered this after a great deal of trial and error, but
-nevertheless it is correct). On AFIO, opening a directory with write access requests rename/delete privileges, whereas on POSIX
+[heading Gotchas specific to Microsoft Windows]
+
+Finally, there are some gotchas specific to Microsoft Windows:
+
+1. You cannot rename a directory which has an open file handle in any process to any item anywhere within itself or its children.
+
+2. You cannot rename to a destination which has an open file handle with DELETE permissions (`file_flags::Write`)
+to itself or any of its parent directories in any process. You CAN do this from a source like this, but the destination cannot be
+like this (why is this? It is not documented anywhere in Microsoft's documentation, but if I had to guess, I'd suggest that the
+atomicity of the rename is implemented by taking an op lock on the destination, an op lock not granted if any handles exist which
+could change the path suddenly. I'm not sure if Microsoft are themselves aware of this limitation).
+
+One might note that much of the utility of race protecting APIs is lost with these restrictions. However, note that one could
+emulate POSIX semantics by renaming out all the contents of a directory to be renamed to elsewhere, rename the directory, and then
+renaming the contents back in. Given the pathetic slowness of opening handles on Windows, this might seem impossibly inefficient,
+however NT provides a little known `FILE_DELETE_CHILD` permission which gives you delete/rename permission on all the children
+and subchildren of a directory with just one handle open. I learned about this flag the hard way, by it breaking in many subtle ways
+AFIO's functioning on Windows when it was requested by default, something which took several days of head scratching to track down. AFIO doesn't
+currently do this trick of renaming out and back in on Windows, but might in the future after a lot more experimentation as to if
+it is viable and reliable without surprises.
+
+On Windows opening a directory with write access requests rename/delete privileges, whereas on POSIX
 the write access request is ignored for directories as POSIX doesn't allow it anyway. This allows you to write identical code
 which works universally.
 

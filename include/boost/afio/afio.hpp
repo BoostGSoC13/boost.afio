@@ -1249,6 +1249,26 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Unlinks the file from its present location as determined by path(true), which could be any hard link on
     those operating systems with an unstable path(true). Other links may remain to the same file.
+    
+    On Microsoft Windows, this routine unlinks items as follows:
+    
+    1. It tries to atomically rename the item to the root of the mounted volume it lives in with a .afiodXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX where
+    the X's are a 128 bit crypto random hexadecimal. If that fails, it tries the next directory up, and
+    the next after that until success if any. This rename may fail for any reason, including if it is a directory with
+    open file handles somewhere within. If it fails, the rename is skipped.
+    
+    2. It marks the item with hidden and system attributes to hide it from normal directory enumeration.
+    
+    3. It sets the delete on last handle close flag. At some future point Windows will delete the item, until which it will hang
+    around in a zombie state with an unknowable name and location unopenable by any new processes.
+    
+    The reason for such complexity is that this algorithm, if it renames successfully, neatly works around a number of
+    annoying features in Windows, specifically that when you delete a file you actually don't delete it till an unknown amount
+    of time later. This breaks code which tries to delete a directory tree, and finds that the directories won't delete because
+    they still contain files supposedly deleted but actually not quite yet. By renaming the items as far away as possible, this
+    problem ought to go away - unless of course that the user does not have permissions to write into any directory other than the
+    one being eventually deleted, in which case you will still see the strange access denied and directory not empty errors from
+    before.
 
     \ntkernelnamespacenote
     \ingroup async_io_handle__ops
@@ -1738,17 +1758,7 @@ public:
     inline async_io_op dir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
 
-    You may get errors here on Windows particularly due to trying to delete a directory which is not empty. This especially
-    happens on Windows as deletions only actually occur on the close of the last handle in the system. A particular gotcha
-    here is if you delete a directory, and then try to delete the directory which contained it, probably AFIO will hold
-    open the handle to the inner directory due to the directory cache, and therefore any inner directory doesn't actually
-    get immediately deleted. The workaround is to ensure that all handles and ops referring to the inner directory are
-    destroyed, this reduces the shared count to zero and actually closes the inner directory handle. Only then can you
-    delete the outer directory, though note that any other process - including virus checkers, Windows Explorer, TortoiseGit
-    or indeed anything - which have open handles into your directory will still cause the deletion to fail.
-    
-    Because of this feature of Windows, you may wish to rearchitect your program to handle directories not deleting e.g.
-    use a delayed cleanup.
+    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
     
     Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
     files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
@@ -1772,18 +1782,8 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
 
-    You may get errors here on Windows particularly due to trying to delete a directory which is not empty. This especially
-    happens on Windows as deletions only actually occur on the close of the last handle in the system. A particular gotcha
-    here is if you delete a directory, and then try to delete the directory which contained it, probably AFIO will hold
-    open the handle to the inner directory due to the directory cache, and therefore any inner directory doesn't actually
-    get immediately deleted. The workaround is to ensure that all handles and ops referring to the inner directory are
-    destroyed, this reduces the shared count to zero and actually closes the inner directory handle. Only then can you
-    delete the outer directory, though note that any other process - including virus checkers, Windows Explorer, TortoiseGit
-    or indeed anything - which have open handles into your directory will still cause the deletion to fail.
-    
-    Because of this feature of Windows, you may wish to rearchitect your program to handle directories not deleting e.g.
-    use a delayed cleanup.
-    
+    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+        
     Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
     files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
     portable code should delete by directory handle as the precondition and known leafname.
@@ -1850,6 +1850,8 @@ public:
     if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
     this). The actual file data will be deleted when the last handle is closed on the system.
     
+    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+    
     Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
     files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
     portable code should delete by directory handle as the precondition and known leafname.
@@ -1875,6 +1877,8 @@ public:
     Note that you can delete files before they are closed on Windows just as with POSIX if and only
     if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
     this). The actual file data will be deleted when the last handle is closed on the system.
+    
+    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
     
     Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
     files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
@@ -1934,6 +1938,8 @@ public:
     inline async_io_op symlink(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
     
+    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+    
     Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
     files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
     portable code should delete by directory handle as the precondition and known leafname.
@@ -1953,6 +1959,8 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous symlink deletion after an optional precondition.
+    
+    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
     
     Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
     files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,

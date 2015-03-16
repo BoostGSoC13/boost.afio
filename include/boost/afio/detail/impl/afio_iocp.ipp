@@ -570,7 +570,7 @@ namespace detail
             using namespace windows_nt_kernel;
 #if 0
             // Despite what is claimed on the internet, NtDeleteFile does NOT delete the file immediately.
-            // Moreover, it cannot delete directories not junction points, so we'll go the more proper path.
+            // Moreover, it cannot delete directories nor junction points, so we'll go the more proper path.
             OBJECT_ATTRIBUTES oa={sizeof(OBJECT_ATTRIBUTES)};
             oa.RootDirectory=myid;
             UNICODE_STRING _path;
@@ -586,20 +586,57 @@ namespace detail
               BOOST_AFIO_ERRHNTFN(ntstat, [this]{return path();});
 #else
             IO_STATUS_BLOCK isb={ 0 };
-            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769];
-            FILE_RENAME_INFORMATION *fni=(FILE_RENAME_INFORMATION *) buffer;
-            fni->ReplaceIfExists=false;
-            fni->RootDirectory=nullptr;  // rename to the same directory
-            auto randompath(".afiod"+utils::random_string(32 /* 128 bits */));
-            fni->FileNameLength=(ULONG)(randompath.size()*sizeof(path::value_type));
-            for(size_t n=0; n<randompath.size(); n++)
-              fni->FileName[n]=randompath[n];
-            fni->FileName[randompath.size()]=0;
-            NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation);
-            // Access denied may come back if the directory contains any files with open handles
-            // If that happens, ignore and mark to delete anyway
-            //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
-            FILE_DISPOSITION_INFORMATION fdi={true};
+            BOOST_AFIO_TYPEALIGNMENT(8) path::value_type buffer[32769+sizeof(FILE_NAME_INFORMATION)/sizeof(path::value_type)];
+            // This is done in two steps to stop annoying temporary failures
+            // Firstly, get where I am within my volume, NtQueryObject returns too much so simply fetch my current name
+            // Then try to rename myself to the closest to the root as possible with a .afiodXXXXX crypto random name
+            // If I fail to rename myself there, try the next directory up, usually at some point I'll find some directory
+            // I'm allowed write to
+            FILE_NAME_INFORMATION *fni=(FILE_NAME_INFORMATION *) buffer;
+            BOOST_AFIO_V1_NAMESPACE::path mypath;
+            bool success=false;
+            do
+            {
+              auto _randomname(".afiod"+utils::random_string(32 /* 128 bits */));
+              filesystem::path::string_type randomname(_randomname.begin(), _randomname.end());
+              mypath=path(true);
+              BOOST_AFIO_ERRHNTFN(NtQueryInformationFile(myid, &isb, fni, sizeof(buffer), FileNameInformation), [this]{return path(); });
+              filesystem::path myloc(filesystem::path::string_type(fni->FileName, fni->FileNameLength/sizeof(path::value_type))), prefix(mypath.native());
+              const_cast<filesystem::path::string_type &>(prefix.native()).resize(prefix.native().size()-myloc.native().size());
+              auto try_rename=[&]{
+                FILE_RENAME_INFORMATION *fri=(FILE_RENAME_INFORMATION *) buffer;
+                fri->ReplaceIfExists=false;
+                fri->RootDirectory=nullptr;  // rename to the same directory
+                size_t n=prefix.native().size();
+                memcpy(fri->FileName, prefix.c_str(), prefix.native().size()*sizeof(path::value_type));
+                fri->FileName[n++]='\\';
+                memcpy(fri->FileName+n, randomname.c_str(), randomname.size()*sizeof(path::value_type));
+                n+=randomname.size();
+                fri->FileName[n]=0;
+                fri->FileNameLength=(ULONG) (n*sizeof(path::value_type));
+                NTSTATUS ntstat=NtSetInformationFile(myid, &isb, fri, sizeof(FILE_RENAME_INFORMATION)+fri->FileNameLength, FileRenameInformation);
+                // Access denied may come back if we can't rename to the location or we are renaming a directory
+                // and that directory contains open files. We can't tell the difference, so keep going
+                if(!ntstat)
+                  success=true;
+                return ntstat;
+              };
+              if(try_rename())
+              {
+                myloc=myloc.parent_path();
+                for(auto &fragment : myloc)
+                {
+                  prefix/=fragment;
+                  if(fragment.native().size()>1 && !try_rename())
+                    break;
+                }
+              }
+            } while(!success && mypath!=path(true));
+            // By this point maybe the file/directory was renamed, maybe it was not.
+            FILE_BASIC_INFORMATION fbi={ 0 };
+            fbi.FileAttributes=FILE_ATTRIBUTE_HIDDEN|FILE_ATTRIBUTE_NOT_CONTENT_INDEXED|FILE_ATTRIBUTE_SYSTEM;
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fbi, sizeof(fbi), FileBasicInformation), [this]{return path(); });
+            FILE_DISPOSITION_INFORMATION fdi={ true };
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
 #endif
         }
