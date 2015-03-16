@@ -150,6 +150,10 @@ Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, N
 Unlinks the file from its present location as determined by path(true), which could be any hard link on those operating systems with an unstable path(true). Other links may remain to the same file. 
 
 [heading Description]
+On Microsoft Windows, this routine unlinks items as follows:
+
+The reason for such complexity is that this algorithm, if it renames successfully, neatly works around a number of annoying features in Windows, specifically that when you delete a file you actually don't delete it till an unknown amount of time later. This breaks code which tries to delete a directory tree, and finds that the directories won't delete because they still contain files supposedly deleted but actually not quite yet. By renaming the items as far away as possible, this problem ought to go away - unless of course that the user does not have permissions to write into any directory other than the one being eventually deleted, in which case you will still see the strange access denied and directory not empty errors from before.
+
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]

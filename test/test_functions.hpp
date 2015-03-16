@@ -289,7 +289,6 @@ static void checkwrite(detail::OpType, async_io_handle *h, const detail::async_d
 static int donothing(atomic<size_t> *callcount, int i) { ++*callcount; return i; }
 static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t bytes)
 {
-    try {
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
         std::vector<char, detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
@@ -333,7 +332,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         // Delete each of those 1000 files once they are closed
         auto it(manyclosedfiles.begin());
         for(auto &i: manyfilereqs)
-                i.precondition=*it++;
+                i.precondition=dispatcher->depends(*it++, mkdir);
         auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
 
         // As a test of call() which involves significant template metaprogramming, have a do nothing callback
@@ -349,19 +348,19 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         std::cout << "There are now " << std::dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << std::endl;
 
         // Wait for all files to open
-        when_all(manyopenfiles.begin(), manyopenfiles.end()).wait();
+        when_all(manyopenfiles.begin(), manyopenfiles.end()).get();
         auto openedsync=chrono::high_resolution_clock::now();
         // Wait for all files to write
-        when_all(manywrittenfiles.begin(), manywrittenfiles.end()).wait();
+        when_all(manywrittenfiles.begin(), manywrittenfiles.end()).get();
         auto writtensync=chrono::high_resolution_clock::now();
         // Wait for all files to close
-        when_all(manyclosedfiles.begin(), manyclosedfiles.end()).wait();
+        when_all(manyclosedfiles.begin(), manyclosedfiles.end()).get();
         auto closedsync=chrono::high_resolution_clock::now();
         // Wait for all files to delete
-        when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
+        when_all(manydeletedfiles.begin(), manydeletedfiles.end()).get();
         auto deletedsync=chrono::high_resolution_clock::now();
         // Wait for all callbacks
-        when_all(manycallbacks.second.begin(), manycallbacks.second.end()).wait();
+        when_all(manycallbacks.second.begin(), manycallbacks.second.end()).get();
 
         auto end=deletedsync;
         auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));
@@ -386,11 +385,6 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         when_all(rmdir).wait();
         BOOST_CHECK((callcount==1000U));
         BOOST_CHECK((filtercount==1000U));
-    }
-    catch(...) {
-        std::cerr << detail::output_exception_info << " thrown." << std::endl;
-        throw;
-    }
 }
 
 #ifdef DEBUG_TORTURE_TEST
@@ -416,7 +410,6 @@ static u4 mkfill() { static char ret='0'; if(ret+1>'z') ret='0'; return ret++; }
 
 static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t no, size_t bytes, size_t alignment=0)
 {
-    try {
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
 
     detail::aligned_allocator<char, 4096> aligned_allocator;
@@ -625,13 +618,13 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
     std::cout << "There are now " << std::dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << std::endl;
 
     // Wait for all files to open
-    when_all(manyopenfiles.begin(), manyopenfiles.end()).wait();
+    when_all(manyopenfiles.begin(), manyopenfiles.end()).get();
     auto openedsync=chrono::high_resolution_clock::now();
     // Wait for all files to write
-    when_all(manywrittenfiles.begin(), manywrittenfiles.end()).wait();
+    when_all(manywrittenfiles.begin(), manywrittenfiles.end()).get();
     auto writtensync=chrono::high_resolution_clock::now();
     // Wait for all files to close
-    when_all(manyclosedfiles.begin(), manyclosedfiles.end()).wait();
+    when_all(manyclosedfiles.begin(), manyclosedfiles.end()).get();
     auto closedsync=chrono::high_resolution_clock::now();
     end=closedsync;
 
@@ -716,17 +709,13 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
     // Delete each of those files once they are closed
     auto it(manyclosedfiles.begin());
     for(auto &i: manyfilereqs)
-            i.precondition=*it++;
+            i.precondition=dispatcher->depends(*it++, mkdir);
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
     // Wait for all files to delete
-    when_all(manydeletedfiles.begin(), manydeletedfiles.end()).wait();
+    when_all(manydeletedfiles.begin(), manydeletedfiles.end()).get();
     auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));
     // Fetch any outstanding error
-    when_all(rmdir).wait();
-    } catch(...) {
-        std::cerr << detail::output_exception_info << " thrown." << std::endl;
-        throw;
-    }
+    when_all(rmdir).get();
 }
 
 

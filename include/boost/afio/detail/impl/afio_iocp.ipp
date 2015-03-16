@@ -634,8 +634,8 @@ namespace detail
             } while(!success && mypath!=path(true));
             // By this point maybe the file/directory was renamed, maybe it was not.
             FILE_BASIC_INFORMATION fbi={ 0 };
-            fbi.FileAttributes=FILE_ATTRIBUTE_HIDDEN|FILE_ATTRIBUTE_NOT_CONTENT_INDEXED|FILE_ATTRIBUTE_SYSTEM;
-            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fbi, sizeof(fbi), FileBasicInformation), [this]{return path(); });
+            fbi.FileAttributes=FILE_ATTRIBUTE_HIDDEN;
+            NtSetInformationFile(myid, &isb, &fbi, sizeof(fbi), FileBasicInformation);
             FILE_DISPOSITION_INFORMATION fdi={ true };
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
 #endif
@@ -754,6 +754,11 @@ namespace detail
             // Access denied may come back if the directory contains any files with open handles
             // If that happens, ignore and mark to delete anyway
             //if(ntstat==0xC0000022/*STATUS_ACCESS_DENIED*/)
+            FILE_BASIC_INFORMATION fbi={ 0 };
+            fbi.FileAttributes=FILE_ATTRIBUTE_HIDDEN;
+            NtSetInformationFile(temph, &isb, &fbi, sizeof(fbi), FileBasicInformation);
+            FILE_DISPOSITION_INFORMATION fdi={ true };
+            BOOST_AFIO_ERRHNTFN(NtSetInformationFile(temph, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path(); });
 #endif
             return std::make_pair(true, op.get());
         }
