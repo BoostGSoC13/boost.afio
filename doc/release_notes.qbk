@@ -425,7 +425,7 @@ maximum IOPS.]:
 
 [table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.3[footnote Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
 [[Operating system][`call()` unchained][`call()` chained][`completion()` unchained][`completion()` chained][Raw ASIO]]
-[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 1175030]][[role alignright 599038]][[role alignright 1634440]][[role alignright 743178]][[role alignright 2558220]]]
+[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 1148070]][[role alignright 704051]][[role alignright 1850090]][[role alignright 877899]][[role alignright 2750088]]]
 [[['Relative to ASIO]][[role alignright 48%]][[role alignright 25%]][[role alignright 69%]][[role alignright 27%]][[role alignright 100%]]]
 [[['Relative to AFIO v1.21]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[]]]
 [[['Relative to AFIO v1.1]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[]]]
