@@ -67,10 +67,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       filesystem::rename("testdir/testfile", "testdir/hellobaby");
       print_stat(h);
       auto afterrename = h->path();
-#ifndef __FreeBSD__
-      // FreeBSD kernel currently has a bug in reading paths for files
       BOOST_CHECK((originalpath.parent_path() / hellobabystr) == afterrename);
-#endif
       std::cout << "\nDeleting hellobaby file using OS ..." << std::endl;
       filesystem::remove("testdir/hellobaby");
       auto afterdelete = print_stat(h);

@@ -902,14 +902,29 @@ retry:
               if(ret.size()<10 || (ret.compare(0, 10, " (deleted)") && ret.compare(ret.size()-10, 10, " (deleted)")))
                 newpath=ret;
 #elif defined(__APPLE__)
-              char buffer[PATH_MAX+1];
-              BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
               // Apple returns the previous path when deleted, so lstat to be sure
-              struct stat ls;
-              bool exists=(-1!=::lstat(buffer, &ls));
-              // File could have been replaced with another
-              if(exists && (!!(flags() & file_flags::NoRaceProtection) || (ls.st_dev==st_dev && ls.st_ino==st_ino)))
-                newpath=path::string_type(buffer);
+              struct stat s;
+              BOOST_AFIO_ERRHOS(fstat(fd, &s));
+              if(s.st_nlink)
+              {
+                // Apple also annoyingly returns some random hard link when nlink>1, so disable fetching new when that is the case
+                if(s.st_nlink>1)
+                {
+                  lock_guard<pathlock_t> g(pathlock);
+                  newpath=_path;
+                }
+                else
+                {
+                  char buffer[PATH_MAX+1];
+                  BOOST_AFIO_ERRHOS(fcntl(fd, F_GETPATH, buffer));
+                  // Apple returns the previous path when deleted, so lstat to be sure
+                  struct stat ls;
+                  bool exists=(-1!=::lstat(buffer, &ls));
+                  // File could have been replaced with another
+                  if(exists && (!!(flags() & file_flags::NoRaceProtection) || (ls.st_dev==st_dev && ls.st_ino==st_ino)))
+                    newpath=path::string_type(buffer);
+                }
+              }
 #elif defined(__FreeBSD__)
               // Unfortunately this call is broken on FreeBSD 10 where it is currently returning
               // null paths most of the time for regular files. Directories work perfectly. I've

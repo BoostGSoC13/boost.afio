@@ -1172,8 +1172,9 @@ public:
     \param refresh Whether to ask the OS for the current path of this handle.
     \ingroup async_io_handle__ops
     \raceguarantees{
-    [raceguarantee FreeBSD, OS X..Paths returned may permute between hard links to the inode e.g. if a new hard link is created]
-    [raceguarantee Linux, Windows..Paths returned are stable]
+    [raceguarantee FreeBSD..Paths are only refreshed for directories, not files.]
+    [raceguarantee Linux, Windows..Paths are always refreshed and ignore other hard links.]
+    [raceguarantee OS X..Paths are only refreshed for directories and files with a single hard link.]
     }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
