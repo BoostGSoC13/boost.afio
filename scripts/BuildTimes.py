@@ -17,17 +17,19 @@ if len(sys.argv)<2:
   sys.exit(1)
 if not os.path.exists("b2") and not os.path.exists("b2.exe"):
   print("ERROR: Need to run me from boost root directory please", file=sys.stderr)
+print(os.getcwd())
+shutil.rmtree("bin.v2", True)
   
 onWindows="Windows" in platform.system()
 
 configs=[
-  ["--link-test --fast-build debug", None],
-  ["--link-test debug", None],
-  ["--link-test --lto debug", None],
-  ["--link-test pch=off debug", None],
-  ["--link-test --fast-build release", None],
-  ["--link-test release", None],
-  ["--link-test --lto release", None],
+  ["--c++14 --link-test --fast-build debug", None],
+  ["--c++14 --link-test debug", None],
+  ["--c++14 --link-test --lto debug", None],
+  ["--c++14 --link-test pch=off debug", None],
+  ["--c++14 --link-test --fast-build release", None],
+  ["--c++14 --link-test release", None],
+  ["--c++14 --link-test --lto release", None],
   ["standalone_singleabi", None],
   ["standalone_multiabi", None]
 ]
@@ -45,29 +47,35 @@ for config in configs:
     else:
       tocall="multiabi_"+tocall
     basedir=os.getcwd()
+    env=dict(os.environ)
+    if not onWindows:
+      tocall="./"+tocall
+      env['CXX']=sys.argv[1]
+      env['CXX']=env['CXX'].replace('gcc', 'g++')
+      env['CXX']=env['CXX'].replace('clang', 'clang++')
     try:
       os.chdir("libs/afio")
       shutil.rmtree(test_all, True)
-      if subprocess.call(tocall, shell=True):
+      if subprocess.call(tocall, env=env, shell=True):
         config[1]="FAILED"
         continue
       shutil.rmtree(test_all, True)
       print("\n\nStarting benchmark ...")
-      begin=time.clock()
-      subprocess.call(tocall, shell=True)
-      end=time.clock()
+      begin=time.perf_counter()
+      subprocess.call(tocall, env=env, shell=True)
+      end=time.perf_counter()
     finally:
       os.chdir(basedir)
   else:
     shutil.rmtree("bin.v2/libs/afio", True)
-    if subprocess.call("b2 -j 8 toolset="+sys.argv[1]+" "+config[0]+" libs/afio/test"):
+    if subprocess.call([os.path.abspath("b2"), "toolset="+sys.argv[1], "libs/afio/test", "-j", "8"]+config[0].split(" ")):
       config[1]="FAILED"
       continue
     shutil.rmtree("bin.v2/libs/afio", True)
     print("\n\nStarting benchmark ...")
-    begin=time.clock()
-    subprocess.call("b2 toolset="+sys.argv[1]+" "+config[0]+" libs/afio/test")
-    end=time.clock()
+    begin=time.perf_counter()
+    subprocess.call([os.path.abspath("b2"), "toolset="+sys.argv[1], "libs/afio/test"]+config[0].split(" "))
+    end=time.perf_counter()
   mins=int((end-begin)/60)
   secs=int((end-begin)%60);
   config[1]="%dm%ss" % (mins, secs)

@@ -16,88 +16,126 @@ import os ;
 import testing ;
 import pch ;
 
+rule cpp14 ( properties * )
+{
+   local result ;
+   if "--c++14" in $(.argv) 
+   {
+      if <toolset>gcc in $(properties)
+      {
+        result += <cxxflags>"-std=c++1y" ;
+      }
+      if <toolset>clang in $(properties)
+      {
+        result += <cxxflags>"-std=c++1y" ;
+      }
+   }
+   else
+   {
+      if <toolset>gcc in $(properties)
+      {
+        result += <cxxflags>"-std=c++0x" ;
+      }
+      if <toolset>clang in $(properties)
+      {
+        result += <cxxflags>"-std=c++0x" ;
+      }
+   }
+   return $(result) ;
+}
+
 # If we're running in a CI, reduce the length of the unit tests considerably
 rule running-in-ci ( properties * )
 {
+   local result ;
    if "--running-in-ci" in $(.argv) 
    {
-      return <define>BOOST_AFIO_RUNNING_IN_CI ;
+      result += <define>BOOST_AFIO_RUNNING_IN_CI ;
    }
+   return $(result) ;
 }
 
 # If we're on Niall's Atom 220 netbook, make it so Niall isn't waiting an hour
 # or more just to compile AFIO every time I change a single character.
 rule fast-build ( properties * )
 {
+   local result ;
    if "--fast-build" in $(.argv) 
    {
-      return <define>BOOST_AFIO_HEADERS_ONLY=0
-             <define>BOOST_ASIO_SEPARATE_COMPILATION
-             <define>BOOST_ASIO_DYN_LINK
-             <library>../build//boost_afio_dyn_asio
-             ;
+      result += <define>BOOST_AFIO_HEADERS_ONLY=0
+                <define>BOOST_ASIO_SEPARATE_COMPILATION
+                <define>BOOST_ASIO_DYN_LINK
+                <library>../build//boost_afio_dyn_asio
+                ;
    }
+   return $(result) ;
 }
 
 # Turn on LTO
 rule lto ( properties * )
 {
+   local result ;
    if "--lto" in $(.argv) 
    {
       if <toolset>gcc in $(properties)
       {
-         return <cxxflags>"-flto" <linkflags>"-flto -O3 -fuse-linker-plugin" ;
+         result += <cxxflags>"-flto" <linkflags>"-flto -O3 -fuse-linker-plugin" ;
       }
       if <toolset>msvc in $(properties)
       {
-         return <cxxflags>"/GL" <linkflags>"/LTCG" ;
+         result += <cxxflags>"/GL" <linkflags>"/LTCG" ;
       }
    }
+   return $(result) ;
 }
 
 # Turn on the thread and undefined behaviour sanitisers
 rule sanitize ( properties * )
 {
+   local result ;
    if "--sanitize" in $(.argv) 
    {
       # clang only for now as we need the blacklist to remove Boost noise
       if <toolset>clang in $(properties)
       {
-         return <define>BOOST_AFIO_THREAD_SANITIZING
-            <cxxflags>"-fsanitize=thread -fsanitize=undefined -fsanitize-blacklist=libs/afio/test/blacklist.supp -g -fno-omit-frame-pointer -fno-optimize-sibling-calls"
-            <linkflags>"-fsanitize=thread -fsanitize=undefined"
-            <testing.launcher>TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp history_size=7 external_symbolizer_path=/usr/bin/llvm-symbolizer-3.4" ;
+         result += <define>BOOST_AFIO_THREAD_SANITIZING
+                   <cxxflags>"-fsanitize=thread -fsanitize=undefined -fsanitize-blacklist=libs/afio/test/blacklist.supp -g -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+                   <linkflags>"-fsanitize=thread -fsanitize=undefined"
+                   <testing.launcher>TSAN_OPTIONS="suppressions=libs/afio/test/tsan.supp history_size=7 external_symbolizer_path=/usr/bin/llvm-symbolizer-3.4" ;
       }
    }
+   return $(result) ;
 }
 
 # Some compilers can do enhanced static analysis
 rule analyse ( properties * )
 {
+   local result ;
    if "--analyse" in $(.argv) 
    {
       if <toolset>clang in $(properties)
       {
-         return <cxxflags>"--analyze" ;
+         result += <cxxflags>"--analyze" ;
       }
       if <toolset>msvc in $(properties)
       {
-         return <cxxflags>"/analyze /wd6246 /wd6993 /wd4603 /analyze:stacksize 131072" ;
+         result += <cxxflags>"/analyze /wd6246 /wd6993 /wd4603 /analyze:stacksize 131072" ;
       }
    }
+   return $(result) ;
 }
 
 project boost/afio/test
     : requirements
       <threading>multi
-	  <include>.
+      <include>.
 #      <library>/boost/afio//boost_afio
-      <toolset>gcc:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
+      <toolset>gcc:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
       <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE -Wno-missing-braces"
       <toolset>gcc-mingw:<library>/boost/afio//boost_afio
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>gcc:<linkflags>"-lgomp"
-      <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
+      <toolset>clang:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
       <toolset>msvc:<cxxflags>"/openmp /GF /Gy /bigobj /wd4456"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32
@@ -113,6 +151,7 @@ project boost/afio/test
       <library>../../thread/build//boost_thread
       <define>BOOST_AFIO_USE_BOOST_UNIT_TEST=1
       <library>../../test/build//boost_unit_test_framework
+      <conditional>@cpp14
       <conditional>@running-in-ci
       <conditional>@fast-build
       <conditional>@lto

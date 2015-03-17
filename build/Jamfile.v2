@@ -6,6 +6,37 @@
 #  (See accompanying file LICENSE_1_0.txt or copy at
 #  http://www.boost.org/LICENSE_1_0.txt)
 
+import modules ;
+.argv = [ modules.peek : ARGV ] ;
+
+rule cpp14 ( properties * )
+{
+   local result ;
+   if "--c++14" in $(.argv) 
+   {
+      if <toolset>gcc in $(properties)
+      {
+        result += <cxxflags>"-std=c++1y" ;
+      }
+      if <toolset>clang in $(properties)
+      {
+        result += <cxxflags>"-std=c++1y" ;
+      }
+   }
+   else
+   {
+      if <toolset>gcc in $(properties)
+      {
+        result += <cxxflags>"-std=c++0x" ;
+      }
+      if <toolset>clang in $(properties)
+      {
+        result += <cxxflags>"-std=c++0x" ;
+      }
+   }
+   return $(result) ;
+}
+
 project boost/afio
     : requirements
       <threading>multi                          #<-- do we need this?
@@ -13,10 +44,10 @@ project boost/afio
       <link>shared:<define>BOOST_AFIO_SOURCE=1
       <link>static:<define>BOOST_AFIO_SOURCE=1
       <include>../../../boost/afio 
-      <toolset>gcc:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fasynchronous-unwind-tables"
+      <toolset>gcc:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fasynchronous-unwind-tables"
       <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE -Wno-missing-braces"
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
-      <toolset>clang:<cxxflags>"-std=c++0x -fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fasynchronous-unwind-tables"
+      <toolset>clang:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fasynchronous-unwind-tables"
       <toolset>msvc:<cxxflags>"/GF /Gy /D_VARIADIC_MAX=8"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32 
@@ -30,6 +61,7 @@ project boost/afio
       <link>shared:<library>../../filesystem/build//boost_filesystem
       <link>shared:<library>../../atomic/build//boost_atomic
       <link>shared:<library>../../thread/build//boost_thread
+      <conditional>@cpp14
       
     : usage-requirements 
       <include>. 
@@ -46,9 +78,10 @@ lib boost_afio
 # ASIO later which in turn speeds up compiling AFIO users.
 lib boost_afio_dyn_asio 
     : afio.cpp 
-	: <define>BOOST_ASIO_SEPARATE_COMPILATION
-	  <define>BOOST_ASIO_DYN_LINK
+    : <define>BOOST_ASIO_SEPARATE_COMPILATION
+      <define>BOOST_ASIO_DYN_LINK
       <define>BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION
+      <toolset>gcc:<cxxflags>"-fvisibility=default"  # Work around bug in ASIO where he isn't exporting all his symbols correctly
 ;
 explicit boost_afio_dyn_asio ;
 
