@@ -607,7 +607,7 @@ namespace detail
                 FILE_RENAME_INFORMATION *fri=(FILE_RENAME_INFORMATION *) buffer;
                 fri->ReplaceIfExists=false;
                 fri->RootDirectory=nullptr;  // rename to the same directory
-                size_t n=prefix.native().size();
+                size_t n=prefix.make_preferred().native().size();
                 memcpy(fri->FileName, prefix.c_str(), prefix.native().size()*sizeof(path::value_type));
                 fri->FileName[n++]='\\';
                 memcpy(fri->FileName+n, randomname.c_str(), randomname.size()*sizeof(path::value_type));
@@ -619,7 +619,7 @@ namespace detail
                 // and that directory contains open files. We can't tell the difference, so keep going
                 if(!ntstat)
                   success=true;
-#if 1
+#if 0
                 else
                   std::wcout << "unlink() failed to rename to " << fri->FileName << " due to " << ntstat << std::endl;
 #endif
