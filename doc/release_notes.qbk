@@ -426,31 +426,19 @@ maximum IOPS.]:
 [table:throughput Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K for AFIO v1.3[footnote Benchmarks compiled using `address-model=64 link=static --lto release -j 4`.]
 [[Operating system][`call()` unchained][`call()` chained][`completion()` unchained][`completion()` chained][Raw ASIO]]
 [[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 1148070]][[role alignright 704051]][[role alignright 1850090]][[role alignright 877899]][[role alignright 2750088]]]
-[[['Relative to ASIO]][[role alignright 48%]][[role alignright 25%]][[role alignright 69%]][[role alignright 27%]][[role alignright 100%]]]
-[[['Relative to AFIO v1.21]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[]]]
-[[['Relative to AFIO v1.1]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[]]]
-
-[[Microsoft Windows 8 x64 with Visual Studio 2013][[role alignright 1133730]][[role alignright 605569]][[role alignright 1629110]][[role alignright 647738]][[role alignright 2376440]]]
-[[['Relative to AFIO v1.1]][[role alignright +24%]][[role alignright +2%]][[role alignright +5%]][[role alignright -11%]][[]]]
+[[['Relative to ASIO]][[role alignright 42%]][[role alignright 26%]][[role alignright 67%]][[role alignright 32%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.21]][[role alignright +1%]][[role alignright +16%]][[role alignright +14%]][[role alignright +36%]][[]]]
+[[['Relative to AFIO v1.1]][[role alignright +26%]][[role alignright +18%]][[role alignright +19%]][[role alignright +20%]][[]]]
 
 [[][][][][][]]
 
-[[Ubuntu 14.04 LTS Linux x64 with GCC 4.9.2][[role alignright 1002490]][[role alignright 1036150]][[role alignright 1467650]][[role alignright 1199460]][[role alignright 1686100[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
-[[['Relative to ASIO]][[role alignright 80%]][[role alignright 64%]][[role alignright 92%]][[role alignright 75%]][[role alignright 100%]]]
-[[['Relative to AFIO v1.21]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
-[[['Relative to AFIO v1.1]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
+[[Ubuntu 14.04 LTS Linux x64 with GCC 4.9.2][[role alignright 1149470]][[role alignright 1100650]][[role alignright 1629110]][[role alignright 1308240]][[role alignright 1927300]]]
+[[['Relative to ASIO]][[role alignright 60%]][[role alignright 57%]][[role alignright 85%]][[role alignright 68%]][[role alignright 100%]]]
+[[['Relative to AFIO v1.21]][[role alignright -11%]][[role alignright +8%]][[role alignright +10%]][[role alignright +9%]][[]]]
+[[['Relative to AFIO v1.1]][[role alignright +5%]][[role alignright +39%]][[role alignright +14%]][[role alignright +20%]][[]]]
 [[][][][][][]]
-
-[[Ubuntu 12.04 LTS Linux x64 with GCC 4.8][[role alignright 1291250]][[role alignright 1022970]][[role alignright 1479540]][[role alignright 1200450]][[role alignright 1611040[footnote Unfortunately the glibc mutex used by ASIO does not scale well on modern CPUs due to having too small a spin count, so this value is for four threads instead of eight (it was the best I could get through trial and error).]]]]
-[[['Relative to AFIO v1.1]][[role alignright +18%]][[role alignright +29%]][[role alignright +3%]][[role alignright +24%]][[role alignright 100%]]]
 
 ]
-
-clang 3.4 with    concurrent: 177682 157440 184407 138465 122453
-clang 3.4 without concurrent: 180448 170979 187123 130066 
-
-gcc 4.9 with    concurrent: 481860 504530 775678 878487
-gcc 4.9 without concurrent:
 
 We hope that ~600k min IOPS surely ought to be enough to max out any SATA III SSD __dash__ it should even max out any mid range
 PCIe based SSD too, and if paired with a CPU with more cores, AFIO's almost wait free design ought to scale out fairly
@@ -544,16 +532,16 @@ etc.
 You'll find a huge amount depends on your compiler. Here are some build time benchmarks for my developer workstation:
 
 [table:build_time Single thread build times for AFIO v1.3 for various compilers and options on a 3.5Ghz Intel Core i7 3770K
-[[Build flags][Microsoft Windows 8.1 x64 with Visual Studio 2013][Ubuntu 14.04 LTS Linux x64 with GCC 4.9 and gold linker][Ubuntu 14.04 LTS Linux x64 with clang 3.5 and gold linker]]
-[  [`--link-test --fast-build debug`][0m55s][[footnote ASIO has a link error without `link=static`]][fails]]
-[               [`--link-test debug`][2m10s][][]]
-[         [`--link-test --lto debug`][5m37s][][]]
-[       [`--link-test pch=off debug`][7m17s][][]]
-[[`--link-test --fast-build release`][1m10s][[footnote ASIO has a link error without `link=static`]][fails]]
-[             [`--link-test release`][2m58s][][]]
-[       [`--link-test --lto release`][7m30s][][]]
-[       [standalone alltests release][0m20s][][]]
-[[standalone multiabi alltests release][0m39s][][]]
+[[Build flags][Microsoft Windows 8.1 x64 with Visual Studio 2013][Ubuntu 14.04 LTS Linux x64 with GCC 4.9 and gold linker][Ubuntu 14.04 LTS Linux x64 with clang 3.4 and gold linker]]
+[  [`--link-test --fast-build debug`][0m55s][3m53s][asio failure]]
+[               [`--link-test debug`][2m10s][10m26s][5m46s]]
+[         [`--link-test --lto debug`][5m37s][GCC ICE][5m42s]]
+[       [`--link-test pch=off debug`][7m17s][12m0s][5m45s]]
+[[`--link-test --fast-build release`][1m10s][3m22s][asio failure]]
+[             [`--link-test release`][2m58s][9m57s][8m10s]]
+[       [`--link-test --lto release`][7m30s][13m0s][8m11s]]
+[       [standalone alltests release][0m20s][0m51s][0m42s]]
+[[standalone multiabi alltests release][0m39s][1m34s][1m13s]]
 ]
 
 [table:build_time Single thread build times for AFIO v1.2 for various compilers and options on a 3.5Ghz Intel Core i7 3770K
@@ -567,8 +555,8 @@ You'll find a huge amount depends on your compiler. Here are some build time ben
 [       [`--link-test --lto release`][10m24s][07m08s][06m14s]]
 ]
 
-You'll note that v1.3 is substantially faster than v1.2 to build, despite considerably more metaprogramming, code, and tests.
-I was genuinely quite surprised at that outcome, it was not expected.
+You'll note that v1.3 is substantially faster than v1.2 to build on MSVC for some odd reason, despite considerably
+more metaprogramming, code, and tests. The rises in times like with GCC and clang make more sense.
 
 The benefit of `--fast-build` grows exponentially the less powerful the CPU: on my Intel Atom 220
 netbook `--fast-build` gets total build times under five minutes which is impressive compared to
