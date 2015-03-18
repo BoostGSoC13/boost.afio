@@ -237,14 +237,6 @@ TODO BEFORE RELEASE
 
 4. clang-reformat everything.
 
-5. Run compilation time benchmarks on all platforms. Fix any regressions.
-You might think this easy, but AFIO has about twenty different build
-configurations now.
-
-6. Run performance benchmarks on all platforms. Fix any regressions. Add a benchmark for race protection.
-
-7. Regen the docs and make sure the new APIs have appeared.
-
 
 
 [/=================]
