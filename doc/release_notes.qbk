@@ -444,9 +444,9 @@ how quickly can I push a single op with AFIO?]
 For v1.3 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7 3770K, I found
 the following latency graph which is in CPU cycles:
 
-[role aligncenter [$afio_latencies.svg]]
+[role aligncenter [$afio_latencies.png]]
 
-[role aligncenter [$afio_latencies_1.2.svg]]
+[role aligncenter [$afio_latencies_1.2.png]]
 
 The solid lines represent average dispatch to execution and execution finish to completion
 notification latencies and are cumulative on the left scale, whilst the dotted lines represent
@@ -455,17 +455,12 @@ minimum of around 6,000 CPU cycles between dispatch and the operation beginning,
 of around 4,000 cycles between the operation completing and its op reference becoming signalled,
 thus making total minimum latency per op around 10,000 CPU cycles, or around 2.5 microseconds.
 
-Average latency is rather worse of course, but if you exceed CPU cores by just enough to stop
-them clocking down you can expect a 300,000 CPU cycle total latency with a 95% confidence
-interval of plus/minus 25,000 CPU cycles, which is 75 microseconds plus/minus 6.25 microseconds.
-Obviously this makes AFIO unsuited for low latency work such as high frequency trading, but once
-you get below 0.1 milliseconds it becomes very hard to disentangle SSD access times from the
-latency of the filing and storage systems between you and the SSD anyway, so even if AFIO might
-appear to on average double the 0.08 millisecond access time a SSD might have, you really must
-bear in mind that a thread sleep and wake costs about 215,000 CPU cycles, and the obvious thing
-which is happening in the benchmark is that AFIO is on average sleeping and waking 1.33 times
-per operation dispatched and completed. Your use case will of course vary, and if you hit
-the spin locks right I've personally seen 9,000 CPU cycle sustained average latencies.
+Average latency is rather worse of course, but if you don't exceed CPU cores you can expect a
+60,000 CPU cycle total latency with a 95% confidence
+interval of plus/minus 600 CPU cycles, which is 15 microseconds plus/minus 0.15 microseconds.
+Given that a filing system on a PCIe SSD might have a 80 microsecond latency, AFIO could be adding
+20% to that, however do bear in mind that a thread sleep and wake costs 52 microseconds so
+we are operating pretty close to hardware limits here.
 
 [endsect] [/closure_latency]
 
