@@ -3908,6 +3908,9 @@ namespace utils
 #endif
   /*! \class secded_ecc
   \brief Calculates the single error correcting double error detecting (SECDED) Hamming Error Correcting Code for a \em blocksize block of bytes. For example, a secdec_ecc<8> would be the very common 72,64 Hamming code used in ECC RAM, or secdec_ecc<4096> would be for a 32784,32768 Hamming code.
+  
+  Did you know that some non-ECC RAM systems can see 1e-12 flips/bit/hour, which is 3.3 bits flipped in a 16Gb RAM system
+  per 24 hours). See Schroeder, Pinheiro and Weber (2009) 'DRAM Errors in the Wild: A Large-Scale Field Study'.
 
   After construction during which lookup tables are built, no state is modified and therefore this class is safe for static
   storage (indeed if C++ 14 is available, the constructor is constexpr). The maximum number of bits in a code is a good four

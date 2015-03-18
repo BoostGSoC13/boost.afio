@@ -15,61 +15,62 @@ of both is pretty good in fact most of the time __dash__ which actually isn't th
 surprising as C++ is a pay-for-what-you-use systems language. If however you have ever
 experienced any of these problems, then AFIO may be useful to you:
 
-1. Your spinning magnetic rust hard drive goes bananas when some routine in your code
-tries to do something to storage, and latency per op starts heading into the seconds range.
+# Your spinning magnetic rust hard drive goes bananas when some routine in your code
+  tries to do something to storage, and latency per op starts heading into the seconds range.
 
-2. Your super fast SSD which is supposed to be delivering hundreds of thousands of ops/sec
-is barely managing a tenth of its supposed ability with your code. After reading about the
-importance of high queue depth to maximising performance from SSDs, you try opening many
-handles to the same file and firing an army of thread pool workers at the problem to try
-and increase queue depth, but your performance actually drops over the single threaded case.
+# Your super fast SSD which is supposed to be delivering hundreds of thousands of ops/sec
+  is barely managing a tenth of its supposed ability with your code. After reading about the
+  importance of high queue depth to maximising performance from SSDs, you try opening many
+  handles to the same file and firing an army of thread pool workers at the problem to try
+  and increase queue depth, but your performance actually drops over the single threaded case.
 
-3. Your code has to interact with a regularly changing filesystem and not get weird race errors e.g. you
-try to create a new file in path /X/Y/Z, but some other program has just renamed directory /X/Y
-to /A/B in the time between you deciding on /X/Y/Z and getting round to it.
+# Your code has to interact with a regularly changing filesystem and not get weird race errors e.g. you
+  try to create a new file in path /X/Y/Z, but some other program has just renamed directory /X/Y
+  to /A/B in the time between you deciding on /X/Y/Z and getting round to it.
 
-4. Your code keeps file handles open a long time in a place where others might delete or rename
-them, including any part of the directory hierarchy preceding the file.
+# Your code keeps file handles open a long time in a place where others might delete or rename
+  them, including any part of the directory hierarchy preceding the file.
+  
+# Deleting directory trees randomly fails on Microsoft Windows for no obvious reason.
 
-5. Your code needs to read and write files concurrently to other code without resorting to
-shared memory region tricks e.g. if the files reside on a Samba or NFS network shared drive.
+# Your code needs to read and write files concurrently to other code without resorting to
+  shared memory region tricks e.g. if the files reside on a Samba or NFS network shared drive.
 
-6. Your CPU needs to be doing more useful work instead of copying memory to and from disc i/o
-buffers. As great as the STL iostream buffering is, unless disabled it doubles the LL cache
-pressure on your CPU, evicting other more useful data. The STL iostreams design almost certainly won't
-allow the kernel use VM tricks to directly busmaster DMA from its buffers to the hard drive, so
-the kernel will have to copy those buffers a third time. That means that for every 1Kb you read
-or write you are evicted, as a minimum, 3Kb from the LL caches in your CPU, all of which must be
-refilled with more useful data later.
+# Your CPU needs to be doing more useful work instead of copying memory to and from disc i/o
+  buffers. As great as the STL iostream buffering is, unless disabled it doubles the LL cache
+  pressure on your CPU, evicting other more useful data. The STL iostreams design almost certainly won't
+  allow the kernel use VM tricks to directly busmaster DMA from its buffers to the hard drive, so
+  the kernel will have to copy those buffers a third time. That means that for every 1Kb you read
+  or write you are evicted, as a minimum, 3Kb from the LL caches in your CPU, all of which must be
+  refilled with more useful data later.
 
-7. Your code wants to experience various filing system features identically across platforms which
-also work on shared Samba and NFS network drives, such as:
- * Deleting and renaming open files.
- * Files having unique device id and inode pairs in the system.
- * Case sensitive file paths of at least 1000 characters on all supported platforms.
- * POSIX timestamping of last accessed, last modified, last status changed and created.
- * File extent management and traversal.
- * Explicitly documented filing system race guarantees.
- * Interrogation of filing system characteristics, devices and mount points.
- * Ten million item directories, or more. We have tested twenty five million item directories on NTFS
- and ext4 and performance was actually tolerable. Ten million item directories is plenty fast, and
- one million item directories you won't notice over a ten item directory. Note that your GUI file
- explorer will very likely hang on ten million item directories, indeed so do most command line tools.
- * Exclusive lock files (manual support already there, async support coming in v1.4).
- * File change monitoring (coming in v1.4).
- * File byte range advisory locking (coming in v1.4).
+# Your code wants to experience various filing system features identically across platforms which
+  also work on shared Samba and NFS network drives, such as:
+  * Deleting and renaming open files.
+  * Files having unique inode values.
+  * POSIX timestamping of last accessed, last modified, last status changed and created.
+  * File extent management and traversal.
+  * Explicitly documented filing system race guarantees.
+  * Interrogation of filing system characteristics, devices and mount points.
+  * Ten million item directories, or more. We have tested twenty five million item directories on NTFS
+    and ext4 and performance was actually tolerable with under a second pause. Ten million item directories is plenty fast, and
+    one million item directories you won't notice over a ten item directory. Note that your GUI file
+    explorer will very likely hang on ten million item directories, indeed so do most command line tools.
+  * Exclusive lock files (manually operated support already there, async support coming in v1.4).
+  * File change monitoring (coming in v1.4).
+  * File byte range advisory locking (coming in v1.4).
  
 You'll probably note that these are POSIX file semantics. On Microsoft Windows, AFIO directly uses
-the NT kernel API and can therefore achieve almost perfect POSIX file semantics, at the cost of
+the NT kernel API and can therefore achieve reasonably accurate POSIX file semantics, at the cost of
 no support for DOS feature emulation like short names or case insensitivity or drive letters. Going directly to the
-NT kernel makes filing system performance on Windows both much faster and a near identical experience
+NT kernel makes filing system performance on Windows both much faster and a close experience
 to coding for POSIX, this saves you time and money and produces a much more consistent experience
 for your users.
 
 A surprising amount of production code out there is highly unreliable when used on a filing
 system experiencing rapid change, or even just a filing system mounted on a network. In many
 ways it is when your code needs to ["grow up] from assuming a never changing static filesystem
-into a more realistic model is when you ought to reach AFIO which has hopefuly abstracted away
+into a more realistic model is when you ought to reach AFIO which has hopefully abstracted away
 all those tedious platform specific and filing system specific quirks for you.
 
 Using __boost_afio__ is centred around the __afio_dispatcher__ abstract base class,
@@ -80,7 +81,8 @@ you simply call its member functions to have the dispatcher schedule asynchronou
 work items for you, each returning a __afio_op__. Note that dispatchers can be
 specialised with specific flags, so you could have one dispatcher which always
 fsyncs its files on close and another which does not. You can then schedule operations to
-the appropriate dispatcher.
+the appropriate dispatcher. Currently you cannot chain operations across schedulers, this
+facility is expected to come with the coroutine support in v1.4.
 
 All AFIO scheduling functions, or the convenience structures they take in, will
 take as a (sometimes optional) first parameter their precondition op. Only when that
@@ -93,12 +95,12 @@ AFIO itself throws almost no exceptions apart from `std::invalid_argument`, thou
 can throw fatal exceptions when you're doing something unwise (and make sure to check
 the FAQ if you do see a fatal exception, it will explain what you're doing wrong). It
 does trap all operating system errors, reporting these as the appropriate `std::system_error`
-when code next gathers error state from that operation (usually using `when_all()`). One
+when code next gathers error state from that operation (usually using `when_all()` or `get()`). One
 can of course also receive exceptions thrown by anything AFIO calls (the STL, Boost etc).
 AFIO is thought to be exception safe, except when `std::bad_alloc` is thrown.
 
 Note that from v1.4, AFIO will only throw exceptions for extraordinary events, and will
-instead return error codes for most errors.
+instead directly return error codes for most errors.
 
 [section:hello_world Hello World, asynchronously!]
 
@@ -373,7 +375,7 @@ Mac OS X provides an unfortunately quite broken file descriptor path discovery, 
 POSIX APIs and so AFIO cannot provide race protection, but can throw exceptions sometimes if it detects the filesystem
 has suddenly changed and you're about to delete the wrong file (you shouldn't rely on this, it's racy). FreeBSD provides the `XXXat()` POSIX APIs, but its file
 descriptor path discovery only works correctly for directory not file handles due to a kernel bug (I've opened
-a feature request ticket for this at https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=198570) and therefore AFIO
+a feature request ticket for this at [@https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=198570 https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=198570]) and therefore AFIO
 can provide only race condition safety for directories only on FreeBSD.
 
 Additionally, working with the filing system in a race safe way on POSIX requires opening a file descriptor to the
