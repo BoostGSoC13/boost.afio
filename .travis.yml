@@ -60,7 +60,7 @@ before_install:
 
 script:
  - if [ -e "cov-int" ]; then ls -l cov-int; fi
- - if [ -e "cov-int/build-log.txt" ]; then cat cov-int/build-log.txt; fi
+# - if [ -e "cov-int/build-log.txt" ]; then cat cov-int/build-log.txt; fi
  - if [ -e "cov-int/scm_log.txt" ]; then cat cov-int/scm_log.txt; fi
  - if [ "$__" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - if [ "$__" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
