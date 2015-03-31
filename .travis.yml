@@ -21,7 +21,20 @@ env:
   global:
     # Coveralls.io API key
     - secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
-    
+    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+    #   via the "travis encrypt" command using the project repo's public key
+    - secure: "ouEimnVEYE28pbGvib6ks+i3mxl1CE0nBAZuvqvVrEbbcSaauEZZCyYiL291l2j90aSPJOJzbny+AhVwsr8mNLyiI9OGRtcnCFNjOHEXPF0Ep78ebmVLX4oyqv7DEPmeJSR/va/ebCrbAbOlPBCPGOFO5UfNtwvx2qJouMtNQMI="    
+
+addons:
+  coverity_scan:
+    project:
+      name: "ned14/boost.afio"
+      description: "Build submitted via Travis CI"
+    notification_email: s_github@nedprod.com
+    build_command_prepend: "cd test && bash ./test_file_glob.sh"
+    build_command:   "g++ -o test_all -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
+    branch_pattern: master
+
 matrix:
   exclude:
     - os: linux
@@ -36,6 +49,8 @@ matrix:
 
 
 before_install:
+ - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo add-apt-repository -y ppa:boost-latest/ppa; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; fi
@@ -44,6 +59,8 @@ before_install:
  - git submodule update --init --recursive
 
 script:
+ - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - CCFLAGS="$CCFLAGS -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
  - if [ $GCOV -eq 1 ]; then LINKFLAGS="$LINKFLAGS -lgcov"; fi
  - cd test
@@ -60,9 +77,13 @@ script:
  - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
  
 after_success:
+ - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
+ - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
 # - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
 # - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ $UNITTESTS -eq 1 ]; then expect scripts/travis_lldb.expect; fi
