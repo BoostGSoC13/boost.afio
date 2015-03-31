@@ -15,9 +15,9 @@ notifications:
 
 env:
   matrix:
-    - _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
-    - _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
-    - _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
+    - __="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
+    - __="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
+    - __="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
   global:
     # Coveralls.io API key
     - secure: "LU8flpdvLjaFIVgy8oqhHzy92AUPRgw3bRv+/Q91fnWNrvbeRVMEOj+vML+zDS7iU3L2ZbppNf/1YkavGhHh9HfD8PC0dYPEmU0xjS/3WdoKxMd0MCYUZxQ+6zgx3GLgZS2NxciVlruZSs9Q+hKbguvvjwGGSVin6LlMmC2KqGA="
@@ -31,7 +31,7 @@ addons:
       name: "ned14/boost.afio"
       description: "Build submitted via Travis CI"
     notification_email: s_github@nedprod.com
-    build_command_prepend: "cd test && bash ./test_file_glob.sh"
+    build_command_prepend: "cd test && bash ./test_file_glob.sh && cd .."
     build_command:   "g++ -o test_all -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
     branch_pattern: master
 
@@ -41,16 +41,16 @@ matrix:
     - os: osx
   include:
     - os: linux
-      env: _="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
+      env: __="GCC 4.8 + Standalone unit/functional tests coverage" VALGRIND=0 CCFLAGS="-fprofile-arcs -ftest-coverage -DBOOST_AFIO_COMPILING_FOR_GCOV -DNDEBUG" GCCVER="g++-4.8" GCOV=1 UNITTESTS=1
     - os: osx
-      env: _="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
+      env: __="MacOS X build" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=0
     - os: osx
-      env: _="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
+      env: __="MacOS X test" VALGRIND=0 CCFLAGS="-DNDEBUG" GCCVER="clang++" GCOV=0 UNITTESTS=1
 
 
 before_install:
- - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
- - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo add-apt-repository -y ppa:boost-latest/ppa; fi
  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; fi
@@ -59,8 +59,8 @@ before_install:
  - git submodule update --init --recursive
 
 script:
- - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
- - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - CCFLAGS="$CCFLAGS -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
  - if [ $GCOV -eq 1 ]; then LINKFLAGS="$LINKFLAGS -lgcov"; fi
  - cd test
@@ -77,13 +77,13 @@ script:
  - if [ $UNITTESTS -eq 1 ]; then ./test_all; fi
  
 after_success:
- - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
- - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
  - if [ $GCOV -eq 1 ]; then bash -x test/update_coveralls.sh `pwd`; fi
 
 after_failure:
- - if [ "$_" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
- - if [ "$_" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X build" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
+ - if [ "$__" = "MacOS X test" ] && [ "$TRAVIS_OS_NAME" = "linux" ]; then exit 0; fi
 # - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ls -l /cores/; fi
 # - if [ "$TRAVIS_OS_NAME" = "osx" ]; then lldb --help; fi
  - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ $UNITTESTS -eq 1 ]; then expect scripts/travis_lldb.expect; fi
