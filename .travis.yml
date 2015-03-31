@@ -32,7 +32,7 @@ addons:
       description: "Build submitted via Travis CI"
     notification_email: s_github@nedprod.com
     build_command_prepend: "cd test && bash ./test_file_glob.sh && cd .."
-    build_command:   "g++ -o test_all -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
+    build_command:   "$GCCVER -o test_all -g -O0 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CXX14_CONSTEXPR= -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread"
     branch_pattern: master
 
 matrix:
