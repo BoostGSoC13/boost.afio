@@ -143,7 +143,6 @@ if being used standalone or if being used as part of Boost:
               </ulink>
             </entry>
           </row>
-          <row/>
           <row>
             <entry morerows="1">Android 5.0</entry>
             <entry>clang 3.5</entry>
@@ -964,19 +963,21 @@ if being used standalone or if being used as part of Boost:
 
 [heading Boost AFIO Installation into Boost]
 
-As of v1.3 of the engine, you can simply git clone __boost_afio__ and get to work. If however you
+As of v1.3 of the engine, you can simply download [@https://boostgsoc13.github.io/boost.afio/afio-stable.tar.bz2 the afio stable
+tarball] (same as git clone __boost_afio__ followed by a git submodules recursive update and init) and get to work. If however you
 wish to use AFIO as part of the Boost libraries, AFIO is also a Boost module:
 
 # Download the latest version of the Boost Libraries from boost.org. 
-  At the time of writing the current version is Boost 1.57. 
+  At the time of writing the current version is Boost 1.58. 
   Installing AFIO as a Boost module is not compatible with versions of Boost earlier than 1.56 as this was
   the first Boost version to become source code modularised.
 
 
-# Download Boost AFIO through GitHub at : [@https://github.com/BoostGSoC13/boost.afio https://github.com/BoostGSoC13/boost.afio]
-  We recommend using a git repository, as it will allow for future updates. If you are unfamiliar 
+# Download the latest Boost AFIO stable tarball from [@https://boostgsoc13.github.io/boost.afio/afio-stable.tar.bz2 https://boostgsoc13.github.io/boost.afio/afio-stable.tar.bz2].
+  We do however recommend using the git repository, as it will allow for future updates. If you are unfamiliar 
   with git, check the github website for instructions on how to use git. This is a good place to 
-  start: [@https://help.github.com/articles/set-up-git]
+  start: [@https://help.github.com/articles/set-up-git]. Don't forget that after cloning you need to
+  do a `git submodule update --init --recursive` to have git fill in the submodules.
 
 
 # POSIX: Assuming that your copy of Boost lives at /home/ned/boost and AFIO lives at
@@ -1024,7 +1025,7 @@ be used in exactly the same way as if AFIO were already part of Boost.
 
 [heading Running the Unit Tests]
 
-To run the unit tests as a standalone build, some like these will probably work for GCC and MSVC respectively:
+To run the unit tests as a standalone build, something like these will probably work for GCC and MSVC respectively:
 
 ``
   #!/bin/sh
@@ -1033,6 +1034,7 @@ To run the unit tests as a standalone build, some like these will probably work 
   fi
   rm -rf test_all
   g++ -o test_all -g -O3 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -DSPINLOCK_STANDALONE=1 -Iasio/asio/include -DASIO_STANDALONE=1 -DBOOST_AFIO_RUNNING_IN_CI=1 -lboost_filesystem -lboost_system -lpthread
+  ./test_all
 ``
 
 Note the dependency on __boost_filesystem__ as libstdc++ 4.9 (the last I tested) has insufficient Filesystem support. For VS2015:
@@ -1040,6 +1042,7 @@ Note the dependency on __boost_filesystem__ as libstdc++ 4.9 (the last I tested)
 ``
   if not exist asio git clone https://github.com/chriskohlhoff/asio.git
   cl /Zi /EHs /O2 /MD /GF /GR /Gy /bigobj test\test_all.cpp detail\SpookyV2.cpp /DUNICODE=1 /DWIN32=1 /D_UNICODE=1 /D_WIN32=1 /Iinclude /Itest /DAFIO_STANDALONE=1 /DSPINLOCK_STANDALONE=1 /Iasio/asio/include /DASIO_STANDALONE=1 /DBOOST_AFIO_RUNNING_IN_CI=1
+  test_all.exe
 ``
 
 

@@ -1,4 +1,4 @@
-[submodule "include/boost.bindlib"]
+[submodule "include/boost/afio/bindlib"]
 	path = include/boost/afio/bindlib
 	url = https://github.com/ned14/Boost.BindLib.git
         branch = master
