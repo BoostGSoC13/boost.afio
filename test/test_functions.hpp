@@ -40,6 +40,10 @@ extern "C" void tzset(void);
 #include "boost/afio/detail/valgrind/valgrind.h"
 #include <time.h>
 
+#ifdef BOOST_AFIO_INCLUDE_SPOOKY_IMPL
+#include "../detail/SpookyV2.cpp"
+#endif
+
 #if defined(__has_feature)
 #  if __has_feature(thread_sanitizer)
 #    define RUNNING_ON_SANITIZER 1
