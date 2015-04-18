@@ -39,7 +39,7 @@ namespace {
             off_t bytes=ih.get()->direntry(metadata_flags::size).st_size();
             // Push the offset to write at, amount to write, and a scratch buffer
             offsets.push_back(std::make_tuple(offset, bytes,
-                std::make_unique<file_buffer_type>(chunk_size)));
+                detail::make_unique<file_buffer_type>(chunk_size)));
             offset+=bytes;
         }
         // Schedule resizing output to correct size, retrieving errors

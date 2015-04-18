@@ -111,11 +111,12 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 
 
 [/=================]
-[heading Boost 1.57 AFIO v1.31 master branch]
+[heading Boost 1.58 AFIO v1.31 18th April 2015]
 [/=================]
 
 * Added Appveyor CI support which complements the Travis CI support.
 
+* Verified as working with Boost 1.58 release.
 
 [/=================]
 [heading Boost 1.57 AFIO v1.30 18th March 2015]
