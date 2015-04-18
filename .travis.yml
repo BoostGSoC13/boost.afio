@@ -25,15 +25,15 @@ env:
     #   via the "travis encrypt" command using the project repo's public key
     - secure: "ouEimnVEYE28pbGvib6ks+i3mxl1CE0nBAZuvqvVrEbbcSaauEZZCyYiL291l2j90aSPJOJzbny+AhVwsr8mNLyiI9OGRtcnCFNjOHEXPF0Ep78ebmVLX4oyqv7DEPmeJSR/va/ebCrbAbOlPBCPGOFO5UfNtwvx2qJouMtNQMI="    
 
-addons:
-  coverity_scan:
-    project:
-      name: "ned14/boost.afio"
-      description: "Build submitted via Travis CI"
-    notification_email: s_github@nedprod.com
-    build_command_prepend: "cd test && bash ./test_file_glob.sh && cd .."
-    build_command:   "$GCCVER -o test_all -g -O0 -std=c++11 test/test_all.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CONSTEXPR= -DBOOST_CXX14_CONSTEXPR= -DBOOST_AFIO_INCLUDE_SPOOKY_IMPL=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread -ldl"
-    branch_pattern: master
+#addons:
+#  coverity_scan:
+#    project:
+#      name: "ned14/boost.afio"
+#      description: "Build submitted via Travis CI"
+#    notification_email: s_github@nedprod.com
+#    build_command_prepend: "cd test && bash ./test_file_glob.sh && cd .."
+#    build_command:   "$GCCVER -o test_all -g -O0 -std=c++11 test/test_all.cpp -Iinclude -Itest -DBOOST_AFIO_RUNNING_IN_CI=1 -DBOOST_CONSTEXPR= -DBOOST_CXX14_CONSTEXPR= -DBOOST_AFIO_INCLUDE_SPOOKY_IMPL=1 -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unused-value -lboost_filesystem -lboost_system -lpthread -ldl"
+#    branch_pattern: master
 
 matrix:
   exclude:
