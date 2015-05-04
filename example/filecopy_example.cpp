@@ -102,7 +102,7 @@ int main(int argc, const char *argv[])
         boost::afio::filesystem::path dest=argv[1];
         std::vector<boost::afio::filesystem::path> sources;
         std::cout << "Concatenating into " << dest << " the files ";
-        for(int n=2; n<argc; argc++)
+        for(int n=2; n<argc; ++n)
         {
             sources.push_back(argv[n]);
             std::cout << sources.back();
