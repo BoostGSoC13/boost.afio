@@ -10,6 +10,7 @@ int main(void)
     {
         // Schedule an opening of a file called example_file.txt
         boost::afio::async_path_op_req req("example_file.txt",
+            boost::afio::file_flags::Create |
             boost::afio::file_flags::ReadWrite);
         boost::afio::async_io_op openfile(dispatcher->file(req)); /*< schedules open file as soon as possible >*/
         
