@@ -63,8 +63,12 @@ namespace {
                 auto readchunk=dispatcher->read(make_async_data_op_req(last, buffer->data(),
                     thischunk, o));
                 // Schedule a writing of buffer to offset offset+o after readchunk is ready
-                auto writechunk=dispatcher->write(make_async_data_op_req(readchunk,
-                    buffer->data(), thischunk, offset+o));
+                // Note the call to dispatcher->depends(). The precondition for the next operation
+                // is readchunk, but we need ohresize passed to dispatcher->write() in order
+                // to write to the output file.
+                auto writechunk=dispatcher->write(make_async_data_op_req(
+                    dispatcher->depends(readchunk, ohresize), buffer->data(),
+                    thischunk, offset+o));
                 // Schedule incrementing written after write has completed
                 auto incwritten=dispatcher->call(writechunk, [&written, thischunk]{
                     written+=thischunk;
