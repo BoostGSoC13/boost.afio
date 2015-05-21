@@ -6,6 +6,8 @@ Boost.AFIO Jenkins CI status:
 </h3>
 <p align="center">Unit test code coverage is: <a href='https://coveralls.io/r/BoostGSoC13/boost.afio'><img src='https://coveralls.io/repos/BoostGSoC13/boost.afio/badge.png' alt='Coverage Status' /></a></p>
 
+<p align="center">Appveyor: <a href='https://ci.appveyor.com/project/ned14/boost-afio'><img src='https://ci.appveyor.com/api/projects/status/f89cv89kj8c2nmvb/branch/master'/></a></p>
+
 <center>
 <table border="1" cellpadding="2">
 <tr><th>OS</th><th>Compiler</th><th>STL</th><th>CPU</th><th>Build</th><th>Unit tests</th></tr>

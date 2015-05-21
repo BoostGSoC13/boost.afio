@@ -12,12 +12,25 @@
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
+* AFIO v1.4 will abstract out all the OS specific code into a C (not C++)
+abstraction layer. This makes it far easier to reuse the same code for a later
+AFIO based Filesystem TS implementation. It also eliminates the use of C++
+exceptions at the OS specific layer. Note I may still use lambdas in the C
+abstraction layer, if compiled as C these appear as C callbacks but if compiled
+as C++ they are some callable type.
+
 * The v1.4 engine will be rewritten yet again to use a new custom future
 implementation whereby async_io_op shall become afio::future<T>. This should
 let the API no longer return two sets of futures when returning results
 (async_io_op therefore matches afio::future<void>), plus make best use of the
 proposed concurrent_unordered_map by finally actually processing batches of
 operations as a batch, instead of one at a time.
+
+* It is hoped that the v1.4 engine will have two additional bindings, one
+for Microsoft COM thanks to John Bandela's CppComponents (https://github.com/jbandela/cppcomponents)
+and another with plain C bindings (which actually wrap the COM object). Both
+these bindings have no requirement for anything Microsoft, and work as expected
+on POSIX.
 
 * The v1.4 engine afio::future<T> ought to transparently support Boost.Fiber,
 this should let you program against AFIO using awaitable resumable functions
@@ -96,6 +109,14 @@ using a shocking amount of RAM.
 * Asynchronous file handle closing in ~async_io_handle() (currently if not
 explicitly closed, the async_io_handle destructor must synchronously close)
 
+
+[/=================]
+[heading Boost 1.58 AFIO v1.31 18th April 2015]
+[/=================]
+
+* Added Appveyor CI support which complements the Travis CI support.
+
+* Verified as working with Boost 1.58 release.
 
 [/=================]
 [heading Boost 1.57 AFIO v1.30 18th March 2015]
