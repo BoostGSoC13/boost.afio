@@ -12,6 +12,9 @@
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
+Make boost/afio/afio_v1.hpp. Add BOOST_AFIO_LATEST_NAMESPACE. v1 namespace must
+become not inline so v2 namespace is inline.
+
 * AFIO v1.4 will abstract out all the OS specific code into a C (not C++)
 abstraction layer. This makes it far easier to reuse the same code for a later
 AFIO based Filesystem TS implementation. It also eliminates the use of C++

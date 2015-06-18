@@ -10,11 +10,14 @@ inputs=[
   ((0, "Ubuntu Linux 12.04 LTS", "clang 3.4", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.4"], "label":"linux-gcc-clang"}),
   ((0, "Ubuntu Linux 12.04 LTS", "GCC 4.7", "libstdc++ 4.7", "x86"), {"CPPSTD":["c++11"], "CXX":["g++-4.7"], "label":"linux-gcc-clang"}),
 
-  ((5, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.5"], "label":"linux64-gcc-clang"}),
+  ((8, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.5"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "ARMv7"), {"CPPSTD":["c++11"], "CXX":["clang++-3.5"], "label":"arm-gcc-clang"}),
+  ((0, "Ubuntu Linux 14.04 LTS", "clang 3.6", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.6"], "label":"linux64-gcc-clang"}),
+  ((0, "Ubuntu Linux 14.04 LTS", "clang 3.7", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.7"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "GCC 4.8", "libstdc++ 4.8", "x64"), {"CPPSTD":["c++11"], "CXX":["g++-4.8"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "GCC 4.9", "libstdc++ 4.9", "x64"), {"CXX":["g++-4.9"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "GCC 4.9", "libstdc++ 4.9", "ARMv7"), {"CXX":["g++-4.9"], "label":"arm-gcc-clang"}),
+  ((0, "Ubuntu Linux 14.04 LTS", "GCC 5.1", "libstdc++ 5.1", "x64"), {"CXX":["g++-5"], "label":"linux64-gcc-clang"}),
 
   ((3, "Microsoft Windows 8.1", "Mingw-w64 GCC 4.8", "libstdc++ 4.8", "x64"), {"CPPSTD":["c++11"], "CXX":["mingw64"], "LINKTYPE":["static", "shared"], "label":"win8-msvc-mingw"}),
   ((0, "Microsoft Windows 8.1", "Visual Studio 2013", "Dinkumware", "x64"), {"CPPSTD":["c++14"], "CXX":["msvc-12.0"], "LINKTYPE":["static", "shared"], "label":"win8-msvc-mingw"}),
@@ -31,13 +34,14 @@ print('''<p align="center">
 Boost.AFIO Jenkins CI status:
 </h3>
 <p align="center">Unit test code coverage is: <a href='https://coveralls.io/r/BoostGSoC13/boost.afio'><img src='https://coveralls.io/repos/BoostGSoC13/boost.afio/badge.png' alt='Coverage Status' /></a></p>
+<p align="center">Appveyor: <a href='https://ci.appveyor.com/project/ned14/boost-afio'><img src='https://ci.appveyor.com/api/projects/status/f89cv89kj8c2nmvb/branch/master'/></a></p>
 
 <center>
 <table border="1" cellpadding="2">
 <tr><th>OS</th><th>Compiler</th><th>STL</th><th>CPU</th><th>Build</th><th>Unit tests</th></tr>
 
 <!-- static analysis clang -->
-<tr align="center"><td rowspan="2">Static analysis</td><td>clang 3.4 + GCC 4.7</td><td></td><td></td><td>
+<tr align="center"><td rowspan="2">Static analysis</td><td>clang 3.7 tidy + static analyser + GCC 4.8</td><td></td><td></td><td>
 <div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20clang/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20clang' /></a></div></td><td></td>
 </tr>
 
