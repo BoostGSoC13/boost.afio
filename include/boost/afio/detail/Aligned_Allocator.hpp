@@ -33,8 +33,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include <cstddef>
 #include <memory>
-#include <typeinfo>
 #include <type_traits>
+#include <typeinfo>
 #include <vector>
 
 

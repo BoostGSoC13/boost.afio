@@ -342,7 +342,7 @@ public:
             service.reset();
         }
     }
-    ~std_thread_pool() override final
+    ~std_thread_pool() final
     {
         destroy();
     }
