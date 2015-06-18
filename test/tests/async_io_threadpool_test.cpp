@@ -30,7 +30,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_thread_pool_works, "Tests that the async i/o 
         
         for(auto &i: results)
         {
-            i=std::move(pool.enqueue(task));
+            i=pool.enqueue(task);
         }
         
 #if BOOST_AFIO_USE_BOOST_THREAD && defined(BOOST_THREAD_PROVIDES_FUTURE_WHEN_ALL_WHEN_ANY)

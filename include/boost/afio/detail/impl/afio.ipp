@@ -761,7 +761,7 @@ retry:
             parentpath.path=parentpath.path.parent_path();
           }
           else if(p->available_to_directory_cache())
-            return std::move(req.precondition.get());  // always valid and a directory
+            return req.precondition.get();  // always valid and a directory
           try
           {
             return p->parent()->p->get_handle_to_dir(static_cast<Impl *>(p->parent()), 0, parentpath, &Impl::dofile);
@@ -787,7 +787,7 @@ retry:
           }
           std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
           if(dirh)
-            return std::move(dirh);
+            return dirh;
           else
             return p->parent()->int_get_handle_to_containing_dir(static_cast<Impl *>(p->parent()), 0, parentpath, &Impl::dofile);
         }
@@ -2257,7 +2257,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     {
         // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
-        retfutures.push_back(std::move(transport->get_future()));
+        retfutures.push_back(transport->get_future());
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i, transport));
     }
     return std::make_pair(std::move(retfutures), std::move(ret));
@@ -2275,7 +2275,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     {
         // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
-        retfutures.push_back(std::move(transport->get_future()));
+        retfutures.push_back(transport->get_future());
         ret.push_back(chain_async_op(immediates, optype, i, flags, f, transport));
     }
     return std::make_pair(std::move(retfutures), std::move(ret));
@@ -2298,7 +2298,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     {
         // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
-        retfutures.push_back(std::move(transport->get_future()));
+        retfutures.push_back(transport->get_future());
         ret.push_back(chain_async_op(immediates, optype, *container_it, flags, f, *req_it, transport));
     }
     return std::make_pair(std::move(retfutures), std::move(ret));

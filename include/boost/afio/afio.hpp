@@ -278,7 +278,7 @@ public:
         enqueued_task<R()> out(std::move(f));
         auto ret(out.get_future());
         service.post(out);
-        return std::move(ret);
+        return ret;
     }
 };
 
@@ -619,7 +619,7 @@ struct path::make_absolute : public path
     if(native()[0]!=preferred_separator)
       *this=filesystem::absolute(std::move(*this));
   }
-  template<class T, typename=typename std::enable_if<std::is_constructible<filesystem::path, T>::value>::type> make_absolute(T &&p) : path(std::move(filesystem::absolute(std::forward<T>(p)))) { }
+  template<class T, typename=typename std::enable_if<std::is_constructible<filesystem::path, T>::value>::type> make_absolute(T &&p) : path(filesystem::absolute(std::forward<T>(p))) { }
 };
 /*! \brief A hasher for path
 */
@@ -652,7 +652,7 @@ will extended path prefix such paths as well.
 #ifdef WIN32
 BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_normalise type=path_normalise::dos);
 #else
-inline filesystem::path normalise_path(path p, path_normalise type=path_normalise::dos) { return std::move(p); }
+inline filesystem::path normalise_path(path p, path_normalise type=path_normalise::dos) { return p; }
 #endif
 
 
@@ -2451,7 +2451,7 @@ namespace detail
             state->in.push_back(first->h);
         auto ret=state->out.get_future();
         process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)] { when_all_ops_do<rethrow>(std::move(state)); });
-        return std::move(ret);
+        return ret;
     }
     struct when_any_state : std::enable_shared_from_this<when_any_state>
     {
@@ -2525,7 +2525,7 @@ namespace detail
         for(size_t n=0; n<ops.size(); n++)
           completions.push_back(std::make_pair(async_op_flags::immediate, std::bind(&when_any_ops_do<rethrow>, state, n, std::placeholders::_1, std::placeholders::_2)));
         dispatcher->completion(ops, completions);
-        return std::move(ret);
+        return ret;
     }
 #endif
     template<bool is_all> struct select_when_ops_return_type
@@ -3808,7 +3808,7 @@ namespace utils
   {
     std::string out(in.size() * 2, ' ');
     to_hex_string(const_cast<char *>(out.data()), out.size(), in.data(), in.size());
-    return std::move(out);
+    return out;
   }
 
   /*! \brief Converts a hex string to a number. Out buffer can be same as in buffer.
@@ -3893,7 +3893,7 @@ namespace utils
     std::string ret(outlen, 0);
     random_fill(const_cast<char *>(ret.data()), randomlen);
     to_hex_string(const_cast<char *>(ret.data()), outlen, ret.data(), randomlen);
-    return std::move(ret);
+    return ret;
   }
 
 #ifndef BOOST_AFIO_SECDEC_INTRINSICS
