@@ -28,8 +28,8 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include <string>
 #include <stdexcept>
+#include <string>
 
 #if defined(BOOST_MSVC) && BOOST_MSVC<=1800 && !defined(__func__)
 #define __func__ __FUNCTION__

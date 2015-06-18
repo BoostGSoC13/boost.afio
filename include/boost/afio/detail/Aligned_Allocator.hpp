@@ -31,11 +31,11 @@ DEALINGS IN THE SOFTWARE.
 */
 
 
-#include <vector>
-#include <memory>
-#include <type_traits>
-#include <typeinfo>
 #include <cstddef>
+#include <memory>
+#include <typeinfo>
+#include <type_traits>
+#include <vector>
 
 
 //! \def BOOST_AFIO_PACKEDTYPE(typedecl) The markup this compiler uses to pack a structure as tightly as possible

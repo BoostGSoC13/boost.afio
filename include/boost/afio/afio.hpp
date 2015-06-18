@@ -61,10 +61,10 @@ DEALINGS IN THE SOFTWARE.
 #include "detail/Undoer.hpp"
 #include "detail/ErrorHandling.hpp"
 #include "detail/Utility.hpp"
-#include <type_traits>
+#include <algorithm> // Boost.ASIO needs std::min and std::max
 #include <exception>
 #include <iostream>
-#include <algorithm> // Boost.ASIO needs std::min and std::max
+#include <type_traits>
 
 /*! \brief Validate inputs at the point of instantiation.
 
@@ -342,7 +342,7 @@ public:
             service.reset();
         }
     }
-    ~std_thread_pool()
+    ~std_thread_pool() override final
     {
         destroy();
     }
@@ -990,8 +990,8 @@ public:
     directory_entry(path::string_type _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
     directory_entry(const directory_entry &) = default;
     directory_entry &operator=(const directory_entry &) = default;
-    directory_entry(directory_entry &&o) : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
-    directory_entry &operator=(directory_entry &&o)
+    directory_entry(directory_entry &&o) BOOST_NOEXCEPT : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
+    directory_entry &operator=(directory_entry &&o) BOOST_NOEXCEPT
     {
         leafname=std::move(o.leafname);
         stat=std::move(o.stat);
@@ -2732,7 +2732,7 @@ struct async_path_op_req
     //! \cconstr
     async_path_op_req(const async_path_op_req &o) = default;
     //! \mconstr
-    async_path_op_req(async_path_op_req &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+    async_path_op_req(async_path_op_req &&o) BOOST_NOEXCEPT : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
     //! \mconstr
     inline async_path_op_req(absolute &&o);
     //! \mconstr
