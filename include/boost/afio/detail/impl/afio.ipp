@@ -686,7 +686,8 @@ namespace detail {
       l.l_len=end-l.l_start;
       // TODO FIXME: Run through local_locks with some async algorithm before dropping onto fcntl().
       int retcode;
-      while(-1==(retcode=fcntl(h, F_SETLKW, &l)) && EINTR==errno);
+      while(-1==(retcode=fcntl(h, F_SETLKW, &l)) && EINTR==errno)
+        /*empty*/;
       BOOST_AFIO_ERRHOS(retcode);
 #endif
       return std::make_pair(true, op.get());
@@ -2637,7 +2638,8 @@ namespace detail {
                     ssize_t _byteswritten;
                     size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
                     off_t offset=i.first+byteswritten;
-                    while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
+                    while(-1==(_byteswritten=pwritev(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno)
+                      /*empty*/;
                     BOOST_AFIO_ERRHOSFN((int) _byteswritten, [p]{return p->path();});
                     byteswritten+=_byteswritten;
                 } 
@@ -2793,7 +2795,8 @@ namespace detail {
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
             int ret;
-            while(-1==(ret=BOOST_AFIO_POSIX_FTRUNCATE(p->fd, newsize)) && EINTR==errno);
+            while(-1==(ret=BOOST_AFIO_POSIX_FTRUNCATE(p->fd, newsize)) && EINTR==errno)
+              /*empty*/;
             BOOST_AFIO_ERRHOSFN(ret, [p]{return p->path();});
             return std::make_pair(true, h);
         }
