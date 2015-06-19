@@ -335,7 +335,7 @@ namespace boost { namespace asio {
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
 
-#include "spinlock/include/boost/spinlock/future.hpp"
+#include "spinlock/include/boost/spinlock/spinlock.hpp"
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   using BOOST_SPINLOCK_V1_NAMESPACE::is_lockable_locked;
   using spins_to_sleep = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_sleep;
