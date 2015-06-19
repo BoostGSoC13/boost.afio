@@ -15,5 +15,9 @@ gcc -fpreprocessed -dD -E -P include/boost/afio/single_include.hpp > send_to_wan
 sed "/^$/d" send_to_wandbox_tmp/afio_single_include2.hpp > send_to_wandbox_tmp/afio_single_include.hpp
 rm -rf send_to_wandbox_tmp/afio_single_include2.hpp
 #include/boost/afio/bindlib/scripts/send_to_wandbox.py send_to_wandbox_tmp send_to_wandbox.cpp
-
-
+URL=`include/boost/afio/bindlib/scripts/send_to_wandbox.py send_to_wandbox_tmp send_to_wandbox.cpp | sed -e 's/.*\(http:\/\/[^ '"'"']*\).*/\1/'`
+if [[ $FRAME != "" ]]; then
+    echo '<iframe src="'$URL'" frameborder="0" style="height: 100%; width: 100%;" height="100%" width="100%"></iframe>'
+else
+    echo $URL
+fi
