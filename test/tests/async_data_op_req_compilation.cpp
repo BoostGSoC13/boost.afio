@@ -180,8 +180,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
             BOOST_CHECK(asio::buffer_cast<const void *>(req.buffers[n])==*it);
             BOOST_CHECK(asio::buffer_size(req.buffers[n])==2);
           }
-#endif
         }
+#endif
 
         // ***************************** Buffers into read/write *******************************
         // Base void * specialisation
