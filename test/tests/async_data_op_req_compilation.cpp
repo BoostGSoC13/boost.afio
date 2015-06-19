@@ -165,6 +165,23 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
           BOOST_CHECK(asio::buffer_cast<const void *>(req.buffers.front())==b.begin()->data());
           BOOST_CHECK(asio::buffer_size(req.buffers.front())==b.begin()->size());
         }
+#if 0
+        // std::initializer_list<const char *>
+        {
+          auto b={"Ni", "al", "l "};
+          typedef decltype(b) type;
+          auto req(make_async_data_op_req(last, b, 0));
+          BOOST_CHECK(typeid(req)==typeid(async_data_op_req<type>));
+          BOOST_CHECK(typeid(req.buffers.front())==typeid(asio::const_buffer));
+          BOOST_CHECK(req.buffers.size()==3);
+          auto it(b.begin());
+          for(size_t n=0; n<b.size(); n++, ++it)
+          {
+            BOOST_CHECK(asio::buffer_cast<const void *>(req.buffers[n])==*it);
+            BOOST_CHECK(asio::buffer_size(req.buffers[n])==2);
+          }
+#endif
+        }
 
         // ***************************** Buffers into read/write *******************************
         // Base void * specialisation

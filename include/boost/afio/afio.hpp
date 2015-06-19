@@ -3026,6 +3026,7 @@ gather buffers into a single one for contiguous storage.
 */
 template<class T> inline std::vector<asio::mutable_buffer> to_asio_buffers(T &v)
 {
+  static_assert(!std::is_pointer<T>::value, "You cannot assemble scatter gather buffers from raw pointers, you need to specify a length or supply a type carrying a length");
   return detail::to_asio_buffers_helper<false, asio::mutable_buffer, T>()(v);
 }
 /*! \brief Any trivial type T or STL container.
@@ -3042,6 +3043,7 @@ gather buffers into a single one for contiguous storage.
 */
 template<class T> inline std::vector<asio::const_buffer> to_asio_buffers(const T &v)
 {
+  static_assert(!std::is_pointer<T>::value, "You cannot assemble scatter gather buffers from raw pointers, you need to specify a length or supply a type carrying a length");
   return detail::to_asio_buffers_helper<true, asio::const_buffer, T>()(v);
 }
 /*! \brief A buffer at v sized N*sizeof(T)

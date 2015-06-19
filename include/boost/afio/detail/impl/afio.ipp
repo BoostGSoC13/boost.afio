@@ -64,36 +64,18 @@ File Created: Mar 2013
 #endif
 
 #include "../../afio.hpp"
-#include "../valgrind/memcheck.h"
+#ifndef BOOST_AFIO_DISABLE_VALGRIND
+# include "../valgrind/memcheck.h"
+#else
+# define VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(addr, len)
+#endif
 
 #include <limits>
 #include <random>
 #include <unordered_map>
-#ifdef BOOST_AFIO_USE_CONCURRENT_UNORDERED_MAP
-BOOST_AFIO_V1_NAMESPACE_BEGIN
-  template<class T> using default_engine_unordered_map_spinlock=spinlock<T,
-    spins_to_loop<100>::policy,
-    spins_to_yield<500>::policy,
-    spins_to_sleep::policy>;
-  template<class Key,
-           class T,
-           class Hash=BOOST_SPINLOCK_V1_NAMESPACE::fnv1a_hash<Key>,
-           class Pred=std::equal_to<Key>,
-           class Alloc=std::allocator<std::pair<const Key, T>>
-           > using engine_unordered_map_t=BOOST_SPINLOCK_V1_NAMESPACE::concurrent_unordered_map<Key,
-                                                                   T,
-                                                                   Hash,
-                                                                   Pred,
-                                                                   Alloc,
-                                                                   default_engine_unordered_map_spinlock
-                                                                   >;
-  struct null_lock { void lock() { } bool try_lock() { return true; } void unlock() { } };
-BOOST_AFIO_V1_NAMESPACE_END
-#else
 BOOST_AFIO_V1_NAMESPACE_BEGIN
   template<class Key, class T, class Hash=std::hash<Key>, class Pred=std::equal_to<Key>, class Alloc=std::allocator<std::pair<const Key, T>>> using engine_unordered_map_t=std::unordered_map<Key, T, Hash, Pred, Alloc>;
 BOOST_AFIO_V1_NAMESPACE_END
-#endif
 
 #include <sys/types.h>
 #ifdef __MINGW32__

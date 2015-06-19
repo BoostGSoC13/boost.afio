@@ -335,12 +335,8 @@ namespace boost { namespace asio {
 BOOST_AFIO_V1_NAMESPACE_END
 #endif
 
-// TODO FIXME: Replace this with bindings
-#undef BOOST_SPINLOCK_HPP
-#undef BOOST_CONCURRENT_UNORDERED_MAP_HPP
-#include "spinlock/include/boost/spinlock/concurrent_unordered_map.hpp"
+#include "spinlock/include/boost/spinlock/future.hpp"
 BOOST_AFIO_V1_NAMESPACE_BEGIN
-  template<class Key, class T, class Hash, class Pred, class Alloc> using concurrent_unordered_map = BOOST_SPINLOCK_V1_NAMESPACE::concurrent_unordered_map<Key, T, Hash, Pred, Alloc>;
   using BOOST_SPINLOCK_V1_NAMESPACE::is_lockable_locked;
   using spins_to_sleep = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_sleep;
   template<size_t _0> using spins_to_yield = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_yield<_0>;
