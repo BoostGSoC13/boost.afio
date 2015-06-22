@@ -7,39 +7,12 @@
 #  http://www.boost.org/LICENSE_1_0.txt)
 
 import modules ;
+import ../../config/checks/config : requires ;
 .argv = [ modules.peek : ARGV ] ;
-
-rule cpp14 ( properties * )
-{
-   local result ;
-   if "--c++14" in $(.argv) 
-   {
-      if <toolset>gcc in $(properties)
-      {
-        result += <cxxflags>"-std=c++1y" ;
-      }
-      if <toolset>clang in $(properties)
-      {
-        result += <cxxflags>"-std=c++1y" ;
-      }
-   }
-   else
-   {
-      if <toolset>gcc in $(properties)
-      {
-        result += <cxxflags>"-std=c++0x" ;
-      }
-      if <toolset>clang in $(properties)
-      {
-        result += <cxxflags>"-std=c++0x" ;
-      }
-   }
-   return $(result) ;
-}
 
 project boost/afio
     : requirements
-      <threading>multi                          #<-- do we need this?
+      <threading>multi
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1  
       <link>shared:<define>BOOST_AFIO_SOURCE=1
       <link>static:<define>BOOST_AFIO_SOURCE=1
@@ -47,8 +20,8 @@ project boost/afio
       <toolset>gcc:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -fargument-noalias -fvisibility=hidden -fasynchronous-unwind-tables"
       <toolset>gcc-mingw:<cxxflags>"-DWIN32 -D_UNICODE -DUNICODE -Wno-missing-braces"
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
-      <toolset>clang:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fasynchronous-unwind-tables"
-      <toolset>msvc:<cxxflags>"/GF /Gy /D_VARIADIC_MAX=8"
+      <toolset>clang:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-unknown-pragmas -fvisibility=hidden -fasynchronous-unwind-tables"
+      <toolset>msvc:<cxxflags>"/GF /Gy"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32 
       <toolset>msvc:<define>_WINDOWS  
@@ -61,12 +34,12 @@ project boost/afio
       <link>shared:<library>../../filesystem/build//boost_filesystem
       <link>shared:<library>../../atomic/build//boost_atomic
       <link>shared:<library>../../thread/build//boost_thread
-      <conditional>@cpp14
       
     : usage-requirements 
       <include>. 
 
     : source-location ../src
+    [ requires cxx11_variadic_templates cxx11_template_aliases cxx11_hdr_type_traits ]
 
 ;
 

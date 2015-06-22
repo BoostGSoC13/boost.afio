@@ -16,34 +16,6 @@ import os ;
 import testing ;
 import pch ;
 
-rule cpp14 ( properties * )
-{
-   local result ;
-   if "--c++14" in $(.argv) 
-   {
-      if <toolset>gcc in $(properties)
-      {
-        result += <cxxflags>"-std=c++1y" ;
-      }
-      if <toolset>clang in $(properties)
-      {
-        result += <cxxflags>"-std=c++1y" ;
-      }
-   }
-   else
-   {
-      if <toolset>gcc in $(properties)
-      {
-        result += <cxxflags>"-std=c++0x" ;
-      }
-      if <toolset>clang in $(properties)
-      {
-        result += <cxxflags>"-std=c++0x" ;
-      }
-   }
-   return $(result) ;
-}
-
 # If we're running in a CI, reduce the length of the unit tests considerably
 rule running-in-ci ( properties * )
 {
@@ -135,7 +107,7 @@ project boost/afio/test
       <toolset>gcc-mingw:<library>/boost/afio//boost_afio
       <toolset>gcc-mingw:<linkflags>"-lws2_32"
       <toolset>gcc:<linkflags>"-lgomp"
-      <toolset>clang:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-constexpr-not-const -Wno-c++1y-extensions -Wno-unknown-pragmas -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
+      <toolset>clang:<cxxflags>"-fvisibility-inlines-hidden -fstrict-aliasing -Wstrict-aliasing -Wno-unused -Wno-mismatched-tags -Wno-unknown-pragmas -fvisibility=hidden -fopenmp -fasynchronous-unwind-tables"
       <toolset>msvc:<cxxflags>"/openmp /GF /Gy /bigobj /wd4456"
       <toolset>msvc:<linkflags>"/LARGEADDRESSAWARE /DYNAMICBASE /NXCOMPAT" # /VERSION:1.00.0"
       <toolset>msvc:<define>WIN32
@@ -151,7 +123,6 @@ project boost/afio/test
       <library>../../thread/build//boost_thread
       <define>BOOST_AFIO_USE_BOOST_UNIT_TEST=1
       <library>../../test/build//boost_unit_test_framework
-      <conditional>@cpp14
       <conditional>@running-in-ci
       <conditional>@fast-build
       <conditional>@lto
