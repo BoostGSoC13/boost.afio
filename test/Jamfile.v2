@@ -6,8 +6,8 @@
 #  (See accompanying file LICENSE_1_0.txt or copy at
 #  http://www.boost.org/LICENSE_1_0.txt)
 
-
 import modules ;
+import ../../config/checks/config : requires ;
 .argv = [ modules.peek : ARGV ] ;
 
 #local boost-path = [ modules.peek : BOOST_ROOT ] ; #can probably get rid of this
@@ -99,6 +99,7 @@ rule analyse ( properties * )
 
 project boost/afio/test
     : requirements
+      [ requires cxx11_variadic_templates cxx11_template_aliases cxx11_hdr_type_traits ]
       <threading>multi
       <include>.
 #      <library>/boost/afio//boost_afio
