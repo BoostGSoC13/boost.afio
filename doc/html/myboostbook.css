@@ -689,3 +689,6 @@ span.alignright { display: inline-block; width: 100%; text-align: right; }
 span.alignjustify { display: inline-block; width: 100%; text-align: justify; }
 span.red { color: red; }
 span.green { color: green; }
+
+/* Have Disqus comment counts be small */
+span.disqus-comment-count { font-size: x-small; margin-left: 1em; }
