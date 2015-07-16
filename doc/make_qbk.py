@@ -182,7 +182,7 @@ for i in glob.glob("generated/*.qbk"):
 var disqus_identifier = '"""+name+"""';
 var disqus_title = 'Boost.AFIO """+title+"""';
 </script>
-<a href="#comments"><span class="disqus-comment-count"></span></a>
+<a href="#comments"><span class="disqus-comment-count" data-disqus-identifier="""+'"'+name+'"'+"""></span></a>
 </div>
 """)
         t.insert(n+1, """'''<?dbhtml-include href="disqus_identifiers/"""+name+""".html"?>'''
