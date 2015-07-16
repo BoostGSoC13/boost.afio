@@ -22,14 +22,14 @@ else:
 
 if os.path.exists("generated"):
     shutil.rmtree("generated", True)
-if os.path.exists("disqus_identifers"):
-    shutil.rmtree("disqus_identifers", True)
+if os.path.exists("disqus_identifiers"):
+    shutil.rmtree("disqus_identifiers", True)
 if os.path.exists("html/afio"):
     shutil.rmtree("html/afio", True)
 if os.path.exists("doxy/doxygen_output"):
     shutil.rmtree("doxy/doxygen_output", True)
 os.mkdir("generated")
-os.mkdir("disqus_identifers")
+os.mkdir("disqus_identifiers")
 os.mkdir("doxy/doxygen_output")
 
 cmd = doxygen_xml2qbk_cmd
@@ -177,7 +177,7 @@ for i in glob.glob("generated/*.qbk"):
           firstspace=name.find('>', firstspace)+1
         title=name[firstspace+1:].replace('<', '&lt;').replace('>', '&gt;')
         name=name[:firstspace].replace('<', '_').replace('>', '_').replace(' ', '-')
-        with open("disqus_identifers/"+name+".html", "wt") as identh:
+        with open("disqus_identifiers/"+name+".html", "wt") as identh:
           identh.write("""<div><script type="text/javascript">
 var disqus_identifier = '"""+name+"""';
 var disqus_title = 'Boost.AFIO """+title+"""';
@@ -185,10 +185,10 @@ var disqus_title = 'Boost.AFIO """+title+"""';
 <a href="#comments"><span class="disqus-comment-count"></span></a>
 </div>
 """)
-        t.insert(n+1, """'''<?dbhtml-include href="../../../../../../../libs/afio/doc/disqus_identifers/"""+name+""".html"?>'''
+        t.insert(n+1, """'''<?dbhtml-include href="disqus_identifiers/"""+name+""".html"?>'''
 """)
       elif line[:9]=="[endsect]":
-        t.insert(n, """'''<?dbhtml-include href="../../../../../../../libs/afio/doc/disqus_comments.html"?>'''
+        t.insert(n, """'''<?dbhtml-include href="disqus_comments.html"?>'''
 """)
         skip=2
     with open(i, "w+b") as ih:

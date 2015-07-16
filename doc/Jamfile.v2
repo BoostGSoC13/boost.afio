@@ -7,15 +7,32 @@
 # http://www.boost.org/LICENSE_1_0.txt)
 
 
+import os ;
+
 project afio/doc ;
-
-# Auto-index, experimental. Commented otherwise does not build without.
-#using auto-index ; 
-
 using quickbook ;
 
 path-constant here : . ;
 
+make disqus_comments.html : ./disqus_comments.html : @copy_disqus_identifiers ;
+if [ os.name ] = NT
+{
+    actions copy_disqus_identifiers
+    {
+        for %%a in ("$(>)") do set src_path=%%~dpa\disqus_identifiers
+        for %%a in ("$(<)") do set dest_path=%%~dpa\disqus_identifiers
+        robocopy /E %src_path% %dest_path%
+        copy /B $(>) $(<)
+    }
+}
+else
+{
+    actions copy_disqus_identifiers
+    {
+        cp -a $(dirname $(>))/disqus_identifiers $(dirname $(<))/disqus_identifiers 
+        cp -a $(>) $(<)
+    }
+}
 
 boostbook afio 
     : afio.qbk
