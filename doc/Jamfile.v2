@@ -29,7 +29,7 @@ else
 {
     actions copy_disqus_identifiers
     {
-        cp -a $(dirname $(>))/disqus_identifiers $(dirname $(<))/disqus_identifiers 
+        cp -a `dirname $(>)`/disqus_identifiers `dirname $(<)`/disqus_identifiers 
         cp -a $(>) $(<)
     }
 }
