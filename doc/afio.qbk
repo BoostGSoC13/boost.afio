@@ -8,7 +8,7 @@
 
 [library Boost.AFIO
     [quickbook 1.7]
-    [version 1.30]
+    [version 1.40]
     [id afio]
     [category afio]
     [authors [Douglas, Niall], [Kirth, Paul]]
@@ -84,9 +84,12 @@
 [import ../test/tests/race_protection_works.cpp]
 
 [section:introduction Introduction]
+
+'''<?dbhtml-include href="html/disqus_introduction.html"?>'''
+
 __boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file
 input/output operations to be executed asynchronously to the maximum capacity of your hardware. If you want
-to do portable asynchronous file i/o in C++, especially if you need to easily order issues of reads and writes,
+to do portable asynchronous filesystem and file i/o in C++, especially if you need to easily order issues of reads and writes,
 this is the correct library to be looking at.
 
 As a quick check list, if you have ever experienced any of these problems, then AFIO may be useful to you:
@@ -132,9 +135,9 @@ As a quick check list, if you have ever experienced any of these problems, then 
     and ext4 and performance was actually tolerable with under a second pause. Ten million item directories is plenty fast, and
     one million item directories you won't notice over a ten item directory. Note that your GUI file
     explorer will very likely hang on ten million item directories, indeed so do most command line tools.
-  * Exclusive lock files (manually operated support already there, async support coming in v1.4).
-  * File change monitoring (coming in v1.4).
-  * File byte range advisory locking (coming in v1.4).
+  * Exclusive lock files (manually operated support already there, async support coming in v1.5).
+  * File change monitoring (coming in v1.5).
+  * File byte range advisory locking (coming in v1.5).
 
 __boost_afio__ is a __boost_bindlib__ based Boost library, and therefore is capable of any combination of
 the following build configurations:
@@ -182,20 +185,16 @@ Note that __boost_afio__ is a C++ 11 only library, and it requires, as an absolu
 
 Some popular compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ our Jenkins CI bot] include:
 
-* Microsoft Visual Studio 2013, released in 2013. Before v1.3 of the engine VS2010 was supported.
-* GNU Compiler Collection v4.7, released in 2012. Before v1.3 of the engine GCC 4.6 was known to work.
+* Microsoft Visual Studio 2015, released in 2015. v1.0-v1.2 supported VS2010, v1.3 supported VS2013.
+* GNU Compiler Collection v4.8, released in 2013. v1.0-v1.2 supported GCC 4.6, v1.3 supported GCC v4.7.
 * clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
 
-The Jenkins CI bot runs a full set of unit tests for all supported compilers on all supported
-platforms for every single commit to master branch and every single pull request. Additionally,
-the Travis CI bot runs a full set of code coverage for the unit tests, plus a pass of the
-clang 3.4 Thread Sanitizer over all the unit tests, also for every single commit and pull
-request. As of AFIO v1.2, it is rare to see anything except all green on the CI dashboard.
+The Jenkins CI bot runs a full suite of static analysis tools (currently clang and MSVC static analysers and
+clang-tidy, the ABI stability compliance checker is planned), runtime analysis tools (currently the clang undefined behaviour
+and thread sanitisers plus valgrind memcheck) plus a full set of unit tests for all supported compilers
+on all supported platforms for every single commit to master branch and every single pull request. Additionally,
+the Travis CI bot runs a full set of code coverage for the unit tests which is pushed to coveralls.io.
 [link unit_test_dashboard You can view the build and unit test CI dashboard for all compilers and platforms here].
-
-Note that just because a compiler will compile the code does not mean performance will be good!
-All Visual Studios, including 2015, have problems optimising AFIO to a good extent, indeed 2015
-currently produces slightly slower code than 2013.
 
 [important Note that Boost.AFIO has not passed Boost peer review, and therefore is not a part of the Boost C++ libraries]
 
@@ -203,6 +202,7 @@ As a very quick example of minimal usage:
 
 [call_example]
 
+'''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect] [/introduction]
 
 [include design_rationale.qbk]
