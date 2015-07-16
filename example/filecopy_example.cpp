@@ -60,11 +60,18 @@ namespace {
                 size_t thischunk=(size_t)(bytes-o);
                 if(thischunk>chunk_size) thischunk=chunk_size;
                 // Schedule a filling of buffer from offset o after last has completed
-                auto readchunk=dispatcher->read(make_async_data_op_req(last, buffer->data(),
-                    thischunk, o));
+                // Note the call to dispatcher->depends(). After the each loop, last
+                // refers to an io_op that uses the output file, but we need to read from
+                // the input file.
+                auto readchunk = dispatcher->read(make_async_data_op_req(
+                    dispatcher->depends(last, ihs[idx]), buffer->data(), thischunk, o));
                 // Schedule a writing of buffer to offset offset+o after readchunk is ready
-                auto writechunk=dispatcher->write(make_async_data_op_req(readchunk,
-                    buffer->data(), thischunk, offset+o));
+                // Note the call to dispatcher->depends(). The precondition for the next operation
+                // is readchunk, but we need ohresize passed to dispatcher->write() in order
+                // to write to the output file.
+                auto writechunk=dispatcher->write(make_async_data_op_req(
+                    dispatcher->depends(readchunk, ohresize), buffer->data(),
+                    thischunk, offset+o));
                 // Schedule incrementing written after write has completed
                 auto incwritten=dispatcher->call(writechunk, [&written, thischunk]{
                     written+=thischunk;
@@ -102,7 +109,7 @@ int main(int argc, const char *argv[])
         boost::afio::filesystem::path dest=argv[1];
         std::vector<boost::afio::filesystem::path> sources;
         std::cout << "Concatenating into " << dest << " the files ";
-        for(int n=2; n<argc; argc++)
+        for(int n=2; n<argc; ++n)
         {
             sources.push_back(argv[n]);
             std::cout << sources.back();
