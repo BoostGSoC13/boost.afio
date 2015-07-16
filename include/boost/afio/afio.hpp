@@ -1473,10 +1473,11 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 [include generated/group_async_file_io_dispatcher_base__completion.qbk]
 [include generated/group_async_file_io_dispatcher_base__call.qbk]
 [include generated/group_async_file_io_dispatcher_base__filedirops.qbk]
-[include generated/group_async_file_io_dispatcher_base__barrier.qbk]
 [include generated/group_async_file_io_dispatcher_base__enumerate.qbk]
 [include generated/group_async_file_io_dispatcher_base__extents.qbk]
 [include generated/group_async_file_io_dispatcher_base__statfs.qbk]
+[include generated/group_async_file_io_dispatcher_base__depends.qbk]
+[include generated/group_async_file_io_dispatcher_base__barrier.qbk]
 [include generated/group_async_file_io_dispatcher_base__misc.qbk]
 }
 */
@@ -2354,7 +2355,7 @@ public:
     \ingroup async_file_io_dispatcher_base__depends
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
     \exceptionmodelstd
-    \qexample{depends_example}
+    \qexample{filecopy_example}
     */
     inline async_io_op depends(async_io_op precondition, async_io_op op);
 
