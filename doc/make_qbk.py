@@ -22,11 +22,14 @@ else:
 
 if os.path.exists("generated"):
     shutil.rmtree("generated", True)
+if os.path.exists("disqus_identifers"):
+    shutil.rmtree("disqus_identifers", True)
 if os.path.exists("html/afio"):
     shutil.rmtree("html/afio", True)
 if os.path.exists("doxy/doxygen_output"):
     shutil.rmtree("doxy/doxygen_output", True)
 os.mkdir("generated")
+os.mkdir("disqus_identifers")
 os.mkdir("doxy/doxygen_output")
 
 cmd = doxygen_xml2qbk_cmd
@@ -154,6 +157,42 @@ for i in glob.glob("generated/class_*.qbk")+glob.glob("generated/struct_*.qbk"):
       t.insert(sections[0][0], t.pop(sections[1][0]))
       with open(i, "w+b") as ih:
           ih.writelines(t)
+
+# Patch all reference sections with Disqus commenting
+for i in glob.glob("generated/*.qbk"):
+    with open(i, "r+b") as ih:
+        t=ih.readlines()
+    n=-1
+    skip=0
+    for line in t:
+      n+=1
+      if skip:
+          skip=skip-1
+          continue
+      if line[:9]=="[section:":
+        name=line[9:-2];
+        if name[-1]==']': name=name[:-1]
+        firstspace=name.find(' ')
+        if name[firstspace-1]=='<':
+          firstspace=name.find('>', firstspace)+1
+        title=name[firstspace+1:].replace('<', '&lt;').replace('>', '&gt;')
+        name=name[:firstspace].replace('<', '_').replace('>', '_').replace(' ', '-')
+        with open("disqus_identifers/"+name+".html", "wt") as identh:
+          identh.write("""<div><script type="text/javascript">
+var disqus_identifier = '"""+name+"""';
+var disqus_title = 'Boost.AFIO """+title+"""';
+</script>
+<a href="#comments"><span class="disqus-comment-count"></span></a>
+</div>
+""")
+        t.insert(n+1, """'''<?dbhtml-include href="../../../../../../../libs/afio/doc/disqus_identifers/"""+name+""".html"?>'''
+""")
+      elif line[:9]=="[endsect]":
+        t.insert(n, """'''<?dbhtml-include href="../../../../../../../libs/afio/doc/disqus_comments.html"?>'''
+""")
+        skip=2
+    with open(i, "w+b") as ih:
+        ih.writelines(t)
 
 # Use either bjam or b2 or ../../../b2 (the last should be done on Release branch)
 #os.system("..\\..\\b2.exe") 
