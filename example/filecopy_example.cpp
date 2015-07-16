@@ -1,9 +1,28 @@
 #include "afio_pch.hpp"
 
+static uint32_t crc32(const void* data, size_t length, uint32_t previousCrc32 = 0)
+{
+  const uint32_t Polynomial = 0xEDB88320;
+  uint32_t crc = ~previousCrc32;
+  unsigned char* current = (unsigned char*) data;
+  while (length--)
+  {
+    crc ^= *current++;
+    for (unsigned int j = 0; j < 8; j++)
+      crc = (crc >> 1) ^ (-int(crc & 1) & Polynomial);
+  }
+  return ~crc; // same as crc ^ 0xFFFFFFFF
+}
+
 //[filecopy_example
 namespace {
     using namespace boost::afio;
     using boost::afio::off_t;
+
+    // Keep memory buffers around
+    // A special allocator of highly efficient file i/o memory
+    typedef std::vector<char, utils::file_buffer_allocator<char>> file_buffer_type;
+    static std::vector<std::unique_ptr<file_buffer_type>> buffers;
 
     // Parallel copy files in sources into dest, concatenating
     future<std::vector<std::shared_ptr<async_io_handle>>> async_concatenate_files(
@@ -12,8 +31,6 @@ namespace {
         boost::afio::filesystem::path dest, std::vector<boost::afio::filesystem::path> sources,
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
-        // A special allocator of highly efficient file i/o memory
-        typedef std::vector<char, utils::file_buffer_allocator<char>> file_buffer_type;
         // Schedule the opening of the output file for writing
         auto oh=dispatcher->file(async_path_op_req(dest, file_flags::Create|file_flags::Write));
         // Schedule the opening of all the input files for reading
@@ -23,61 +40,69 @@ namespace {
             |file_flags::WillBeSequentiallyAccessed));
         auto ihs=dispatcher->file(ihs_reqs);
         // Retrieve any error from opening the output
-        when_all(oh).wait();
+        when_all(oh).get();
         // Wait for the input file handles to open so we can get their sizes
         // (plus any failures to open)
-        when_all(ihs).wait();
+        when_all(ihs).get();
 
         // Need to figure out the sizes of the sources so we can resize output
         // correctly. We also need to allocate scratch buffers for each source.
-        std::vector<std::tuple<off_t, off_t, std::unique_ptr<file_buffer_type>>> offsets;
+        std::vector<std::tuple<off_t, off_t>> offsets;
         offsets.reserve(ihs.size());
-        off_t offset=0;
+        off_t offset=0, max_individual=0;
         for(auto &ih : ihs)
         {
             // Get the file's size in bytes
             off_t bytes=ih.get()->direntry(metadata_flags::size).st_size();
+            if(bytes>max_individual) max_individual=bytes;
+            //std::cout << "File " << ih->path() << " size " << bytes << " to offset " << offset << std::endl;
             // Push the offset to write at, amount to write, and a scratch buffer
-            offsets.push_back(std::make_tuple(offset, bytes,
-                detail::make_unique<file_buffer_type>(chunk_size)));
+            offsets.push_back(std::make_tuple(offset, bytes));
+            buffers.push_back(detail::make_unique<file_buffer_type>(chunk_size));
             offset+=bytes;
         }
         // Schedule resizing output to correct size, retrieving errors
         totalbytes=offset;
         auto ohresize=dispatcher->truncate(oh, offset);
-        when_all(ohresize).wait();
+        when_all(ohresize).get();
 
-        // Schedule the parallel processing of all input files
-        std::vector<async_io_op> writes(ihs.size());
-//#pragma omp parallel for // optional, actually makes little difference
-        for(int idx=0; idx<(int) ihs_reqs.size(); idx++)
+        // Schedule the parallel processing of all input files, sequential per file,
+        // but only after the output file has been resized
+        std::vector<async_io_op> lasts;
+        for(auto &i : ihs)
+          lasts.push_back(dispatcher->depends(ohresize, i));
+        for(off_t o=0; o<max_individual; o+=chunk_size)
         {
-            async_io_op last=ihs[idx];
+          for(size_t idx=0; idx<ihs_reqs.size(); idx++)
+          {
             auto offset=std::get<0>(offsets[idx]), bytes=std::get<1>(offsets[idx]);
-            auto &buffer=std::get<2>(offsets[idx]);
-            for(off_t o=0; o<bytes; o+=chunk_size)
+            auto &buffer=buffers[idx];
+            if(o<bytes)
             {
-                size_t thischunk=(size_t)(bytes-o);
-                if(thischunk>chunk_size) thischunk=chunk_size;
-                // Schedule a filling of buffer from offset o after last has completed
-                auto readchunk=dispatcher->read(make_async_data_op_req(last, buffer->data(),
-                    thischunk, o));
-                // Schedule a writing of buffer to offset offset+o after readchunk is ready
-                auto writechunk=dispatcher->write(make_async_data_op_req(readchunk,
-                    buffer->data(), thischunk, offset+o));
-                // Schedule incrementing written after write has completed
-                auto incwritten=dispatcher->call(writechunk, [&written, thischunk]{
-                    written+=thischunk;
-                });
-                // Don't do next read until written is incremented
-                last=incwritten.second;
+              off_t thischunk=bytes-o;
+              if(thischunk>chunk_size) thischunk=chunk_size;
+              //std::cout << "Writing " << thischunk << " from offset " << o << " in  " << lasts[idx]->path() << std::endl;
+              // Schedule a filling of buffer from offset o after last has completed
+              auto readchunk = dispatcher->read(make_async_data_op_req(
+                  lasts[idx], buffer->data(), (size_t) thischunk, o));
+              // Schedule a writing of buffer to offset offset+o after readchunk is ready
+              // Note the call to dispatcher->depends() to make sure the write only occurs
+              // after the read completes
+              auto writechunk=dispatcher->write(make_async_data_op_req(
+                  dispatcher->depends(readchunk, ohresize), buffer->data(),
+                  (size_t) thischunk, offset+o));
+              // Schedule incrementing written after write has completed
+              auto incwritten=dispatcher->call(writechunk, [&written, thischunk]{
+                  written+=thischunk;
+              });
+              // Don't do next read until written is incremented
+              lasts[idx]=dispatcher->depends(incwritten.second, readchunk);
             }
-            // Send write completion to writes for later synchronisation
-            writes[idx]=last;
+          }
         }
         // Having scheduled all the reads and write, return a future which returns when
         // they're done
-        return when_all(writes);
+        return when_all(lasts);
     }
 }
 
@@ -102,7 +127,7 @@ int main(int argc, const char *argv[])
         boost::afio::filesystem::path dest=argv[1];
         std::vector<boost::afio::filesystem::path> sources;
         std::cout << "Concatenating into " << dest << " the files ";
-        for(int n=2; n<argc; argc++)
+        for(int n=2; n<argc; ++n)
         {
             sources.push_back(argv[n]);
             std::cout << sources.back();
@@ -119,6 +144,8 @@ int main(int argc, const char *argv[])
                 << " out of " << totalbytes << " @ " << (written/chrono::duration_cast<secs_type>(
                     chrono::steady_clock::now()-begin).count()/1024/1024) << "Mb/sec) ...";
         }
+        // Retrieve any errors
+        h.get();
         std::cout << std::endl;
     }
     catch(...)
@@ -126,6 +153,32 @@ int main(int argc, const char *argv[])
         std::cerr << "ERROR: " << boost::current_exception_diagnostic_information(true)
             << std::endl;
         return 1;
+    }
+    // Make sure output really is input concatenated
+    std::cout << "CRC checking that the output exactly matches the inputs ..." << std::endl;
+    uint32_t crc1 = 0, crc2 = 0;
+    off_t offset = 0;
+    std::ifstream o(argv[1], std::ifstream::in);
+    for (int n = 2; n < argc; n++)
+    {
+      std::ifstream i(argv[n], std::ifstream::in);
+      i.seekg(0, i.end);
+      std::vector<char> buffer1((size_t)i.tellg()), buffer2((size_t)i.tellg());
+      i.seekg(0, i.beg);
+      o.read(buffer1.data(), buffer1.size());
+      i.read(buffer2.data(), buffer2.size());
+      bool quiet = false;
+      for (size_t n = 0; n<buffer1.size(); n += 64)
+      {
+        crc1 = crc32(buffer1.data() + n, 64, crc1);
+        crc2 = crc32(buffer2.data() + n, 64, crc2);
+        if (crc1 != crc2 && !quiet)
+        {
+          std::cerr << "ERROR: Offset " << offset+n << " not copied correctly!" << std::endl;
+          quiet = true;
+        }
+      }
+      offset += buffer1.size();
     }
     return 0;
 }

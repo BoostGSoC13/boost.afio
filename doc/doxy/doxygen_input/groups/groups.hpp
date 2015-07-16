@@ -24,6 +24,7 @@
 \defgroup async_file_io_dispatcher_base__extents x
 \defgroup async_file_io_dispatcher_base__statfs x
 \defgroup async_file_io_dispatcher_base__misc x
+\defgroup async_file_io_dispatcher_base__depends x
 \defgroup async_file_io_dispatcher x
 \defgroup when_all_ops x
 \defgroup async_data_op_req x
