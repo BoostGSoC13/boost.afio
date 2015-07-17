@@ -1176,7 +1176,14 @@ namespace detail
                 for(auto &b: req.buffers)
                 {
                     void *_b=asio::buffer_cast<void *>(b);
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 28313)  // SAL check
+#endif
                     memcpy(_b, addr, asio::buffer_size(b));
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
                     addr=(void *)((char *) addr + asio::buffer_size(b));
                 }
                 return std::make_pair(true, h);
