@@ -15,9 +15,9 @@ int main(void)
     do
     {
         // Schedule an enumeration of an open directory handle
-        // Note it returns a future to the results and an op ref 
+        // Note it returns a stl_future to the results and an op ref 
         std::pair<
-            boost::afio::future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
+            boost::afio::stl_future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
             boost::afio::async_io_op
         >  enumeration(
             dispatcher->enumerate(boost::afio::async_enumerate_op_req(

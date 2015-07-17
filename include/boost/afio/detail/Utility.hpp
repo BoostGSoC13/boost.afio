@@ -67,7 +67,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                     DWORD dwType; // Must be 0x1000.
                     LPCSTR szName; // Pointer to name (in user addr space).
                     DWORD dwThreadID; // Thread ID (-1=caller thread).
-                    DWORD dwFlags; // Reserved for future use, must be zero.
+                    DWORD dwFlags; // Reserved for stl_future use, must be zero.
                 } THREADNAME_INFO;
 #pragma pack(pop)
                 THREADNAME_INFO info;
@@ -216,8 +216,8 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
     using std::current_exception;
     using std::rethrow_exception;
 #endif
-    // Get an exception ptr from a future
-    template<typename T> inline exception_ptr get_exception_ptr(future<T> &f)
+    // Get an exception ptr from a stl_future
+    template<typename T> inline exception_ptr get_exception_ptr(stl_future<T> &f)
     {
 #if BOOST_AFIO_USE_BOOST_THREAD && BOOST_VERSION>=105500
         // Thanks to Vicente for adding this to Boost.Thread
@@ -262,8 +262,8 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         return exception_ptr();
 #endif
     }
-    // Is a future ready?
-    template<typename T> inline bool is_ready(const future<T> &f)
+    // Is a stl_future ready?
+    template<typename T> inline bool is_ready(const stl_future<T> &f)
     {
 #if BOOST_AFIO_USE_BOOST_THREAD
         return f.is_ready();

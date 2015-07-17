@@ -214,6 +214,7 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_STL1z_FILESYSTEM_MAP_NO_UNIQUE_PATH
 #define BOOST_STL11_FUTURE_MAP_NAMESPACE_BEGIN        BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_FUTURE_MAP_NAMESPACE_END          BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
+#define BOOST_STL11_FUTURE_MAP_NO_FUTURE
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_BEGIN         BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_MUTEX_MAP_NAMESPACE_END           BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
@@ -302,8 +303,10 @@ template<class T> inline boost::exception_ptr make_exception_ptr(T e)
     return boost::current_exception();
   }
 }
+template<class _Res> using stl_future = ::boost::future<_Res>;
 #else
 using std::make_exception_ptr;
+template<class _Res> using stl_future = ::std::future<_Res>;
 #endif
 
 #if ASIO_STANDALONE

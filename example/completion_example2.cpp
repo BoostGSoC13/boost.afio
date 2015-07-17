@@ -67,11 +67,11 @@ int main(void)
                 boost::afio::async_op_flags::immediate,
                 boundf));
         
-    // Create a boost::future<> representing the ops passed to when_all()
-    boost::afio::future<std::vector<std::shared_ptr<boost::afio::async_io_handle>>> future
+    // Create a boost::stl_future<> representing the ops passed to when_all()
+    boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::async_io_handle>>> stl_future
         =boost::afio::when_all(op);
     // ... and wait for it to complete
-    future.wait();
+    stl_future.wait();
     //]
     return 0;
 }

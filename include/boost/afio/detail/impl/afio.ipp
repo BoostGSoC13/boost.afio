@@ -1259,7 +1259,7 @@ update_path:
         async_file_io_dispatcher_op(OpType _optype, async_op_flags _flags)
             : optype(_optype), flags(_flags)
         {
-            // Stop the future from being auto-set on task return
+            // Stop the stl_future from being auto-set on task return
             enqueuement.disable_auto_set_future();
             //completions.reserve(4); // stop needless storage doubling for small numbers
             fillStack();
@@ -1892,7 +1892,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
         // into stack storage and process them from there without holding any locks
         completions=std::move(thisop->completions);
     }
-    // Early set future
+    // Early set stl_future
     if(e)
     {
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
@@ -2024,7 +2024,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::share
         BOOST_AFIO_DEBUG_PRINT("E %u begin\n", (unsigned) id);
         complete_async_op(id, e);
         BOOST_AFIO_DEBUG_PRINT("E %u end\n", (unsigned) id);
-        // complete_async_op() ought to have sent our exception state to our future,
+        // complete_async_op() ought to have sent our exception state to our stl_future,
         // so can silently drop the exception now
         return std::shared_ptr<async_io_handle>();
     }
@@ -2054,7 +2054,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
     auto thisop=std::make_shared<detail::async_file_io_dispatcher_op>((detail::OpType) optype, flags);
     // Bind supplied implementation routine to this, unique id, precondition and any args they passed
     thisop->enqueuement.set_task(std::bind(wrapperf, this, thisid, precondition, f, args...));
-    // Set the output shared future
+    // Set the output shared stl_future
     async_io_op ret(this, thisid, thisop->h());
     typename detail::async_file_io_dispatcher_op::completion_t item(std::make_pair(thisid, thisop));
     bool done=false;
@@ -2149,7 +2149,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_o
         {
             // It should never happen that precondition.id is valid but removed from extant ops
             // which indicates it completed and yet h remains invalid
-            BOOST_AFIO_THROW_FATAL(std::runtime_error("Precondition was not in list of extant ops, yet its future is invalid. This should never happen for any real op, so it's probably memory corruption."));
+            BOOST_AFIO_THROW_FATAL(std::runtime_error("Precondition was not in list of extant ops, yet its stl_future is invalid. This should never happen for any real op, so it's probably memory corruption."));
         }
         if(!!(flags & async_op_flags::immediate))
             immediates.enqueue(thisop->enqueuement);
@@ -2227,17 +2227,17 @@ template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector
     return ret;
 }
 // Directory enumerate specialisation
-template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret))
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret))
 {
     typedef std::pair<std::vector<directory_entry>, bool> retitemtype;
     std::vector<async_io_op> ret;
-    std::vector<future<retitemtype>> retfutures;
+    std::vector<stl_future<retitemtype>> retfutures;
     ret.reserve(container.size());
     retfutures.reserve(container.size());
     detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
-        // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
+        // Unfortunately older C++0x compilers don't cope well with feeding move only std::stl_future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
         retfutures.push_back(transport->get_future());
         ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i, transport));
@@ -2245,17 +2245,17 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     return std::make_pair(std::move(retfutures), std::move(ret));
 }
 // extents specialisation
-template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret))
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret))
 {
     typedef std::vector<std::pair<off_t, off_t>> retitemtype;
     std::vector<async_io_op> ret;
-    std::vector<future<retitemtype>> retfutures;
+    std::vector<stl_future<retitemtype>> retfutures;
     ret.reserve(container.size());
     retfutures.reserve(container.size());
     detail::immediate_async_ops immediates(container.size());
     for(auto &i: container)
     {
-        // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
+        // Unfortunately older C++0x compilers don't cope well with feeding move only std::stl_future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
         retfutures.push_back(transport->get_future());
         ret.push_back(chain_async_op(immediates, optype, i, flags, f, transport));
@@ -2263,11 +2263,11 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     return std::make_pair(std::move(retfutures), std::move(ret));
 }
 // statfs specialisation
-template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret))
+template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<statfs_t>>, std::vector<async_io_op>> async_file_io_dispatcher_base::chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret))
 {
     typedef statfs_t retitemtype;
     std::vector<async_io_op> ret;
-    std::vector<future<retitemtype>> retfutures;
+    std::vector<stl_future<retitemtype>> retfutures;
     ret.reserve(container.size());
     retfutures.reserve(container.size());
     assert(req.size()==container.size());
@@ -2278,7 +2278,7 @@ template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<fut
     auto container_it=container.cbegin();
     for(; req_it!=req.cend() && container_it!=container.cend(); ++req_it, ++container_it)
     {
-        // Unfortunately older C++0x compilers don't cope well with feeding move only std::future<> into std::bind
+        // Unfortunately older C++0x compilers don't cope well with feeding move only std::stl_future<> into std::bind
         auto transport=std::make_shared<promise<retitemtype>>();
         retfutures.push_back(transport->get_future());
         ret.push_back(chain_async_op(immediates, optype, *container_it, flags, f, *req_it, transport));
@@ -2334,7 +2334,7 @@ template<> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::c
     if(--state.first->togo)
         return std::make_pair(false, h);
 #if 1
-    // On the basis that probably the preceding decrementing thread has yet to signal their future,
+    // On the basis that probably the preceding decrementing thread has yet to signal their stl_future,
     // give up my timeslice
     this_thread::yield();
 #endif
@@ -3284,7 +3284,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::truncate, ops, sizes, async_op_flags::none, &async_file_io_dispatcher_compat::dotruncate);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -3295,7 +3295,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::enumerate, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::doenumerate);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: ops)
@@ -3306,7 +3306,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::extents, ops, async_op_flags::none, &async_file_io_dispatcher_compat::doextents);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: ops)

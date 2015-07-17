@@ -128,11 +128,11 @@ public:
     // An enumeration parsing completion, called when each directory enumeration completes
     std::pair<bool, std::shared_ptr<async_io_handle>> dir_enumerated(size_t id, 
         async_io_op op,
-        std::shared_ptr<future<std::pair<std::vector<directory_entry>, bool>>> listing)
+        std::shared_ptr<stl_future<std::pair<std::vector<directory_entry>, bool>>> listing)
     {
         std::shared_ptr<async_io_handle> h(op.get());
         async_io_op lastdir, thisop(dispatcher->op_from_scheduled_id(id));
-        // Get the entries from the ready future
+        // Get the entries from the ready stl_future
         std::vector<directory_entry> entries(std::move(listing->get().first));
         //std::cout << "E " << h->path() << std::endl;
         // For each of the directories schedule an open and enumeration
@@ -254,7 +254,7 @@ public:
         // Now we have an open directory handle, schedule an enumeration
         auto enumeration=dispatcher->enumerate(async_enumerate_op_req(
             dispatcher->op_from_scheduled_id(id), metadata_flags::size, 1000));
-        auto listing=std::make_shared<future<std::pair<std::vector<directory_entry>, 
+        auto listing=std::make_shared<stl_future<std::pair<std::vector<directory_entry>, 
             bool>>>(std::move(enumeration.first));
         auto enumeration_done=dispatcher->completion(enumeration.second, 
             make_pair(async_op_flags::none,

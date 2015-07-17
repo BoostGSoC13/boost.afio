@@ -24,7 +24,7 @@ int main(void)
         /* id is the unique, non-zero integer id of this op.
            precondition is the op you supplied as precondition. As it will by definition
            have completed by now, you can fetch from its h member variable a shared pointer
-           to the shared future containing either the output async_io_handle or the error state.
+           to the shared stl_future containing either the output async_io_handle or the error state.
         */
         std::cout << text << std::endl;
         
@@ -48,11 +48,11 @@ int main(void)
         dispatcher->completion(boost::afio::async_io_op() /* no precondition */,
             std::make_pair(boost::afio::async_op_flags::none, boundf));
         
-    // Create a boost::future<> representing the ops passed to when_all()
-    boost::afio::future<std::vector<std::shared_ptr<boost::afio::async_io_handle>>> future
+    // Create a boost::stl_future<> representing the ops passed to when_all()
+    boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::async_io_handle>>> stl_future
         =boost::afio::when_all(helloworld);
     // ... and wait for it to complete
-    future.wait();
+    stl_future.wait();
     //]
     return 0;
 }
