@@ -210,13 +210,6 @@ Boost.AFIO Jenkins CI status:
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=mingw64,LINKTYPE=static,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=mingw64,LINKTYPE=static,label=win8-msvc-mingw/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=mingw64,LINKTYPE=shared,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=mingw64,LINKTYPE=shared,label=win8-msvc-mingw/badge/icon" /></a></div>
 </td></tr>
-<tr align="center"><td>Visual Studio 2013</td><td>Dinkumware</td><td>x64</td><td>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=static,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=static,label=win8-msvc-mingw/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=shared,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=shared,label=win8-msvc-mingw/badge/icon" /></a></div>
-</td><td>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=static,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=static,label=win8-msvc-mingw/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=shared,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++14,CXX=msvc-12.0,LINKTYPE=shared,label=win8-msvc-mingw/badge/icon" /></a></div>
-</td></tr>
 <tr align="center"><td>Visual Studio 2015</td><td>Dinkumware</td><td>x64</td><td>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-14.0,LINKTYPE=static,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-14.0,LINKTYPE=static,label=win8-msvc-mingw/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-14.0,LINKTYPE=shared,label=win8-msvc-mingw/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++14,CXX=msvc-14.0,LINKTYPE=shared,label=win8-msvc-mingw/badge/icon" /></a></div>

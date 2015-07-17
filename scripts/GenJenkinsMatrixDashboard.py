@@ -20,7 +20,6 @@ inputs=[
   ((0, "Ubuntu Linux 14.04 LTS", "GCC 5.1", "libstdc++ 5.1", "x64"), {"CXX":["g++-5"], "label":"linux64-gcc-clang"}),
 
   ((3, "Microsoft Windows 8.1", "Mingw-w64 GCC 4.8", "libstdc++ 4.8", "x64"), {"CPPSTD":["c++11"], "CXX":["mingw64"], "LINKTYPE":["static", "shared"], "label":"win8-msvc-mingw"}),
-  ((0, "Microsoft Windows 8.1", "Visual Studio 2013", "Dinkumware", "x64"), {"CPPSTD":["c++14"], "CXX":["msvc-12.0"], "LINKTYPE":["static", "shared"], "label":"win8-msvc-mingw"}),
   ((0, "Microsoft Windows 8.1", "Visual Studio 2015", "Dinkumware", "x64"), {"CPPSTD":["c++14"], "CXX":["msvc-14.0"], "label":"win8-msvc-mingw"}),
 ]
 CPPSTDs=["c++11", "c++14"]
