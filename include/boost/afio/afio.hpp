@@ -657,19 +657,19 @@ inline filesystem::path normalise_path(path p, path_normalise type=path_normalis
 
 
 #define BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(type) \
-inline BOOST_CONSTEXPR type operator&(type a, type b) \
+inline constexpr type operator&(type a, type b) \
 { \
     return static_cast<type>(static_cast<size_t>(a) & static_cast<size_t>(b)); \
 } \
-inline BOOST_CONSTEXPR type operator|(type a, type b) \
+inline constexpr type operator|(type a, type b) \
 { \
     return static_cast<type>(static_cast<size_t>(a) | static_cast<size_t>(b)); \
 } \
-inline BOOST_CONSTEXPR type operator~(type a) \
+inline constexpr type operator~(type a) \
 { \
     return static_cast<type>(~static_cast<size_t>(a)); \
 } \
-inline BOOST_CONSTEXPR bool operator!(type a) \
+inline constexpr bool operator!(type a) \
 { \
     return 0==static_cast<size_t>(a); \
 }
@@ -4036,7 +4036,7 @@ namespace utils
       }
     }
     //! The number of bits valid in result_type
-    BOOST_CONSTEXPR result_type result_bits_valid() const noexcept
+    constexpr result_type result_bits_valid() const noexcept
     {
       return bitsvalid;
     }
