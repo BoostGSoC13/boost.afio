@@ -23,10 +23,10 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
             auto dispatcher = make_async_file_io_dispatcher();
             // Schedule opening the log file for hole punching
             auto logfilez(dispatcher->file(async_path_op_req("testdir/log",
-                file_flags::Create | file_flags::ReadWrite)));
+                file_flags::create | file_flags::read_write)));
             // Schedule opening the log file for atomic appending of log entries
             auto logfilea(dispatcher->file(async_path_op_req("testdir/log",
-                file_flags::Create | file_flags::Write | file_flags::Append)));
+                file_flags::create | file_flags::write | file_flags::append)));
             // Retrieve any errors which occurred
             logfilez.get(); logfilea.get();
             // Initialise a random number generator

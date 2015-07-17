@@ -21,7 +21,7 @@ namespace detail {
       DWORD creatdisp=0, ntflags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
       if(!overlapped)
         ntflags|=0x20/*FILE_SYNCHRONOUS_IO_NONALERT*/;
-      if(flags!=file_flags::None)
+      if(flags!=file_flags::none)
       {
         if(!!(flags & file_flags::int_opening_dir))
         {
@@ -31,29 +31,29 @@ namespace detail {
             access|=FILE_LIST_DIRECTORY|FILE_TRAVERSE;  // FILE_READ_DATA|FILE_EXECUTE
             // Match POSIX where read perms are sufficient to use this handle as a relative base for creating new entries
             //access|=FILE_ADD_FILE|FILE_ADD_SUBDIRECTORY;  // FILE_WRITE_DATA|FILE_APPEND_DATA  // Fails where user is not administrator
-            if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
+            if(!!(flags & file_flags::read)) access|=GENERIC_READ;
             // Write access probably means he wants to delete or rename self
-            if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
+            if(!!(flags & file_flags::write)) access|=GENERIC_WRITE|DELETE;
             // Windows doesn't like opening directories without buffering.
-            if(!!(flags & file_flags::OSDirect)) flags=flags & ~file_flags::OSDirect;
+            if(!!(flags & file_flags::os_direct)) flags=flags & ~file_flags::os_direct;
         }
         else
         {
             ntflags|=0x040/*FILE_NON_DIRECTORY_FILE*/;
-            if(!!(flags & file_flags::Append)) access|=FILE_APPEND_DATA|DELETE;
+            if(!!(flags & file_flags::append)) access|=FILE_APPEND_DATA|DELETE;
             else
             {
-                if(!!(flags & file_flags::Read)) access|=GENERIC_READ;
-                if(!!(flags & file_flags::Write)) access|=GENERIC_WRITE|DELETE;
+                if(!!(flags & file_flags::read)) access|=GENERIC_READ;
+                if(!!(flags & file_flags::write)) access|=GENERIC_WRITE|DELETE;
             }
-            if(!!(flags & file_flags::WillBeSequentiallyAccessed))
+            if(!!(flags & file_flags::will_be_sequentially_accessed))
                 ntflags|=0x00000004/*FILE_SEQUENTIAL_ONLY*/;
-            else if(!!(flags & file_flags::WillBeRandomlyAccessed))
+            else if(!!(flags & file_flags::will_be_randomly_accessed))
                 ntflags|=0x00000800/*FILE_RANDOM_ACCESS*/;
-            if(!!(flags & file_flags::TemporaryFile))
+            if(!!(flags & file_flags::temporary_file))
                 attribs|=FILE_ATTRIBUTE_TEMPORARY;
         }
-        if(!!(flags & file_flags::DeleteOnClose) && (!!(flags & file_flags::CreateOnlyIfNotExist) || !!(flags & file_flags::int_file_share_delete)))
+        if(!!(flags & file_flags::delete_on_close) && (!!(flags & file_flags::create_only_if_not_exist) || !!(flags & file_flags::int_file_share_delete)))
         {
             ntflags|=0x00001000/*FILE_DELETE_ON_CLOSE*/;
             access|=DELETE;
@@ -61,18 +61,18 @@ namespace detail {
         if(!!(flags & file_flags::int_file_share_delete))
             access|=DELETE;
       }
-      if(!!(flags & file_flags::CreateOnlyIfNotExist))
+      if(!!(flags & file_flags::create_only_if_not_exist))
       {
         creatdisp|=0x00000002/*FILE_CREATE*/;
       }
-      else if(!!(flags & file_flags::Create))
+      else if(!!(flags & file_flags::create))
       {
         creatdisp|=0x00000003/*FILE_OPEN_IF*/;
       }
-      else if(!!(flags & file_flags::Truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
+      else if(!!(flags & file_flags::truncate)) creatdisp|=0x00000005/*FILE_OVERWRITE_IF*/;
       else creatdisp|=0x00000001/*FILE_OPEN*/;
-      if(!!(flags & file_flags::OSDirect)) ntflags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
-      if(!!(flags & file_flags::AlwaysSync)) ntflags|=0x00000002/*FILE_WRITE_THROUGH*/;
+      if(!!(flags & file_flags::os_direct)) ntflags|=0x00000008/*FILE_NO_INTERMEDIATE_BUFFERING*/;
+      if(!!(flags & file_flags::always_sync)) ntflags|=0x00000002/*FILE_WRITE_THROUGH*/;
 
       windows_nt_kernel::init();
       using namespace windows_nt_kernel;
@@ -196,7 +196,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
   if(needToOpen)
   {
     // Open with no rights and no access
-    std::tie(ntstat, h)=detail::ntcreatefile(std::shared_ptr<async_io_handle>(), p, file_flags::None, false);
+    std::tie(ntstat, h)=detail::ntcreatefile(std::shared_ptr<async_io_handle>(), p, file_flags::none, false);
     BOOST_AFIO_ERRHNTFN(ntstat, [&p]{return p;});
   }
   auto unh=detail::Undoer([&h]{if(h) CloseHandle(h);});
@@ -423,7 +423,7 @@ namespace detail
                 if(available_to_directory_cache())
                   parent()->int_directory_cached_handle_path_changed(BOOST_AFIO_V1_NAMESPACE::path(), newpath, shared_from_this());
             }
-            if(!!(flags() & file_flags::HoldParentOpen) && !(flags() & file_flags::int_hold_parent_open_nested))
+            if(!!(flags() & file_flags::hold_parent_open) && !(flags() & file_flags::int_hold_parent_open_nested))
               dirh=int_verifymyinode();
         }
         ~async_io_handle_windows()
@@ -533,7 +533,7 @@ namespace detail
         {
             if(!mapaddr)
             {
-                if(!(flags() & file_flags::Write) && !(flags() & file_flags::Append))
+                if(!(flags() & file_flags::write) && !(flags() & file_flags::append))
                 {
                     HANDLE sectionh;
                     if(INVALID_HANDLE_VALUE!=(sectionh=CreateFileMapping(myid, NULL, PAGE_READONLY, 0, 0, nullptr)))
@@ -668,7 +668,7 @@ namespace detail
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
         has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr), _path(path)
     {
-      if(!!(flags & file_flags::OSLockable))
+      if(!!(flags & file_flags::os_lockable))
         lockfile=process_lockfile_registry::open<win_lock_file>(this);
     }
 
@@ -688,9 +688,9 @@ namespace detail
         // Called in unknown thread
         completion_returntype dodir(size_t id, async_io_op op, async_path_op_req req)
         {
-            req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::Read;
-            // TODO FIXME: Currently file_flags::Create may duplicate handles in the dirhcache
-            if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write) && !(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
+            req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::read;
+            // TODO FIXME: Currently file_flags::create may duplicate handles in the dirhcache
+            if(!(req.flags & file_flags::unique_directory_handle) && !!(req.flags & file_flags::read) && !(req.flags & file_flags::write) && !(req.flags & (file_flags::create|file_flags::create_only_if_not_exist)))
             {
               async_path_op_req req2(req);
               // Return a copy of the one in the dir cache if available as a fast path
@@ -740,7 +740,7 @@ namespace detail
             // Open the file with DeleteOnClose, renaming it before closing the handle.
             NTSTATUS ntstat;
             HANDLE temph;
-            req.flags=req.flags|file_flags::DeleteOnClose|file_flags::int_file_share_delete;
+            req.flags=req.flags|file_flags::delete_on_close|file_flags::int_file_share_delete;
             std::tie(ntstat, temph)=ntcreatefile(dirh, req.path, req.flags, false);
             BOOST_AFIO_ERRHNTFN(ntstat, [&req]{return req.path;});
             auto untemph=detail::Undoer([&temph]{if(temph) CloseHandle(temph);});
@@ -787,11 +787,11 @@ namespace detail
             BOOST_AFIO_ERRHNTFN(status, [&req]{return req.path;});
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
             auto ret=std::make_shared<async_io_handle_windows>(this, req.path, req.flags,
-                (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)),
+                (file_flags::sync_on_close|file_flags::write)==(req.flags & (file_flags::sync_on_close|file_flags::write|file_flags::always_sync)),
                 h);
             static_cast<async_io_handle_windows *>(ret.get())->do_add_io_handle_to_parent();
             // If creating a file or directory or link and he wants compression, try that now
-            if(!!(req.flags & file_flags::CreateCompressed) && (!!(req.flags & file_flags::CreateOnlyIfNotExist) || !!(req.flags & file_flags::Create)))
+            if(!!(req.flags & file_flags::create_compressed) && (!!(req.flags & file_flags::create_only_if_not_exist) || !!(req.flags & file_flags::create)))
             {
               DWORD bytesout=0;
               USHORT val=COMPRESSION_FORMAT_DEFAULT;
@@ -800,7 +800,7 @@ namespace detail
             if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link))
             {
               // If opening existing file for write, try to convert to sparse, ignoring any failures
-              if(!(req.flags & file_flags::NoSparse) && !!(req.flags & file_flags::Write))
+              if(!(req.flags & file_flags::no_sparse) && !!(req.flags & file_flags::write))
               {
 #if defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR)
                 // Mingw32 currently lacks the FILE_SET_SPARSE_BUFFER structure
@@ -812,7 +812,7 @@ namespace detail
                 FILE_SET_SPARSE_BUFFER fssb={true};
                 DeviceIoControl(ret->native_handle(), FSCTL_SET_SPARSE, &fssb, sizeof(fssb), nullptr, 0, &bytesout, nullptr);
               }
-              if(!!(req.flags & file_flags::OSMMap))
+              if(!!(req.flags & file_flags::os_mmap))
                 ret->try_mapfile();
             }
             return std::make_pair(true, ret);
@@ -852,19 +852,19 @@ namespace detail
             req.flags=fileflags(req.flags);
             req.flags=req.flags|file_flags::int_opening_link;
             // For safety, best not create unless doesn't exist
-            if(!!(req.flags&file_flags::Create))
+            if(!!(req.flags&file_flags::create))
             {
-                req.flags=req.flags&~file_flags::Create;
-                req.flags=req.flags|file_flags::CreateOnlyIfNotExist;
+                req.flags=req.flags&~file_flags::create;
+                req.flags=req.flags|file_flags::create_only_if_not_exist;
             }
             // If not creating, simply open
-            if(!(req.flags&file_flags::CreateOnlyIfNotExist))
+            if(!(req.flags&file_flags::create_only_if_not_exist))
                 return dofile(id, op, req);
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
             using windows_nt_kernel::REPARSE_DATA_BUFFER;
             // Our new object needs write access and if we're linking a directory, create a directory
-            req.flags=req.flags|file_flags::Write;
+            req.flags=req.flags|file_flags::write;
             if(!!(h->flags()&file_flags::int_opening_dir))
               req.flags=req.flags|file_flags::int_opening_dir;
             completion_returntype ret=dofile(id, op, req);
@@ -1014,7 +1014,7 @@ namespace detail
             std::shared_ptr<async_io_handle> h(op.get());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
-            if(!!(p->flags() & file_flags::int_opening_dir) && !(p->flags() & file_flags::UniqueDirectoryHandle) && !!(p->flags() & file_flags::Read) && !(p->flags() & file_flags::Write))
+            if(!!(p->flags() & file_flags::int_opening_dir) && !(p->flags() & file_flags::unique_directory_handle) && !!(p->flags() & file_flags::read) && !(p->flags() & file_flags::write))
             {
                 // As this is a directory which may be a fast directory enumerator, ignore close
             }
@@ -1088,7 +1088,7 @@ namespace detail
             std::get<1>(*bytes_to_transfer).store(amount);
             std::get<2>(*bytes_to_transfer)=req;
             // Are we using direct i/o, because then we get the magic scatter/gather special functions?
-            if(!!(p->flags() & file_flags::OSDirect))
+            if(!!(p->flags() & file_flags::os_direct))
             {
                 // Yay we can use the direct i/o scatter gather functions which are far more efficient
                 size_t pages=amount/pagesize, thisbufferoffset;
@@ -1829,7 +1829,7 @@ namespace detail
           for(size_t n=0; n<10; n++)
           {
             // TODO FIXME: Lock file needs to copy exact security descriptor from its original
-            std::tie(status, h)=ntcreatefile(std::shared_ptr<async_io_handle>(), lockfilepath, file_flags::Create|file_flags::ReadWrite|file_flags::TemporaryFile|file_flags::int_file_share_delete);
+            std::tie(status, h)=ntcreatefile(std::shared_ptr<async_io_handle>(), lockfilepath, file_flags::create|file_flags::read_write|file_flags::temporary_file|file_flags::int_file_share_delete);
             // This may fail with STATUS_DELETE_PENDING, if so sleep and loop
             if(!status)
               break;

@@ -800,7 +800,7 @@ retry:
             {
                 BOOST_AFIO_ERRHOSFN(fd, [&path]{return path;});
             }
-            if(!(flags & file_flags::NoRaceProtection))
+            if(!(flags & file_flags::no_race_protection))
             {
               BOOST_AFIO_POSIX_STAT_STRUCT s={0};
               if(-999==fd)
@@ -811,7 +811,7 @@ retry:
               st_ino=s.st_ino;
             }
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
-            if(!!(flags & file_flags::OSLockable))
+            if(!!(flags & file_flags::os_lockable))
                 lockfile=process_lockfile_registry::open<posix_lock_file>(this);
 #endif
         }
@@ -1004,7 +1004,7 @@ retry:
                 if(available_to_directory_cache())
                   parent()->int_directory_cached_handle_path_changed(BOOST_AFIO_V1_NAMESPACE::path(), newpath, shared_from_this());                  
             }
-            if(!!(flags() & file_flags::HoldParentOpen) && !(flags() & file_flags::int_hold_parent_open_nested))
+            if(!!(flags() & file_flags::hold_parent_open) && !(flags() & file_flags::int_hold_parent_open_nested))
               dirh=int_verifymyinode();
         }
         ~async_io_handle_posix()
@@ -1018,7 +1018,7 @@ retry:
             if(-999==fd)  // Probably a symlink
             {
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
-              if(!(flags() & file_flags::NoRaceProtection))
+              if(!(flags() & file_flags::no_race_protection))
               {
                 auto dirh(int_verifymyinode());
                 if(!dirh)
@@ -1061,7 +1061,7 @@ retry:
                   BOOST_AFIO_ERRGOS(-1);
               return path::string_type(buffer, len);
             }
-            if(!(flags() & file_flags::NoRaceProtection))
+            if(!(flags() & file_flags::no_race_protection))
             {
               auto dirh(int_verifymyinode());
               if(!dirh)
@@ -1087,7 +1087,7 @@ retry:
 #ifndef WIN32
             if(!mapaddr)
             {
-                if(!(flags() & file_flags::Write) && !(flags() & file_flags::Append))
+                if(!(flags() & file_flags::write) && !(flags() & file_flags::append))
                 {
                     BOOST_AFIO_POSIX_STAT_STRUCT s={0};
                     if(-1!=fstat(fd, &s))
@@ -1095,9 +1095,9 @@ retry:
                         if((mapaddr=BOOST_AFIO_POSIX_MMAP(nullptr, s.st_size, PROT_READ, MAP_SHARED, fd, 0)))
                         {
                             mapsize=s.st_size;
-                            if(!!(flags() & file_flags::WillBeSequentiallyAccessed))
+                            if(!!(flags() & file_flags::will_be_sequentially_accessed))
                               madvise(mapaddr, mapsize, MADV_SEQUENTIAL);
-                            else if(!!(flags() & file_flags::WillBeRandomlyAccessed))
+                            else if(!!(flags() & file_flags::will_be_randomly_accessed))
                               madvise(mapaddr, mapsize, MADV_RANDOM);
                         }
                     }
@@ -1113,7 +1113,7 @@ retry:
           if(-999!=fd)
           {
             auto newdirh=decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req);
-            if(!(flags() & file_flags::NoRaceProtection))
+            if(!(flags() & file_flags::no_race_protection))
             {
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
               // Some platforms may allow direct hard linking of file handles, in which case we are done
@@ -1153,7 +1153,7 @@ retry:
         {
           if(-999!=fd)
           {
-            if(!(flags() & file_flags::NoRaceProtection))
+            if(!(flags() & file_flags::no_race_protection))
             {
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
               // Some platforms may allow direct deletion of file handles, in which case we are done
@@ -1200,7 +1200,7 @@ update_path:
           if(-999!=fd)
           {
             auto newdirh=decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req);
-            if(!(flags() & file_flags::NoRaceProtection))
+            if(!(flags() & file_flags::no_race_protection))
             {
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
               auto dirh(int_verifymyinode());
@@ -1320,7 +1320,7 @@ update_path:
         template<class F> std::shared_ptr<async_io_handle> get_handle_to_dir(F *parent, size_t id, async_path_op_req req, typename async_file_io_dispatcher_base::completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req))
         {
             assert(!req.is_relative);
-            req.flags=file_flags::int_hold_parent_open_nested|file_flags::int_opening_dir|file_flags::Read;
+            req.flags=file_flags::int_hold_parent_open_nested|file_flags::int_opening_dir|file_flags::read;
             // First refresh all paths in the cache, eliminating any stale ptrs
             // One problem is that h->path(true) will update itself in dirhcache if it has changed, thus invalidating all the iterators
             // so we first copy dirhcache into torefresh
@@ -2404,9 +2404,9 @@ namespace detail {
         // Called in unknown thread
         completion_returntype dodir(size_t id, async_io_op op, async_path_op_req req)
         {
-            req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::Read;
-            // TODO FIXME: Currently file_flags::Create may duplicate handles in the dirhcache
-            if(!(req.flags & file_flags::UniqueDirectoryHandle) && !!(req.flags & file_flags::Read) && !(req.flags & file_flags::Write) && !(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
+            req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::read;
+            // TODO FIXME: Currently file_flags::create may duplicate handles in the dirhcache
+            if(!(req.flags & file_flags::unique_directory_handle) && !!(req.flags & file_flags::read) && !(req.flags & file_flags::write) && !(req.flags & (file_flags::create|file_flags::create_only_if_not_exist)))
             {
               async_path_op_req req2(req);
               // Return a copy of the one in the dir cache if available as a fast path
@@ -2456,25 +2456,25 @@ namespace detail {
               flags|=O_RDONLY;
             else
             {
-              if(!!(req.flags & file_flags::Read) && !!(req.flags & file_flags::Write)) flags|=O_RDWR;
-              else if(!!(req.flags & file_flags::Read)) flags|=O_RDONLY;
-              else if(!!(req.flags & file_flags::Write)) flags|=O_WRONLY;
+              if(!!(req.flags & file_flags::read) && !!(req.flags & file_flags::write)) flags|=O_RDWR;
+              else if(!!(req.flags & file_flags::read)) flags|=O_RDONLY;
+              else if(!!(req.flags & file_flags::write)) flags|=O_WRONLY;
             }
 #ifdef O_SYNC
-            if(!!(req.flags & file_flags::AlwaysSync)) flags|=O_SYNC;
+            if(!!(req.flags & file_flags::always_sync)) flags|=O_SYNC;
 #endif
             if(!!(req.flags & file_flags::int_opening_link))
             {
 #ifdef WIN32
               BOOST_AFIO_THROW(std::runtime_error("Creating symbolic links via MSVCRT is not supported on Windows."));
 #else
-              if(!!(req.flags & (file_flags::Create|file_flags::CreateOnlyIfNotExist)))
+              if(!!(req.flags & (file_flags::create|file_flags::create_only_if_not_exist)))
               {
                   fd=BOOST_AFIO_POSIX_SYMLINKAT(op->path().c_str(), dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str());
                   if(-1==fd && EEXIST==errno)
                   {
                       // Ignore already exists unless we were asked otherwise
-                      if(!(req.flags & file_flags::CreateOnlyIfNotExist))
+                      if(!(req.flags & file_flags::create_only_if_not_exist))
                           fd=0;
                   }
                   BOOST_AFIO_ERRHOSFN(fd, [&req]{return req.path;});
@@ -2501,13 +2501,13 @@ namespace detail {
 #ifdef O_SEARCH
                 flags|=O_SEARCH;
 #endif
-                if(!!(req.flags & file_flags::Create) || !!(req.flags & file_flags::CreateOnlyIfNotExist))
+                if(!!(req.flags & file_flags::create) || !!(req.flags & file_flags::create_only_if_not_exist))
                 {
                     fd=BOOST_AFIO_POSIX_MKDIRAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), 0x1f8/*770*/);
                     if(-1==fd && EEXIST==errno)
                     {
                         // Ignore already exists unless we were asked otherwise
-                        if(!(req.flags & file_flags::CreateOnlyIfNotExist))
+                        if(!(req.flags & file_flags::create_only_if_not_exist))
                             fd=0;
                     }
                     BOOST_AFIO_ERRHOSFN(fd, [&req]{return req.path;});
@@ -2515,12 +2515,12 @@ namespace detail {
             }
             else
             {
-                if(!!(req.flags & file_flags::Append)) flags|=O_APPEND;
-                if(!!(req.flags & file_flags::Truncate)) flags|=O_TRUNC;
-                if(!!(req.flags & file_flags::CreateOnlyIfNotExist)) flags|=O_EXCL|O_CREAT;
-                else if(!!(req.flags & file_flags::Create)) flags|=O_CREAT;
+                if(!!(req.flags & file_flags::append)) flags|=O_APPEND;
+                if(!!(req.flags & file_flags::truncate)) flags|=O_TRUNC;
+                if(!!(req.flags & file_flags::create_only_if_not_exist)) flags|=O_EXCL|O_CREAT;
+                else if(!!(req.flags & file_flags::create)) flags|=O_CREAT;
 #ifdef O_DIRECT
-                if(!!(req.flags & file_flags::OSDirect)) flags|=O_DIRECT;
+                if(!!(req.flags & file_flags::os_direct)) flags|=O_DIRECT;
 #endif
             }
             fd=BOOST_AFIO_POSIX_OPENAT(dirh ? (int)(size_t)dirh->native_handle() : at_fdcwd, req.path.c_str(), flags, 0x1b0/*660*/);
@@ -2535,29 +2535,29 @@ namespace detail {
             }
 #endif
             // If writing and SyncOnClose and NOT synchronous, turn on SyncOnClose
-            auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)==(req.flags & (file_flags::CreateOnlyIfNotExist|file_flags::DeleteOnClose)), (file_flags::SyncOnClose|file_flags::Write)==(req.flags & (file_flags::SyncOnClose|file_flags::Write|file_flags::AlwaysSync)), fd);
+            auto ret=std::make_shared<async_io_handle_posix>(this, req.path, req.flags, (file_flags::create_only_if_not_exist|file_flags::delete_on_close)==(req.flags & (file_flags::create_only_if_not_exist|file_flags::delete_on_close)), (file_flags::sync_on_close|file_flags::write)==(req.flags & (file_flags::sync_on_close|file_flags::write|file_flags::always_sync)), fd);
             static_cast<async_io_handle_posix *>(ret.get())->do_add_io_handle_to_parent();
             if(!(req.flags & file_flags::int_opening_dir) && !(req.flags & file_flags::int_opening_link))
             {              
-              if(!!(req.flags & file_flags::WillBeSequentiallyAccessed) || !!(req.flags & file_flags::WillBeRandomlyAccessed))
+              if(!!(req.flags & file_flags::will_be_sequentially_accessed) || !!(req.flags & file_flags::will_be_randomly_accessed))
               {
 #ifndef WIN32
 #if !defined(__APPLE__)
-                int advice=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ?
+                int advice=!!(req.flags & file_flags::will_be_sequentially_accessed) ?
                   (POSIX_FADV_SEQUENTIAL|POSIX_FADV_WILLNEED) :
                   (POSIX_FADV_RANDOM);
                 BOOST_AFIO_ERRHOSFN(::posix_fadvise(fd, 0, 0, advice), [&req]{return req.path;});
 #endif
 #if defined(__FreeBSD__)
-                size_t readaheadsize=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? utils::file_buffer_default_size() : 0;
+                size_t readaheadsize=!!(req.flags & file_flags::will_be_sequentially_accessed) ? utils::file_buffer_default_size() : 0;
                 BOOST_AFIO_ERRHOSFN(::fcntl(fd, F_READAHEAD, readaheadsize), [&req]{return req.path;});
 #elif defined(__APPLE__)
-                size_t readahead=!!(req.flags & file_flags::WillBeSequentiallyAccessed) ? 1 : 0;
+                size_t readahead=!!(req.flags & file_flags::will_be_sequentially_accessed) ? 1 : 0;
                 BOOST_AFIO_ERRHOSFN(::fcntl(fd, F_RDAHEAD, readahead), [&req]{return req.path;});
 #endif
 #endif
               }
-              if(!!(req.flags & file_flags::OSMMap))
+              if(!!(req.flags & file_flags::os_mmap))
                 ret->try_mapfile();
             }
             return std::make_pair(true, ret);
@@ -2743,7 +2743,7 @@ namespace detail {
                 size_t amount=std::min((int) (vecs.size()-n), IOV_MAX);
                 off_t offset=req.where+byteswritten;
                 // POSIX doesn't actually guarantee pwritev appends to O_APPEND files, and indeed OS X does not.
-                if(!!(p->flags() & file_flags::Append))
+                if(!!(p->flags() & file_flags::append))
                 {
                   while(-1==(_byteswritten=writev(p->fd, (&vecs.front())+n, (int) amount)) && EINTR==errno);
                 }
@@ -3424,7 +3424,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         {
             // No choice here, open a handle and stat it. Make sure you open with no flags, else
             // files with delete pending will refuse to open
-            async_path_op_req::relative req(dirh, name(), file_flags::None);
+            async_path_op_req::relative req(dirh, name(), file_flags::none);
             auto fileh=dispatcher->dofile(0, async_io_op(), req).second;
             auto direntry=fileh->direntry(wanted);
             wanted=wanted & direntry.metadata_ready(); // direntry() can fail to fill some entries on Win XP

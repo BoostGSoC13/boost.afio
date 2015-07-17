@@ -5,7 +5,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_works_64_autoflush, "Tests that the autoflush
     using namespace BOOST_AFIO_V1_NAMESPACE;
     namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
 #ifndef BOOST_AFIO_RUNNING_IN_CI
-    auto dispatcher=make_async_file_io_dispatcher(process_threadpool(), file_flags::SyncOnClose);
+    auto dispatcher=make_async_file_io_dispatcher(process_threadpool(), file_flags::sync_on_close);
     std::cout << "\n\n1000 file opens, writes 64Kb, closes, and deletes with autoflush i/o:\n";
     _1000_open_write_close_deletes(dispatcher, 65536);
 #endif

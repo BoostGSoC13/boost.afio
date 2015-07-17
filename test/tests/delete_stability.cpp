@@ -23,8 +23,8 @@ BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and direc
     try
     {    
       // HoldParentOpen is actually ineffectual as renames zap the parent container, but it tests more code.
-      auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::HoldParentOpen);
-      auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::Create));
+      auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::hold_parent_open);
+      auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
       
       // Monte Carlo creating or deleting lots of directories containing a few files of 4Kb
       ranctx ctx;
@@ -34,8 +34,8 @@ BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and direc
         size_t idx=ranval(&ctx) % ITEMS;
         if(filesystem::exists("testdir/"+to_string(idx)))
         {
-          auto dirh=dispatcher->dir(async_path_op_req::relative(testdir, to_string(idx), file_flags::ReadWrite));
-          std::vector<async_path_op_req> reqs={async_path_op_req::relative(dirh, "a", file_flags::ReadWrite), async_path_op_req::relative(dirh, "b", file_flags::ReadWrite), async_path_op_req::relative(dirh, "c", file_flags::ReadWrite)};
+          auto dirh=dispatcher->dir(async_path_op_req::relative(testdir, to_string(idx), file_flags::read_write));
+          std::vector<async_path_op_req> reqs={async_path_op_req::relative(dirh, "a", file_flags::read_write), async_path_op_req::relative(dirh, "b", file_flags::read_write), async_path_op_req::relative(dirh, "c", file_flags::read_write)};
           auto files=dispatcher->file(reqs);
           // Go synchronous for these
           for(auto &i : files)
@@ -45,8 +45,8 @@ BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and direc
         else
         {
           static char buffer[4096];
-          auto dirh=dispatcher->dir(async_path_op_req::relative(testdir, to_string(idx), file_flags::Create));
-          std::vector<async_path_op_req> reqs={async_path_op_req::relative(dirh, "a", file_flags::Create|file_flags::ReadWrite), async_path_op_req::relative(dirh, "b", file_flags::Create|file_flags::ReadWrite), async_path_op_req::relative(dirh, "c", file_flags::Create|file_flags::ReadWrite)};
+          auto dirh=dispatcher->dir(async_path_op_req::relative(testdir, to_string(idx), file_flags::create));
+          std::vector<async_path_op_req> reqs={async_path_op_req::relative(dirh, "a", file_flags::create|file_flags::read_write), async_path_op_req::relative(dirh, "b", file_flags::create|file_flags::read_write), async_path_op_req::relative(dirh, "c", file_flags::create|file_flags::read_write)};
           auto files=dispatcher->file(reqs);
           auto resized=dispatcher->truncate(files, { sizeof(buffer), sizeof(buffer), sizeof(buffer)});
           std::vector<async_data_op_req<char>> reqs2;

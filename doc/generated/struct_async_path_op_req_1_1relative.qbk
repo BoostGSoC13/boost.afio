@@ -30,7 +30,7 @@ Convenience tag type constructing a relative path async_path_op_req.
 [table
 [[Function] [Description] [Parameters] ]
 [[``template<class T>
-relative(async_io_op _precondition, T && _path, file_flags _flags = file_flags::None)``
+relative(async_io_op _precondition, T && _path, file_flags _flags = file_flags::none)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 
@@ -41,7 +41,7 @@ relative(async_io_op _precondition, T && _path, file_flags _flags = file_flags::
 
 
 ]]
-[[``relative(async_io_op _precondition, file_flags _flags = file_flags::None)``
+[[``relative(async_io_op _precondition, file_flags _flags = file_flags::none)``
 
 ] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
 

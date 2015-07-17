@@ -85,7 +85,7 @@
 
 [section:introduction Introduction]
 
-'''<?dbhtml-include href="html/disqus_introduction.html"?>'''
+'''<?dbhtml-include href="disqus_identifiers/introduction.html"?>'''
 
 __boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file
 input/output operations to be executed asynchronously to the maximum capacity of your hardware. If you want

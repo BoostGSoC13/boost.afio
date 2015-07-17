@@ -11,7 +11,7 @@ Waiting for threads to exit ...
 For 2 concurrent writers, achieved 2413.66 attempts per second with a success rate of 790.364 writes per second which is a 32.7455% success rate.
 Traditional locks were 1.6894 times faster.
 
-Without file_flags::TemporaryFile | file_flags::DeleteOnClose, traditional file locks were:
+Without file_flags::temporary_file | file_flags::delete_on_close, traditional file locks were:
 
 Benchmarking traditional file locks with 2 concurrent writers ...
 Waiting for threads to exit ...
@@ -33,15 +33,15 @@ int main(int argc, const char *argv[])
       writers=totalwriters=atoi(argv[1]);
     {
       auto dispatcher = make_async_file_io_dispatcher();
-      auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
-      auto mkdir1(dispatcher->dir(async_path_op_req::relative(mkdir, "1", file_flags::Create)));
-      auto mkdir2(dispatcher->dir(async_path_op_req::relative(mkdir, "2", file_flags::Create)));
-      auto mkdir3(dispatcher->dir(async_path_op_req::relative(mkdir, "3", file_flags::Create)));
-      auto mkdir4(dispatcher->dir(async_path_op_req::relative(mkdir, "4", file_flags::Create)));
-      auto mkdir5(dispatcher->dir(async_path_op_req::relative(mkdir, "5", file_flags::Create)));
-      auto mkdir6(dispatcher->dir(async_path_op_req::relative(mkdir, "6", file_flags::Create)));
-      auto mkdir7(dispatcher->dir(async_path_op_req::relative(mkdir, "7", file_flags::Create)));
-      auto mkdir8(dispatcher->dir(async_path_op_req::relative(mkdir, "8", file_flags::Create)));
+      auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
+      auto mkdir1(dispatcher->dir(async_path_op_req::relative(mkdir, "1", file_flags::create)));
+      auto mkdir2(dispatcher->dir(async_path_op_req::relative(mkdir, "2", file_flags::create)));
+      auto mkdir3(dispatcher->dir(async_path_op_req::relative(mkdir, "3", file_flags::create)));
+      auto mkdir4(dispatcher->dir(async_path_op_req::relative(mkdir, "4", file_flags::create)));
+      auto mkdir5(dispatcher->dir(async_path_op_req::relative(mkdir, "5", file_flags::create)));
+      auto mkdir6(dispatcher->dir(async_path_op_req::relative(mkdir, "6", file_flags::create)));
+      auto mkdir7(dispatcher->dir(async_path_op_req::relative(mkdir, "7", file_flags::create)));
+      auto mkdir8(dispatcher->dir(async_path_op_req::relative(mkdir, "8", file_flags::create)));
       auto statfs_(dispatcher->statfs(mkdir, fs_metadata_flags::All));
       auto statfs(statfs_.first.get());
       std::cout << "The filing system holding our test directory is " << statfs.f_fstypename << " and has features:" << std::endl;
@@ -80,7 +80,7 @@ int main(int argc, const char *argv[])
             auto dispatcher = make_async_file_io_dispatcher();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
-                file_flags::Create | file_flags::ReadWrite)));
+                file_flags::create | file_flags::read_write)));
             // Retrieve any errors which occurred
             logfile.get();
             // Wait until all threads are ready
@@ -90,7 +90,7 @@ int main(int argc, const char *argv[])
               // Traditional file locks are very simple: try to exclusively create the lock file.
               // If you succeed, you have the lock.
               auto lockfile(dispatcher->file(async_path_op_req("testdir/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose)));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close)));
               attempts.fetch_add(1, memory_order_relaxed);
               // v1.4 of the AFIO engine will return error_code instead of exceptions for this
               try { lockfile.get(); } catch(const system_error &e) { continue; }
@@ -140,7 +140,7 @@ int main(int argc, const char *argv[])
             auto dispatcher = make_async_file_io_dispatcher();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
-                file_flags::Create | file_flags::ReadWrite)));
+                file_flags::create | file_flags::read_write)));
             // Retrieve any errors which occurred
             logfile.get();
             // Wait until all threads are ready
@@ -150,21 +150,21 @@ int main(int argc, const char *argv[])
               // Parallel try to exclusively create all eight lock files
               std::vector<async_path_op_req> lockfiles; lockfiles.reserve(8);
               lockfiles.push_back(async_path_op_req("testdir/1/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/2/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/3/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/4/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/5/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/6/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/7/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               lockfiles.push_back(async_path_op_req("testdir/8/log.lock",
-                file_flags::CreateOnlyIfNotExist | file_flags::Write | file_flags::TemporaryFile | file_flags::DeleteOnClose));
+                file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               auto lockfile(dispatcher->file(lockfiles));
               attempts.fetch_add(1, memory_order_relaxed);
 #if 1
@@ -234,7 +234,7 @@ int main(int argc, const char *argv[])
             auto dispatcher = make_async_file_io_dispatcher();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
-                file_flags::Create | file_flags::ReadWrite | file_flags::OSLockable)));
+                file_flags::create | file_flags::read_write | file_flags::os_lockable)));
             // Retrieve any errors which occurred
             logfile.get();
             // Wait until all threads are ready
@@ -290,13 +290,13 @@ int main(int argc, const char *argv[])
             auto dispatcher = make_async_file_io_dispatcher();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
-                file_flags::Create | file_flags::ReadWrite)));
+                file_flags::create | file_flags::read_write)));
             // Schedule opening the lock file for scanning and hole punching
             auto lockfilez(dispatcher->file(async_path_op_req("testdir/log.lock",
-                file_flags::Create | file_flags::ReadWrite)));
+                file_flags::create | file_flags::read_write)));
             // Schedule opening the lock file for atomic appending
             auto lockfilea(dispatcher->file(async_path_op_req("testdir/log.lock",
-                file_flags::Create | file_flags::Write | file_flags::Append)));
+                file_flags::create | file_flags::write | file_flags::append)));
             // Retrieve any errors which occurred
             lockfilea.get(); lockfilez.get(); logfile.get();
             while(!done)

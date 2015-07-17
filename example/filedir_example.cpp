@@ -10,15 +10,15 @@ int main(void)
     {
         // Schedule creating a directory called testdir
         auto mkdir(dispatcher->dir(boost::afio::async_path_op_req("testdir",
-            boost::afio::file_flags::Create)));
+            boost::afio::file_flags::create)));
         // Schedule creating a file called testfile in testdir only when testdir has been created
         auto mkfile(dispatcher->file(boost::afio::async_path_op_req::relative(mkdir,
-            "testfile", boost::afio::file_flags::Create)));
+            "testfile", boost::afio::file_flags::create)));
         // Schedule creating a symbolic link called linktodir to the item referred to by the precondition
         // i.e. testdir. Note that on Windows you can only symbolic link directories. Note that creating
         // symlinks must *always* be as an absolute path, as that is how they are stored.
         auto mklink(dispatcher->symlink(boost::afio::async_path_op_req::absolute(mkdir,
-            "testdir/linktodir", boost::afio::file_flags::Create)));
+            "testdir/linktodir", boost::afio::file_flags::create)));
 
         // Schedule deleting the symbolic link only after when it has been created
         auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));

@@ -682,32 +682,32 @@ inline BOOST_CONSTEXPR bool operator!(type a) \
 */
 enum class file_flags : size_t
 {
-    None=0,             //!< No flags set
-    Read=1,             //!< Read access
-    Write=2,            //!< Write access
-    ReadWrite=3,        //!< Read and write access
-    Append=4,           //!< Append only
-    Truncate=8,         //!< Truncate existing file to zero
-    Create=16,          //!< Open and create if doesn't exist. Always creates sparse files if possible.
-    CreateOnlyIfNotExist=32, //!< Create and open only if doesn't exist
-    CreateCompressed=64,     //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
+    none=0,             //!< No flags set
+    read=1,             //!< Read access
+    write=2,            //!< Write access
+    read_write=3,       //!< Read and write access
+    append=4,           //!< Append only
+    truncate=8,         //!< Truncate existing file to zero
+    create=16,          //!< Open and create if doesn't exist. Always creates sparse files if possible.
+    create_only_if_not_exist=32, //!< Create and open only if doesn't exist
+    create_compressed=64, //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
-    WillBeSequentiallyAccessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
-    WillBeRandomlyAccessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
-    NoSparse=512,       //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
+    will_be_sequentially_accessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
+    will_be_randomly_accessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
+    no_sparse=512,      //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
-    HoldParentOpen=(1<<10),         //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration and fast relative path ops.
-    UniqueDirectoryHandle=(1<<11),  //!< Return a unique directory handle rather than a shared directory handle
-    NoRaceProtection=(1<<12),       //!< Skip taking steps to avoid destruction of data due to filing system races. Most of the performance benefit of enabling this goes away if you enable HoldParentOpen instead, so be especially careful when considering turning this on.
-    TemporaryFile=(1<<13),          //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
-    DeleteOnClose=(1<<14),          //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
+    hold_parent_open=(1<<10),        //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration and fast relative path ops.
+    unique_directory_handle=(1<<11), //!< Return a unique directory handle rather than a shared directory handle
+    no_race_protection=(1<<12),      //!< Skip taking steps to avoid destruction of data due to filing system races. Most of the performance benefit of enabling this goes away if you enable HoldParentOpen instead, so be especially careful when considering turning this on.
+    temporary_file=(1<<13),          //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
+    delete_on_close=(1<<14),         //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
 
-    OSDirect=(1<<16),   //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
-    OSMMap=(1<<17),     //!< Memory map files (for reads only).
-    OSLockable=(1<<18), // Deliberately undocumented
+    os_direct=(1<<16),      //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
+    os_mmap=(1<<17),        //!< Memory map files (for reads only).
+    os_lockable=(1<<18),    // Deliberately undocumented
 
-    AlwaysSync=(1<<24),     //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
-    SyncOnClose=(1<<25),    //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
+    always_sync=(1<<24),    //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
+    sync_on_close=(1<<25),  //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
 
     int_hold_parent_open_nested=(1<<27), //!< Internal use only. Don't use.
     int_file_share_delete=(1<<28), //!< Internal use only. Don't use.
@@ -1147,7 +1147,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
     //! Returns the parent of this io handle
     async_file_io_dispatcher_base *parent() const { return _parent; }
-    //! Returns a handle to the directory containing this handle. Only works if `file_flags::HoldParentOpen` was specified when this handle was opened.
+    //! Returns a handle to the directory containing this handle. Only works if `file_flags::hold_parent_open` was specified when this handle was opened.
     std::shared_ptr<async_io_handle> container() const { return dirh; }
     //! In which way this handle is opened or not
     enum class open_states
@@ -1189,7 +1189,7 @@ public:
     //! True if this handle was opened as a symlink
     bool opened_as_symlink() const { return !!(_flags&file_flags::int_opening_link); }
     //! True if this handle is used by the directory handle cache (not UniqueDirectoryHandle and is open for write and not open for write)
-    bool available_to_directory_cache() const { return opened_as_dir() && !(_flags&file_flags::UniqueDirectoryHandle) && !!(_flags&file_flags::Read) && !(_flags&file_flags::Write); }
+    bool available_to_directory_cache() const { return opened_as_dir() && !(_flags&file_flags::unique_directory_handle) && !!(_flags&file_flags::read) && !(_flags&file_flags::write); }
     //! Returns how many bytes have been read since this handle was opened.
     off_t read_count() const { return bytesread; }
     //! Returns how many bytes have been written since this handle was opened.
@@ -1235,7 +1235,7 @@ public:
     a file entry is already there, use link() and if success, unlink() on the former location. If you wish
     to always overwrite the destination, use atomic_relink() instead.    
 
-    On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges (`file_flags::Write`)
+    On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges (`file_flags::write`)
     anywhere in the system. This is an operating system limitation.
  
     \ntkernelnamespacenote
@@ -1291,7 +1291,7 @@ public:
     some valid file to all readers, and will never be deleted or missing. Some filing systems may also fail to do the unlink
     if power is lost close to the relinking operation.
     
-    On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges (`file_flags::Write`)
+    On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges (`file_flags::write`)
     anywhere in the system. This is an operating system limitation.
 
     \ntkernelnamespacenote
@@ -1483,7 +1483,7 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 */
 class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_from_this<async_file_io_dispatcher_base>
 {
-    //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
+    //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
     template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
@@ -1719,7 +1719,7 @@ public:
     /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
-    a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
+    a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
 
@@ -1740,7 +1740,7 @@ public:
     /*! \brief Schedule an asynchronous directory creation and open after an optional precondition.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
-    a new handle unless file_flags::UniqueDirectoryHandle is specified. For such handles where available_to_directory_cache()
+    a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
     is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
     happen.
 
@@ -1809,7 +1809,7 @@ public:
     /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
     
     Be aware that any files created are by default sparse if supported on the local filing system. On
-    Windows opening any file for writing converts it to sparse. Use file_flags::NoSparse to prevent
+    Windows opening any file for writing converts it to sparse. Use file_flags::no_sparse to prevent
     this on those filing systems which permit it.
 
     \ntkernelnamespacenote
@@ -1829,7 +1829,7 @@ public:
     /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
     
     Be aware that any files created are by default sparse if supported on the local filing system. On
-    Windows opening any file for writing converts it to sparse. Use file_flags::NoSparse to prevent
+    Windows opening any file for writing converts it to sparse. Use file_flags::no_sparse to prevent
     this on those filing systems which permit it.
 
     \ntkernelnamespacenote
@@ -2187,7 +2187,7 @@ public:
     By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
     handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
     to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single
-    shot, or to open a separate directory handle using the file_flags::UniqueDirectoryHandle flag.
+    shot, or to open a separate directory handle using the file_flags::unique_directory_handle flag.
 
     Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall
     with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of
@@ -2215,7 +2215,7 @@ public:
     By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
     handle, and therefore enumerating not all of the entries at once is a race condition. The solution is
     to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single
-    shot, or to open a separate directory handle using the file_flags::UniqueDirectoryHandle flag.
+    shot, or to open a separate directory handle using the file_flags::unique_directory_handle flag.
 
     Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall
     with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of
@@ -2410,7 +2410,7 @@ For slow hard drives, or worse, SANs, a queue depth of 64 or higher might delive
 [call_example]
 }
 */
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> make_async_file_io_dispatcher(std::shared_ptr<thread_source> threadpool=process_threadpool(), file_flags flagsforce=file_flags::None, file_flags flagsmask=file_flags::None);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> make_async_file_io_dispatcher(std::shared_ptr<thread_source> threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
 
 namespace detail
 {
@@ -2729,7 +2729,7 @@ struct async_path_op_req
     //! \brief Tags the path as being relative
     struct relative;
     //! \constr
-    async_path_op_req() : is_relative(false), flags(file_flags::None) { }
+    async_path_op_req() : is_relative(false), flags(file_flags::none) { }
     //! \cconstr
     async_path_op_req(const async_path_op_req &o) = default;
     //! \mconstr
@@ -2745,7 +2745,7 @@ struct async_path_op_req
     \param _flags The flags to be used.
     */
 
-    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<async_io_op, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::None) : is_relative(false), path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
+    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<async_io_op, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
     \tparam "class T" The type of path to be used.
@@ -2754,15 +2754,15 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V1_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V1_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V1_NAMESPACE::path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V1_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V1_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V1_NAMESPACE::path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! \overload
-    async_path_op_req(bool _is_relative, async_io_op _precondition, BOOST_AFIO_V1_NAMESPACE::path _path, file_flags _flags=file_flags::None) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(bool _is_relative, async_io_op _precondition, BOOST_AFIO_V1_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
     \param _flags The flags to be used.
     */
-    async_path_op_req(async_io_op _precondition, file_flags _flags=file_flags::None) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(async_io_op _precondition, file_flags _flags=file_flags::none) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -2788,13 +2788,13 @@ struct async_path_op_req::relative : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> relative(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
+  template<class T> relative(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
   /*! \brief Constructs an instance.
   
   \param _precondition The precondition for this operation.
   \param _flags The flags to be used.
   */
-  relative(async_io_op _precondition, file_flags _flags=file_flags::None) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
+  relative(async_io_op _precondition, file_flags _flags=file_flags::none) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
 };
 //! Convenience tag type constructing an absolute path async_path_op_req
 struct async_path_op_req::absolute : async_path_op_req
@@ -2806,7 +2806,7 @@ struct async_path_op_req::absolute : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::None) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
+  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
 };
 inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
@@ -3103,7 +3103,7 @@ namespace detail
             for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
-                if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
+                if(!!(precondition.parent->fileflags(file_flags::none)&file_flags::os_direct))
                 {
                     if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
@@ -3160,7 +3160,7 @@ namespace detail
             for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
-                if(!!(precondition.parent->fileflags(file_flags::None)&file_flags::OSDirect))
+                if(!!(precondition.parent->fileflags(file_flags::none)&file_flags::os_direct))
                 {
                     if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }

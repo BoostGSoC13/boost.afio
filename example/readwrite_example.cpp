@@ -13,7 +13,7 @@ int main(void)
             
         // Schedule an opening of a file called example_file.txt
         afio::async_path_op_req req("example_file.txt",
-            afio::file_flags::Create|afio::file_flags::ReadWrite);
+            afio::file_flags::create|afio::file_flags::read_write);
         afio::async_io_op openfile(dispatcher->file(req)); /*< schedules open file as soon as possible >*/
         
         // Something a bit surprising for many people is that writing off

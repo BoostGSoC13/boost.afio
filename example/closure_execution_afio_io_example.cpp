@@ -24,7 +24,7 @@ int main()
 
     //schedule the file open
     auto opened_file = dispatcher->file(boost::afio::async_path_op_req("somefile.dat", 
-        boost::afio::file_flags::Read));
+        boost::afio::file_flags::read));
 
     //set up vectors for the individual read operations, and the work on each integer
     std::vector<boost::afio::async_io_op> read_ops(ary_size);

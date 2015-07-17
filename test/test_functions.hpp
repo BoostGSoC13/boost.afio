@@ -294,7 +294,7 @@ static int donothing(atomic<size_t> *callcount, int i) { ++*callcount; return i;
 static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t bytes)
 {
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
-        auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
+        auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
         std::vector<char, detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
         assert(!(((size_t) &towrite.front()) & 4095));
 
@@ -319,7 +319,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         std::vector<async_path_op_req> manyfilereqs;
         manyfilereqs.reserve(1000);
         for(size_t n=0; n<1000; n++)
-                manyfilereqs.push_back(async_path_op_req::relative(mkdir, to_string(n), file_flags::Create|file_flags::Write));
+                manyfilereqs.push_back(async_path_op_req::relative(mkdir, to_string(n), file_flags::create|file_flags::write));
         auto manyopenfiles(dispatcher->file(manyfilereqs));
 
         // Write to each of those 1000 files as they are opened
@@ -548,7 +548,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
     for(size_t n=0; n<no; n++)
             memset(towriteptrs[n], 0, towritesizes[n]);
 
-    auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
+    auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
     // Wait for three seconds to let filing system recover and prime SpeedStep
     //begin=chrono::high_resolution_clock::now();
     //while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
@@ -558,7 +558,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
     std::vector<async_path_op_req> manyfilereqs;
     manyfilereqs.reserve(no);
     for(size_t n=0; n<no; n++)
-            manyfilereqs.push_back(async_path_op_req::relative(mkdir, to_string(n), file_flags::Create|file_flags::ReadWrite));
+            manyfilereqs.push_back(async_path_op_req::relative(mkdir, to_string(n), file_flags::create|file_flags::read_write));
     auto manyopenfiles(dispatcher->file(manyfilereqs));
     std::vector<off_t> sizes(no, bytes);
     auto manywrittenfiles(dispatcher->truncate(manyopenfiles, sizes));

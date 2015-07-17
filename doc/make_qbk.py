@@ -158,6 +158,16 @@ for i in glob.glob("generated/class_*.qbk")+glob.glob("generated/struct_*.qbk"):
       with open(i, "w+b") as ih:
           ih.writelines(t)
 
+def write_disqus_fragment(name, title):
+    with open("disqus_identifiers/"+name+".html", "wt") as identh:
+      identh.write("""<div><script type="text/javascript">
+var disqus_identifier = '"""+name+"""';
+var disqus_title = 'Boost.AFIO """+title+"""';
+</script>
+<a href="#comments"><span class="disqus-comment-count" data-disqus-identifier="""+'"'+name+'"'+"""></span></a>
+</div>
+""")
+
 # Patch all reference sections with Disqus commenting
 for i in glob.glob("generated/*.qbk"):
     with open(i, "r+b") as ih:
@@ -177,14 +187,7 @@ for i in glob.glob("generated/*.qbk"):
           firstspace=name.find('>', firstspace)+1
         title=name[firstspace+1:].replace('<', '&lt;').replace('>', '&gt;')
         name=name[:firstspace].replace('<', '_').replace('>', '_').replace(' ', '-')
-        with open("disqus_identifiers/"+name+".html", "wt") as identh:
-          identh.write("""<div><script type="text/javascript">
-var disqus_identifier = '"""+name+"""';
-var disqus_title = 'Boost.AFIO """+title+"""';
-</script>
-<a href="#comments"><span class="disqus-comment-count" data-disqus-identifier="""+'"'+name+'"'+"""></span></a>
-</div>
-""")
+        write_disqus_fragment(name, title)
         t.insert(n+1, """'''<?dbhtml-include href="disqus_identifiers/"""+name+""".html"?>'''
 """)
       elif line[:9]=="[endsect]":
@@ -193,6 +196,13 @@ var disqus_title = 'Boost.AFIO """+title+"""';
         skip=2
     with open(i, "w+b") as ih:
         ih.writelines(t)
-
+        
+# Generate disqus html fragments for these sections
+disqus_sections=[
+    ("introduction", "Introduction")
+]
+for name, title in disqus_sections:
+    write_disqus_fragment(name, title)
+        
 # Use either bjam or b2 or ../../../b2 (the last should be done on Release branch)
 #os.system("..\\..\\b2.exe") 

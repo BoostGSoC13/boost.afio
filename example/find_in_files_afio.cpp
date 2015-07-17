@@ -101,7 +101,7 @@ public:
         std::shared_ptr<async_io_handle> h(op.get());
         //std::cout << "F " << h->path() << std::endl;
 #ifdef USE_MMAPS
-        if(!!(h->flags() & file_flags::OSMMap))
+        if(!!(h->flags() & file_flags::os_mmap))
         {
             dosearch(h, (const char *) h->try_mapfile(), length);
         }
@@ -196,9 +196,9 @@ public:
                     size_t length=(size_t)entry.st_size();
                     if(length)
                     {
-                        file_flags flags=file_flags::Read;
+                        file_flags flags=file_flags::read;
 #ifdef USE_MMAPS
-                        if(length>16384) flags=flags|file_flags::OSMMap;
+                        if(length>16384) flags=flags|file_flags::os_mmap;
 #endif
                         file_reqs.push_back(async_path_op_req(lastdir, h->path()/entry.name(), flags));
                         file_openedfs.push_back(std::make_pair(async_op_flags::None, std::bind(&find_in_files::file_opened, this, std::placeholders::_1, std::placeholders::_2, length)));
@@ -225,9 +225,9 @@ public:
                     size_t length=(size_t)entry.st_size();
                     if(length)
                     {
-                        file_flags flags=file_flags::Read;
+                        file_flags flags=file_flags::read;
 #ifdef USE_MMAPS
-                        if(length>16384) flags=flags|file_flags::OSMMap;
+                        if(length>16384) flags=flags|file_flags::os_mmap;
 #endif
                         auto file_open=dispatcher->file(async_path_op_req::absolute(lastdir, h->path()/entry.name(), flags));
                         auto file_opened=dispatcher->completion(file_open, 
@@ -298,7 +298,7 @@ public:
     // Constructor, which starts the ball rolling
     find_in_files(const char *_regexpr) : regexpr(_regexpr),
         // Create an AFIO dispatcher that bypasses any filing system buffers
-        dispatcher(make_async_file_io_dispatcher(process_threadpool(), file_flags::WillBeSequentiallyAccessed/*|file_flags::OSDirect*/)),
+        dispatcher(make_async_file_io_dispatcher(process_threadpool(), file_flags::will_be_sequentially_accessed/*|file_flags::os_direct*/)),
         bytesread(0), filesread(0), filesmatched(0), scheduled(0), completed(0)
     {
         filepaths.reserve(50000);

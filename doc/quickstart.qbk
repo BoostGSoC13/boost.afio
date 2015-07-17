@@ -381,11 +381,11 @@ can provide only race condition safety for directories only on FreeBSD.
 Additionally, working with the filing system in a race safe way on POSIX requires opening a file descriptor to the
 containing directory for every operation (some proprietary Linux extensions allow this to be avoided for some operations on
 newer Linux kernels). AFIO will keep a global cache of open file handles for containing directories
-on request using the `file_flags::HoldParentOpen` flag which can be enabled per dispatcher or per individual file handle open,
+on request using the `file_flags::hold_parent_open` flag which can be enabled per dispatcher or per individual file handle open,
 this very significantly reduces the cost of race condition safety on POSIX ['for file entries only] as directories ignore
-the `file_flags::HoldParentOpen` flag, though at the cost of increased file descriptor usage, which has low hard limits
+the `file_flags::hold_parent_open` flag, though at the cost of increased file descriptor usage, which has low hard limits
 especially on OS X which is why it is disabled by default. The alternative if you don't want AFIO to bother with race safety
-is to specify the `file_flags::NoRaceProtection` flag per dispatcher or per individual file handle open, this causes AFIO
+is to specify the `file_flags::no_race_protection` flag per dispatcher or per individual file handle open, this causes AFIO
 to use the same maximum performance code paths as used before the v1.3 engine.
 
 [heading How to implement filing system race safety on AFIO]
@@ -427,7 +427,7 @@ Finally, there are some gotchas specific to Microsoft Windows:
 
 1. You cannot rename a directory which has an open file handle in any process to any item anywhere within itself or its children.
 
-2. You cannot rename to a destination which has an open file handle with DELETE permissions (`file_flags::Write`)
+2. You cannot rename to a destination which has an open file handle with DELETE permissions (`file_flags::write`)
 to itself or any of its parent directories in any process. You CAN do this from a source like this, but the destination cannot be
 like this (why is this? It is not documented anywhere in Microsoft's documentation, but if I had to guess, I'd suggest that the
 atomicity of the rename is implemented by taking an op lock on the destination, an op lock not granted if any handles exist which
@@ -512,7 +512,7 @@ was a 3.5Ghz Intel i7-3770K Microsoft Windows 8 x64 machine with Seagate ST33206
 drive. Note that AFIO has a native WinIOCP backend which leverages host asynchronous file i/o support.]:
 
 [table:find_in_files_performance Find in files performance for traditional vs AFIO implementations
-  [[][iostreams, single threaded][iostreams, OpenMP][Boost.AFIO][Boost.AFIO `file_flags::OSDirect`][Boost.AFIO `file_flags::OSMMap`[footnote The superiority of memory maps on Windows is because all buffered file i/o is done via memory copying to/from memory maps on Windows anyway, so eliminating that memory copy is huge.]]]
+  [[][iostreams, single threaded][iostreams, OpenMP][Boost.AFIO][Boost.AFIO `file_flags::os_direct`][Boost.AFIO `file_flags::os_mmap`[footnote The superiority of memory maps on Windows is because all buffered file i/o is done via memory copying to/from memory maps on Windows anyway, so eliminating that memory copy is huge.]]]
   [[Warm cache][812 Mb/sec][1810 Mb/sec][2663 Mb/sec][N/A][6512 Mb/sec]]
   [[][+0%][+123%][+228%][][+702%]]
   [[Cold cache[footnote File cache reset using [@http://technet.microsoft.com/en-us/sysinternals/ff700229.aspx]]][16 Mb/sec][[*8 Mb/sec]][15 Mb/sec][13.14 Mb/sec][24 Mb/sec]]
@@ -522,7 +522,7 @@ drive. Note that AFIO has a native WinIOCP backend which leverages host asynchro
 Note how AFIO outperforms the OpenMP iostreams implementation by about 50% for a warm cache, with only
 a 6% penalty for a cold cache over a single threaded implementation. Note the [*50%] penalty the OpenMP
 iostreams implementation suffers for a cold cache __dash__ a naive multithreaded implementation causes
-a lot of disc seeks. If you map a file into memory using `file_flags::OSMMap`, AFIO will `memcpy()` from
+a lot of disc seeks. If you map a file into memory using `file_flags::os_mmap`, AFIO will `memcpy()` from
 that map instead of reading __dash__ or of course you can use the map directly using the pointer returned
 by `try_mapfile()`.
 

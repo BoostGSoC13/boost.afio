@@ -9,9 +9,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
     // Note that this test is mainly for testing metaprogramming compilation, it doesn't really do much
     {
         auto dispatcher=make_async_file_io_dispatcher();
-        auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::Create)));
+        auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
         mkdir.get();
-        auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "foo", file_flags::Create|file_flags::ReadWrite)));
+        auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "foo", file_flags::create|file_flags::read_write)));
         mkfile.get();
         auto last(dispatcher->truncate(mkfile, 1024));
         last.get();

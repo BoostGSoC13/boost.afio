@@ -117,7 +117,9 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 [heading Boost 1.58 AFIO v1.40 ? Boost peer review edition]
 [/=================]
 
+* Replaced camel cased items in file_flags with Boost compliant forms.
 
+* Replaced all BOOST_NOEXCEPT with noexcept
 
 [/=================]
 [heading Boost 1.58 AFIO v1.31 18th April 2015]
@@ -248,8 +250,8 @@ which finally allows rmfile() et al to directly delete inputs by op handle. Also
 which lets you return one op handle only when another op handle completes.
 
 * Made AFIO provide [*much] stronger filing system race condition protection. This comes with a performance
-cost, so a new file_flags::NoRaceProtection can disable the new semantics. Renamed file_flags::FastDirectoryEnumeration
-to file_flags::HoldParentOpen as enabling HoldParentOpen will make most of the performance cost of race
+cost, so a new file_flags::no_race_protection can disable the new semantics. Renamed file_flags::fast_directory_enumeration
+to file_flags::hold_parent_open as enabling HoldParentOpen will make most of the performance cost of race
 protection disappear.
 
 * Implemented WillBeSequentiallyAccessed and WillBeRandomlyAccessed for POSIX.
@@ -668,7 +670,7 @@ programs. Handy eh?
 
 Unfortunately, there are additional problems with deleting directories caused by AFIO's caching
 of directory handles in a central table __dash__ this happens by default for all directories opened
-without write permissions and without the `file_flags::UniqueDirectoryHandle` flag. Explicit close
+without write permissions and without the `file_flags::unique_directory_handle` flag. Explicit close
 handle requests for these cached directories are ignored by AFIO, and therefore AFIO may hold into existence
 a directory longer than might otherwise be anticipated with the only way of forcing actual deletion
 being the destruction of any reference to that directory, something difficult to achieve in larger

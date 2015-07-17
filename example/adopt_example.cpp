@@ -5,7 +5,7 @@ struct test_handle : boost::afio::async_io_handle
 {
     test_handle(boost::afio::async_file_io_dispatcher_base *parent) :
         boost::afio::async_io_handle(parent,
-        boost::afio::file_flags::None) {}
+        boost::afio::file_flags::none) {}
     virtual void close() override final
     {
         // Do nothing

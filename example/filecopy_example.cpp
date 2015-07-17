@@ -32,12 +32,12 @@ namespace {
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
         // Schedule the opening of the output file for writing
-        auto oh=dispatcher->file(async_path_op_req(dest, file_flags::Create|file_flags::Write));
+        auto oh=dispatcher->file(async_path_op_req(dest, file_flags::create|file_flags::write));
         // Schedule the opening of all the input files for reading
         std::vector<async_path_op_req> ihs_reqs; ihs_reqs.reserve(sources.size());
         for(auto &&source : sources)
-            ihs_reqs.push_back(async_path_op_req(source, file_flags::Read
-            |file_flags::WillBeSequentiallyAccessed));
+            ihs_reqs.push_back(async_path_op_req(source, file_flags::read
+            |file_flags::will_be_sequentially_accessed));
         auto ihs=dispatcher->file(ihs_reqs);
         // Retrieve any error from opening the output
         when_all(oh).get();

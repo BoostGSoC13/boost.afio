@@ -38,8 +38,8 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
     try
     {
       // HoldParentOpen is actually ineffectual as renames zap the parent container, but it tests more code.
-      auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::HoldParentOpen);
-      auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::Create));
+      auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::hold_parent_open);
+      auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
       async_io_op dirh;
 
       try
@@ -48,11 +48,11 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         // which will be constantly renamed to something different by a worker thread
         std::vector<async_path_op_req> dirreqs;
         for(size_t n=0; n<ITEMS; n++)
-          dirreqs.push_back(async_path_op_req::relative(testdir, to_string(n), file_flags::Create|file_flags::ReadWrite));
+          dirreqs.push_back(async_path_op_req::relative(testdir, to_string(n), file_flags::create|file_flags::read_write));
         // Windows needs write access to the directory to enable relinking, but opening a handle
         // with write access causes any renames into that directory to fail. So mark the first
         // directory which is always the destination for renames as non-writable
-        dirreqs.front().flags=file_flags::Create;
+        dirreqs.front().flags=file_flags::create;
         std::cout << "Creating " << ITEMS << " directories ..." << std::endl;
         auto dirs=dispatcher->dir(dirreqs);
         when_all(dirs).get();
@@ -103,7 +103,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         for(size_t n=0; n<ITEMS; n++)
         {
           dirreqs[n].precondition=dirs[n];
-          dirreqs[n].flags=file_flags::CreateOnlyIfNotExist|file_flags::ReadWrite;
+          dirreqs[n].flags=file_flags::create_only_if_not_exist|file_flags::read_write;
         }
         for(size_t i=0; i<ITERATIONS; i++)
         {

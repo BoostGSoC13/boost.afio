@@ -4,7 +4,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 {
     using namespace BOOST_AFIO_V1_NAMESPACE;
     auto dispatcher = make_async_file_io_dispatcher();
-    auto dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::Create));
+    auto dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
     dirh.get();
     {
 #ifdef WIN32
@@ -15,7 +15,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     static const auto hellobabystr = BOOST_AFIO_PATH_WORKS_STR("hellobaby"), testfilestr = BOOST_AFIO_PATH_WORKS_STR("testfile"), foostr = BOOST_AFIO_PATH_WORKS_STR("foo");
 #undef BOOST_AFIO_PATH_WORKS_STR
     {
-      async_io_op op = dispatcher->file(async_path_op_req("testdir/testfile", file_flags::Create | file_flags::ReadWrite));
+      async_io_op op = dispatcher->file(async_path_op_req("testdir/testfile", file_flags::create | file_flags::read_write));
       auto h = op.get();
       auto originalpath = h->path();
       print_stat(h);
@@ -87,7 +87,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 
     std::cout << "\nCreating hard links testfile2 and testfile3 from testfile ..." << std::endl;
     std::shared_ptr<async_io_handle> h;
-    async_io_op op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::Create | file_flags::ReadWrite));
+    async_io_op op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::create | file_flags::read_write));
     h = op.get();
     BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
     h->link(async_path_op_req::relative(dirh, "testfile2"));
@@ -160,6 +160,6 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     }
 
     // Reopen with write privs in order to unlink
-    dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::ReadWrite));
+    dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::read_write));
     dirh->unlink();
 }

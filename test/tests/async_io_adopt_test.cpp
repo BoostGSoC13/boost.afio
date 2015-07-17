@@ -6,7 +6,7 @@ namespace afio = BOOST_AFIO_V1_NAMESPACE;
 
 struct test_handle : async_io_handle
 {
-    test_handle(async_file_io_dispatcher_base *parent) : async_io_handle(parent, file_flags::None) {}
+    test_handle(async_file_io_dispatcher_base *parent) : async_io_handle(parent, file_flags::none) {}
     virtual void close() override final
     {
         // Do nothing
