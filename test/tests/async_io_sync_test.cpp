@@ -30,6 +30,6 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_sync, "Tests async fsync", 5)
       BOOST_CHECK_NO_THROW(readfile.get());
       BOOST_CHECK_NO_THROW(closefile2.get());
       BOOST_CHECK_NO_THROW(delfile.get());
-      BOOST_CHECK_NO_THROW(deldir.h.wait());  // virus checkers sometimes make this spuriously fail
+      BOOST_CHECK_NO_THROW(deldir.wait());  // virus checkers sometimes make this spuriously fail
     }
 }

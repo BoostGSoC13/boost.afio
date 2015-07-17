@@ -597,7 +597,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
                     data+=asio::buffer_size(op.req.buffers[m]);
                     idxoffset+=asio::buffer_size(op.req.buffers[m]);
             }
-            return std::make_pair(true, _h.get());
+            return std::make_pair(true, _h.get_handle());
     };
 #pragma omp parallel for
     for(ptrdiff_t n=0; n<(ptrdiff_t) no; n++)

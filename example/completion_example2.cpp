@@ -33,7 +33,7 @@ int main(void)
 
                 // Do stuff, returning the handle you want passed onto dependencies.
                 // Note that op.get() rethrows any exception in op. Normally you want this.
-                dispatcher->complete_async_op(id, op.get());
+                dispatcher->complete_async_op(id, op.get_handle());
             }
             catch(...)
             {
@@ -48,7 +48,7 @@ int main(void)
         std::async(std::launch::async, completer, dispatcher, id, precondition);
         
         // Indicate we are not done yet
-        return std::make_pair(false, precondition.get());
+        return std::make_pair(false, precondition.get_handle());
     };
        
     // Bind any user defined parameters to create a proper boost::afio::async_file_io_dispatcher_base::completion_t

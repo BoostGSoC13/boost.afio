@@ -16,7 +16,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 #undef BOOST_AFIO_PATH_WORKS_STR
     {
       future<> op = dispatcher->file(async_path_op_req("testdir/testfile", file_flags::create | file_flags::read_write));
-      auto h = op.get();
+      auto h = op.get_handle();
       auto originalpath = h->path();
       print_stat(h);
       auto originalpath2 = h->path();
@@ -88,7 +88,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     std::cout << "\nCreating hard links testfile2 and testfile3 from testfile ..." << std::endl;
     std::shared_ptr<async_io_handle> h;
     future<> op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::create | file_flags::read_write));
-    h = op.get();
+    h = op.get_handle();
     BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
     h->link(async_path_op_req::relative(dirh, "testfile2"));
     BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
@@ -102,7 +102,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     BOOST_CHECK(contents.size() == 3);
     for (auto &i : contents)
     {
-      print_stat(dirh.get(), i);
+      print_stat(dirh.get_handle(), i);
       BOOST_CHECK(i.st_ino() == entry.st_ino);
 #ifndef WIN32  // Windows takes too long to update this
       BOOST_CHECK(i.st_size() == entry.st_size);
@@ -121,7 +121,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     BOOST_CHECK(contents.size() == 3);
     for (auto &i : contents)
     {
-      print_stat(dirh.get(), i);
+      print_stat(dirh.get_handle(), i);
       BOOST_CHECK(i.name() != testfilestr);
       BOOST_CHECK(i.st_ino() == entry.st_ino);
 #ifndef WIN32  // Windows takes too long to update this
@@ -139,7 +139,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     BOOST_CHECK(contents.size() == 2);
     for (auto &i : contents)
     {
-      print_stat(dirh.get(), i);
+      print_stat(dirh.get_handle(), i);
       BOOST_CHECK(i.name() != foostr); // This should get filtered out by AFIO on Windows due to magic naming
       BOOST_CHECK(i.st_nlink() == 2);
     }
@@ -149,7 +149,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     BOOST_CHECK(contents.size() == 2);
     for (auto &i : contents)
     {
-      print_stat(dirh.get(), i);
+      print_stat(dirh.get_handle(), i);
       BOOST_CHECK(i.name() != foostr);
       BOOST_CHECK(i.st_nlink() == 2);
     }

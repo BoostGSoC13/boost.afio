@@ -714,12 +714,12 @@ namespace detail
             // Deleting the input op?
             if(req.path.empty())
             {
-              std::shared_ptr<async_io_handle> h(op.get());
+              std::shared_ptr<async_io_handle> h(op.get_handle());
               async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
               if(p->is_open()!=async_io_handle::open_states::closed)
               {
                 p->unlink();
-                return std::make_pair(true, op.get());
+                return std::make_pair(true, op.get_handle());
               }
             }
             windows_nt_kernel::init();
@@ -764,7 +764,7 @@ namespace detail
             FILE_DISPOSITION_INFORMATION fdi={ true };
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(temph, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path(); });
 #endif
-            return std::make_pair(true, op.get());
+            return std::make_pair(true, op.get_handle());
         }
         // Called in unknown thread
         completion_returntype dormdir(size_t id, future<> op, async_path_op_req req)
@@ -847,7 +847,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dosymlink(size_t id, future<> op, async_path_op_req req)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             req.flags=fileflags(req.flags);
             req.flags=req.flags|file_flags::int_opening_link;
@@ -936,7 +936,7 @@ namespace detail
             } FILE_ZERO_DATA_INFORMATION, *PFILE_ZERO_DATA_INFORMATION;
 #define FSCTL_SET_ZERO_DATA             CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 50, METHOD_BUFFERED, FILE_WRITE_DATA)
 #endif
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             auto buffers=std::make_shared<std::vector<FILE_ZERO_DATA_INFORMATION>>();
@@ -999,7 +999,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dosync(size_t id, future<> op, future<>)
         {
-          std::shared_ptr<async_io_handle> h(op.get());
+          std::shared_ptr<async_io_handle> h(op.get_handle());
           async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
           assert(p);
           off_t bytestobesynced=p->write_count_since_fsync();
@@ -1011,7 +1011,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype doclose(size_t id, future<> op, future<>)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             if(!!(p->flags() & file_flags::int_opening_dir) && !(p->flags() & file_flags::unique_directory_handle) && !!(p->flags() & file_flags::read) && !(p->flags() & file_flags::write))
@@ -1162,7 +1162,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype doread(size_t id, future<> op, detail::async_data_op_req_impl<false> req)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("R %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
@@ -1198,7 +1198,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dowrite(size_t id, future<> op, detail::async_data_op_req_impl<true> req)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("W %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
@@ -1213,7 +1213,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dotruncate(size_t id, future<> op, off_t _newsize)
         {
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
@@ -1254,7 +1254,7 @@ namespace detail
         {
             using namespace windows_nt_kernel;
             size_t id=state->id;
-            std::shared_ptr<async_io_handle> h(state->op.get());
+            std::shared_ptr<async_io_handle> h(state->op.get_handle());
             std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=state->ret;
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
             async_enumerate_op_req &req=state->req;
@@ -1342,7 +1342,7 @@ namespace detail
         void doenumerate(enumerate_state_t state)
         {
             size_t id=state->id;
-            std::shared_ptr<async_io_handle> h(state->op.get());
+            std::shared_ptr<async_io_handle> h(state->op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             using namespace windows_nt_kernel;
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
@@ -1426,13 +1426,13 @@ namespace detail
             } FILE_ALLOCATED_RANGE_BUFFER, *PFILE_ALLOCATED_RANGE_BUFFER;
 #define FSCTL_QUERY_ALLOCATED_RANGES    CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 51,  METHOD_NEITHER, FILE_READ_DATA)
 #endif
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             auto buffers=std::make_shared<std::vector<FILE_ALLOCATED_RANGE_BUFFER>>(entries);
             auto completion_handler=[this, id, op, ret, entries, buffers](const asio::error_code &ec, size_t bytes)
             {
-              std::shared_ptr<async_io_handle> h(op.get());
+              std::shared_ptr<async_io_handle> h(op.get_handle());
               if(ec)
               {
                 if(ERROR_MORE_DATA==ec.value())
@@ -1505,7 +1505,7 @@ namespace detail
           {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
-            std::shared_ptr<async_io_handle> h(op.get());
+            std::shared_ptr<async_io_handle> h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             statfs_t ret;
@@ -1600,7 +1600,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dolock(size_t id, future<> op, async_lock_op_req req)
         {
-          std::shared_ptr<async_io_handle> h(op.get());
+          std::shared_ptr<async_io_handle> h(op.get_handle());
           async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
           assert(p);
           if(!p->lockfile)
@@ -1875,7 +1875,7 @@ namespace detail
         win_lock_file *thislockfile=(win_lock_file *) _thislockfile;
         auto completion_handler=[this, id, op, req](const asio::error_code &ec)
         {
-          std::shared_ptr<async_io_handle> h(op.get());
+          std::shared_ptr<async_io_handle> h(op.get_handle());
           if(ec)
           {
             exception_ptr e;
@@ -1888,11 +1888,11 @@ namespace detail
             {
               e=current_exception();
             }
-            op.parent->complete_async_op(id, h, e);
+            op.parent()->complete_async_op(id, h, e);
           }
           else
           {
-            op.parent->complete_async_op(id, h);
+            op.parent()->complete_async_op(id, h);
           }
         };
         // (1<<62)-1 byte used by POSIX for last use detection

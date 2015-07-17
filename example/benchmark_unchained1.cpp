@@ -10,7 +10,7 @@ static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> callback(s
     // Simulate an i/o op with a context switch
     Sleep(0);
 #endif
-    return std::make_pair(true, op.get());
+    return std::make_pair(true, op.get_handle());
 };
 
 int main(void)

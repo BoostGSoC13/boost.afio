@@ -356,7 +356,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threa
 
 
 class async_file_io_dispatcher_base;
-template<class T=void> struct future;
+template<class T=void> class future;
 struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
@@ -1336,79 +1336,150 @@ public:
 #endif
 };
 
-/*! \struct future
-\tparam T Any returned result
-\brief A reference to an asynchronous operation
-
-The id field is always valid (and non-zero) if this reference is valid.
-*/
-template<> struct future<void>
+// Temporary friends for future<>
+namespace detail
 {
-    async_file_io_dispatcher_base *parent;              //!< The parent dispatcher
-    size_t id;                                          //!< A unique id for this operation
-    shared_future<std::shared_ptr<async_io_handle>> h;  //!< A stl_future handle to the item being operated upon
+  struct barrier_count_completed_state;
+  template<bool rethrow, class Iterator> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all_ops(Iterator first, Iterator last);
+  template<bool rethrow, class Iterator> inline stl_future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last);
+}
 
+/*! \class future
+\tparam T Any returned result
+\brief The future status of a scheduled asynchronous operation
+
+As of v1.4 of the AFIO engine, the legacy `async_io_op` struct has been replaced with this custom future type
+based on the lightweight future-promise factory toolkit in forthcoming Boost.Monad. This custom future type
+consists of two pieces of future data each with different semantics:
+
+1. A `std::shared_ptr<async_io_handle>` - this is the shared i/o handle returned by the asynchronous operation.
+This has non-consuming semantics i.e. you can call `get_handle()` as many times as you like. Note that for legacy
+compatibility reasons, calling `get_handle()` on an invalid instance returns a null shared pointer.
+
+2. Any type `T` - this is any additional data returned by an asynchronous operation above and beyond the i/o handle
+(e.g. `enumerate()` returns a `std::pair<std::vector<directory_entry>, bool>`. This has *consuming* semantics, so
+calling `get()` returns the result exactly once.
+
+The reason for the difference in semantics is because it is very common that you need access to an earlier i/o handle
+in a sequence if some operation returns an error, and besides the shared pointer encapsulation makes non-consumption
+cost free.
+
+Other than the fact that `get()` returns a `T` and `get_handle()` returns a handle, the errored and excepted state
+for both is identical and non-consuming for both.
+*/
+template<> class future<void>
+{
+    // Temporary friends until lightweight future promise comes in
+    friend struct detail::barrier_count_completed_state;
+    template<bool rethrow, class Iterator> friend inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> detail::when_all_ops(Iterator first, Iterator last);
+    template<bool rethrow, class Iterator> friend inline stl_future<std::shared_ptr<async_io_handle>> detail::when_any_ops(Iterator first, Iterator last);
+
+    async_file_io_dispatcher_base *_parent;              //!< The parent dispatcher
+    size_t _id;                                          //!< A unique id for this operation
+    shared_future<std::shared_ptr<async_io_handle>> _h;  //!< A stl_future handle to the item being operated upon
+public:
     //! \constr
-    future() : parent(nullptr), id(0), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
+    constexpr future() : _parent(nullptr), _id(0) { }
     //! \cconstr
-#if 0 // used to find where std::move() isn't being used, and should be
-    //future(const future &o);
-#else
-    future(const future &o) : parent(o.parent), id(o.id), h(o.h) { }
-#endif
+    future(const future &o) = default;
     //! \mconstr
-    future(future &&o) noexcept : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
+    future(future &&o) = default;
+#if 0
     /*! Constructs an instance.
-    \param _parent The dispatcher this op belongs to.
-    \param _id The unique non-zero id of this op.
+    \param parent The dispatcher this op belongs to.
+    \param id The unique non-zero id of this op.
+    \param handle A shared_future to shared state between all instances of this reference.
+    \param result A future to any result from the operation.
+    \param check_handle Whether to have validation additionally check if a handle is not null
+    \param validate Whether to check the inputs and shared state for valid (and not errored) values
+    */
+    future(async_file_io_dispatcher_base *parent, size_t id, shared_future<std::shared_ptr<async_io_handle>> handle, future<T> result, bool check_handle = true, bool validate = true) : _parent(parent), _id(id), _h(std::move(handle)), _result(std::move(result)) { if (validate) _validate(check_handle); }
+#endif
+    /*! Constructs an instance.
+    \param parent The dispatcher this op belongs to.
+    \param id The unique non-zero id of this op.
+    \param handle A shared_ptr to shared state between all instances of this reference.
+    \param check_handle Whether to have validation additionally check if a handle is not null
+    \param validate Whether to check the inputs and shared state for valid (and not errored) values
+    */
+    future(async_file_io_dispatcher_base *parent, size_t id, shared_future<std::shared_ptr<async_io_handle>> handle, bool check_handle=true, bool validate=true) : _parent(parent), _id(id), _h(std::move(handle)) { if(validate) _validate(check_handle); }
+    /*! Constructs an instance.
     \param _handle A shared_ptr to shared state between all instances of this reference.
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    future(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
+    future(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : _parent(_handle->parent()), _id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); _h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
-    \param _handle A shared_ptr to shared state between all instances of this reference.
-    \param check_handle Whether to have validation additionally check if a handle is not null
-    \param validate Whether to check the inputs and shared state for valid (and not errored) values
+    \param parent The dispatcher this op belongs to.
+    \param id The unique non-zero id of this op.
     */
-    future(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
-    /*! Constructs an instance.
-    \param _parent The dispatcher this op belongs to.
-    \param _id The unique non-zero id of this op.
-    */
-    future(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
+    constexpr future(async_file_io_dispatcher_base *parent, size_t id) : _parent(parent), _id(id) { }
     //! \cassign
-    future &operator=(const future &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
+    future &operator=(const future &o) { _parent = o._parent; _id = o._id; _h = o._h; return *this; }
     //! \massign
-    future &operator=(future &&o) noexcept{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
-    //! Retrieves the handle or exception from the shared state. Same as h.get().
-    std::shared_ptr<async_io_handle> get(bool return_null_if_errored=false) const
+    future &operator=(future &&o) noexcept { _parent = std::move(o._parent); _id = std::move(o._id); _h = std::move(o._h); return *this; }
+    //! True if this future is valid
+    constexpr bool valid() const noexcept { return _parent && _id; }
+    //! The parent dispatcher of this future
+    constexpr async_file_io_dispatcher_base *parent() const noexcept { return _parent; }
+    //! \deprecated Expected to be removed in the v1.5 engine
+    constexpr size_t id() const noexcept { return _id; }
+    //! Retrieves the handle or exception from the shared state, rethrowing any exception. Returns a null shared pointer if this future is invalid.
+    std::shared_ptr<async_io_handle> get_handle(bool return_null_if_errored=false) const
     {
-        if(!parent && !id)
+        if(!_parent && !_id)
             return std::shared_ptr<async_io_handle>();
         // std::shared_future in older libstdc++ does not have a const get().
         if(!return_null_if_errored)
-            return const_cast<future *>(this)->h.get();
-        auto e=get_exception_ptr(h);
-        return e ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->h.get();
+            return const_cast<future *>(this)->_h.get();
+        auto e=get_exception_ptr(_h);
+        return e ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->_h.get();
     }
-    //! Dereferences the handle from the shared state. Same as *h.get().
-    const async_io_handle &operator *() const { return *get(); }
-    //! Dereferences the handle from the shared state. Same as *h.get().
-    async_io_handle &operator *() { return *get(); }
-    //! Dereferences the handle from the shared state. Same as h.get()->get().
-    const async_io_handle *operator->() const { return get().get(); }
-    //! Dereferences the handle from the shared state. Same as h.get()->get().
-    async_io_handle *operator->() { return get().get(); }
+    //! Dereferences the handle from the shared state. Same as *h.get_handle().
+    const async_io_handle &operator *() const { return *get_handle(); }
+    //! Dereferences the handle from the shared state. Same as *h.get_handle().
+    async_io_handle &operator *() { return *get_handle(); }
+    //! Dereferences the handle from the shared state. Same as h.get_handle()->get().
+    const async_io_handle *operator->() const { return get_handle().get(); }
+    //! Dereferences the handle from the shared state. Same as h.get_handle()->get().
+    async_io_handle *operator->() { return get_handle().get(); }
+    //! Waits for the future to become ready, rethrowing any exception found. Throws a `future_errc::no_state` if this future is invalid.
+    void get()
+    {
+      if (!valid())
+        throw future_error(future_errc::no_state);
+      _h.get();
+    }
+    //! Waits for the future to become ready. Throws a `future_errc::no_state` if this future is invalid.
+    void wait() const
+    {
+      if (!valid())
+        throw future_error(future_errc::no_state);
+      _h.wait();
+    }
+    //! Waits for the future to become ready for a period. Throws a `future_errc::no_state` if this future is invalid.
+    template<class Rep, class Period> future_status wait_for(const chrono::duration<Rep, Period> &duration) const
+    {
+      if (!valid())
+        throw future_error(future_errc::no_state);
+      return _h.wait_for(duration);
+    }
+    //! Waits for the future to become ready until a deadline. Throws a `future_errc::no_state` if this future is invalid.
+    template<class Clock, class Duration> future_status wait_until(const chrono::time_point<Clock, Duration> &deadline) const
+    {
+      if (!valid())
+        throw future_error(future_errc::no_state);
+      return _h.wait_until(deadline);
+    }
     //! Validates contents
     bool validate(bool check_handle=true) const
     {
-        if(!parent || !id) return false;
+        if(!valid()) return false;
         // If h is valid and ready and contains an exception, throw it now
-        if(h.valid() && is_ready(h))
+        if(_h.valid() && is_ready(_h))
         {
             if(check_handle)
-                if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(h).get().get())
+                if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(_h).get().get())
                     return false;
         }
         return true;
@@ -2450,7 +2521,7 @@ namespace detail
         auto state=std::make_shared<when_all_state>();
         state->in.reserve(std::distance(first, last));
         for(; first!=last; ++first)
-            state->in.push_back(first->h);
+            state->in.push_back(first->_h);
         auto ret=state->out.get_future();
         process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)] { when_all_ops_do<rethrow>(std::move(state)); });
         return ret;
@@ -2515,11 +2586,11 @@ namespace detail
     template<bool rethrow, class Iterator> inline stl_future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
     {
         auto state=std::make_shared<when_any_state>();
-        auto dispatcher=first->parent;
+        auto dispatcher=first->parent();
         std::vector<future<>> ops(first, last);
         state->in.reserve(ops.size());
         for(auto &op : ops)
-            state->in.push_back(op.h);
+            state->in.push_back(op._h);
         auto ret=state->out.get_future();
         typedef std::function<typename async_file_io_dispatcher_base::completion_t> ft;
         std::vector<std::pair<async_op_flags, ft>> completions;
@@ -2768,7 +2839,7 @@ struct async_path_op_req
     bool validate() const
     {
         if(!is_relative && path.empty()) return false;
-        return !precondition.id || precondition.validate();
+        return !precondition.valid() || precondition.validate();
     }
 protected:
     void _validate() const
@@ -3104,7 +3175,7 @@ namespace detail
             for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
-                if(!!(precondition.parent->fileflags(file_flags::none)&file_flags::os_direct))
+                if(!!(precondition.parent()->fileflags(file_flags::none)&file_flags::os_direct))
                 {
                     if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
@@ -3161,7 +3232,7 @@ namespace detail
             for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
-                if(!!(precondition.parent->fileflags(file_flags::none)&file_flags::os_direct))
+                if(!!(precondition.parent()->fileflags(file_flags::none)&file_flags::os_direct))
                 {
                     if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
@@ -3452,7 +3523,7 @@ struct async_enumerate_op_req
     bool validate() const
     {
         if(!maxitems) return false;
-        return !precondition.id || precondition.validate();
+        return !precondition.valid() || precondition.validate();
     }
 private:
     void _validate() const
@@ -3481,7 +3552,7 @@ struct async_lock_op_req
   {
       if(type==Type::unknown) return false;
       if(offset+length<offset) return false;
-      return !precondition.id || precondition.validate();
+      return !precondition.valid() || precondition.validate();
   }
 private:
   void _validate() const
@@ -3533,7 +3604,7 @@ namespace detail {
     template<class tasktype> std::pair<bool, std::shared_ptr<async_io_handle>> doCall(size_t, future<> _, std::shared_ptr<tasktype> c)
     {
         (*c)();
-        return std::make_pair(true, _.get(true));
+        return std::make_pair(true, _.get_handle(true));
     }
 }
 template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<future<>>> async_file_io_dispatcher_base::call(const std::vector<future<>> &ops, const std::vector<std::function<R()>> &callables)
@@ -3710,7 +3781,7 @@ inline std::pair<stl_future<statfs_t>, future<>> async_file_io_dispatcher_base::
 inline future<> async_file_io_dispatcher_base::depends(future<> precondition, future<> op)
 {
     std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback(std::make_pair(async_op_flags::immediate,
-    [BOOST_AFIO_LAMBDA_MOVE_CAPTURE(op)](size_t, future<>) { return std::make_pair(true, op.get()); }));
+    [BOOST_AFIO_LAMBDA_MOVE_CAPTURE(op)](size_t, future<>) { return std::make_pair(true, op.get_handle()); }));
     std::vector<future<>> r;
     std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
     r.reserve(1); i.reserve(1);

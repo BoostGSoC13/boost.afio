@@ -16,7 +16,7 @@ static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(
 {
   using namespace boost::afio;
   points[id-id_offset]=chrono::high_resolution_clock::now();
-  return std::make_pair(true, op.get());
+  return std::make_pair(true, op.get_handle());
 };
 
 int main(void)
@@ -104,7 +104,7 @@ int main(void)
           last[c]=dispatcher->completion(future<>(), callback);
           last[c].get();
           end[c]=chrono::high_resolution_clock::now();
-          handled[c]=points[last[c].id-id_offset];
+          handled[c]=points[last[c].id()-id_offset];
         }));
       }
       while(threads_ready<=concurrency)
@@ -122,7 +122,7 @@ int main(void)
       }
     }
     for(size_t n=0; n<=concurrency; n++)
-      if(last[n].id>id_offset) id_offset=last[n].id;
+      if(last[n].id()>id_offset) id_offset=last[n].id();
     double minHandler=1<<30, maxHandler=0, totalHandler=0, minComplete=1<<30, maxComplete=0, totalComplete=0;
     for(size_t n=0; n<iterations; n++)
     {

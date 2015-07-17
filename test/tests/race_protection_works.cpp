@@ -74,7 +74,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
                 //std::cout << "Renaming " << dirs[n].get()->path(true) << " ..." << std::endl;
                 try
                 {
-                  dirs[n].get()->atomic_relink(req);
+                  dirs[n]->atomic_relink(req);
                 }
 #ifdef WIN32
                 catch(const system_error &/*e*/)
@@ -115,7 +115,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
             {
               // Relink previous new file into first directory
               //std::cout << "Renaming " << newfiles[n].get()->path() << std::endl;
-              newfiles[n].get()->atomic_relink(async_path_op_req::relative(dirh, to_string(n)+"_"+to_string(i)));
+              newfiles[n]->atomic_relink(async_path_op_req::relative(dirh, to_string(n)+"_"+to_string(i)));
               // Note that on FreeBSD if this is a file its path would be now be incorrect and moreover lost due to lack of
               // path enumeration support for files. As we throw away the handle, this doesn't show up here.
 

@@ -6,7 +6,7 @@ using namespace boost::afio;
 // This function will be called for every file opened
 static void open_file_filter(detail::OpType, future<> &op) noexcept
 {
-    std::cout << "File handle " << op.get()->native_handle() << " opened!" << std::endl;
+    std::cout << "File handle " << op->native_handle() << " opened!" << std::endl;
 }
 
 // This function will be called for every read and write performed

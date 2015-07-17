@@ -32,7 +32,7 @@ int main(void)
         // along with the handle we pass onto any completions completing on this op
         // Note that op.get() by default rethrows any exception contained by the op.
         // Normally this is highly desirable.
-        return std::make_pair(true, precondition.get());
+        return std::make_pair(true, precondition.get_handle());
     };
     
     // Bind any user defined parameters to create a proper boost::afio::async_file_io_dispatcher_base::completion_t

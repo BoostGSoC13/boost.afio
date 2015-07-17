@@ -53,7 +53,7 @@ namespace {
         for(auto &ih : ihs)
         {
             // Get the file's size in bytes
-            off_t bytes=ih.get()->direntry(metadata_flags::size).st_size();
+            off_t bytes=ih->direntry(metadata_flags::size).st_size();
             if(bytes>max_individual) max_individual=bytes;
             //std::cout << "File " << ih->path() << " size " << bytes << " to offset " << offset << std::endl;
             // Push the offset to write at, amount to write, and a scratch buffer

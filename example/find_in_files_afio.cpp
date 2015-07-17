@@ -84,7 +84,7 @@ public:
         future<> op, std::shared_ptr<std::vector<char,
         detail::aligned_allocator<char, 4096, false>>> _buffer, size_t length)
     {
-        std::shared_ptr<async_io_handle> h(op.get());
+        std::shared_ptr<async_io_handle> h(op.get_handle());
         //std::cout << "R " << h->path() << std::endl;
         char *buffer=_buffer->data();
         buffer[length]=0;
@@ -98,7 +98,7 @@ public:
     std::pair<bool, std::shared_ptr<async_io_handle>> file_opened(size_t id, 
         future<> op, size_t length)
     {
-        std::shared_ptr<async_io_handle> h(op.get());
+        std::shared_ptr<async_io_handle> h(op.get_handle());
         //std::cout << "F " << h->path() << std::endl;
 #ifdef USE_MMAPS
         if(!!(h->flags() & file_flags::os_mmap))
@@ -130,7 +130,7 @@ public:
         future<> op,
         std::shared_ptr<stl_future<std::pair<std::vector<directory_entry>, bool>>> listing)
     {
-        std::shared_ptr<async_io_handle> h(op.get());
+        std::shared_ptr<async_io_handle> h(op.get_handle());
         future<> lastdir, thisop(dispatcher->op_from_scheduled_id(id));
         // Get the entries from the ready stl_future
         std::vector<directory_entry> entries(std::move(listing->get().first));
@@ -249,7 +249,7 @@ public:
     std::pair<bool, std::shared_ptr<async_io_handle>> dir_opened(size_t id,
      future<> op)
     {
-        std::shared_ptr<async_io_handle> h(op.get());
+        std::shared_ptr<async_io_handle> h(op.get_handle());
         //std::cout << "D " << h->path() << std::endl;
         // Now we have an open directory handle, schedule an enumeration
         auto enumeration=dispatcher->enumerate(async_enumerate_op_req(

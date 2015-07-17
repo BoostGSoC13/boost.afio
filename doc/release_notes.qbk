@@ -117,13 +117,16 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 [heading Boost 1.58 AFIO v1.40 ? Boost peer review edition]
 [/=================]
 
-* Replaced camel cased items in file_flags with Boost compliant forms.
-
-* Replaced all async_io_op with afio::future<void>.
-
 * Removed VS2013 support as lightweight future-promise requires VS2015:
   * Replaced all BOOST_NOEXCEPT and BOOST_NOEXCEPT_OR_NOTHROW with noexcept
   * Replaced all BOOST_CONSTEXPR with constexpr
+
+* Replaced camel cased items in file_flags with Boost compliant forms.
+
+* Replaced all async_io_op with afio::future<void>. async_io_op::get() is now called
+future<>::get_handle(), plus the former structure members are now member function
+accessors.
+
 
 [/=================]
 [heading Boost 1.58 AFIO v1.31 18th April 2015]
