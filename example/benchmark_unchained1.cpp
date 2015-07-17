@@ -4,7 +4,7 @@
     My Intel Core i7 3770K running     Linux x64:  1432810 closures/sec
 */
 
-static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> callback(size_t, boost::afio::async_io_op op)
+static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> callback(size_t, boost::afio::future<> op)
 {
 #if 0
     // Simulate an i/o op with a context switch
@@ -21,7 +21,7 @@ int main(void)
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
     
-    std::vector<async_io_op> preconditions;
+    std::vector<future<>> preconditions;
     std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> callbacks(1,
         std::make_pair(async_op_flags::none, callback));
 #if 0

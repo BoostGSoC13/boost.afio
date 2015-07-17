@@ -279,7 +279,7 @@ static void raninit(ranctx *x, u4 seed) {
     }
 }
 
-static void dofilter(atomic<size_t> *callcount, detail::OpType, async_io_op &) { ++*callcount; }
+static void dofilter(atomic<size_t> *callcount, detail::OpType, future<> &) { ++*callcount; }
 static void checkwrite(detail::OpType, async_io_handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const asio::error_code &, size_t transferred)
 {
     size_t amount=0;
@@ -570,7 +570,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
 
     spinlock<size_t> failureslock;
     std::deque<std::pair<const Op *, size_t>> failures;
-    auto checkHash=[&failureslock, &failures](Op &op, char *base, size_t, async_io_op _h) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
+    auto checkHash=[&failureslock, &failures](Op &op, char *base, size_t, future<> _h) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
             const char *data=(const char *)(((size_t) base+(size_t) op.req.where));
             size_t idxoffset=0;
 

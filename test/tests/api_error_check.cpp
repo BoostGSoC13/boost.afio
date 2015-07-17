@@ -16,7 +16,7 @@ BOOST_AFIO_AUTO_TEST_CASE(api_error_check, "Tests that every API returns errors 
 #endif
 
     // Create a bad handle
-    async_io_op op=dispatcher->file(async_path_op_req("testfile", file_flags::create|file_flags::read_write));
+    future<> op=dispatcher->file(async_path_op_req("testfile", file_flags::create|file_flags::read_write));
     auto h=op.get();
     dispatcher->close(dispatcher->rmfile(op)).get();
     char buffer[32];

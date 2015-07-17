@@ -40,7 +40,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
       // HoldParentOpen is actually ineffectual as renames zap the parent container, but it tests more code.
       auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::hold_parent_open);
       auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
-      async_io_op dirh;
+      future<> dirh;
 
       try
       {
@@ -99,7 +99,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         auto unworker=detail::Undoer([&done, &worker]{done=true; worker.join();});
         
         // Create some files inside the changing directories and rename them across changing directories
-        std::vector<async_io_op> newfiles;
+        std::vector<future<>> newfiles;
         for(size_t n=0; n<ITEMS; n++)
         {
           dirreqs[n].precondition=dirs[n];
@@ -151,8 +151,8 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
 
       // Check that everything is as it ought to be
       auto _contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 10*ITEMS*ITERATIONS)).first.get().first;
-      testdir=async_io_op();  // Kick out AFIO now so NTFS has itself cleaned up by the end of the checks
-      dirh=async_io_op();
+      testdir=future<>();  // Kick out AFIO now so NTFS has itself cleaned up by the end of the checks
+      dirh=future<>();
       dispatcher.reset();
       std::cout << "Checking that we successfully renamed " << (ITEMS*(ITERATIONS-1)+1) << " items into the same directory ..." << std::endl;
       BOOST_CHECK(_contents.size() == (ITEMS*(ITERATIONS-1)+1));

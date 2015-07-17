@@ -8,7 +8,7 @@ int main(void)
     auto dispatcher=boost::afio::make_async_file_io_dispatcher();
     
     // Schedule an asynchronous call of some function with some bound set of arguments
-    auto helloworld=dispatcher->call(boost::afio::async_io_op() /* no precondition */, [](std::string text) -> int {
+    auto helloworld=dispatcher->call(boost::afio::future<>() /* no precondition */, [](std::string text) -> int {
         std::cout << text << std::endl;
         return 42;
     }, std::string("Hello world")); // Returns a pair of <stl_future, op ref>

@@ -51,13 +51,13 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     auto dispatcher = make_async_file_io_dispatcher();
     auto begin = chrono::high_resolution_clock::now();
     size_t opscount = 0;
-    async_io_op next;
+    future<> next;
     bool isfirst = true;
     for(auto &run: groups)
     {
         assert(run.first>0);
         std::vector<std::function<void()>> thisgroupcalls(run.first, std::bind(inccount, &callcount[run.second]));
-        std::vector<async_io_op> thisgroupcallops;
+        std::vector<future<>> thisgroupcallops;
         if (isfirst)
         {
             thisgroupcallops = dispatcher->call(thisgroupcalls).second;
@@ -65,7 +65,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
         }
         else
         {
-            std::vector<async_io_op> dependency(run.first, next);
+            std::vector<future<>> dependency(run.first, next);
             thisgroupcallops = dispatcher->call(dependency, thisgroupcalls).second;
         }
         auto thisgroupbarriered = dispatcher->barrier(thisgroupcallops);

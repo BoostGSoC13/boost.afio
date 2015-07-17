@@ -30,14 +30,14 @@ int main(void)
     };
     
     // For each group, dispatch ops and a barrier for them
-    boost::afio::async_io_op next;
+    boost::afio::future<> next;
     bool isfirst = true;
     for(auto &run : groups)
     {
         // Create a vector of run.first size of bound inccount lambdas
         // This will be the batch issued for this group
         std::vector<std::function<void()>> thisgroupcalls(run.first, std::bind(inccount, &callcount[run.second]));
-        std::vector<boost::afio::async_io_op> thisgroupcallops;
+        std::vector<boost::afio::future<>> thisgroupcallops;
         // If this is the first item, schedule without precondition
         if (isfirst)
         {
@@ -49,7 +49,7 @@ int main(void)
             // Create a vector of run.first size of preconditions exactly
             // matching the number in this batch. Note that the precondition
             // for all of these is the preceding verify op
-            std::vector<boost::afio::async_io_op> dependency(run.first, next);
+            std::vector<boost::afio::future<>> dependency(run.first, next);
             thisgroupcallops = dispatcher->call(dependency, thisgroupcalls).second;
         }
         // barrier() is very easy: its number of output ops exactly matches its input

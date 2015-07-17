@@ -12,7 +12,7 @@ typedef decltype(boost::afio::chrono::high_resolution_clock::now()) time_point;
 size_t id_offset;
 static time_point points[100000];
 static time_point::duration overhead, timesliceoverhead, sleepoverhead;
-static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(size_t id, boost::afio::async_io_op op)
+static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(size_t id, boost::afio::future<> op)
 {
   using namespace boost::afio;
   points[id-id_offset]=chrono::high_resolution_clock::now();
@@ -78,7 +78,7 @@ int main(void)
   csv << "Concurrency,Handler Min,Handler Max,Handler Average,Handler Stddev,Complete Min,Complete Max,Complete Average,Complete Stddev" << std::endl;
   for(size_t concurrency=0; concurrency<CONCURRENCY; concurrency++)
   {
-    async_io_op last[CONCURRENCY];
+    future<> last[CONCURRENCY];
     time_point begin[CONCURRENCY], handled[CONCURRENCY], end[CONCURRENCY];
     atomic<bool> waiter;
     double handler[ITERATIONS], complete[ITERATIONS];
@@ -101,7 +101,7 @@ int main(void)
 #endif
           ;
           begin[c]=chrono::high_resolution_clock::now();
-          last[c]=dispatcher->completion(async_io_op(), callback);
+          last[c]=dispatcher->completion(future<>(), callback);
           last[c].get();
           end[c]=chrono::high_resolution_clock::now();
           handled[c]=points[last[c].id-id_offset];

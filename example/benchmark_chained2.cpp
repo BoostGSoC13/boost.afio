@@ -25,7 +25,7 @@ int main(void)
     begin=chrono::high_resolution_clock::now();
 #pragma omp parallel
     {
-        std::vector<async_io_op> preconditions(1);
+        std::vector<future<>> preconditions(1);
         threads++;
         for(size_t n=0; n<500000; n++)
         {

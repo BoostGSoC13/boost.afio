@@ -119,6 +119,8 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 
 * Replaced camel cased items in file_flags with Boost compliant forms.
 
+* Replaced all async_io_op with afio::future<void>.
+
 * Removed VS2013 support as lightweight future-promise requires VS2015:
   * Replaced all BOOST_NOEXCEPT with noexcept
   * Replaced all BOOST_CONSTEXPR with constexpr

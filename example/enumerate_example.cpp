@@ -7,7 +7,7 @@ int main(void)
         boost::afio::make_async_file_io_dispatcher();
     
     // Schedule an opening of the root directory
-    boost::afio::async_io_op rootdir(dispatcher->dir(boost::afio::async_path_op_req("/")));
+    boost::afio::future<> rootdir(dispatcher->dir(boost::afio::async_path_op_req("/")));
     
     std::pair<std::vector<boost::afio::directory_entry>, bool> list;
     // This is used to reset the enumeration to the start
@@ -18,7 +18,7 @@ int main(void)
         // Note it returns a stl_future to the results and an op ref 
         std::pair<
             boost::afio::stl_future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
-            boost::afio::async_io_op
+            boost::afio::future<>
         >  enumeration(
             dispatcher->enumerate(boost::afio::async_enumerate_op_req(
                 /* This is the handle to enumerate */

@@ -20,7 +20,7 @@ int main(void)
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
     
-    std::vector<async_io_op> preconditions;
+    std::vector<future<>> preconditions;
     std::vector<std::function<int()>> callbacks(1, callback);
     begin=chrono::high_resolution_clock::now();
 #pragma omp parallel for

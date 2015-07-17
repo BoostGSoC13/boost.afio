@@ -356,7 +356,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threa
 
 
 class async_file_io_dispatcher_base;
-struct async_io_op;
+template<class T=void> struct future;
 struct async_path_op_req;
 template<class T> struct async_data_op_req;
 struct async_enumerate_op_req;
@@ -1336,27 +1336,28 @@ public:
 #endif
 };
 
-/*! \struct async_io_op
+/*! \struct future
+\tparam T Any returned result
 \brief A reference to an asynchronous operation
 
 The id field is always valid (and non-zero) if this reference is valid.
 */
-struct async_io_op
+template<class T> struct future
 {
     async_file_io_dispatcher_base *parent;              //!< The parent dispatcher
     size_t id;                                          //!< A unique id for this operation
     shared_future<std::shared_ptr<async_io_handle>> h;  //!< A stl_future handle to the item being operated upon
 
     //! \constr
-    async_io_op() : parent(nullptr), id(0), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
+    future() : parent(nullptr), id(0), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
     //! \cconstr
 #if 0 // used to find where std::move() isn't being used, and should be
-    //async_io_op(const async_io_op &o);
+    //future(const future &o);
 #else
-    async_io_op(const async_io_op &o) : parent(o.parent), id(o.id), h(o.h) { }
+    future(const future &o) : parent(o.parent), id(o.id), h(o.h) { }
 #endif
     //! \mconstr
-    async_io_op(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
+    future(future &&o) BOOST_NOEXCEPT_OR_NOTHROW : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
@@ -1364,22 +1365,22 @@ struct async_io_op
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
+    future(async_file_io_dispatcher_base *_parent, size_t _id, shared_future<std::shared_ptr<async_io_handle>> _handle, bool check_handle=true, bool validate=true) : parent(_parent), id(_id), h(std::move(_handle)) { if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _handle A shared_ptr to shared state between all instances of this reference.
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    async_io_op(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
+    future(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : parent(_handle->parent()), id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
     */
-    async_io_op(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
+    future(async_file_io_dispatcher_base *_parent, size_t _id) : parent(_parent), id(_id), h(shared_future<std::shared_ptr<async_io_handle>>()) { }
     //! \cassign
-    async_io_op &operator=(const async_io_op &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
+    future &operator=(const future &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
     //! \massign
-    async_io_op &operator=(async_io_op &&o) BOOST_NOEXCEPT_OR_NOTHROW{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
+    future &operator=(future &&o) BOOST_NOEXCEPT_OR_NOTHROW{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
     //! Retrieves the handle or exception from the shared state. Same as h.get().
     std::shared_ptr<async_io_handle> get(bool return_null_if_errored=false) const
     {
@@ -1387,9 +1388,9 @@ struct async_io_op
             return std::shared_ptr<async_io_handle>();
         // std::shared_future in older libstdc++ does not have a const get().
         if(!return_null_if_errored)
-            return const_cast<async_io_op *>(this)->h.get();
+            return const_cast<future *>(this)->h.get();
         auto e=get_exception_ptr(h);
-        return e ? std::shared_ptr<async_io_handle>() : const_cast<async_io_op *>(this)->h.get();
+        return e ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->h.get();
     }
     //! Dereferences the handle from the shared state. Same as *h.get().
     const async_io_handle &operator *() const { return *get(); }
@@ -1446,10 +1447,10 @@ namespace detail
     };
 #else
     /*
-    call(const std::vector<async_io_op> &ops             , const std::vector<std::function<R()>> &callables              );
+    call(const std::vector<future> &ops             , const std::vector<std::function<R()>> &callables              );
     call(const std::vector<std::function<R()>> &callables                                                                );
-    call(const async_io_op &req                          , std::function<R()> callback                                   );
-    call(const async_io_op &req                          , C callback                                      , Args... args);
+    call(const future &req                          , std::function<R()> callback                                   );
+    call(const future &req                          , C callback                                      , Args... args);
     */
     template<class C, class... Args> struct vs2013_variadic_overload_resolution_workaround
     {
@@ -1496,11 +1497,11 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op int_op_from_scheduled_id(size_t id) const;
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> int_op_from_scheduled_id(size_t id) const;
 
 protected:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
-    std::pair<bool, std::shared_ptr<async_io_handle>> doadopt(size_t, async_io_op, std::shared_ptr<async_io_handle> h)
+    std::pair<bool, std::shared_ptr<async_io_handle>> doadopt(size_t, future<>, std::shared_ptr<async_io_handle> h)
     {
         return std::make_pair(true, h);
     }
@@ -1520,13 +1521,13 @@ public:
     /*! \brief Returns an op ref for a given \b currently scheduled op id, throwing an exception if id not scheduled at the point of call.
     Can be used to retrieve exception state from some op id, or one's own shared stl_future.
     
-    \return An async_io_op with the same shared stl_future as all op refs with this id.
+    \return An future<> with the same shared stl_future as all op refs with this id.
     \param id The unique integer id for the op.
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op op_from_scheduled_id(size_t id) const;
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> op_from_scheduled_id(size_t id) const;
 
     //! The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
-    typedef void filter_t(detail::OpType, async_io_op &);
+    typedef void filter_t(detail::OpType, future<> &);
     //! The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
     typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
     /*! \brief Clears the post op and readwrite filters. Not threadsafe.
@@ -1573,11 +1574,11 @@ public:
     //! The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
     typedef std::pair<bool, std::shared_ptr<async_io_handle>> completion_returntype;
     //! The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
-    typedef completion_returntype completion_t(size_t, async_io_op);
+    typedef completion_returntype completion_t(size_t, future<>);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 #if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) || BOOST_AFIO_HEADERS_ONLY==0 // Only really used for benchmarking
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> &callbacks);
-    inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> &callbacks);
+    inline future<> completion(const future<> &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback);
 #endif
 #endif
     /*! \brief Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete.
@@ -1591,7 +1592,7 @@ public:
     \exceptionmodelstd
     \qexample{completion_example1}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> completion(const std::vector<async_io_op> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks);
     /*! \brief Schedule the asynchronous invocation of the specified single function when the supplied single operation completes.
     
     \return An op handle
@@ -1603,7 +1604,7 @@ public:
     \exceptionmodelstd
     \qexample{completion_example1}
     */
-    inline async_io_op completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback);
+    inline future<> completion(const future<> &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback);
 
     /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
     
@@ -1620,7 +1621,7 @@ public:
     \exceptionmodelstd
     \qexample{call_example}
     */
-    template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables);
+    template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<future<>>> call(const std::vector<future<>> &ops, const std::vector<std::function<R()>> &callables);
     /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
 
     This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
@@ -1636,7 +1637,7 @@ public:
     \exceptionmodelstd
     \qexample{call_example}
     */
-    template<class R> std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> call(const std::vector<std::function<R()>> &callables) { return call(std::vector<async_io_op>(), callables); }
+    template<class R> std::pair<std::vector<shared_future<R>>, std::vector<future<>>> call(const std::vector<std::function<R()>> &callables) { return call(std::vector<future<>>(), callables); }
     /*! \brief Schedule an asynchronous invocation of the specified bound function when its supplied precondition completes.
 
     This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
@@ -1653,7 +1654,7 @@ public:
     \exceptionmodelstd
     \qexample{call_example}
     */
-    template<class R> inline std::pair<shared_future<R>, async_io_op> call(const async_io_op &req, std::function<R()> callback);
+    template<class R> inline std::pair<shared_future<R>, future<>> call(const future<> &req, std::function<R()> callback);
 
     
     
@@ -1679,9 +1680,9 @@ public:
     \qexample{call_example}
     */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> call(const async_io_op &req, C callback, Args... args);
+    template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, future<>> call(const future<> &req, C callback, Args... args);
 #else
-    template<class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, async_io_op> call(const async_io_op &req, C callback, Args... args);
+    template<class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, future<>> call(const future<> &req, C callback, Args... args);
 #endif
 
 
@@ -1700,7 +1701,7 @@ public:
     \exceptionmodelstd
     \qexample{adopt_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
     /*! \brief Schedule an adoption of a third party handle.
 
     This function enables you to adopt third party custom async_io_handle derivatives
@@ -1715,7 +1716,7 @@ public:
     \exceptionmodelstd
     \qexample{adopt_example}
     */
-    inline async_io_op adopt(std::shared_ptr<async_io_handle> h);
+    inline future<> adopt(std::shared_ptr<async_io_handle> h);
     /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
@@ -1736,7 +1737,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> dir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> dir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous directory creation and open after an optional precondition.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
@@ -1757,7 +1758,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op dir(const async_path_op_req &req);
+    inline future<> dir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
 
     Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
@@ -1781,7 +1782,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
 
     Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
@@ -1805,7 +1806,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op rmdir(const async_path_op_req &req);
+    inline future<> rmdir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
     
     Be aware that any files created are by default sparse if supported on the local filing system. On
@@ -1825,7 +1826,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
     
     Be aware that any files created are by default sparse if supported on the local filing system. On
@@ -1845,7 +1846,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op file(const async_path_op_req &req);
+    inline future<> file(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file deletions after optional preconditions.
     
     Note that you can delete files before they are closed on Windows just as with POSIX if and only
@@ -1873,7 +1874,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file deletion after an optional precondition.
     
     Note that you can delete files before they are closed on Windows just as with POSIX if and only
@@ -1901,7 +1902,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op rmfile(const async_path_op_req &req);
+    inline future<> rmfile(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous symlink creations and opens after a precondition.
 
     Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
@@ -1919,7 +1920,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> symlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous symlink creation and open after a precondition.
 
     Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
@@ -1937,7 +1938,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op symlink(const async_path_op_req &req);
+    inline future<> symlink(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
     
     Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
@@ -1959,7 +1960,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous symlink deletion after an optional precondition.
     
     Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
@@ -1983,7 +1984,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op rmsymlink(const async_path_op_req &req);
+    inline future<> rmsymlink(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous content synchronisations with physical storage after preceding operations.
     
     \return A batch of op handles.
@@ -1994,7 +1995,7 @@ public:
     \exceptionmodelstd
     \qexample{readwrite_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> sync(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> sync(const std::vector<future<>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous content synchronisation with physical storage after a preceding operation.
     
     \return An op handle.
@@ -2005,7 +2006,7 @@ public:
     \exceptionmodelstd
     \qexample{readwrite_example}
     */
-    inline async_io_op sync(const async_io_op &req);
+    inline future<> sync(const future<> &req);
     /*! \brief Schedule a batch of asynchronous zeroing and deallocations of physical storage ("hole punching") after preceding operations.
     
     Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
@@ -2027,7 +2028,7 @@ public:
     \exceptionmodelstd
     \qexample{extents_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> zero(const std::vector<async_io_op> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> zero(const std::vector<future<>> &ops, const std::vector<std::vector<std::pair<off_t, off_t>>> &ranges) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation.
     
     Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions,
@@ -2049,7 +2050,7 @@ public:
     \exceptionmodelstd
     \qexample{extents_example}
     */
-    inline async_io_op zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges);
+    inline future<> zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     /*! \brief Schedule a batch of asynchronous file or directory handle closes after preceding operations.
     
     Note this is ignored for handles where available_to_directory_cache() is true as those cannot be explicitly closed.
@@ -2065,7 +2066,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> close(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> close(const std::vector<future<>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file or directory handle close after a preceding operation.
     
     Note this is ignored for handles where available_to_directory_cache() is true as those cannot be explicitly closed.
@@ -2081,7 +2082,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    inline async_io_op close(const async_io_op &req);
+    inline future<> close(const future<> &req);
 
     /*! \brief Schedule a batch of asynchronous data reads after preceding operations, where
     offset and total data read must not exceed the present file size.
@@ -2097,10 +2098,10 @@ public:
     \qexample{readwrite_example}
     */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<detail::async_data_op_req_impl<false>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    template<class T> inline std::vector<async_io_op> read(const std::vector<async_data_op_req<T>> &ops);
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> read(const std::vector<detail::async_data_op_req_impl<false>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> inline std::vector<future<>> read(const std::vector<async_data_op_req<T>> &ops);
 #else
-    template<class T> BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> read(const std::vector<async_data_op_req<T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> read(const std::vector<async_data_op_req<T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 #endif
     /*! \brief Schedule an asynchronous data read after a preceding operation, where
     offset and total data read must not exceed the present file size.
@@ -2116,9 +2117,9 @@ public:
     \qexample{readwrite_example}
     */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    inline async_io_op read(const detail::async_data_op_req_impl<false> &req);
+    inline future<> read(const detail::async_data_op_req_impl<false> &req);
 #else
-    template<class T> inline async_io_op read(const async_data_op_req<T> &req);
+    template<class T> inline future<> read(const async_data_op_req<T> &req);
 #endif
     /*! \brief Schedule a batch of asynchronous data writes after preceding operations, where
     offset and total data written must not exceed the present file size.
@@ -2134,10 +2135,10 @@ public:
     \qexample{readwrite_example}
     */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<detail::async_data_op_req_impl<true>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    template<class T> inline std::vector<async_io_op> write(const std::vector<async_data_op_req<T>> &ops);
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> write(const std::vector<detail::async_data_op_req_impl<true>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> inline std::vector<future<>> write(const std::vector<async_data_op_req<T>> &ops);
 #else
-    template<class T> BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> write(const std::vector<async_data_op_req<const T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    template<class T> BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> write(const std::vector<async_data_op_req<const T>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 #endif
     /*! \brief Schedule an asynchronous data write after a preceding operation, where
     offset and total data written must not exceed the present file size.
@@ -2153,9 +2154,9 @@ public:
     \qexample{readwrite_example}
     */
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    inline async_io_op write(const detail::async_data_op_req_impl<true> &req);
+    inline future<> write(const detail::async_data_op_req_impl<true> &req);
 #else
-    template<class T> inline async_io_op write(const async_data_op_req<const T> &req);
+    template<class T> inline future<> write(const async_data_op_req<const T> &req);
 #endif
 
     /*! \brief Schedule a batch of asynchronous file length truncations after preceding operations.
@@ -2169,7 +2170,7 @@ public:
     \exceptionmodelstd
     \qexample{readwrite_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> truncate(const std::vector<async_io_op> &ops, const std::vector<off_t> &sizes) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> truncate(const std::vector<future<>> &ops, const std::vector<off_t> &sizes) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous file length truncation after a preceding operation.
     
     \return An op handle.
@@ -2181,7 +2182,7 @@ public:
     \exceptionmodelstd
     \qexample{readwrite_example}
     */
-    inline async_io_op truncate(const async_io_op &op, off_t newsize);
+    inline future<> truncate(const future<> &op, off_t newsize);
     /*! \brief Schedule a batch of asynchronous directory enumerations after preceding operations.
 
     By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
@@ -2209,7 +2210,7 @@ public:
     \exceptionmodelstd
     \qexample{enumerate_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> enumerate(const std::vector<async_enumerate_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<future<>>> enumerate(const std::vector<async_enumerate_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous directory enumeration after a preceding operation.
 
     By default dir() returns shared handles i.e. dir("foo") and dir("foo") will return the exact same
@@ -2237,7 +2238,7 @@ public:
     \exceptionmodelstd
     \qexample{enumerate_example}
     */
-    inline std::pair<stl_future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> enumerate(const async_enumerate_op_req &req);
+    inline std::pair<stl_future<std::pair<std::vector<directory_entry>, bool>>, future<>> enumerate(const async_enumerate_op_req &req);
     /*! \brief Schedule a batch of asynchronous extent enumerations after preceding operations.
 
     In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
@@ -2259,7 +2260,7 @@ public:
     \exceptionmodelstd
     \qexample{extents_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> extents(const std::vector<async_io_op> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<std::vector<std::pair<off_t, off_t>>>>, std::vector<future<>>> extents(const std::vector<future<>> &ops) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous extent enumeration after a preceding operation.
 
     In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this
@@ -2281,7 +2282,7 @@ public:
     \exceptionmodelstd
     \qexample{extents_example}
     */
-    inline std::pair<stl_future<std::vector<std::pair<off_t, off_t>>>, async_io_op> extents(const async_io_op &op);
+    inline std::pair<stl_future<std::vector<std::pair<off_t, off_t>>>, future<>> extents(const future<> &op);
     /*! \brief Schedule a batch of asynchronous volume enumerations after preceding operations.
 
     \return A batch of stl_future volume metadatas.
@@ -2300,7 +2301,7 @@ public:
     \exceptionmodelstd
     \qexample{statfs_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<statfs_t>>, std::vector<async_io_op>> statfs(const std::vector<async_io_op> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::pair<std::vector<stl_future<statfs_t>>, std::vector<future<>>> statfs(const std::vector<future<>> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule an asynchronous volume enumeration after a preceding operation.
 
     \return A stl_future volume metadatas.
@@ -2319,10 +2320,10 @@ public:
     \exceptionmodelstd
     \qexample{statfs_example}
     */
-    inline std::pair<stl_future<statfs_t>, async_io_op> statfs(const async_io_op &op, const fs_metadata_flags &req);
+    inline std::pair<stl_future<statfs_t>, future<>> statfs(const future<> &op, const fs_metadata_flags &req);
 
     // Undocumented deliberately
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<async_io_op> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
     
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
@@ -2344,7 +2345,7 @@ public:
     \exceptionmodel{See detailed description above.}
     \qexample{barrier_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> barrier(const std::vector<async_io_op> &ops);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> barrier(const std::vector<future<>> &ops);
 
     /*! \brief Schedule the return of an op handle after another op handle completes. This is useful when you
     need to supply one op handle to a function but it must not begin until another op handle has finished.
@@ -2357,7 +2358,7 @@ public:
     \exceptionmodelstd
     \qexample{filecopy_example}
     */
-    inline async_io_op depends(async_io_op precondition, async_io_op op);
+    inline future<> depends(future<> precondition, future<> op);
 
     /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
 
@@ -2376,23 +2377,23 @@ public:
     */
     void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, std::shared_ptr<async_io_handle>(), e); }
 protected:
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, completion_returntype(F::*dofile)(size_t, async_io_op, async_path_op_req));
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, async_io_op h, completion_t *callback);
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, async_io_op h, std::function<completion_t> callback);
-    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_io_op> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, T));
-    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, T));
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_io_op));
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_path_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_path_op_req));
-    template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<detail::async_data_op_req_impl<iswrite>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, detail::async_data_op_req_impl<iswrite>));
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<std::vector<std::pair<off_t, off_t>>>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret));
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<statfs_t>>, std::vector<async_io_op>> chain_async_ops(int optype, const std::vector<async_io_op> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<async_io_op> chain_async_ops(int optype, const std::vector<async_lock_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, async_lock_op_req));
-    template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, async_io_op h, T);
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, completion_returntype(F::*dofile)(size_t, future<>, async_path_op_req));
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, future<> h, completion_t *callback);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, future<> h, std::function<completion_t> callback);
+    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T));
+    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<future<>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, future<>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<async_path_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, async_path_op_req));
+    template<class F, bool iswrite> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<detail::async_data_op_req_impl<iswrite>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, detail::async_data_op_req_impl<iswrite>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<std::pair<std::vector<directory_entry>, bool>>>, std::vector<future<>>> chain_async_ops(int optype, const std::vector<async_enumerate_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, async_enumerate_op_req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>>));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<std::vector<std::pair<off_t, off_t>>>>, std::vector<future<>>> chain_async_ops(int optype, const std::vector<future<>> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::pair<std::vector<stl_future<statfs_t>>, std::vector<future<>>> chain_async_ops(int optype, const std::vector<future<>> &container, const std::vector<fs_metadata_flags> &req, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, fs_metadata_flags, std::shared_ptr<promise<statfs_t>> ret));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<async_lock_op_req> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, async_lock_op_req));
+    template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, future<> h, T);
 
     
-    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> invoke_async_op_completions(size_t id, async_io_op h, completion_returntype(F::*f)(size_t, async_io_op, Args...), Args... args);
-    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_io_op chain_async_op(detail::immediate_async_ops &immediates, int optype, const async_io_op &precondition, async_op_flags flags, completion_returntype(F::*f)(size_t, async_io_op, Args...), Args... args);
+    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> invoke_async_op_completions(size_t id, future<> h, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
+    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> chain_async_op(detail::immediate_async_ops &immediates, int optype, const future<> &precondition, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
 };
 /*! \brief Instatiates the best available async_file_io_dispatcher implementation for this system.
 
@@ -2491,7 +2492,7 @@ namespace detail
     }
 #else
     // Without wait_for_any, schedule a completion onto every op and the first to fire wins
-    template<bool rethrow> inline std::pair<bool, std::shared_ptr<async_io_handle>> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, async_io_op h)
+    template<bool rethrow> inline std::pair<bool, std::shared_ptr<async_io_handle>> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, future<> h)
     {
         auto &i=state->in[idx];
         if(0==state->count.fetch_add(1, memory_order_relaxed))  // Will be zero exactly once
@@ -2515,7 +2516,7 @@ namespace detail
     {
         auto state=std::make_shared<when_any_state>();
         auto dispatcher=first->parent;
-        std::vector<async_io_op> ops(first, last);
+        std::vector<future<>> ops(first, last);
         state->in.reserve(ops.size());
         for(auto &op : ops)
             state->in.push_back(op.h);
@@ -2539,9 +2540,9 @@ namespace detail
     };
     template<bool is_all, class T> struct enable_if_async_op
     {
-        //static_assert(std::is_same<T, T>::value, "Not an iterator of async_io_op");
+        //static_assert(std::is_same<T, T>::value, "Not an iterator of future<>");
     };
-    template<bool is_all> struct enable_if_async_op<is_all, async_io_op>
+    template<bool is_all> struct enable_if_async_op<is_all, future<>>
     {
         typedef typename select_when_ops_return_type<is_all>::type type;
     };
@@ -2552,8 +2553,8 @@ namespace detail
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
 \param _ An instance of std::nothrow_t.
-\param first An iterator pointing to the first async_io_op to wait upon.
-\param last An iterator pointing after the last async_io_op to wait upon.
+\param first An iterator pointing to the first future<> to wait upon.
+\param last An iterator pointing after the last future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, iterator batch of ops not exception propagating}
 \complexity{O(N).}
@@ -2570,8 +2571,8 @@ template<class Iterator> inline typename detail::enable_if_async_op<true, typena
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
 \param _ An instance of std::nothrow_t.
-\param first An iterator pointing to the first async_io_op to wait upon.
-\param last An iterator pointing after the last async_io_op to wait upon.
+\param first An iterator pointing to the first future<> to wait upon.
+\param last An iterator pointing after the last future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, iterator batch of ops not exception propagating}
 \complexity{O(N).}
@@ -2593,7 +2594,7 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, std::vector<async_io_op> ops)
+inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, std::vector<future<>> ops)
 {
     if(ops.empty())
         return stl_future<std::vector<std::shared_ptr<async_io_handle>>>();
@@ -2609,7 +2610,7 @@ inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::n
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::vector<async_io_op> ops)
+inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::vector<future<>> ops)
 {
     if(ops.empty())
         return stl_future<std::shared_ptr<async_io_handle>>();
@@ -2619,8 +2620,8 @@ inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, s
 
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
-\param first An iterator pointing to the first async_io_op to wait upon.
-\param last An iterator pointing after the last async_io_op to wait upon.
+\param first An iterator pointing to the first future<> to wait upon.
+\param last An iterator pointing after the last future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, iterator batch of ops exception propagating}
 \complexity{O(N).}
@@ -2636,8 +2637,8 @@ template<class Iterator> inline typename detail::enable_if_async_op<true, typena
 
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
-\param first An iterator pointing to the first async_io_op to wait upon.
-\param last An iterator pointing after the last async_io_op to wait upon.
+\param first An iterator pointing to the first future<> to wait upon.
+\param last An iterator pointing after the last future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, iterator batch of ops exception propagating}
 \complexity{O(N).}
@@ -2658,7 +2659,7 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::vector<async_io_op> ops)
+inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::vector<future<>> ops)
 {
     if(ops.empty())
         return stl_future<std::vector<std::shared_ptr<async_io_handle>>>();
@@ -2673,7 +2674,7 @@ inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::v
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::vector<async_io_op> ops)
+inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::vector<future<>> ops)
 {
     if(ops.empty())
         return stl_future<std::shared_ptr<async_io_handle>>();
@@ -2683,29 +2684,29 @@ inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::vector<async_i
 
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param _ An instance of std::nothrow_t.
-\param op An async_io_op to wait upon.
+\param op An future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, convenience single op not exception propagating}
 \complexity{O(1).}
 \exceptionmodel{Non propagating}
 */
-inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, async_io_op op)
+inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, future<> op)
 {
-    std::vector<async_io_op> ops(1, op);
+    std::vector<future<>> ops(1, op);
     return when_all(_, ops);
 }
 /*! \brief Returns a result when the supplied op completes. Propagates exception states.
 
 \return A stl_future vector of shared_ptr's to async_io_handle.
-\param op An async_io_op to wait upon.
+\param op An future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, convenience single op exception propagating}
 \complexity{O(1).}
 \exceptionmodel{Non propagating}
 */
-inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(async_io_op op)
+inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(future<> op)
 {
-    std::vector<async_io_op> ops(1, op);
+    std::vector<future<>> ops(1, op);
     return when_all(ops);
 }
 
@@ -2723,7 +2724,7 @@ struct async_path_op_req
     bool is_relative;           //!< Whether the precondition is also where this path begins
     BOOST_AFIO_V1_NAMESPACE::path path;            //!< The filing system path to be used for this operation
     file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
-    async_io_op precondition;   //!< An optional precondition for this operation
+    future<> precondition;   //!< An optional precondition for this operation
     //! \brief Tags the path as being absolute
     struct absolute;
     //! \brief Tags the path as being relative
@@ -2745,7 +2746,7 @@ struct async_path_op_req
     \param _flags The flags to be used.
     */
 
-    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<async_io_op, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
+    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<future<>, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
     \tparam "class T" The type of path to be used.
@@ -2754,15 +2755,15 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V1_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, async_io_op _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V1_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V1_NAMESPACE::path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V1_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V1_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V1_NAMESPACE::path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! \overload
-    async_path_op_req(bool _is_relative, async_io_op _precondition, BOOST_AFIO_V1_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(bool _is_relative, future<> _precondition, BOOST_AFIO_V1_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
     \param _flags The flags to be used.
     */
-    async_path_op_req(async_io_op _precondition, file_flags _flags=file_flags::none) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(future<> _precondition, file_flags _flags=file_flags::none) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -2788,13 +2789,13 @@ struct async_path_op_req::relative : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> relative(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
+  template<class T> relative(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
   /*! \brief Constructs an instance.
   
   \param _precondition The precondition for this operation.
   \param _flags The flags to be used.
   */
-  relative(async_io_op _precondition, file_flags _flags=file_flags::none) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
+  relative(future<> _precondition, file_flags _flags=file_flags::none) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
 };
 //! Convenience tag type constructing an absolute path async_path_op_req
 struct async_path_op_req::absolute : async_path_op_req
@@ -2806,7 +2807,7 @@ struct async_path_op_req::absolute : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> absolute(async_io_op _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
+  template<class T> absolute(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
 };
 inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
@@ -3078,7 +3079,7 @@ namespace detail
     {
     public:
         //! An optional precondition for this operation
-        async_io_op precondition;
+        future<> precondition;
         //! A sequence of mutable Boost.ASIO buffers to read into
         std::vector<asio::mutable_buffer> buffers;
         //! The offset from which to read
@@ -3094,7 +3095,7 @@ namespace detail
         //! \massign
         async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
         //! \async_data_op_req2
-        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
+        async_data_op_req_impl(future<> _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
         //! Validates contents for correctness \return True if contents are correct
         bool validate() const
         {
@@ -3123,7 +3124,7 @@ namespace detail
     {
     public:
         //! An optional precondition for this operation
-        async_io_op precondition;
+        future<> precondition;
         //! A sequence of mutable Boost.ASIO buffers to read into
         std::vector<asio::const_buffer> buffers;
         //! The offset from which to read
@@ -3143,9 +3144,9 @@ namespace detail
         //! \massign
         async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
         //! \async_data_op_req2
-        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
+        async_data_op_req_impl(future<> _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
         //! \async_data_op_req2
-        async_data_op_req_impl(async_io_op _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
+        async_data_op_req_impl(future<> _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), where(_where)
         {
             buffers.reserve(_buffers.capacity());
             for(auto &&i: _buffers)
@@ -3188,7 +3189,7 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
-    async_io_op precondition;
+    future<> precondition;
     //! A sequence of mutable Boost.ASIO buffers to read into
     std::vector<asio::mutable_buffer> buffers;
     //! The offset from which to read
@@ -3205,11 +3206,11 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
     //! \massign
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1 \param _length The number of items to transfer
-    async_data_op_req(async_io_op _precondition, T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
+    async_data_op_req(future<> _precondition, T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
     //! \async_data_op_req1
-    template<class U> async_data_op_req(async_io_op _precondition, U &v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
+    template<class U> async_data_op_req(future<> _precondition, U &v, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
     //! \async_data_op_req1 \tparam N The number of items in the array
-    template<class U, size_t N> async_data_op_req(async_io_op _precondition, U (&v)[N], off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
+    template<class U, size_t N> async_data_op_req(future<> _precondition, U (&v)[N], off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
@@ -3221,7 +3222,7 @@ template<class T> struct async_data_op_req<const T> : public detail::async_data_
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
     //! A precondition containing an open file handle for this operation
-    async_io_op precondition;
+    future<> precondition;
     //! A sequence of const Boost.ASIO buffers to write from
     std::vector<asio::const_buffer> buffers;
     //! The offset at which to write
@@ -3242,11 +3243,11 @@ template<class T> struct async_data_op_req<const T> : public detail::async_data_
     //! \massign
     async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1 \param _length The number of items to transfer
-    async_data_op_req(async_io_op _precondition, const T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
+    async_data_op_req(future<> _precondition, const T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
     //! \async_data_op_req1
-    template<class U> async_data_op_req(async_io_op _precondition, const U &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
+    template<class U> async_data_op_req(future<> _precondition, const U &v, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
     //! \async_data_op_req1 \tparam N The number of items in the array
-    template<class U, size_t N> async_data_op_req(async_io_op _precondition, const U (&v)[N], off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
+    template<class U, size_t N> async_data_op_req(future<> _precondition, const U (&v)[N], off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
@@ -3256,7 +3257,7 @@ template<> struct async_data_op_req<void> : public detail::async_data_op_req_imp
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
   //! A precondition containing an open file handle for this operation
-  async_io_op precondition;
+  future<> precondition;
   //! A sequence of mutable Boost.ASIO buffers to read into
   std::vector<asio::mutable_buffer> buffers;
   //! The offset from which to read
@@ -3273,7 +3274,7 @@ template<> struct async_data_op_req<void> : public detail::async_data_op_req_imp
   //! \massign
   async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
   //! \async_data_op_req1 \param _length The number of items to transfer
-  async_data_op_req(async_io_op _precondition, void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
+  async_data_op_req(future<> _precondition, void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
 };
 /*!
 \brief A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data \b MUST stay around until the operation completes.
@@ -3283,7 +3284,7 @@ template<> struct async_data_op_req<const void> : public detail::async_data_op_r
 {
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
   //! A precondition containing an open file handle for this operation
-  async_io_op precondition;
+  future<> precondition;
   //! A sequence of const Boost.ASIO buffers to write from
   std::vector<asio::const_buffer> buffers;
   //! The offset at which to write
@@ -3304,7 +3305,7 @@ template<> struct async_data_op_req<const void> : public detail::async_data_op_r
   //! \massign
   async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
   //! \async_data_op_req1 \param _length The number of items to transfer
-  async_data_op_req(async_io_op _precondition, const void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
+  async_data_op_req(future<> _precondition, const void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
 };
 
 namespace detail
@@ -3313,11 +3314,11 @@ namespace detail
   {
     typedef typename std::remove_pointer<typename std::decay<T>::type>::type _T;
     typedef async_data_op_req<_T> type;
-    template<class U> type operator()(async_io_op _precondition, U &&v, off_t _where) const
+    template<class U> type operator()(future<> _precondition, U &&v, off_t _where) const
     {
       return type(std::move(_precondition), std::forward<U>(v), _where);
     }
-    template<class U> type operator()(async_io_op _precondition, U &&v, size_t _length, off_t _where) const
+    template<class U> type operator()(future<> _precondition, U &&v, size_t _length, off_t _where) const
     {
       return type(std::move(_precondition), std::forward<U>(v), _length, _where);
     }
@@ -3330,11 +3331,11 @@ namespace detail
     typedef typename std::remove_pointer<typename std::decay<T>::type>::type __T;
     typedef typename std::conditional<is_container_contents_const, typename std::add_const<__T>::type, __T>::type _T;
     typedef async_data_op_req<_T> type;
-    template<class U> type operator()(async_io_op _precondition, U &&v, off_t _where) const
+    template<class U> type operator()(future<> _precondition, U &&v, off_t _where) const
     {
       return type(std::move(_precondition), std::forward<U>(v), _where);
     }
-    template<class U> type operator()(async_io_op _precondition, U &&v, size_t _length, off_t _where) const
+    template<class U> type operator()(future<> _precondition, U &&v, size_t _length, off_t _where) const
     {
       return type(std::move(_precondition), std::forward<U>(v), _length, _where);
     }
@@ -3351,7 +3352,7 @@ namespace detail
 [readwrite_example]
 }
 */
-template<class T> inline auto make_async_data_op_req(async_io_op _precondition, T &&v, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _where))
+template<class T> inline auto make_async_data_op_req(future<> _precondition, T &&v, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _where))
 {
   return detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _where);
 }
@@ -3366,7 +3367,7 @@ template<class T> inline auto make_async_data_op_req(async_io_op _precondition, 
 [readwrite_example]
 }
 */
-template<class T> inline async_data_op_req<const std::initializer_list<T>> make_async_data_op_req(async_io_op _precondition, const std::initializer_list<T> &v, off_t _where)
+template<class T> inline async_data_op_req<const std::initializer_list<T>> make_async_data_op_req(future<> _precondition, const std::initializer_list<T> &v, off_t _where)
 {
   return async_data_op_req<const std::initializer_list<T>>(std::move(_precondition), v, _where);
 }
@@ -3382,7 +3383,7 @@ template<class T> inline async_data_op_req<const std::initializer_list<T>> make_
 [readwrite_example]
 }
 */
-template<class T> inline auto make_async_data_op_req(async_io_op _precondition, T &&v, size_t _length, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _length, _where))
+template<class T> inline auto make_async_data_op_req(future<> _precondition, T &&v, size_t _length, off_t _where) -> decltype(detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _length, _where))
 {
   return detail::make_async_data_op_req<T>()(std::move(_precondition), std::forward<T>(v), _length, _where);
 }
@@ -3403,7 +3404,7 @@ characters. Here a \\ is the wildcard escape character.
 */
 struct async_enumerate_op_req
 {
-    async_io_op precondition;    //!< A precondition for this operation.
+    future<> precondition;    //!< A precondition for this operation.
     size_t maxitems;             //!< The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
     bool restart;                //!< Restarts the enumeration for this open directory handle.
     path glob;                   //!< An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
@@ -3426,7 +3427,7 @@ struct async_enumerate_op_req
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(async_io_op _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
+    async_enumerate_op_req(future<> _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3436,7 +3437,7 @@ struct async_enumerate_op_req
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(async_io_op _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
+    async_enumerate_op_req(future<> _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3446,7 +3447,7 @@ struct async_enumerate_op_req
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path(), filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
+    async_enumerate_op_req(future<> _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path(), filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -3466,15 +3467,15 @@ private:
 // Undocumented deliberately
 struct async_lock_op_req
 {
-  async_io_op precondition;
+  future<> precondition;
   enum class Type { unknown, read_lock, write_lock, unlock } type;
   off_t offset, length;
   //chrono::time_point<chrono::steady_clock> deadline;
   async_lock_op_req() : type(Type::unknown), offset(0), length(0) { }
-  async_lock_op_req(async_io_op _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
-  async_lock_op_req(async_io_op _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t)-1) { _validate(); }
-  async_lock_op_req(async_io_op _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
-  async_lock_op_req(async_io_op _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  async_lock_op_req(future<> _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
+  async_lock_op_req(future<> _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t)-1) { _validate(); }
+  async_lock_op_req(future<> _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  async_lock_op_req(future<> _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
   //! Validates contents
   bool validate() const
   {
@@ -3509,9 +3510,9 @@ namespace detail {
 }
 
 #if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) // Only really used for benchmarking
-inline async_io_op async_file_io_dispatcher_base::completion(const async_io_op &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback)
+inline future<> async_file_io_dispatcher_base::completion(const future<> &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback)
 {
-    std::vector<async_io_op> r;
+    std::vector<future<>> r;
     std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> i;
     r.reserve(1); i.reserve(1);
     r.push_back(req);
@@ -3519,9 +3520,9 @@ inline async_io_op async_file_io_dispatcher_base::completion(const async_io_op &
     return std::move(completion(r, i).front());
 }
 #endif
-inline async_io_op async_file_io_dispatcher_base::completion(const async_io_op &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback)
+inline future<> async_file_io_dispatcher_base::completion(const future<> &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback)
 {
-    std::vector<async_io_op> r;
+    std::vector<future<>> r;
     std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
     r.reserve(1); i.reserve(1);
     r.push_back(req);
@@ -3529,13 +3530,13 @@ inline async_io_op async_file_io_dispatcher_base::completion(const async_io_op &
     return std::move(completion(r, i).front());
 }
 namespace detail {
-    template<class tasktype> std::pair<bool, std::shared_ptr<async_io_handle>> doCall(size_t, async_io_op _, std::shared_ptr<tasktype> c)
+    template<class tasktype> std::pair<bool, std::shared_ptr<async_io_handle>> doCall(size_t, future<> _, std::shared_ptr<tasktype> c)
     {
         (*c)();
         return std::make_pair(true, _.get(true));
     }
 }
-template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> async_file_io_dispatcher_base::call(const std::vector<async_io_op> &ops, const std::vector<std::function<R()>> &callables)
+template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<future<>>> async_file_io_dispatcher_base::call(const std::vector<future<>> &ops, const std::vector<std::function<R()>> &callables)
 {
     typedef enqueued_task<R()> tasktype;
     std::vector<shared_future<R>> retfutures;
@@ -3551,86 +3552,86 @@ template<class R> inline std::pair<std::vector<shared_future<R>>, std::vector<as
     }
     return std::make_pair(std::move(retfutures), completion(ops, callbacks));
 }
-template<class R> inline std::pair<shared_future<R>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, std::function<R()> callback)
+template<class R> inline std::pair<shared_future<R>, future<>> async_file_io_dispatcher_base::call(const future<> &req, std::function<R()> callback)
 {
-    std::vector<async_io_op> i;
+    std::vector<future<>> i;
     std::vector<std::function<R()>> c;
     i.reserve(1); c.reserve(1);
     i.push_back(req);
     c.push_back(std::move(callback));
-    std::pair<std::vector<shared_future<R>>, std::vector<async_io_op>> ret(call(i, c));
+    std::pair<std::vector<shared_future<R>>, std::vector<future<>>> ret(call(i, c));
     return std::make_pair(std::move(ret.first.front()), ret.second.front());
 }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
+template<class C, class... Args> inline std::pair<shared_future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type>, future<>> async_file_io_dispatcher_base::call(const future<> &req, C callback, Args... args)
 #else
-template<class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, async_io_op> async_file_io_dispatcher_base::call(const async_io_op &req, C callback, Args... args)
+template<class C, class... Args> inline std::pair<shared_future<typename std::result_of<C(Args...)>::type>, future<>> async_file_io_dispatcher_base::call(const future<> &req, C callback, Args... args)
 #endif
 {
     typedef typename std::result_of<C(Args...)>::type rettype;
     return call(req, std::function<rettype()>(std::bind<rettype>(callback, args...)));
 }
 
-inline async_io_op async_file_io_dispatcher_base::adopt(std::shared_ptr<async_io_handle> h)
+inline future<> async_file_io_dispatcher_base::adopt(std::shared_ptr<async_io_handle> h)
 {
     std::vector<std::shared_ptr<async_io_handle>> i;
     i.reserve(1);
     i.push_back(std::move(h));
     return std::move(adopt(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::dir(const async_path_op_req &req)
+inline future<> async_file_io_dispatcher_base::dir(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(dir(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::rmdir(const async_path_op_req &req)
+inline future<> async_file_io_dispatcher_base::rmdir(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmdir(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::file(const async_path_op_req &req)
+inline future<> async_file_io_dispatcher_base::file(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(file(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::rmfile(const async_path_op_req &req)
+inline future<> async_file_io_dispatcher_base::rmfile(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmfile(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::symlink(const async_path_op_req &req)
+inline future<> async_file_io_dispatcher_base::symlink(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(symlink(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::rmsymlink(const async_path_op_req &req)
+inline future<> async_file_io_dispatcher_base::rmsymlink(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmsymlink(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::sync(const async_io_op &req)
+inline future<> async_file_io_dispatcher_base::sync(const future<> &req)
 {
-    std::vector<async_io_op> i;
+    std::vector<future<>> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(sync(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::zero(const async_io_op &req, const std::vector<std::pair<off_t, off_t>> &ranges)
+inline future<> async_file_io_dispatcher_base::zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges)
 {
-    std::vector<async_io_op> i;
+    std::vector<future<>> i;
     std::vector<std::vector<std::pair<off_t, off_t>>> r;
     i.reserve(1);
     i.push_back(req);
@@ -3638,22 +3639,22 @@ inline async_io_op async_file_io_dispatcher_base::zero(const async_io_op &req, c
     r.push_back(ranges);
     return std::move(zero(i, r).front());
 }
-inline async_io_op async_file_io_dispatcher_base::close(const async_io_op &req)
+inline future<> async_file_io_dispatcher_base::close(const future<> &req)
 {
-    std::vector<async_io_op> i;
+    std::vector<future<>> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(close(i).front());
 }
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-inline async_io_op async_file_io_dispatcher_base::read(const detail::async_data_op_req_impl<false> &req)
+inline future<> async_file_io_dispatcher_base::read(const detail::async_data_op_req_impl<false> &req)
 {
     std::vector<detail::async_data_op_req_impl<false>> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(read(i).front());
 }
-inline async_io_op async_file_io_dispatcher_base::write(const detail::async_data_op_req_impl<true> &req)
+inline future<> async_file_io_dispatcher_base::write(const detail::async_data_op_req_impl<true> &req)
 {
     std::vector<detail::async_data_op_req_impl<true>> i;
     i.reserve(1);
@@ -3661,17 +3662,17 @@ inline async_io_op async_file_io_dispatcher_base::write(const detail::async_data
     return std::move(write(i).front());
 }
 #endif
-template<class T> inline std::vector<async_io_op> async_file_io_dispatcher_base::read(const std::vector<async_data_op_req<T>> &ops)
+template<class T> inline std::vector<future<>> async_file_io_dispatcher_base::read(const std::vector<async_data_op_req<T>> &ops)
 {
     return read(detail::async_file_io_dispatcher_rwconverter<false, T>()(ops));
 }
-template<class T> inline std::vector<async_io_op> async_file_io_dispatcher_base::write(const std::vector<async_data_op_req<T>> &ops)
+template<class T> inline std::vector<future<>> async_file_io_dispatcher_base::write(const std::vector<async_data_op_req<T>> &ops)
 {
     return write(detail::async_file_io_dispatcher_rwconverter<true, T>()(ops));
 }
-inline async_io_op async_file_io_dispatcher_base::truncate(const async_io_op &op, off_t newsize)
+inline future<> async_file_io_dispatcher_base::truncate(const future<> &op, off_t newsize)
 {
-    std::vector<async_io_op> o;
+    std::vector<future<>> o;
     std::vector<off_t> i;
     o.reserve(1);
     o.push_back(op);
@@ -3679,7 +3680,7 @@ inline async_io_op async_file_io_dispatcher_base::truncate(const async_io_op &op
     i.push_back(newsize);
     return std::move(truncate(o, i).front());
 }
-inline std::pair<stl_future<std::pair<std::vector<directory_entry>, bool>>, async_io_op> async_file_io_dispatcher_base::enumerate(const async_enumerate_op_req &req)
+inline std::pair<stl_future<std::pair<std::vector<directory_entry>, bool>>, future<>> async_file_io_dispatcher_base::enumerate(const async_enumerate_op_req &req)
 {
     std::vector<async_enumerate_op_req> i;
     i.reserve(1);
@@ -3687,17 +3688,17 @@ inline std::pair<stl_future<std::pair<std::vector<directory_entry>, bool>>, asyn
     auto ret=enumerate(i);
     return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
-inline std::pair<stl_future<std::vector<std::pair<off_t, off_t>>>, async_io_op> async_file_io_dispatcher_base::extents(const async_io_op &op)
+inline std::pair<stl_future<std::vector<std::pair<off_t, off_t>>>, future<>> async_file_io_dispatcher_base::extents(const future<> &op)
 {
-    std::vector<async_io_op> o;
+    std::vector<future<>> o;
     o.reserve(1);
     o.push_back(op);
     auto ret=extents(o);
     return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
-inline std::pair<stl_future<statfs_t>, async_io_op> async_file_io_dispatcher_base::statfs(const async_io_op &op, const fs_metadata_flags &req)
+inline std::pair<stl_future<statfs_t>, future<>> async_file_io_dispatcher_base::statfs(const future<> &op, const fs_metadata_flags &req)
 {
-  std::vector<async_io_op> o;
+  std::vector<future<>> o;
   std::vector<fs_metadata_flags> i;
   o.reserve(1);
   o.push_back(op);
@@ -3706,11 +3707,11 @@ inline std::pair<stl_future<statfs_t>, async_io_op> async_file_io_dispatcher_bas
   auto ret = statfs(o, i);
   return std::make_pair(std::move(ret.first.front()), std::move(ret.second.front()));
 }
-inline async_io_op async_file_io_dispatcher_base::depends(async_io_op precondition, async_io_op op)
+inline future<> async_file_io_dispatcher_base::depends(future<> precondition, future<> op)
 {
     std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback(std::make_pair(async_op_flags::immediate,
-    [BOOST_AFIO_LAMBDA_MOVE_CAPTURE(op)](size_t, async_io_op) { return std::make_pair(true, op.get()); }));
-    std::vector<async_io_op> r;
+    [BOOST_AFIO_LAMBDA_MOVE_CAPTURE(op)](size_t, future<>) { return std::make_pair(true, op.get()); }));
+    std::vector<future<>> r;
     std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
     r.reserve(1); i.reserve(1);
     r.push_back(precondition);

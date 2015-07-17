@@ -68,7 +68,7 @@ namespace {
 
         // Schedule the parallel processing of all input files, sequential per file,
         // but only after the output file has been resized
-        std::vector<async_io_op> lasts;
+        std::vector<future<>> lasts;
         for(auto &i : ihs)
           lasts.push_back(dispatcher->depends(ohresize, i));
         for(off_t o=0; o<max_individual; o+=chunk_size)

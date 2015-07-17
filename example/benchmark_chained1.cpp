@@ -4,7 +4,7 @@
     My Intel Core i7 3770K running     Linux x64: 968005 closures/sec
 */
 
-static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(size_t, boost::afio::async_io_op op)
+static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(size_t, boost::afio::future<> op)
 {
 #if 0
     // Simulate an i/o op with a context switch
@@ -30,7 +30,7 @@ int main(void)
     begin=chrono::high_resolution_clock::now();
 #pragma omp parallel
     {
-        async_io_op last;
+        future<> last;
         threads++;
         for(size_t n=0; n<500000; n++)
         {

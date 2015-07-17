@@ -7,7 +7,7 @@ int main(void)
         boost::afio::make_async_file_io_dispatcher();
     
     // Schedule an opening of the root directory
-    boost::afio::async_io_op rootdir(dispatcher->dir(boost::afio::async_path_op_req("/")));
+    boost::afio::future<> rootdir(dispatcher->dir(boost::afio::async_path_op_req("/")));
 
     // Ask the filing system of the root directory how much free space there is
     boost::afio::statfs_t statfs(dispatcher->statfs(rootdir,

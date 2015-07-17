@@ -27,7 +27,7 @@ int main()
         boost::afio::file_flags::read));
 
     //set up vectors for the individual read operations, and the work on each integer
-    std::vector<boost::afio::async_io_op> read_ops(ary_size);
+    std::vector<boost::afio::future<>> read_ops(ary_size);
     std::vector<std::function<void()>> vec_func(ary_size);
     for (int i = 0; i < ary_size; ++i)
     {

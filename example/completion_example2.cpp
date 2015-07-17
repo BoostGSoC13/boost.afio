@@ -16,7 +16,7 @@ int main(void)
     // Create the completion, using the standard form
     auto completion=[](std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher,
         /* These are always the standard parameters */
-        size_t id, boost::afio::async_io_op precondition)
+        size_t id, boost::afio::future<> precondition)
       /* This is always the return type */
       -> std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>>
     {
@@ -25,7 +25,7 @@ int main(void)
         // Create some callable entity which will do the actual completion. It can be
         // anything you like, but you need a minimum of its integer id.
         auto completer=[](std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher,
-                          size_t id, boost::afio::async_io_op op) -> int
+                          size_t id, boost::afio::future<> op) -> int
         {
             try
             {
@@ -58,8 +58,8 @@ int main(void)
             std::placeholders::_1, std::placeholders::_2);
 
     // Schedule an asynchronous call of the completion
-    boost::afio::async_io_op op=
-        dispatcher->completion(boost::afio::async_io_op() /* no precondition */,
+    boost::afio::future<> op=
+        dispatcher->completion(boost::afio::future<>() /* no precondition */,
             std::make_pair(
                 /* Complete boundf immediately after its precondition (in this
                 case as there is no precondition that means right now before

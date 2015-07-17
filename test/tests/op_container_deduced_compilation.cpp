@@ -14,7 +14,7 @@ BOOST_AFIO_AUTO_TEST_CASE(op_container_deduced_compilation, "Tests that all the 
         auto file2(dispatcher->file("foo"));
         // Test that detail::async_data_op_req_impl<false> constructs from ?
         // Test that detail::async_data_op_req_impl<true> constructs from ?
-        // Test that async_enumerate_op_req constructs from async_io_op
+        // Test that async_enumerate_op_req constructs from future<>
         auto enum1(dispatcher->enumerate(file1));       
     }
 }

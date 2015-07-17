@@ -15,7 +15,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     static const auto hellobabystr = BOOST_AFIO_PATH_WORKS_STR("hellobaby"), testfilestr = BOOST_AFIO_PATH_WORKS_STR("testfile"), foostr = BOOST_AFIO_PATH_WORKS_STR("foo");
 #undef BOOST_AFIO_PATH_WORKS_STR
     {
-      async_io_op op = dispatcher->file(async_path_op_req("testdir/testfile", file_flags::create | file_flags::read_write));
+      future<> op = dispatcher->file(async_path_op_req("testdir/testfile", file_flags::create | file_flags::read_write));
       auto h = op.get();
       auto originalpath = h->path();
       print_stat(h);
@@ -87,7 +87,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
 
     std::cout << "\nCreating hard links testfile2 and testfile3 from testfile ..." << std::endl;
     std::shared_ptr<async_io_handle> h;
-    async_io_op op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::create | file_flags::read_write));
+    future<> op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::create | file_flags::read_write));
     h = op.get();
     BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);
     h->link(async_path_op_req::relative(dirh, "testfile2"));
@@ -143,7 +143,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       BOOST_CHECK(i.name() != foostr); // This should get filtered out by AFIO on Windows due to magic naming
       BOOST_CHECK(i.st_nlink() == 2);
     }
-    op = async_io_op();
+    op = future<>();
     h.reset(); // Should actually cause the unlink to really happen on Windows
     contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).first.get().first;
     BOOST_CHECK(contents.size() == 2);

@@ -41,7 +41,7 @@ public:
     std::regex regexpr; // The precompiled regular expression
     std::shared_ptr<async_file_io_dispatcher_base> dispatcher;
     recursive_mutex opslock;
-    std::deque<async_io_op> ops; // For exception gathering
+    std::deque<future<>> ops; // For exception gathering
     std::atomic<size_t> bytesread, filesread, filesmatched, scheduled, completed;
     std::vector<std::pair<boost::afio::filesystem::path, size_t>> filepaths;
 
@@ -53,13 +53,13 @@ public:
             finished.set_value(0);
     };
     // Adds ops to the list of scheduled
-    void doscheduled(std::initializer_list<async_io_op> list)
+    void doscheduled(std::initializer_list<future<>> list)
     {
         scheduled+=list.size();
         //boost::lock_guard<decltype(opslock)> lock(opslock);
         //ops.insert(ops.end(), list.begin(), list.end());
     }
-    void doscheduled(std::vector<async_io_op> list)
+    void doscheduled(std::vector<future<>> list)
     {
         scheduled+=list.size();
         //boost::lock_guard<decltype(opslock)> lock(opslock);
@@ -81,7 +81,7 @@ public:
     }
     // A file searching completion, called when each file read completes
     std::pair<bool, std::shared_ptr<async_io_handle>> file_read(size_t id, 
-        async_io_op op, std::shared_ptr<std::vector<char,
+        future<> op, std::shared_ptr<std::vector<char,
         detail::aligned_allocator<char, 4096, false>>> _buffer, size_t length)
     {
         std::shared_ptr<async_io_handle> h(op.get());
@@ -96,7 +96,7 @@ public:
     }
     // A file reading completion, called when each file open completes
     std::pair<bool, std::shared_ptr<async_io_handle>> file_opened(size_t id, 
-        async_io_op op, size_t length)
+        future<> op, size_t length)
     {
         std::shared_ptr<async_io_handle> h(op.get());
         //std::cout << "F " << h->path() << std::endl;
@@ -127,11 +127,11 @@ public:
     }
     // An enumeration parsing completion, called when each directory enumeration completes
     std::pair<bool, std::shared_ptr<async_io_handle>> dir_enumerated(size_t id, 
-        async_io_op op,
+        future<> op,
         std::shared_ptr<stl_future<std::pair<std::vector<directory_entry>, bool>>> listing)
     {
         std::shared_ptr<async_io_handle> h(op.get());
-        async_io_op lastdir, thisop(dispatcher->op_from_scheduled_id(id));
+        future<> lastdir, thisop(dispatcher->op_from_scheduled_id(id));
         // Get the entries from the ready stl_future
         std::vector<directory_entry> entries(std::move(listing->get().first));
         //std::cout << "E " << h->path() << std::endl;
@@ -247,7 +247,7 @@ public:
     }
     // A directory enumerating completion, called once per directory open in the tree
     std::pair<bool, std::shared_ptr<async_io_handle>> dir_opened(size_t id,
-     async_io_op op)
+     future<> op)
     {
         std::shared_ptr<async_io_handle> h(op.get());
         //std::cout << "D " << h->path() << std::endl;
@@ -277,7 +277,7 @@ public:
         {
             status=finished_waiter.wait_for(std::chrono::milliseconds(1000));
             std::cout << "\nDispatcher has " << dispatcher->count() << " fds open and " << dispatcher->wait_queue_depth() << " ops outstanding." << std::endl;
-            std::vector<async_io_op> batch; batch.reserve(10000);
+            std::vector<future<>> batch; batch.reserve(10000);
             {
                 boost::lock_guard<decltype(opslock)> lock(opslock);
                 while(status==std::future_status::timeout ? (ops.size()>5000) : !ops.empty())

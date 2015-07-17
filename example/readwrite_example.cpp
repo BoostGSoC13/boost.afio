@@ -14,7 +14,7 @@ int main(void)
         // Schedule an opening of a file called example_file.txt
         afio::async_path_op_req req("example_file.txt",
             afio::file_flags::create|afio::file_flags::read_write);
-        afio::async_io_op openfile(dispatcher->file(req)); /*< schedules open file as soon as possible >*/
+        afio::future<> openfile(dispatcher->file(req)); /*< schedules open file as soon as possible >*/
         
         // Something a bit surprising for many people is that writing off
         // the end of a file in AFIO does NOT extend the file and writes
@@ -26,7 +26,7 @@ int main(void)
         // workaround: either open a file for append-only access, in which
         // case all writes extend the file for you, or else you explicitly
         // extend files before writing, like this:
-        afio::async_io_op resizedfile(dispatcher->truncate(openfile, 12)); /*< schedules resize file ready for writing after open file completes >*/
+        afio::future<> resizedfile(dispatcher->truncate(openfile, 12)); /*< schedules resize file ready for writing after open file completes >*/
     
         // Config a write gather. You could do this of course as a batch
         // of writes, but a write gather has optimised host OS support in most
@@ -39,29 +39,29 @@ int main(void)
         buffers.push_back(asio::const_buffer("rl", 2));
         buffers.push_back(asio::const_buffer("d\n", 2));
         // Schedule the write gather to offset zero
-        afio::async_io_op written(dispatcher->write(
+        afio::future<> written(dispatcher->write(
             afio::make_async_data_op_req(resizedfile, buffers, 0))); /*< schedules write after resize file completes >*/
         
         // Have the compiler config the exact same write gather as earlier for you
         // The compiler assembles an identical sequence of ASIO write gather
         // buffers for you
         std::vector<std::string> buffers2={ "He", "ll", "o ", "Wo", "rl", "d\n" };
-        afio::async_io_op written2(dispatcher->write(
+        afio::future<> written2(dispatcher->write(
             afio::make_async_data_op_req(written, buffers2, 0))); /*< schedules write after previous write completes >*/
         
         // Schedule making sure the previous batch has definitely reached physical storage
         // This won't complete until the write is on disc
-        afio::async_io_op stored(dispatcher->sync(written2)); /*< schedules sync after write completes >*/
+        afio::future<> stored(dispatcher->sync(written2)); /*< schedules sync after write completes >*/
                 
         // Schedule filling this array from the file. Note how convenient std::array
         // is and completely replaces C style char buffer[bytes]
         std::array<char, 12> buffer;
-        afio::async_io_op read(dispatcher->read(
+        afio::future<> read(dispatcher->read(
             afio::make_async_data_op_req(stored, buffer, 0))); /*< schedules read after sync completes >*/
             
         // Schedule the closing and deleting of example_file.txt after the contents read
         req.precondition=dispatcher->close(read); /*< schedules close file after read completes >*/
-        afio::async_io_op deletedfile(dispatcher->rmfile(req)); /*< schedules delete file after close completes >*/
+        afio::future<> deletedfile(dispatcher->rmfile(req)); /*< schedules delete file after close completes >*/
         
         // Wait until the buffer has been filled, checking all steps for errors
         afio::when_all({openfile, resizedfile, written, written2, stored, read}).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/

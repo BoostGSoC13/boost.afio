@@ -15,7 +15,7 @@ int main(void)
     // First create some callable entity ...
     auto completer=[](
         /* These are always the standard parameters */
-        size_t id, boost::afio::async_io_op precondition,
+        size_t id, boost::afio::future<> precondition,
         /* From now on user defined parameters */
         std::string text)
       /* This is always the return type */
@@ -44,8 +44,8 @@ int main(void)
             std::string("Hello world"));
     
     // Schedule an asynchronous call of the completion with some bound set of arguments
-    boost::afio::async_io_op helloworld=
-        dispatcher->completion(boost::afio::async_io_op() /* no precondition */,
+    boost::afio::future<> helloworld=
+        dispatcher->completion(boost::afio::future<>() /* no precondition */,
             std::make_pair(boost::afio::async_op_flags::none, boundf));
         
     // Create a boost::stl_future<> representing the ops passed to when_all()
