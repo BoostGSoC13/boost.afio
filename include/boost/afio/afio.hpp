@@ -1378,8 +1378,9 @@ template<> class future<void>
     size_t _id;                                          //!< A unique id for this operation
     shared_future<std::shared_ptr<async_io_handle>> _h;  //!< A stl_future handle to the item being operated upon
 public:
+    // NOTE TO SELF: MAKE THE CONSTRUCTORS constexpr WHEN I MERGE LIGHTWEIGHT FUTURE-PROMISES
     //! \constr
-    constexpr future() : _parent(nullptr), _id(0) { }
+    future() : _parent(nullptr), _id(0) { }
     //! \cconstr
     future(const future &o) = default;
     //! \mconstr
@@ -1413,7 +1414,7 @@ public:
     \param parent The dispatcher this op belongs to.
     \param id The unique non-zero id of this op.
     */
-    constexpr future(async_file_io_dispatcher_base *parent, size_t id) : _parent(parent), _id(id) { }
+    future(async_file_io_dispatcher_base *parent, size_t id) : _parent(parent), _id(id) { }
     //! \cassign
     future &operator=(const future &o) { _parent = o._parent; _id = o._id; _h = o._h; return *this; }
     //! \massign
