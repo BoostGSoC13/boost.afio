@@ -66,6 +66,9 @@ DEALINGS IN THE SOFTWARE.
 #ifndef __cpp_variadic_templates
 # error Boost.AFIO needs variadic template support in the compiler
 #endif
+#ifndef __cpp_noexcept
+# error Boost.AFIO needs noexcept support in the compiler
+#endif
 
 #undef BOOST_AFIO_V1_STL11_IMPL
 #undef BOOST_AFIO_V1_FILESYSTEM_IMPL

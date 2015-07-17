@@ -4,7 +4,7 @@
 using namespace boost::afio;
 
 // This function will be called for every file opened
-static void open_file_filter(detail::OpType, async_io_op &op) BOOST_NOEXCEPT
+static void open_file_filter(detail::OpType, async_io_op &op) noexcept
 {
     std::cout << "File handle " << op.get()->native_handle() << " opened!" << std::endl;
 }

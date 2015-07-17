@@ -61,8 +61,8 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                     explicit UndoerImpl(callable &&c) : _dismissed(false), undoer(std::move(c)) { }
                     void int_trigger() { if(!_dismissed && !is_nullptr(undoer)) { undoer(); _dismissed=true; } }
             public:
-                    UndoerImpl(UndoerImpl &&o) BOOST_NOEXCEPT : _dismissed(o._dismissed), undoer(std::move(o.undoer)) { o._dismissed=true; }
-                    UndoerImpl &operator=(UndoerImpl &&o) BOOST_NOEXCEPT { int_trigger(); _dismissed=o._dismissed; undoer=std::move(o.undoer); o._dismissed=true; return *this; }
+                    UndoerImpl(UndoerImpl &&o) noexcept : _dismissed(o._dismissed), undoer(std::move(o.undoer)) { o._dismissed=true; }
+                    UndoerImpl &operator=(UndoerImpl &&o) noexcept { int_trigger(); _dismissed=o._dismissed; undoer=std::move(o.undoer); o._dismissed=true; return *this; }
                     template<typename _callable> friend UndoerImpl<_callable> Undoer(_callable c);
                     ~UndoerImpl() { int_trigger(); }
                     //! Returns if the Undoer is dismissed

@@ -464,7 +464,7 @@ public:
   //! Converts a filesystem::path to AFIO format
   path(const string_type &p) : filesystem::path(p) { int_regularise(); }
   //! \mconstr
-  path(path &&p) BOOST_NOEXCEPT : filesystem::path(std::move(p)) { }
+  path(path &&p) noexcept : filesystem::path(std::move(p)) { }
   //! Converts a filesystem::path to AFIO format
   path(filesystem::path &&p) : filesystem::path(std::move(p)) { int_regularise(); }
 #ifdef WIN32
@@ -480,7 +480,7 @@ public:
   //! \cassign
   path& operator=(const path& p) { filesystem::path::operator=(filesystem::path(p)); return *this; }
   //! \massign
-  path& operator=(path&& p) BOOST_NOEXCEPT { filesystem::path::operator=(static_cast<filesystem::path &&>(p)); return *this; }
+  path& operator=(path&& p) noexcept { filesystem::path::operator=(static_cast<filesystem::path &&>(p)); return *this; }
   //! Converts source to AFIO path format
   //template <class Source> path& operator=(Source const& source) { filesystem::path::operator=(source); int_regularise(); return *this; }
 
@@ -990,8 +990,8 @@ public:
     directory_entry(path::string_type _leafname, stat_t __stat, metadata_flags _have_metadata) : leafname(_leafname), stat(__stat), have_metadata(_have_metadata) { }
     directory_entry(const directory_entry &) = default;
     directory_entry &operator=(const directory_entry &) = default;
-    directory_entry(directory_entry &&o) BOOST_NOEXCEPT : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
-    directory_entry &operator=(directory_entry &&o) BOOST_NOEXCEPT
+    directory_entry(directory_entry &&o) noexcept : leafname(std::move(o.leafname)), stat(std::move(o.stat)), have_metadata(std::move(o.have_metadata)) { }
+    directory_entry &operator=(directory_entry &&o) noexcept
     {
         leafname=std::move(o.leafname);
         stat=std::move(o.stat);
@@ -2733,7 +2733,7 @@ struct async_path_op_req
     //! \cconstr
     async_path_op_req(const async_path_op_req &o) = default;
     //! \mconstr
-    async_path_op_req(async_path_op_req &&o) BOOST_NOEXCEPT : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+    async_path_op_req(async_path_op_req &&o) noexcept : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
     //! \mconstr
     inline async_path_op_req(absolute &&o);
     //! \mconstr
@@ -4036,12 +4036,12 @@ namespace utils
       }
     }
     //! The number of bits valid in result_type
-    BOOST_CONSTEXPR result_type result_bits_valid() const BOOST_NOEXCEPT
+    BOOST_CONSTEXPR result_type result_bits_valid() const noexcept
     {
       return bitsvalid;
     }
     //! Accumulate ECC from fixed size buffer
-    result_type operator()(result_type ecc, const char *buffer) const BOOST_NOEXCEPT
+    result_type operator()(result_type ecc, const char *buffer) const noexcept
     {
       if(blocksize<sizeof(unit_type)*8)
         return (*this)(ecc, buffer, blocksize);
@@ -4090,9 +4090,9 @@ namespace utils
       }
       return ecc;
     }
-    result_type operator()(const char *buffer) const BOOST_NOEXCEPT { return (*this)(0, buffer); }
+    result_type operator()(const char *buffer) const noexcept { return (*this)(0, buffer); }
     //! Accumulate ECC from partial buffer where \em length <= \em blocksize
-    result_type operator()(result_type ecc, const char *buffer, size_t length) const BOOST_NOEXCEPT
+    result_type operator()(result_type ecc, const char *buffer, size_t length) const noexcept
     {
       const unit_type *_buffer=(const unit_type *) buffer;
 //#pragma omp parallel for reduction(^:ecc)
@@ -4119,9 +4119,9 @@ namespace utils
       }
       return ecc;
     }
-    result_type operator()(const char *buffer, size_t length) const BOOST_NOEXCEPT { return (*this)(0, buffer, length); }
+    result_type operator()(const char *buffer, size_t length) const noexcept { return (*this)(0, buffer, length); }
     //! Given the original ECC and the new ECC for a buffer, find the bad bit. Return (result_type)-1 if not found (e.g. ECC corrupt)
-    result_type find_bad_bit(result_type good_ecc, result_type bad_ecc) const BOOST_NOEXCEPT
+    result_type find_bad_bit(result_type good_ecc, result_type bad_ecc) const noexcept
     {
       result_type length=blocksize*bits_per_byte, eccdiff=good_ecc^bad_ecc;
       if(_is_single_bit_set(eccdiff))
@@ -4144,7 +4144,7 @@ namespace utils
       healed=2    //!< The buffer was healed
     };
     //! Verifies and heals when possible a buffer, returning non zero if the buffer is error free
-    verify_status verify(char *buffer, result_type good_ecc) const BOOST_NOEXCEPT
+    verify_status verify(char *buffer, result_type good_ecc) const noexcept
     {
       result_type this_ecc=(*this)(0, buffer);
       if(this_ecc==good_ecc)

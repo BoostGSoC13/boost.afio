@@ -11,7 +11,7 @@ File Created: Nov 2012
 
 BOOST_AFIO_V1_NAMESPACE_BEGIN
 namespace detail {
-  inline void push_exception(std::string name) BOOST_NOEXCEPT
+  inline void push_exception(std::string name) noexcept
   {
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
     try

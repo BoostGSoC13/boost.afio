@@ -14,7 +14,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
 namespace detail {
     // Helper for opening files. Lightweight means open with no access, it can be faster.
-    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(std::shared_ptr<async_io_handle> dirh, BOOST_AFIO_V1_NAMESPACE::path path, file_flags flags, bool overlapped=true) BOOST_NOEXCEPT
+    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(std::shared_ptr<async_io_handle> dirh, BOOST_AFIO_V1_NAMESPACE::path path, file_flags flags, bool overlapped=true) noexcept
     {
       DWORD access=FILE_READ_ATTRIBUTES|SYNCHRONIZE, attribs=FILE_ATTRIBUTE_NORMAL;
       DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
