@@ -1175,7 +1175,8 @@ namespace detail
                 void *addr=(void *)((char *) p->mapaddr + req.where);
                 for(auto &b: req.buffers)
                 {
-                    memcpy(asio::buffer_cast<void *>(b), addr, asio::buffer_size(b));
+                    void *_b=asio::buffer_cast<void *>(b);
+                    memcpy(_b, addr, asio::buffer_size(b));
                     addr=(void *)((char *) addr + asio::buffer_size(b));
                 }
                 return std::make_pair(true, h);
