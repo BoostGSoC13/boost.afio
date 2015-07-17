@@ -40,14 +40,14 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
   namespace detail{
             
             namespace Impl {
-                    template<typename T, bool iscomparable> struct is_nullptr { bool operator()(T c) const BOOST_NOEXCEPT_OR_NOTHROW { return !c; } };
-                    template<typename T> struct is_nullptr<T, false> { bool operator()(T) const BOOST_NOEXCEPT_OR_NOTHROW { return false; } };
+                    template<typename T, bool iscomparable> struct is_nullptr { bool operator()(T c) const noexcept { return !c; } };
+                    template<typename T> struct is_nullptr<T, false> { bool operator()(T) const noexcept { return false; } };
             }
             //! Compile-time safe detector of if \em v is nullptr (can cope with non-pointer convertibles)
 #if defined(__GNUC__) && (BOOST_GCC<41000 || defined(__MINGW32__))
-            template<typename T> bool is_nullptr(T v) BOOST_NOEXCEPT_OR_NOTHROW { return Impl::is_nullptr<T, std::is_constructible<bool, T>::value>()(std::forward<T>(v)); }
+            template<typename T> bool is_nullptr(T v) noexcept { return Impl::is_nullptr<T, std::is_constructible<bool, T>::value>()(std::forward<T>(v)); }
 #else
-            template<typename T> bool is_nullptr(T v) BOOST_NOEXCEPT_OR_NOTHROW { return Impl::is_nullptr<T, std::is_trivially_constructible<bool, T>::value>()(std::forward<T>(v)); }
+            template<typename T> bool is_nullptr(T v) noexcept { return Impl::is_nullptr<T, std::is_trivially_constructible<bool, T>::value>()(std::forward<T>(v)); }
 #endif
 
             

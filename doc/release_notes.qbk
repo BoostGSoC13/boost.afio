@@ -122,7 +122,7 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 * Replaced all async_io_op with afio::future<void>.
 
 * Removed VS2013 support as lightweight future-promise requires VS2015:
-  * Replaced all BOOST_NOEXCEPT with noexcept
+  * Replaced all BOOST_NOEXCEPT and BOOST_NOEXCEPT_OR_NOTHROW with noexcept
   * Replaced all BOOST_CONSTEXPR with constexpr
 
 [/=================]

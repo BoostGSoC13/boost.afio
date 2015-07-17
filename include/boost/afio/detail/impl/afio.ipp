@@ -1264,7 +1264,7 @@ update_path:
             //completions.reserve(4); // stop needless storage doubling for small numbers
             fillStack();
         }
-        async_file_io_dispatcher_op(async_file_io_dispatcher_op &&o) BOOST_NOEXCEPT_OR_NOTHROW : optype(o.optype), flags(std::move(o.flags)),
+        async_file_io_dispatcher_op(async_file_io_dispatcher_op &&o) noexcept : optype(o.optype), flags(std::move(o.flags)),
             enqueuement(std::move(o.enqueuement)), completions(std::move(o.completions))
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
             , stack(std::move(o.stack))
@@ -1411,7 +1411,7 @@ update_path:
     };
 }
 
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_supported() noexcept
 {
     metadata_flags ret;
 #ifdef WIN32
@@ -1491,7 +1491,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
     return ret;
 }
 
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fastpath() noexcept
 {
     metadata_flags ret;
 #ifdef WIN32
@@ -1571,7 +1571,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
     return ret;
 }
 
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t directory_entry::compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t directory_entry::compatibility_maximum() noexcept
 {
 #ifdef WIN32
     // Let's choose 100k entries. Why not!
@@ -3490,7 +3490,7 @@ namespace utils
 #pragma warning(push)
 #pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
 #endif
-  std::vector<size_t> page_sizes(bool only_actually_available) BOOST_NOEXCEPT_OR_NOTHROW
+  std::vector<size_t> page_sizes(bool only_actually_available) noexcept
   {
       static spinlock<bool> lock;
       static std::vector<size_t> pagesizes, pagesizes_available;

@@ -112,13 +112,13 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_THROW_FATAL(x) std::terminate()
 #else
 namespace boost { namespace afio { namespace fatal_exception_throw {
-            template<class T> inline void do_throw_fatal_exception(const T &v) BOOST_NOEXCEPT_OR_NOTHROW
+            template<class T> inline void do_throw_fatal_exception(const T &v) noexcept
             {
                 BOOST_AFIO_V1_NAMESPACE::detail::print_fatal_exception_message_to_stderr(v.what());
                 throw v;
             }
-            extern "C" inline void boost_afio_do_throw_fatal_exception(std::function<void()> impl) BOOST_NOEXCEPT_OR_NOTHROW{ impl(); }
-            template<class T> inline void throw_fatal_exception(const T &v) BOOST_NOEXCEPT_OR_NOTHROW
+            extern "C" inline void boost_afio_do_throw_fatal_exception(std::function<void()> impl) noexcept{ impl(); }
+            template<class T> inline void throw_fatal_exception(const T &v) noexcept
             {
                 // In case the extern "C" fails to terminate, trap and terminate here
                 try

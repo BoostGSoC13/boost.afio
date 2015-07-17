@@ -1,6 +1,6 @@
 /* async_file_io
 Provides a threadpool and asynchronous file i/o infrastructure based on Boost.ASIO, Boost.Iostreams and filesystem
-(C) 2013-2014 Niall Douglas http://www.nedprod.com/
+(C) 2013-2015 Niall Douglas http://www.nedprod.com/
 File Created: Mar 2013
 
 
@@ -129,9 +129,9 @@ namespace detail
         //! Default constructor
         enqueued_task_impl(std::function<R()> _task=std::function<R()>()) : p(std::make_shared<Private>(std::move(_task))) { }
         //! Returns true if valid
-        bool valid() const BOOST_NOEXCEPT_OR_NOTHROW{ return p.get()!=nullptr; }
+        bool valid() const noexcept{ return p.get()!=nullptr; }
         //! Swaps contents with another instance
-        void swap(enqueued_task_impl &o) BOOST_NOEXCEPT_OR_NOTHROW{ p.swap(o.p); }
+        void swap(enqueued_task_impl &o) noexcept{ p.swap(o.p); }
         //! Resets the contents
         void reset() { p.reset(); }
         //! Sets the task
@@ -999,16 +999,16 @@ public:
         return *this;
     }
 
-    bool operator==(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname == rhs.leafname; }
-    bool operator!=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname != rhs.leafname; }
-    bool operator< (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname < rhs.leafname; }
-    bool operator<=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname <= rhs.leafname; }
-    bool operator> (const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname > rhs.leafname; }
-    bool operator>=(const directory_entry& rhs) const BOOST_NOEXCEPT_OR_NOTHROW { return leafname >= rhs.leafname; }
+    bool operator==(const directory_entry& rhs) const noexcept { return leafname == rhs.leafname; }
+    bool operator!=(const directory_entry& rhs) const noexcept { return leafname != rhs.leafname; }
+    bool operator< (const directory_entry& rhs) const noexcept { return leafname < rhs.leafname; }
+    bool operator<=(const directory_entry& rhs) const noexcept { return leafname <= rhs.leafname; }
+    bool operator> (const directory_entry& rhs) const noexcept { return leafname > rhs.leafname; }
+    bool operator>=(const directory_entry& rhs) const noexcept { return leafname >= rhs.leafname; }
     //! \return The name of the directory entry. May be empty if the file is deleted.
-    path::string_type name() const BOOST_NOEXCEPT_OR_NOTHROW { return leafname; }
+    path::string_type name() const noexcept { return leafname; }
     //! \return A bitfield of what metadata is ready right now
-    metadata_flags metadata_ready() const BOOST_NOEXCEPT_OR_NOTHROW { return have_metadata; }
+    metadata_flags metadata_ready() const noexcept { return have_metadata; }
     /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
     Note that if the call blocks and the leafname no longer exists or the directory handle is null, an exception is thrown.
     \return The metadata now available in this directory entry.
@@ -1086,11 +1086,11 @@ fieldtype st_##field(std::shared_ptr<async_io_handle> dirh=std::shared_ptr<async
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(birthtim)
 
     //! A bitfield of what metadata is available on this platform. This doesn't mean all is available for every filing system.
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_supported() BOOST_NOEXCEPT_OR_NOTHROW;
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_supported() noexcept;
     //! A bitfield of what metadata is fast on this platform. This doesn't mean all is available for every filing system.
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_fastpath() BOOST_NOEXCEPT_OR_NOTHROW;
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags metadata_fastpath() noexcept;
     //! The maximum number of entries which is "usual" to fetch at once i.e. what your libc does.
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t compatibility_maximum() BOOST_NOEXCEPT_OR_NOTHROW;
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC size_t compatibility_maximum() noexcept;
 };
 
 /*! \brief A hasher for directory_entry, hashing inode and birth time (if available on this platform).
@@ -1342,7 +1342,7 @@ public:
 
 The id field is always valid (and non-zero) if this reference is valid.
 */
-template<class T> struct future
+template<> struct future<void>
 {
     async_file_io_dispatcher_base *parent;              //!< The parent dispatcher
     size_t id;                                          //!< A unique id for this operation
@@ -1357,7 +1357,7 @@ template<class T> struct future
     future(const future &o) : parent(o.parent), id(o.id), h(o.h) { }
 #endif
     //! \mconstr
-    future(future &&o) BOOST_NOEXCEPT_OR_NOTHROW : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
+    future(future &&o) noexcept : parent(std::move(o.parent)), id(std::move(o.id)), h(std::move(o.h)) { }
     /*! Constructs an instance.
     \param _parent The dispatcher this op belongs to.
     \param _id The unique non-zero id of this op.
@@ -1380,7 +1380,7 @@ template<class T> struct future
     //! \cassign
     future &operator=(const future &o) { parent=o.parent; id=o.id; h=o.h; return *this; }
     //! \massign
-    future &operator=(future &&o) BOOST_NOEXCEPT_OR_NOTHROW{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
+    future &operator=(future &&o) noexcept{ parent=std::move(o.parent); id=std::move(o.id); h=std::move(o.h); return *this; }
     //! Retrieves the handle or exception from the shared state. Same as h.get().
     std::shared_ptr<async_io_handle> get(bool return_null_if_errored=false) const
     {
@@ -3089,11 +3089,11 @@ namespace detail
         //! \cconstr
         async_data_op_req_impl(const async_data_op_req_impl &o) : precondition(o.precondition), buffers(o.buffers), where(o.where) { }
         //! \mconstr
-        async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
+        async_data_op_req_impl(async_data_op_req_impl &&o) noexcept : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
         //! \cassign
         async_data_op_req_impl &operator=(const async_data_op_req_impl &o) { precondition=o.precondition; buffers=o.buffers; where=o.where; return *this; }
         //! \massign
-        async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
+        async_data_op_req_impl &operator=(async_data_op_req_impl &&o) noexcept { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
         //! \async_data_op_req2
         async_data_op_req_impl(future<> _precondition, std::vector<asio::mutable_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
         //! Validates contents for correctness \return True if contents are correct
@@ -3134,15 +3134,15 @@ namespace detail
         //! \cconstr
         async_data_op_req_impl(const async_data_op_req_impl &o) : precondition(o.precondition), buffers(o.buffers), where(o.where) { }
         //! \mconstr
-        async_data_op_req_impl(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
+        async_data_op_req_impl(async_data_op_req_impl &&o) noexcept : precondition(std::move(o.precondition)), buffers(std::move(o.buffers)), where(std::move(o.where)) { }
         //! \cconstr
         async_data_op_req_impl(const async_data_op_req_impl<false> &o) : precondition(o.precondition), where(o.where) { buffers.reserve(o.buffers.capacity()); for(auto &i: o.buffers){ buffers.push_back(i); } }
         //! \mconstr
-        async_data_op_req_impl(async_data_op_req_impl<false> &&o) BOOST_NOEXCEPT_OR_NOTHROW : precondition(std::move(o.precondition)), where(std::move(o.where)) { buffers.reserve(o.buffers.capacity()); for(auto &&i: o.buffers){ buffers.push_back(std::move(i)); } }
+        async_data_op_req_impl(async_data_op_req_impl<false> &&o) noexcept : precondition(std::move(o.precondition)), where(std::move(o.where)) { buffers.reserve(o.buffers.capacity()); for(auto &&i: o.buffers){ buffers.push_back(std::move(i)); } }
         //! \cassign
         async_data_op_req_impl &operator=(const async_data_op_req_impl &o) { precondition=o.precondition; buffers=o.buffers; where=o.where; return *this; }
         //! \massign
-        async_data_op_req_impl &operator=(async_data_op_req_impl &&o) BOOST_NOEXCEPT_OR_NOTHROW { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
+        async_data_op_req_impl &operator=(async_data_op_req_impl &&o) noexcept { precondition=std::move(o.precondition); buffers=std::move(o.buffers); where=std::move(o.where); return *this; }
         //! \async_data_op_req2
         async_data_op_req_impl(future<> _precondition, std::vector<asio::const_buffer> _buffers, off_t _where) : precondition(std::move(_precondition)), buffers(std::move(_buffers)), where(_where) { _validate(); }
         //! \async_data_op_req2
@@ -3200,11 +3200,11 @@ template<class T> struct async_data_op_req : public detail::async_data_op_req_im
     //! \cconstr
     async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<false>(o) { }
     //! \mconstr
-    async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<false>(std::move(o)) { }
+    async_data_op_req(async_data_op_req &&o) noexcept : detail::async_data_op_req_impl<false>(std::move(o)) { }
     //! \cassign
     async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<false>>(*this)=o; return *this; }
     //! \massign
-    async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
+    async_data_op_req &operator=(async_data_op_req &&o) noexcept { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1 \param _length The number of items to transfer
     async_data_op_req(future<> _precondition, T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
     //! \async_data_op_req1
@@ -3233,15 +3233,15 @@ template<class T> struct async_data_op_req<const T> : public detail::async_data_
     //! \cconstr
     async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) { }
     //! \mconstr
-    async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    async_data_op_req(async_data_op_req &&o) noexcept : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cconstr
     async_data_op_req(const async_data_op_req<T> &o) : detail::async_data_op_req_impl<true>(o) { }
     //! \mconstr
-    async_data_op_req(async_data_op_req<T> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+    async_data_op_req(async_data_op_req<T> &&o) noexcept : detail::async_data_op_req_impl<true>(std::move(o)) { }
     //! \cassign
     async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
     //! \massign
-    async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
+    async_data_op_req &operator=(async_data_op_req &&o) noexcept { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
     //! \async_data_op_req1 \param _length The number of items to transfer
     async_data_op_req(future<> _precondition, const T *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
     //! \async_data_op_req1
@@ -3268,11 +3268,11 @@ template<> struct async_data_op_req<void> : public detail::async_data_op_req_imp
   //! \cconstr
   async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<false>(o) { }
   //! \mconstr
-  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<false>(std::move(o)) { }
+  async_data_op_req(async_data_op_req &&o) noexcept : detail::async_data_op_req_impl<false>(std::move(o)) { }
   //! \cassign
   async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<false>>(*this)=o; return *this; }
   //! \massign
-  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
+  async_data_op_req &operator=(async_data_op_req &&o) noexcept { static_cast<detail::async_data_op_req_impl<false>>(*this)=std::move(o); return *this; }
   //! \async_data_op_req1 \param _length The number of items to transfer
   async_data_op_req(future<> _precondition, void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<false>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
 };
@@ -3295,15 +3295,15 @@ template<> struct async_data_op_req<const void> : public detail::async_data_op_r
   //! \cconstr
   async_data_op_req(const async_data_op_req &o) : detail::async_data_op_req_impl<true>(o) { }
   //! \mconstr
-  async_data_op_req(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+  async_data_op_req(async_data_op_req &&o) noexcept : detail::async_data_op_req_impl<true>(std::move(o)) { }
   //! \cconstr
   async_data_op_req(const async_data_op_req<void> &o) : detail::async_data_op_req_impl<true>(o) { }
   //! \mconstr
-  async_data_op_req(async_data_op_req<void> &&o) BOOST_NOEXCEPT_OR_NOTHROW : detail::async_data_op_req_impl<true>(std::move(o)) { }
+  async_data_op_req(async_data_op_req<void> &&o) noexcept : detail::async_data_op_req_impl<true>(std::move(o)) { }
   //! \cassign
   async_data_op_req &operator=(const async_data_op_req &o) { static_cast<detail::async_data_op_req_impl<true>>(*this)=o; return *this; }
   //! \massign
-  async_data_op_req &operator=(async_data_op_req &&o) BOOST_NOEXCEPT_OR_NOTHROW { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
+  async_data_op_req &operator=(async_data_op_req &&o) noexcept { static_cast<detail::async_data_op_req_impl<true>>(*this)=std::move(o); return *this; }
   //! \async_data_op_req1 \param _length The number of items to transfer
   async_data_op_req(future<> _precondition, const void *v, size_t _length, off_t _where) : detail::async_data_op_req_impl<true>(std::move(_precondition), to_asio_buffers(v, _length), _where) { }
 };
@@ -3730,7 +3730,7 @@ namespace utils
   \complexity{Whatever the system API takes (one would hope constant time).}
   \exceptionmodel{Any error from the operating system or std::bad_alloc.}
   */
-  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available = true) BOOST_NOEXCEPT_OR_NOTHROW;
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available = true) noexcept;
 
   /*! \brief Returns a reasonable default size for file_buffer_allocator, typically the closest page size from
   page_sizes() to 1Mb.
@@ -3740,7 +3740,7 @@ namespace utils
   \complexity{Whatever the system API takes (one would hope constant time).}
   \exceptionmodel{Any error from the operating system or std::bad_alloc.}
   */
-  inline size_t file_buffer_default_size() BOOST_NOEXCEPT_OR_NOTHROW
+  inline size_t file_buffer_default_size() noexcept
   {
     static size_t size;
     if (!size)
@@ -4223,23 +4223,23 @@ namespace utils
       template <class U>
       struct rebind { typedef file_buffer_allocator<U> other; };
 
-      file_buffer_allocator() BOOST_NOEXCEPT_OR_NOTHROW
+      file_buffer_allocator() noexcept
       {}
 
       template <class U>
-      file_buffer_allocator(const file_buffer_allocator<U>&) BOOST_NOEXCEPT_OR_NOTHROW
+      file_buffer_allocator(const file_buffer_allocator<U>&) noexcept
       {}
 
       size_type
-      max_size() const BOOST_NOEXCEPT_OR_NOTHROW
+      max_size() const noexcept
       { return size_type(~0) / sizeof(T); }
 
       pointer
-      address(reference x) const BOOST_NOEXCEPT_OR_NOTHROW
+      address(reference x) const noexcept
       { return std::addressof(x); }
 
       const_pointer
-      address(const_reference x) const BOOST_NOEXCEPT_OR_NOTHROW
+      address(const_reference x) const noexcept
       { return std::addressof(x); }
 
       pointer
