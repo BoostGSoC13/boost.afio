@@ -1378,7 +1378,7 @@ template<> class future<void>
     size_t _id;                                          //!< A unique id for this operation
     shared_future<std::shared_ptr<async_io_handle>> _h;  //!< A stl_future handle to the item being operated upon
 public:
-    // NOTE TO SELF: MAKE THE CONSTRUCTORS constexpr WHEN I MERGE LIGHTWEIGHT FUTURE-PROMISES
+    // NOTE TO SELF: MAKE THE CONSTRUCTORS AND MEMBER FUNCTIONS constexpr WHEN I MERGE LIGHTWEIGHT FUTURE-PROMISES
     //! \constr
     future() : _parent(nullptr), _id(0) { }
     //! \cconstr
@@ -1420,11 +1420,11 @@ public:
     //! \massign
     future &operator=(future &&o) noexcept { _parent = std::move(o._parent); _id = std::move(o._id); _h = std::move(o._h); return *this; }
     //! True if this future is valid
-    constexpr bool valid() const noexcept { return _parent && _id; }
+    bool valid() const noexcept { return _parent && _id; }
     //! The parent dispatcher of this future
-    constexpr async_file_io_dispatcher_base *parent() const noexcept { return _parent; }
+    async_file_io_dispatcher_base *parent() const noexcept { return _parent; }
     //! \deprecated Expected to be removed in the v1.5 engine
-    constexpr size_t id() const noexcept { return _id; }
+    size_t id() const noexcept { return _id; }
     //! Retrieves the handle or exception from the shared state, rethrowing any exception. Returns a null shared pointer if this future is invalid.
     std::shared_ptr<async_io_handle> get_handle(bool return_null_if_errored=false) const
     {
