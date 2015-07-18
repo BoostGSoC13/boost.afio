@@ -11,8 +11,8 @@ for (var n = 0; n < titles.length; n++) {
     a_elem.setAttribute("href", "#comments");
     var span_elem = document.createElement("span");
     span_elem.setAttribute("class", "disqus-comment-count");
-    span_elem.setAttribute("data-disqus-identifier", name);
-    var text_node = document.createTextNode("0 Comments");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
     span_elem.appendChild(text_node);
     a_elem.appendChild(span_elem);
     title.parentElement.appendChild(a_elem);
