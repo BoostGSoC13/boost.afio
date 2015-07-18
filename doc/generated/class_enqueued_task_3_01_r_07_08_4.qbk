@@ -71,7 +71,7 @@ class enqueued_task< R()>
 ]
 [[``const shared_future< R > & get_future()``
 
-] [Returns the shared future corresponding to the future return value of the task. ] [
+] [Returns the shared stl_future corresponding to the stl_future return value of the task. ] [
 
 ][
 
@@ -80,7 +80,7 @@ class enqueued_task< R()>
 [[``template<class T>
 void set_future_value(T v)``
 
-] [Sets the shared future corresponding to the future return value of the task. ] [[* T]: ['v]:  
+] [Sets the shared stl_future corresponding to the stl_future return value of the task. ] [[* T]: ['v]:  
 
 
 
@@ -98,7 +98,7 @@ void set_future_value(T v)``
 ]
 [[``void set_future_exception(exception_ptr e)``
 
-] [Sets the shared future corresponding to the future return value of the task. ] [[* exception_ptr]: ['e]:  
+] [Sets the shared stl_future corresponding to the stl_future return value of the task. ] [[* exception_ptr]: ['e]:  
 
 
 
@@ -108,7 +108,7 @@ void set_future_value(T v)``
 ]
 [[``void disable_auto_set_future(bool v = true)``
 
-] [Disables the task setting the shared future return value. ] [[* bool]: ['v]:  
+] [Disables the task setting the shared stl_future return value. ] [[* bool]: ['v]:  
 
 
 
@@ -128,7 +128,7 @@ void set_future_value(T v)``
 ]
 [[``void operator()()``
 
-] [Invokes the callable, setting the shared future to the value it returns. ] [
+] [Invokes the callable, setting the shared stl_future to the value it returns. ] [
 
 ][
 

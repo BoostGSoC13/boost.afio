@@ -25,13 +25,13 @@ detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(s
 [[Type] [Concept] [Name] [Description] ]
 [[class Iterator] [An iterator type. ] [ - ] [Must be specified]]
 [[std::nothrow_t] [] [_] [An instance of std::nothrow_t. ]]
-[[Iterator] [] [first] [An iterator pointing to the first async_io_op to wait upon. ]]
-[[Iterator] [] [last] [An iterator pointing after the last async_io_op to wait upon.]]
+[[Iterator] [] [first] [An iterator pointing to the first future<> to wait upon. ]]
+[[Iterator] [] [last] [An iterator pointing after the last future<> to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -59,13 +59,13 @@ detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(
 [[Type] [Concept] [Name] [Description] ]
 [[class Iterator] [An iterator type. ] [ - ] [Must be specified]]
 [[std::nothrow_t] [] [_] [An instance of std::nothrow_t. ]]
-[[Iterator] [] [first] [An iterator pointing to the first async_io_op to wait upon. ]]
-[[Iterator] [] [last] [An iterator pointing after the last async_io_op to wait upon.]]
+[[Iterator] [] [first] [An iterator pointing to the first future<> to wait upon. ]]
+[[Iterator] [] [last] [An iterator pointing after the last future<> to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -84,19 +84,21 @@ A future vector of shared\u005fptr's to async\u005fio\u005fhandle.
 Returns a result when all the supplied ops complete. Does not propagate exception states. 
 
 [heading Synopsis]
-``future<std::vector<std::shared_ptr<async_io_handle> > > when_all(std::nothrow_t _, std::vector< async_io_op > ops)``
+``template<class T>
+stl_future<std::vector<std::shared_ptr<async_io_handle> > > when_all(std::nothrow_t _, std::vector< future< T >> ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
+[[class T] [] [ - ] [Must be specified]]
 [[std::nothrow_t] [] [_] [An instance of std::nothrow_t. ]]
-[[std::vector< async_io_op >] [] [ops] [A vector of the async_io_ops to wait upon.]]
+[[std::vector< future< T >>] [] [ops] [A vector of the async_io_ops to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -115,19 +117,21 @@ A future vector of shared\u005fptr's to async\u005fio\u005fhandle.
 Returns a result when any the supplied ops complete. Does not propagate exception states. 
 
 [heading Synopsis]
-``future<std::shared_ptr<async_io_handle> > when_any(std::nothrow_t _, std::vector< async_io_op > ops)``
+``template<class T>
+stl_future<std::shared_ptr<async_io_handle> > when_any(std::nothrow_t _, std::vector< future< T >> ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
+[[class T] [] [ - ] [Must be specified]]
 [[std::nothrow_t] [] [_] [An instance of std::nothrow_t. ]]
-[[std::vector< async_io_op >] [] [ops] [A vector of the async_io_ops to wait upon.]]
+[[std::vector< future< T >>] [] [ops] [A vector of the async_io_ops to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -154,13 +158,13 @@ detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(I
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class Iterator] [An iterator type. ] [ - ] [Must be specified]]
-[[Iterator] [] [first] [An iterator pointing to the first async_io_op to wait upon. ]]
-[[Iterator] [] [last] [An iterator pointing after the last async_io_op to wait upon.]]
+[[Iterator] [] [first] [An iterator pointing to the first future<> to wait upon. ]]
+[[Iterator] [] [last] [An iterator pointing after the last future<> to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -187,13 +191,13 @@ detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class Iterator] [An iterator type. ] [ - ] [Must be specified]]
-[[Iterator] [] [first] [An iterator pointing to the first async_io_op to wait upon. ]]
-[[Iterator] [] [last] [An iterator pointing after the last async_io_op to wait upon.]]
+[[Iterator] [] [first] [An iterator pointing to the first future<> to wait upon. ]]
+[[Iterator] [] [last] [An iterator pointing after the last future<> to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -212,18 +216,20 @@ A future vector of shared\u005fptr's to async\u005fio\u005fhandle.
 Returns a result when all the supplied ops complete. Propagates exception states. 
 
 [heading Synopsis]
-``future<std::vector<std::shared_ptr<async_io_handle> > > when_all(std::vector< async_io_op > ops)``
+``template<class T>
+stl_future<std::vector<std::shared_ptr<async_io_handle> > > when_all(std::vector< future< T >> ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[std::vector< async_io_op >] [] [ops] [A vector of the async_io_ops to wait upon.]]
+[[class T] [] [ - ] [Must be specified]]
+[[std::vector< future< T >>] [] [ops] [A vector of the async_io_ops to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -242,18 +248,20 @@ A future vector of shared\u005fptr's to async\u005fio\u005fhandle.
 Returns a result when any the supplied ops complete. Propagates exception states. 
 
 [heading Synopsis]
-``future<std::shared_ptr<async_io_handle> > when_any(std::vector< async_io_op > ops)``
+``template<class T>
+stl_future<std::shared_ptr<async_io_handle> > when_any(std::vector< future< T >> ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[std::vector< async_io_op >] [] [ops] [A vector of the async_io_ops to wait upon.]]
+[[class T] [] [ - ] [Must be specified]]
+[[std::vector< future< T >>] [] [ops] [A vector of the async_io_ops to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -272,19 +280,21 @@ A future vector of shared\u005fptr's to async\u005fio\u005fhandle.
 Returns a result when the supplied op completes. Does not propagate exception states. 
 
 [heading Synopsis]
-``future<std::vector<std::shared_ptr<async_io_handle> > > when_all(std::nothrow_t _, async_io_op op)``
+``template<class T>
+stl_future<std::vector<std::shared_ptr<async_io_handle> > > when_all(std::nothrow_t _, future< T > op)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
+[[class T] [] [ - ] [Must be specified]]
 [[std::nothrow_t] [] [_] [An instance of std::nothrow_t. ]]
-[[async_io_op] [] [op] [An async_io_op to wait upon.]]
+[[future< T >] [] [op] [An future<> to wait upon.]]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -303,18 +313,20 @@ A future vector of shared\u005fptr's to async\u005fio\u005fhandle.
 Returns a result when the supplied op completes. Propagates exception states. 
 
 [heading Synopsis]
-``future<std::vector<std::shared_ptr<async_io_handle> > > when_all(async_io_op op)``
+``template<class... Types>
+stl_future<std::vector<std::shared_ptr<async_io_handle> > > when_all(future< Types > &... ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[async_io_op] [] [op] [An async_io_op to wait upon.]]
+[[Types] [] [ - ] [Must be specified]]
+[[future< Types > &...] [] [ops] []]
 ]
 
 
 [heading Returns]
-A future vector of shared\u005fptr's to async\u005fio\u005fhandle. 
+A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`

@@ -9,6 +9,41 @@
 [section:release_notes Release Notes]
 
 [/=================]
+[heading Known deviations in this version being presented for Boost peer review from
+version to enter Boost if accepted]
+[/=================]
+
+This edition of AFIO v1.4 has been ["mocked up] with an API which should very closely
+resemble the eventual API in the v1.4 engine which will be rewritten to use the just written
+lightweight future-promise factory toolkit in forthcoming Boost.Monad. It is, however,
+still in fact the mature v1.3 engine with a faked wrapper API simulating the v1.4 engine.
+Known deviations from the eventual v1.4 release:
+
+* AFIO's when_all()/when_any() were implemented in 2012 back when the C++ 1z Concurrency
+TS looked very different - indeed, the Concurrency TS was adjusted at the time to more closely match
+AFIO's implementation after Microsoft studied AFIO's design. However, the TS has moved on
+considerably since again, and AFIO's continuations API has not kept up.
+
+As a result, AFIO's non-standard when_all()/when_any() functions are going to be replaced with ones
+exactly matching N4399 - lightweight future-promise already has an implementation which
+accepts any combination of custom future types into the same wait composure, and after
+AFIO is using those lightweight futures it can dispense with its own (highly inefficient)
+wait composure implementation you see here with its incorrect function specification and
+semantics.
+
+* Relatedly, because AFIO < v1.4 implemented future continuations atop STL and Boost futures
+using an internal hash table to look up the associated extra operation metadata per future,
+these APIs will also be vanishing:
+
+  * `async_io_dispatcher_base::completion()` - replaced with future.then()
+  * `async_io_dispatcher_base::call()` - replaced with future.then()
+  * `async_io_dispatcher_base::barrier()` - replaced with when_all().
+
+* Lightweight future-promise also enables C++ 1z coroutines, and therefore the code examples
+in the documentation can then be rewritten to use C++ 1z coroutines where appropriately. This
+should particularly aid the find regex in files tutorial example which is currently very messy.
+
+[/=================]
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
@@ -117,7 +152,7 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 [heading Boost 1.58 AFIO v1.40 ? Boost peer review edition]
 [/=================]
 
-* Removed VS2013 support as lightweight future-promise requires VS2015:
+* Removed VS2013 support as lightweight future-promise will require VS2015:
   * Replaced all BOOST_NOEXCEPT and BOOST_NOEXCEPT_OR_NOTHROW with noexcept
   * Replaced all BOOST_CONSTEXPR with constexpr
 
@@ -127,6 +162,14 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 future<>::get_handle(), plus the former structure members are now member function
 accessors.
 
+* Replaced all functions returning pairs of futures with afio::future<T> instead.
+
+
+STUB OUT REMAINING FUTURE APIS
+
+FIX UP ALL DOXYGEN WARNINGS
+
+TEST MULTIABI BUILD
 
 [/=================]
 [heading Boost 1.58 AFIO v1.31 18th April 2015]

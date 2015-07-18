@@ -15,11 +15,8 @@ int main(void)
     do
     {
         // Schedule an enumeration of an open directory handle
-        // Note it returns a stl_future to the results and an op ref 
-        std::pair<
-            boost::afio::stl_future<std::pair<std::vector<boost::afio::directory_entry>, bool>>,
-            boost::afio::future<>
-        >  enumeration(
+        boost::afio::future<std::pair<std::vector<boost::afio::directory_entry>, bool>>
+          enumeration(
             dispatcher->enumerate(boost::afio::async_enumerate_op_req(
                 /* This is the handle to enumerate */
                 rootdir,
@@ -35,7 +32,7 @@ int main(void)
         
         // People using AFIO often forget that futures can be waited
         // on normally without needing to wait on the op handle
-        list=enumeration.first.get();
+        list=enumeration.get();
         for(boost::afio::directory_entry &i : list.first)
         {
 #ifdef WIN32

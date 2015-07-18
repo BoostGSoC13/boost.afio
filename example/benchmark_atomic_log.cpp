@@ -43,7 +43,7 @@ int main(int argc, const char *argv[])
       auto mkdir7(dispatcher->dir(async_path_op_req::relative(mkdir, "7", file_flags::create)));
       auto mkdir8(dispatcher->dir(async_path_op_req::relative(mkdir, "8", file_flags::create)));
       auto statfs_(dispatcher->statfs(mkdir, fs_metadata_flags::All));
-      auto statfs(statfs_.first.get());
+      auto statfs(statfs_.get());
       std::cout << "The filing system holding our test directory is " << statfs.f_fstypename << " and has features:" << std::endl;
 #define PRINT_FIELD(field, ...) \
       std::cout << "  f_flags." #field ": "; std::cout << statfs.f_flags.field __VA_ARGS__ << std::endl
@@ -340,7 +340,7 @@ int main(int argc, const char *argv[])
 
               // Step 2: Wait until my interest message appears, also figure out what interests precede
               //         mine and where my start of interest begins, and if someone currently has the lock
-              off_t startofinterest=dispatcher->extents(lockfilez).first.get().front().first;
+              off_t startofinterest=dispatcher->extents(lockfilez).get().front().first;
               off_t myuniqueid=(off_t)-1;
               bool findPreceding=true;
               std::vector<std::pair<bool, off_t>> preceding;

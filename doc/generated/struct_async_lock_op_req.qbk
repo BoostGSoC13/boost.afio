@@ -49,7 +49,7 @@
 [heading Synopsis]
 ``struct async_lock_op_req
 {
-  async_io_op precondition;
+  future precondition;
   enum boost::afio::async_lock_op_req::Type type;
   off_t offset;
   off_t length;
@@ -64,28 +64,28 @@
 ] [] [
 
 ]]
-[[``async_lock_op_req(async_io_op _precondition, Type _type = Type::write_lock)``
+[[``async_lock_op_req(future<> _precondition, Type _type = Type::write_lock)``
 
-] [] [[* async_io_op]: ['_precondition]:  
+] [] [[* future<>]: ['_precondition]:  
 
 [* Type]: ['_type]:  
 
 
 
 ]]
-[[``async_lock_op_req(async_io_op _precondition, std::nullptr_t )``
+[[``async_lock_op_req(future<> _precondition, std::nullptr_t )``
 
-] [] [[* async_io_op]: ['_precondition]:  
+] [] [[* future<>]: ['_precondition]:  
 
 [* std::nullptr_t]: [']:  
 
 
 
 ]]
-[[``async_lock_op_req(async_io_op _precondition, Type _type, off_t _offset,
+[[``async_lock_op_req(future<> _precondition, Type _type, off_t _offset,
                    off_t _length)``
 
-] [] [[* async_io_op]: ['_precondition]:  
+] [] [[* future<>]: ['_precondition]:  
 
 [* Type]: ['_type]:  
 
@@ -96,10 +96,10 @@
 
 
 ]]
-[[``async_lock_op_req(async_io_op _precondition, off_t _offset, off_t _length,
+[[``async_lock_op_req(future<> _precondition, off_t _offset, off_t _length,
                    Type _type = Type::write_lock)``
 
-] [] [[* async_io_op]: ['_precondition]:  
+] [] [[* future<>]: ['_precondition]:  
 
 [* off_t]: ['_offset]:  
 

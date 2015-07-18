@@ -44,7 +44,7 @@ Install op filters for non-buffer taking ops. Not threadsafe.
 [heading Description]
 [^`std::function<``async_file_io_dispatcher_base::filter_t``>`] will be called after every op of type [^`detail::OpType`] completes ([^`detail::OpType::Unknown`] means call this filter for all ops) with the op type and op output.
 
-Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done for every op completed. The filter is called straight after an op's future is set and before any completions are issued. Any exceptions thrown by the filter are thrown away.
+Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done for every op completed. The filter is called straight after an op's stl\u005ffuture is set and before any completions are issued. Any exceptions thrown by the filter are thrown away.
 
 [heading Synopsis]
 ``void async_file_io_dispatcher_base::post_op_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>> filters)``

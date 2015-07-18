@@ -40,7 +40,7 @@ namespace {
             |file_flags::will_be_sequentially_accessed));
         auto ihs=dispatcher->file(ihs_reqs);
         // Retrieve any error from opening the output
-        when_all(oh).get();
+        oh.get();
         // Wait for the input file handles to open so we can get their sizes
         // (plus any failures to open)
         when_all(ihs).get();
@@ -96,7 +96,7 @@ namespace {
                   written+=thischunk;
               });
               // Don't do next read until written is incremented
-              lasts[idx]=dispatcher->depends(incwritten.second, readchunk);
+              lasts[idx]=dispatcher->depends(incwritten, readchunk);
             }
           }
         }

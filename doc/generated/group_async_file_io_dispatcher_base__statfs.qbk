@@ -16,19 +16,19 @@
 Schedule a batch of asynchronous volume enumerations after preceding operations. 
 
 [heading Synopsis]
-``virtual std::pair<std::vector<future<statfs_t> >, std::vector<async_io_op> > async_file_io_dispatcher_base::statfs(const std::vector< async_io_op > & ops, const std::vector< fs_metadata_flags > & reqs)``
+``virtual std::vector<future<statfs_t> > async_file_io_dispatcher_base::statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles. ]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles. ]]
 [[const std::vector< fs_metadata_flags > &] [] [reqs] [A batch of metadata requests.]]
 ]
 
 
 [heading Returns]
-A batch of future volume metadatas. 
+A batch of stl\u005ffuture volume metadatas. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -55,19 +55,19 @@ is fetched separately.]
 Schedule an asynchronous volume enumeration after a preceding operation. 
 
 [heading Synopsis]
-``std::pair< future< statfs_t >, async_io_op > async_file_io_dispatcher_base::statfs(const async_io_op & op, const fs_metadata_flags & req)``
+``future< statfs_t > async_file_io_dispatcher_base::statfs(const future<> & op, const fs_metadata_flags & req)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_io_op &] [] [op] [An op handle. ]]
+[[const future<> &] [] [op] [An op handle. ]]
 [[const fs_metadata_flags &] [] [req] [A metadata request.]]
 ]
 
 
 [heading Returns]
-A future volume metadatas. 
+A stl\u005ffuture volume metadatas. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`

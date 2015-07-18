@@ -49,7 +49,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
       auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));
       auto rmfile(dispatcher->close(dispatcher->rmfile(dispatcher->depends(rmlink, mkfile))));
       auto rmdir(dispatcher->close(dispatcher->rmdir(dispatcher->depends(rmfile, mkdir))));
-      when_all({rmlink, rmfile, rmdir}).get();
+      when_all(rmlink, rmfile, rmdir).get();
     }
     // For the laugh, do it synchronously
     test->unlink();

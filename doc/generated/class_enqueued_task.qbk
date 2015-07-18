@@ -16,7 +16,7 @@
 Effectively our own custom std::packaged_task<>, with copy semantics and letting us early set value to significantly improve performance. 
 
 [heading Description]
-Unlike [^`std::packaged_task<>`], this custom variant is copyable though each copy always refers to the same internal state. Early future value setting is possible, with any subsequent value setting including that by the function being executed being ignored. Note that this behaviour opens the potential to lose exception state - if you set the future value early and then an exception is later thrown, the exception is swallowed.
+Unlike [^`std::packaged_task<>`], this custom variant is copyable though each copy always refers to the same internal state. Early stl\u005ffuture value setting is possible, with any subsequent value setting including that by the function being executed being ignored. Note that this behaviour opens the potential to lose exception state - if you set the stl\u005ffuture value early and then an exception is later thrown, the exception is swallowed.
 
 [heading Synopsis]
 ``template<class R>

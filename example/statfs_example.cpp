@@ -11,7 +11,7 @@ int main(void)
 
     // Ask the filing system of the root directory how much free space there is
     boost::afio::statfs_t statfs(dispatcher->statfs(rootdir,
-        boost::afio::fs_metadata_flags::bsize|boost::afio::fs_metadata_flags::bfree).first.get());
+        boost::afio::fs_metadata_flags::bsize|boost::afio::fs_metadata_flags::bfree).get());
     
     std::cout << "Your root filing system has "
         << (statfs.f_bfree*statfs.f_bsize/1024.0/1024.0/1024.0) << " Gb free." << std::endl;

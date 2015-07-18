@@ -29,7 +29,7 @@ int main(void)
         // Schedule deleting the directory only after the barrier completes
         auto rmdir(dispatcher->rmdir(dispatcher->depends(barrier.front(), mkdir)));
         // Check ops for errors
-        boost::afio::when_all({mkdir, mkfile, mklink, rmlink, rmfile, rmdir}).wait();
+        boost::afio::when_all(mkdir, mkfile, mklink, rmlink, rmfile, rmdir).wait();
     }
     catch(...)
     {

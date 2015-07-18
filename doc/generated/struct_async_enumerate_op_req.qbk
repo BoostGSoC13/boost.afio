@@ -52,12 +52,12 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 [heading Synopsis]
 ``struct async_enumerate_op_req
 {
-  async_io_op precondition;  // A precondition for this operation. 
-  size_t maxitems;           // The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. 
-  bool restart;              // Restarts the enumeration for this open directory handle. 
-  path glob;                 // An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
-  metadata_flags metadata;   // The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. 
-  filter filtering;          // Any filtering you want AFIO to do for you. 
+  future precondition;      // A precondition for this operation. 
+  size_t maxitems;          // The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. 
+  bool restart;             // Restarts the enumeration for this open directory handle. 
+  path glob;                // An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
+  metadata_flags metadata;  // The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. 
+  filter filtering;         // Any filtering you want AFIO to do for you. 
 };
 ``
 
@@ -69,10 +69,10 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 ] [Default constructor. ] [
 
 ]]
-[[``async_enumerate_op_req(async_io_op _precondition, size_t _maxitems = 2, bool _restart = true,
+[[``async_enumerate_op_req(future<> _precondition, size_t _maxitems = 2, bool _restart = true,
                         path _glob = path(), metadata_flags _metadata = metadata_flags::None, filter _filtering = filter::fastdeleted)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  The precondition for this operation. 
 
 [* size_t]: ['_maxitems]:  The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. 
 
@@ -87,10 +87,10 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 
 ]]
-[[``async_enumerate_op_req(async_io_op _precondition, path _glob, size_t _maxitems = 2,
+[[``async_enumerate_op_req(future<> _precondition, path _glob, size_t _maxitems = 2,
                         bool _restart = true, metadata_flags _metadata = metadata_flags::None, filter _filtering = filter::fastdeleted)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  The precondition for this operation. 
 
 [* path]: ['_glob]:  A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. 
 
@@ -105,10 +105,10 @@ POSIX further extends NT's wildcards with \[seq\] which is a subset of character
 
 
 ]]
-[[``async_enumerate_op_req(async_io_op _precondition, metadata_flags _metadata, size_t _maxitems = 2,
+[[``async_enumerate_op_req(future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
                         bool _restart = true, path _glob = path(), filter _filtering = filter::fastdeleted)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  The precondition for this operation. 
 
 [* metadata_flags]: ['_metadata]:  The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. 
 

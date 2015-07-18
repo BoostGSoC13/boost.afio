@@ -41,7 +41,7 @@ int main(void)
         // If this is the first item, schedule without precondition
         if (isfirst)
         {
-            thisgroupcallops = dispatcher->call(thisgroupcalls).second;
+            thisgroupcallops = dispatcher->call(thisgroupcalls);
             isfirst = false;
         }
         else
@@ -50,7 +50,7 @@ int main(void)
             // matching the number in this batch. Note that the precondition
             // for all of these is the preceding verify op
             std::vector<boost::afio::future<>> dependency(run.first, next);
-            thisgroupcallops = dispatcher->call(dependency, thisgroupcalls).second;
+            thisgroupcallops = dispatcher->call(dependency, thisgroupcalls);
         }
         // barrier() is very easy: its number of output ops exactly matches its input
         // but none of the output will complete until the last of the input completes
@@ -59,7 +59,7 @@ int main(void)
         // the first item of the barrier's return, but in truth any of them are good.
         auto verify = dispatcher->call(thisgroupbarriered.front(), std::function<bool()>(std::bind(verifybarrier, &callcount[run.second], run.first)));
         // Set the dependency for the next batch to be the just scheduled verify op
-        next = verify.second;
+        next = verify;
     }
     // next was the last op scheduled, so waiting on it waits on everything
     when_all(next).wait();

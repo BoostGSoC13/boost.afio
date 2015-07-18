@@ -28,12 +28,12 @@ BOOST_AFIO_AUTO_TEST_CASE(api_error_check, "Tests that every API returns errors 
     BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->read(make_async_data_op_req(op, buffer, 32)).get(), BOOST_AFIO_BAD_FD);
     BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->write(make_async_data_op_req(op, buffer, 32)).get(), BOOST_AFIO_BAD_FD);
     BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->truncate(op, 32).get(), BOOST_AFIO_BAD_FD);
-    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->enumerate(op).first.get(), BOOST_AFIO_BAD_FD);
-    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->enumerate(op).second.get(), BOOST_AFIO_BAD_FD);
-    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->extents(op).first.get(), BOOST_AFIO_BAD_FD);
-    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->extents(op).second.get(), BOOST_AFIO_BAD_FD);
-    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->statfs(op, fs_metadata_flags::All).first.get(), BOOST_AFIO_BAD_FD);
-    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->statfs(op, fs_metadata_flags::All).second.get(), BOOST_AFIO_BAD_FD);
+    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->enumerate(op).get_handle(), BOOST_AFIO_BAD_FD);
+    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->enumerate(op).get(), BOOST_AFIO_BAD_FD);
+    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->extents(op).get_handle(), BOOST_AFIO_BAD_FD);
+    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->extents(op).get(), BOOST_AFIO_BAD_FD);
+    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->statfs(op, fs_metadata_flags::All).get_handle(), BOOST_AFIO_BAD_FD);
+    BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(dispatcher->statfs(op, fs_metadata_flags::All).get(), BOOST_AFIO_BAD_FD);
 
 #undef BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE
 }

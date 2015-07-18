@@ -35,7 +35,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
     }
     atomic<size_t> callcount[10000];
     memset(&callcount, 0, sizeof(callcount));
-    std::vector<shared_future<bool>> verifies;
+    std::vector<future<bool>> verifies;
     verifies.reserve(groups.size());
     auto inccount = [](atomic<size_t> *count){ /*for (volatile size_t n = 0; n < 10000; n++);*/ (*count)++; };
     auto verifybarrier = [](atomic<size_t> *count, size_t shouldbe)
@@ -60,18 +60,18 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
         std::vector<future<>> thisgroupcallops;
         if (isfirst)
         {
-            thisgroupcallops = dispatcher->call(thisgroupcalls).second;
+            thisgroupcallops = dispatcher->call(thisgroupcalls);
             isfirst = false;
         }
         else
         {
             std::vector<future<>> dependency(run.first, next);
-            thisgroupcallops = dispatcher->call(dependency, thisgroupcalls).second;
+            thisgroupcallops = dispatcher->call(dependency, thisgroupcalls);
         }
         auto thisgroupbarriered = dispatcher->barrier(thisgroupcallops);
         auto verify = dispatcher->call(thisgroupbarriered.front(), std::function<bool()>(std::bind(verifybarrier, &callcount[run.second], run.first)));
-        verifies.push_back(std::move(verify.first));
-        next = verify.second;
+        next = verify;
+        verifies.push_back(std::move(verify));
         // barrier() adds an immediate op per op
         opscount += run.first*2 + 1;
     }

@@ -19,13 +19,13 @@ Schedule a batch of asynchronous zeroing and deallocations of physical storage (
 Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions, and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC\u005fFL\u005fPUNCH\u005fHOLE which if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API that we are aware of, and so zeros are simply written.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::zero(const std::vector< async_io_op > & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::zero(const std::vector< future<>> & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles. ]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles. ]]
 [[const std::vector< std::vector< std::pair< off_t, off_t >>> &] [] [ranges] [A batch of vectors of extents to zero and deallocate.]]
 ]
 
@@ -54,13 +54,13 @@ Schedule an asynchronous zero and deallocation of physical storage ("hole punchi
 Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions, and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC\u005fFL\u005fPUNCH\u005fHOLE which if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API that we are aware of, and so zeros are simply written.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::zero(const async_io_op & req, const std::vector< std::pair< off_t, off_t >> & ranges)``
+``future async_file_io_dispatcher_base::zero(const future<> & req, const std::vector< std::pair< off_t, off_t >> & ranges)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_io_op &] [] [req] [An op handle. ]]
+[[const future<> &] [] [req] [An op handle. ]]
 [[const std::vector< std::pair< off_t, off_t >> &] [] [ranges] [A vector of extents to zero and deallocate.]]
 ]
 
@@ -89,18 +89,18 @@ Schedule a batch of asynchronous extent enumerations after preceding operations.
 In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date with respect to one another) when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
 
 [heading Synopsis]
-``virtual std::pair<std::vector<future<std::vector<std::pair<off_t, off_t> > > >, std::vector<async_io_op> > async_file_io_dispatcher_base::extents(const std::vector< async_io_op > & ops)``
+``virtual std::vector<future<std::vector<std::pair<off_t, off_t> > > > async_file_io_dispatcher_base::extents(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles.]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles.]]
 ]
 
 
 [heading Returns]
-A batch of future vectors of extents. 
+A batch of stl\u005ffuture vectors of extents. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`
@@ -129,18 +129,18 @@ Schedule an asynchronous extent enumeration after a preceding operation.
 In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date with respect to one another) when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
 
 [heading Synopsis]
-``std::pair< future< std::vector< std::pair< off_t, off_t > > >, async_io_op > async_file_io_dispatcher_base::extents(const async_io_op & op)``
+``future< std::vector< std::pair< off_t, off_t > > > async_file_io_dispatcher_base::extents(const future<> & op)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_io_op &] [] [op] [An op handle.]]
+[[const future<> &] [] [op] [An op handle.]]
 ]
 
 
 [heading Returns]
-A future vector of extents. 
+A stl\u005ffuture vector of extents. 
 
 [heading Header]
 `#include <boost/afio/afio.hpp>`

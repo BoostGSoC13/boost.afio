@@ -12,7 +12,7 @@ import ../../config/checks/config : requires ;
 
 project boost/afio
     : requirements
-      [ requires cxx11_variadic_templates cxx11_template_aliases cxx11_hdr_type_traits ]
+      [ requires cxx11_variadic_templates cxx11_template_aliases cxx11_noexcept cxx11_constexpr ]
       <threading>multi
       <link>shared:<define>BOOST_AFIO_DYN_LINK=1  
       <link>shared:<define>BOOST_AFIO_SOURCE=1

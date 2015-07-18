@@ -19,13 +19,13 @@ Schedule an asynchronous synchronisation of preceding operations.
 If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations to occur only after [*all] of those operations have completed, this is the correct function to use. The returned batch of ops exactly match the input batch of ops (including their exception states), but they will only complete when the last of the input batch of ops completes.
 
 [heading Synopsis]
-``std::vector<async_io_op> async_file_io_dispatcher_base::barrier(const std::vector< async_io_op > & ops)``
+``std::vector<future<> > async_file_io_dispatcher_base::barrier(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles.]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles.]]
 ]
 
 

@@ -64,7 +64,7 @@ int main(void)
         afio::future<> deletedfile(dispatcher->rmfile(req)); /*< schedules delete file after close completes >*/
         
         // Wait until the buffer has been filled, checking all steps for errors
-        afio::when_all({openfile, resizedfile, written, written2, stored, read}).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/
+        afio::when_all(openfile, resizedfile, written, written2, stored, read).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/
         
         // There is actually a async_data_op_req<std::string> specialisation you
         // can use to skip this bit by reading directly into a string ...
@@ -72,7 +72,7 @@ int main(void)
         std::cout << "Contents of file is '" << contents << "'" << std::endl;
 
         // Check remaining ops for errors
-        afio::when_all({req.precondition /*close*/, deletedfile}).get();        /*< waits for file close and delete to complete, throwing any exceptions encountered >*/
+        afio::when_all(req.precondition /*close*/, deletedfile).get();        /*< waits for file close and delete to complete, throwing any exceptions encountered >*/
         //]
     }
     catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: program exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; return 1; }

@@ -99,7 +99,7 @@ rule analyse ( properties * )
 
 project boost/afio/test
     : requirements
-      [ requires cxx11_variadic_templates cxx11_template_aliases cxx11_hdr_type_traits ]
+      [ requires cxx11_variadic_templates cxx11_template_aliases cxx11_noexcept cxx11_constexpr ]
       <threading>multi
       <include>.
 #      <library>/boost/afio//boost_afio

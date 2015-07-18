@@ -128,7 +128,7 @@ public:
     // An enumeration parsing completion, called when each directory enumeration completes
     std::pair<bool, std::shared_ptr<async_io_handle>> dir_enumerated(size_t id, 
         future<> op,
-        std::shared_ptr<stl_future<std::pair<std::vector<directory_entry>, bool>>> listing)
+        std::shared_ptr<future<std::pair<std::vector<directory_entry>, bool>>> listing)
     {
         std::shared_ptr<async_io_handle> h(op.get_handle());
         future<> lastdir, thisop(dispatcher->op_from_scheduled_id(id));
@@ -254,14 +254,14 @@ public:
         // Now we have an open directory handle, schedule an enumeration
         auto enumeration=dispatcher->enumerate(async_enumerate_op_req(
             dispatcher->op_from_scheduled_id(id), metadata_flags::size, 1000));
-        auto listing=std::make_shared<stl_future<std::pair<std::vector<directory_entry>, 
-            bool>>>(std::move(enumeration.first));
-        auto enumeration_done=dispatcher->completion(enumeration.second, 
+        auto listing=std::make_shared<future<std::pair<std::vector<directory_entry>, 
+            bool>>>(std::move(enumeration));
+        auto enumeration_done=dispatcher->completion(enumeration, 
             make_pair(async_op_flags::none,
                 std::function<async_file_io_dispatcher_base::completion_t>(
                     std::bind(&find_in_files::dir_enumerated, this, 
                         std::placeholders::_1, std::placeholders::_2, listing))));
-        doscheduled({enumeration.second, enumeration_done});
+        doscheduled({enumeration, enumeration_done});
         docompleted(2);
         // Complete only if not the cur dir opened
         return std::make_pair(true, h);

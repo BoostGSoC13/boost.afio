@@ -29,7 +29,7 @@ int main(void)
         threads++;
         for(size_t n=0; n<500000; n++)
         {
-            preconditions.front()=dispatcher->call(preconditions, callbacks).second.front();
+            preconditions.front()=dispatcher->call(preconditions, callbacks).front();
         }
     }
     while(dispatcher->wait_queue_depth())

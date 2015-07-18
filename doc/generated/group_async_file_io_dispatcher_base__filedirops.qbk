@@ -19,7 +19,7 @@ Schedule a batch of third party handle adoptions.
 This function enables you to adopt third party custom async\u005fio\u005fhandle derivatives as ops into the scheduler. Think of it as if you were calling file(), except the op returns the supplied handle and otherwise does nothing.
 
 [heading Synopsis]
-``std::vector<async_io_op> async_file_io_dispatcher_base::adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)``
+``std::vector<future<> > async_file_io_dispatcher_base::adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)``
 
 [heading Parameters]
 
@@ -53,7 +53,7 @@ Schedule an adoption of a third party handle.
 This function enables you to adopt third party custom async\u005fio\u005fhandle derivatives as ops into the scheduler. Think of it as if you were calling file(), except the op returns the supplied handle and otherwise does nothing.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::adopt(std::shared_ptr< async_io_handle > h)``
+``future async_file_io_dispatcher_base::adopt(std::shared_ptr< async_io_handle > h)``
 
 [heading Parameters]
 
@@ -89,7 +89,7 @@ Note that if there is already a handle open to the directory requested, that wil
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::dir(const std::vector< async_path_op_req > & reqs)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::dir(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -128,7 +128,7 @@ Note that if there is already a handle open to the directory requested, that wil
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::dir(const async_path_op_req & req)``
+``future async_file_io_dispatcher_base::dir(const async_path_op_req & req)``
 
 [heading Parameters]
 
@@ -169,7 +169,7 @@ Note that on operating systems with an unstable [^`async_io_handle::path(true)`]
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::rmdir(const std::vector< async_path_op_req > & reqs)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::rmdir(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -212,7 +212,7 @@ Note that on operating systems with an unstable [^`async_io_handle::path(true)`]
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::rmdir(const async_path_op_req & req)``
+``future async_file_io_dispatcher_base::rmdir(const async_path_op_req & req)``
 
 [heading Parameters]
 
@@ -253,7 +253,7 @@ Be aware that any files created are by default sparse if supported on the local 
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::file(const std::vector< async_path_op_req > & reqs)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::file(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -292,7 +292,7 @@ Be aware that any files created are by default sparse if supported on the local 
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::file(const async_path_op_req & req)``
+``future async_file_io_dispatcher_base::file(const async_path_op_req & req)``
 
 [heading Parameters]
 
@@ -335,7 +335,7 @@ Note that on operating systems with an unstable [^`async_io_handle::path(true)`]
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::rmfile(const std::vector< async_path_op_req > & reqs)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::rmfile(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -380,7 +380,7 @@ Note that on operating systems with an unstable [^`async_io_handle::path(true)`]
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::rmfile(const async_path_op_req & req)``
+``future async_file_io_dispatcher_base::rmfile(const async_path_op_req & req)``
 
 [heading Parameters]
 
@@ -421,7 +421,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::symlink(const std::vector< async_path_op_req > & reqs)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::symlink(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -457,7 +457,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::symlink(const async_path_op_req & req)``
+``future async_file_io_dispatcher_base::symlink(const async_path_op_req & req)``
 
 [heading Parameters]
 
@@ -493,7 +493,7 @@ Make sure you read the docs for [^`async_io_handle::unlink()`] for important cav
 Note that on operating systems with an unstable [^`async_io_handle::path(true)`] you need to be cautious of deleting files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this, portable code should delete by directory handle as the precondition and known leafname.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::rmsymlink(const std::vector< async_path_op_req > & reqs)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::rmsymlink(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -536,7 +536,7 @@ Note that on operating systems with an unstable [^`async_io_handle::path(true)`]
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::rmsymlink(const async_path_op_req & req)``
+``future async_file_io_dispatcher_base::rmsymlink(const async_path_op_req & req)``
 
 [heading Parameters]
 
@@ -572,13 +572,13 @@ An op handle.
 Schedule a batch of asynchronous content synchronisations with physical storage after preceding operations. 
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::sync(const std::vector< async_io_op > & ops)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::sync(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles.]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles.]]
 ]
 
 
@@ -603,13 +603,13 @@ A batch of op handles.
 Schedule an asynchronous content synchronisation with physical storage after a preceding operation. 
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::sync(const async_io_op & req)``
+``future async_file_io_dispatcher_base::sync(const future<> & req)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_io_op &] [] [req] [An op handle.]]
+[[const future<> &] [] [req] [An op handle.]]
 ]
 
 
@@ -639,13 +639,13 @@ Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcac
 Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::close(const std::vector< async_io_op > & ops)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::close(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles.]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles.]]
 ]
 
 
@@ -675,13 +675,13 @@ Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcac
 Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::close(const async_io_op & req)``
+``future async_file_io_dispatcher_base::close(const future<> & req)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_io_op &] [] [req] [An op handle.]]
+[[const future<> &] [] [req] [An op handle.]]
 ]
 
 
@@ -710,7 +710,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-virtual std::vector<async_io_op> async_file_io_dispatcher_base::read(const std::vector< async_data_op_req< T >> & ops)``
+virtual std::vector<future<> > async_file_io_dispatcher_base::read(const std::vector< async_data_op_req< T >> & ops)``
 
 [heading Parameters]
 
@@ -746,7 +746,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-async_io_op async_file_io_dispatcher_base::read(const async_data_op_req< T > & req)``
+future async_file_io_dispatcher_base::read(const async_data_op_req< T > & req)``
 
 [heading Parameters]
 
@@ -782,7 +782,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-virtual std::vector<async_io_op> async_file_io_dispatcher_base::write(const std::vector< async_data_op_req< const T >> & ops)``
+virtual std::vector<future<> > async_file_io_dispatcher_base::write(const std::vector< async_data_op_req< const T >> & ops)``
 
 [heading Parameters]
 
@@ -818,7 +818,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-async_io_op async_file_io_dispatcher_base::write(const async_data_op_req< const T > & req)``
+future async_file_io_dispatcher_base::write(const async_data_op_req< const T > & req)``
 
 [heading Parameters]
 
@@ -850,13 +850,13 @@ An op handle.
 Schedule a batch of asynchronous file length truncations after preceding operations. 
 
 [heading Synopsis]
-``virtual std::vector<async_io_op> async_file_io_dispatcher_base::truncate(const std::vector< async_io_op > & ops, const std::vector< off_t > & sizes)``
+``virtual std::vector<future<> > async_file_io_dispatcher_base::truncate(const std::vector< future<>> & ops, const std::vector< off_t > & sizes)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_io_op > &] [] [ops] [A batch of op handles. ]]
+[[const std::vector< future<>> &] [] [ops] [A batch of op handles. ]]
 [[const std::vector< off_t > &] [] [sizes] [A batch of new lengths.]]
 ]
 
@@ -882,13 +882,13 @@ A batch of op handles.
 Schedule an asynchronous file length truncation after a preceding operation. 
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::truncate(const async_io_op & op, off_t newsize)``
+``future async_file_io_dispatcher_base::truncate(const future<> & op, off_t newsize)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_io_op &] [] [op] [An op handle. ]]
+[[const future<> &] [] [op] [An op handle. ]]
 [[off_t] [] [newsize] [The new size for the file.]]
 ]
 

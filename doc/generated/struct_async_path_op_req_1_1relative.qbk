@@ -19,10 +19,10 @@ Convenience tag type constructing a relative path async_path_op_req.
 ``struct async_path_op_req::relative
       : public async_path_op_req
 {
-  bool is_relative;          // Whether the precondition is also where this path begins. 
-  boost::afio::path path;    // The filing system path to be used for this operation. 
-  file_flags flags;          // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction). 
-  async_io_op precondition;  // An optional precondition for this operation 
+  bool is_relative;        // Whether the precondition is also where this path begins. 
+  boost::afio::path path;  // The filing system path to be used for this operation. 
+  file_flags flags;        // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction). 
+  future precondition;     // An optional precondition for this operation 
 };
 ``
 
@@ -30,9 +30,9 @@ Convenience tag type constructing a relative path async_path_op_req.
 [table
 [[Function] [Description] [Parameters] ]
 [[``template<class T>
-relative(async_io_op _precondition, T && _path, file_flags _flags = file_flags::none)``
+relative(future<> _precondition, T && _path, file_flags _flags = file_flags::none)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  The precondition for this operation. 
 
 [* T &&]: ['_path]:  The filing system path to be used. 
 
@@ -41,9 +41,9 @@ relative(async_io_op _precondition, T && _path, file_flags _flags = file_flags::
 
 
 ]]
-[[``relative(async_io_op _precondition, file_flags _flags = file_flags::none)``
+[[``relative(future<> _precondition, file_flags _flags = file_flags::none)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  The precondition for this operation. 
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  The precondition for this operation. 
 
 [* file_flags]: ['_flags]:  The flags to be used. 
 

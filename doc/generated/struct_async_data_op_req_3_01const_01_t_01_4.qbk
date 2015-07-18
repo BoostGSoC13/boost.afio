@@ -20,7 +20,7 @@ A convenience bundle of precondition, data and where for reading into a T as spe
 struct async_data_op_req< const T >
       : public detail::async_data_op_req_impl< true >
 {
-  async_io_op precondition;                   // A precondition containing an open file handle for this operation. 
+  future precondition;                        // A precondition containing an open file handle for this operation. 
   std::vector< asio::const_buffer > buffers;  // A sequence of const Boost.ASIO buffers to write from. 
   off_t where;                                // The offset at which to write. 
 };
@@ -112,10 +112,10 @@ True if contents are correct
 
 ]
 ]
-[[`` async_data_op_req(async_io_op _precondition, const T * v, size_t _length,
+[[`` async_data_op_req(future<> _precondition, const T * v, size_t _length,
                    off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  An optional precondition for this operation
 
 [* const T *]: ['v]:  A pointer to memory or reference to object into which to read or write
 
@@ -130,9 +130,9 @@ True if contents are correct
 ]
 ]
 [[``template<class U>
- async_data_op_req(async_io_op _precondition, const U & v, off_t _where)``
+ async_data_op_req(future<> _precondition, const U & v, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  An optional precondition for this operation
 
 [* const U &]: ['v]:  A pointer to memory or reference to object into which to read or write
 
@@ -145,9 +145,9 @@ True if contents are correct
 ]
 ]
 [[``template<class U, size_t N>
- async_data_op_req(async_io_op _precondition, const U(&) v, off_t _where)``
+ async_data_op_req(future<> _precondition, const U(&) v, off_t _where)``
 
-] [Constructs an instance. ] [[* async_io_op]: ['_precondition]:  An optional precondition for this operation
+] [Constructs an instance. ] [[* future<>]: ['_precondition]:  An optional precondition for this operation
 
 [* const U(&)]: ['v]:  A pointer to memory or reference to object into which to read or write
 

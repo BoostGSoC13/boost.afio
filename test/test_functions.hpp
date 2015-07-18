@@ -364,7 +364,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         when_all(manydeletedfiles.begin(), manydeletedfiles.end()).get();
         auto deletedsync=chrono::high_resolution_clock::now();
         // Wait for all callbacks
-        when_all(manycallbacks.second.begin(), manycallbacks.second.end()).get();
+        when_all(manycallbacks.begin(), manycallbacks.end()).get();
 
         auto end=deletedsync;
         auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));

@@ -16,14 +16,14 @@
 Schedule the return of an op handle after another op handle completes. This is useful when you need to supply one op handle to a function but it must not begin until another op handle has finished. 
 
 [heading Synopsis]
-``async_io_op async_file_io_dispatcher_base::depends(async_io_op precondition, async_io_op op)``
+``future async_file_io_dispatcher_base::depends(future<> precondition, future<> op)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[async_io_op] [] [precondition] [The op handle which must complete for op to be passed through. ]]
-[[async_io_op] [] [op] [The op handle to return.]]
+[[future<>] [] [precondition] [The op handle which must complete for op to be passed through. ]]
+[[future<>] [] [op] [The op handle to return.]]
 ]
 
 

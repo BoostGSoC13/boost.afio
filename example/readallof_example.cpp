@@ -22,7 +22,7 @@ int main(void)
     // Schedule in parallel opening the file
     auto file_opened = dispatcher->file(async_path_op_req("foo.txt"));
     // Get the directory_entry for the first result
-    directory_entry &de = file_enumed.first.get().first.front(); // blocks!
+    directory_entry &de = file_enumed.get().first.front(); // blocks!
     // Schedule a file read once we know the file size
     auto file_read = dispatcher->read(make_async_data_op_req(file_opened,
         (void *) input,

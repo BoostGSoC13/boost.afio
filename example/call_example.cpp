@@ -11,21 +11,15 @@ int main(void)
     auto helloworld=dispatcher->call(boost::afio::future<>() /* no precondition */, [](std::string text) -> int {
         std::cout << text << std::endl;
         return 42;
-    }, std::string("Hello world")); // Returns a pair of <stl_future, op ref>
-    
+    }, std::string("Hello world"));
+
     // Schedule as asynchronous call of some function to occur only after helloworld completes
-    auto addtovalue=dispatcher->call(helloworld.second, [](boost::afio::shared_future<int> v) -> int {
-        // v is highly likely to be ready very soon by the time we are called
-        return v.get()+1;
-    }, helloworld.first);
+    auto addtovalue=dispatcher->call(helloworld, [&helloworld]() -> int {
+        return helloworld.get()+1;
+    });
     
-    // Create a boost::stl_future<> representing the ops passed to when_all()
-    auto stl_future=boost::afio::when_all(addtovalue.second);
-    // ... and wait for it to complete
-    stl_future.wait();
-    
-    // Print the result returned by the stl_future for the lambda, which will be 43
-    std::cout << "addtovalue() returned " << addtovalue.first.get() << std::endl;
+    // Print the result returned by the future for the lambda, which will be 43
+    std::cout << "addtovalue() returned " << addtovalue.get() << std::endl;
     //]
     return 0;
 }
