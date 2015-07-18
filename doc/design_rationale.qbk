@@ -6,6 +6,8 @@
 
 [section:design Design Introduction and Rationale]
 
+'''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
+
 __boost_afio__ came about out of the need for a scalable, high performance, portable asynchronous
 file i/o implementation library for a forthcoming filing system based graph store ACID compliant transactional
 persistence layer called __triplegit__ __dash__ call it a ["SQLite3 but for graphstores][footnote The
@@ -55,8 +57,11 @@ async_io_op, and that lets us hook much more friendly programming onto it. We'll
 loop, and hopefully will reign in the huge stochastic variance in dispatch latency in the v1.3 and
 earlier engines.
 
+'''<?dbhtml-include href="disqus_comments.html"?>'''
 
 [section:overview A quick overview of the design]
+
+'''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
 
 __boost_afio__ version 1 is amongst the smallest standalone libraries in the Boost C++ libraries.
 Its total active lines of code is around 1,000 lines, and implementing its documentatation and
@@ -143,10 +148,14 @@ feature, __boost_afio__ implements ['write ordering constraints] at the whole fi
 as well as the traditionally supported individual write level. This part will need some
 explaining, so it gets a whole section to itself.
 
+'''<?dbhtml-include href="disqus_comments.html"?>'''
+
 [endsect] [/overview]
 
 [section:acid_write_ordering Write ordering constraints, and how these can
 be used to achieve some of the Durability in ACID without needing `fsync()`]
+
+'''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
 
 [*ACID] stands for Atomic Consistent Isolated Durable, and it is a key requirement for
 database implementations which manage data you don't want to lose, which tends to be
@@ -163,7 +172,11 @@ of which are probable, are entirely the fault of this author Niall Douglas. Note
 the forthcoming information was probably correct around the winter of 2014, and it highly
 likely to become less correct over time as filing system implementations evolve.
 
+'''<?dbhtml-include href="disqus_comments.html"?>'''
+
 [section:background Background on how filing systems work]
+
+'''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
 
 Filing system implementations traditionally offer three methods of ensuring that writes
 have reached non-volatile storage:
@@ -222,9 +235,13 @@ they are all or nothing, but they do open the option of ['emulating]
 native filing system support for write ordering constraints when nothing else better
 is available. So why is the ability to constrain write ordering important?
 
+'''<?dbhtml-include href="disqus_comments.html"?>'''
+
 [endsect] [/background]
 
 [section:write_ordering_data Write ordering data and durability: why does it matter?]
+
+'''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
 
 [note You may find the paper presented at C++ Now 2014 [@http://arxiv.org/abs/1405.3323 ["Large Code Base Change Ripple Management in C++: My thoughts on how a new Boost C++ Library could help]] of interest here.]
 
@@ -347,6 +364,8 @@ is a quick table of power loss data safety. Once again, I reiterate that errors 
   [[[role alignright ZFS]][__icross__][__icross__][__icross__][__tick__][[role aligncenter 30]]]
 ]
 
+
+'''<?dbhtml-include href="disqus_comments.html"?>'''
 
 [endsect] [/write_ordering_data]
 
