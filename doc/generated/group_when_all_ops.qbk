@@ -306,8 +306,8 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect]
 
-[section:when_all_1_convenience_single_op_exception_propagating when_all (convenience single op exception propagating)]
-'''<?dbhtml-include href="disqus_identifiers/when_all_1_convenience_single_op_exception_propagating.html"?>'''
+[section:when_all_1_convenience_multiple_op_exception_propagating when_all (convenience multiple op exception propagating)]
+'''<?dbhtml-include href="disqus_identifiers/when_all_1_convenience_multiple_op_exception_propagating.html"?>'''
 
 '''<indexterm><primary>when_all</primary></indexterm>'''
 Returns a result when the supplied op completes. Propagates exception states. 
@@ -321,7 +321,7 @@ stl_future<std::vector<std::shared_ptr<async_io_handle> > > when_all(future< Typ
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[Types] [] [ - ] [Must be specified]]
-[[future< Types > &...] [] [ops] []]
+[[future< Types > &...] [] [ops] [A sequence of future<> to wait upon.]]
 ]
 
 
@@ -331,8 +331,8 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
-[heading Complexity]O(1).
-[heading Exception Model]Non propagating
+[heading Complexity]O(N).
+[heading Exception Model]Propagating
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''

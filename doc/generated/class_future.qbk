@@ -16,8 +16,6 @@
 The future status of a scheduled asynchronous operation. 
 
 [heading Description]
-<void> 
-
 Other than the fact that [^`get()`] returns a [^`T`] and [^`get_handle()`] returns a handle, the errored and excepted state for both is identical and non-consuming for both.
 
 Finally, note that there is a freely available type slice from [^`future<T>`] to [^`future<void>`] which moves/copies only the [^`future<void>`] part of the [^`future<T>`], leaving the [^`T`] behind. This is because the AFIO engine resides behind a stable ABI layer which cannot know anything about arbitrary types, and therefore it accepts only [^`future<void>`]. Equally, this means you can supply a [^`future<T>`] as a precondition to another op safe in the knowledge that any [^`T`] part will remain untouched for later consumption. 
@@ -65,7 +63,7 @@ class future
 ]]
 [[``future(future< void > && o, stl_future< T > && result)``
 
-] [] [[* future< void > &&]: ['o]:  
+] [] [[* future< void > &&]: ['o]:  The future<void>
 
 [* stl_future< T > &&]: ['result]:  The future<T> to add 
 

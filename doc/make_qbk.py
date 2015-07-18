@@ -134,6 +134,37 @@ for i in glob.glob("generated/class_enqueued_task*.qbk"):
         ih.seek(0)
         ih.truncate(0)
         ih.write(t)
+for i in glob.glob("generated/class_future*.qbk"):
+    with open(i, "r+b") as ih:
+        t=ih.read();
+        # Fix failure to escape < and >
+        it1=t.find("<indexterm><primary>")+20
+        it2=t.find("</primary></indexterm>", it1)
+        indexterm=t[it1:it2]
+        indexterm=indexterm.replace("<", "&lt;")
+        indexterm=indexterm.replace(">", "&gt;")
+        t=t[:it1]+indexterm+t[it2:]
+        # Fix failure to collapse section ids
+        si1=t.find("[section:future<")
+        if si1!=-1:
+            si1+=15;
+            si2=si1+1
+            count=1
+            while count>0:
+                if t[si2]=='<': count+=1
+                elif t[si2]=='>': count-=1
+                si2+=1
+            postfix=t[si1:si2]
+            postfix=postfix.replace("<", "_")
+            postfix=postfix.replace(">", "_")
+            postfix=postfix.replace("(", "_")
+            postfix=postfix.replace(")", "_")
+            postfix=postfix.replace(",", "_")
+            postfix=postfix.replace(" ", "")
+            t=t[:si1]+postfix+t[si2:]
+        ih.seek(0)
+        ih.truncate(0)
+        ih.write(t)
         
 # Patch failure to put in-class enums in the right section
 for i in glob.glob("generated/class_*.qbk")+glob.glob("generated/struct_*.qbk"):

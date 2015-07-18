@@ -171,6 +171,7 @@ namespace detail
 
 template<class R> class enqueued_task;
 /*! \class enqueued_task<R()>
+\tparam "class R" The return type of the callable which must be without parameters.
 \brief Effectively our own custom std::packaged_task<>, with copy semantics and letting us early set value to significantly improve performance
 
 Unlike `std::packaged_task<>`, this custom variant is copyable though each copy always refers to the same
@@ -178,7 +179,6 @@ internal state. Early stl_future value setting is possible, with any subsequent 
 by the function being executed being ignored. Note that this behaviour opens the potential to lose exception
 state - if you set the stl_future value early and then an exception is later thrown, the exception is swallowed.
 
-\tparam "class R" The return type of the callable which must be without parameters.
 */
 // Can't have args in callable type as that segfaults VS2010
 template<class R> class enqueued_task<R()> : public detail::enqueued_task_impl<R>
@@ -1344,35 +1344,7 @@ namespace detail
   template<bool rethrow, class Iterator> inline stl_future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last);
 }
 
-/*! \class future \class future<void>
-\tparam T Any returned result. Note this is defaulted to `void` for you, so usually you write `future<>`.
-\brief The future status of a scheduled asynchronous operation
-
-As of v1.4 of the AFIO engine, the legacy `async_io_op` struct has been replaced with this custom future type
-based on the lightweight future-promise factory toolkit in forthcoming Boost.Monad. This custom future type
-consists of two pieces of future data each with different semantics:
-
-1. A `std::shared_ptr<async_io_handle>` retrieved using `get_handle()`, `operator*` and `operator->` - this is
-the shared i/o handle returned by the asynchronous operation. This has non-consuming semantics i.e. you can call
-`get_handle()` as many times as you like. Note that for legacy compatibility reasons, calling `get_handle()` on
-an invalid instance returns a null shared pointer instead of an exception throw.
-
-2. If T is non-void, any type `T` - this is any additional data returned by an asynchronous operation above and beyond the i/o handle
-(e.g. `enumerate()` returns a `std::pair<std::vector<directory_entry>, bool>`. This has *consuming* semantics, so
-calling `get()` returns the result exactly once.
-
-The reason for the difference in semantics is because it is very common that you need access to an earlier i/o handle
-in a sequence if some operation returns an error, and besides the shared pointer encapsulation makes non-consumption
-cost free.
-
-Other than the fact that `get()` returns a `T` and `get_handle()` returns a handle, the errored and excepted state
-for both is identical and non-consuming for both.
-
-Finally, note that there is a freely available type slice from `future<T>` to `future<void>` which moves/copies only
-the `future<void>` part of the `future<T>`, leaving the `T` behind. This is because the AFIO engine resides behind a stable
-ABI layer which cannot know anything about arbitrary types, and therefore it accepts only `future<void>`. Equally, this
-means you can supply a `future<T>` as a precondition to another op safe in the knowledge that any `T` part will remain
-untouched for later consumption.
+/*! \ref future
 */
 template<> class future<void>
 {
@@ -1503,6 +1475,36 @@ protected:
 #endif
     }
 };
+/*! \class future
+\tparam T Any returned result. Note this is defaulted to `void` for you, so usually you write `future<>`.
+\brief The future status of a scheduled asynchronous operation
+
+As of v1.4 of the AFIO engine, the legacy `async_io_op` struct has been replaced with this custom future type
+based on the lightweight future-promise factory toolkit in forthcoming Boost.Monad. This custom future type
+consists of two pieces of future data each with different semantics:
+
+1. A `std::shared_ptr<async_io_handle>` retrieved using `get_handle()`, `operator*` and `operator->` - this is
+the shared i/o handle returned by the asynchronous operation. This has non-consuming semantics i.e. you can call
+`get_handle()` as many times as you like. Note that for legacy compatibility reasons, calling `get_handle()` on
+an invalid instance returns a null shared pointer instead of an exception throw.
+
+2. If T is non-void, any type `T` - this is any additional data returned by an asynchronous operation above and beyond the i/o handle
+(e.g. `enumerate()` returns a `std::pair<std::vector<directory_entry>, bool>`. This has *consuming* semantics, so
+calling `get()` returns the result exactly once.
+
+The reason for the difference in semantics is because it is very common that you need access to an earlier i/o handle
+in a sequence if some operation returns an error, and besides the shared pointer encapsulation makes non-consumption
+cost free.
+
+Other than the fact that `get()` returns a `T` and `get_handle()` returns a handle, the errored and excepted state
+for both is identical and non-consuming for both.
+
+Finally, note that there is a freely available type slice from `future<T>` to `future<void>` which moves/copies only
+the `future<void>` part of the `future<T>`, leaving the `T` behind. This is because the AFIO engine resides behind a stable
+ABI layer which cannot know anything about arbitrary types, and therefore it accepts only `future<void>`. Equally, this
+means you can supply a `future<T>` as a precondition to another op safe in the knowledge that any `T` part will remain
+untouched for later consumption.
+*/
 template<class T> class future : public future<void>
 {
   stl_future<T> _result;
@@ -1521,7 +1523,7 @@ public:
   */
   future(async_file_io_dispatcher_base *parent, size_t id, shared_future<std::shared_ptr<async_io_handle>> handle, stl_future<T> result, bool check_handle = true, bool validate = true) : future<void>(parent, id, std::move(handle), check_handle, validate), _result(std::move(result)) { }
   /*! Constructs an instance from an existing future<void>
-  \param f The future<void>
+  \param o The future<void>
   \param result The future<T> to add
   */
   future(future<void> &&o, stl_future<T> &&result) : future<void>(std::move(o)), _result(std::move(result)) { }
@@ -2825,11 +2827,11 @@ template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>
 \deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
 \return A stl_future vector of shared_ptr's to async_io_handle.
-\param op An future<> to wait upon.
+\param ops A sequence of future<> to wait upon.
 \ingroup when_all_ops
-\qbk{distinguish, convenience single op exception propagating}
-\complexity{O(1).}
-\exceptionmodel{Non propagating}
+\qbk{distinguish, convenience multiple op exception propagating}
+\complexity{O(N).}
+\exceptionmodel{Propagating}
 */
 template<class... Types> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(future<Types> &... ops)
 {
