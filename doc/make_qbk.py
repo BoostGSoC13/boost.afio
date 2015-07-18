@@ -191,12 +191,10 @@ for i in glob.glob("generated/class_*.qbk")+glob.glob("generated/struct_*.qbk"):
 
 def write_disqus_fragment(name, title):
     with open("disqus_identifiers/"+name+".html", "wt") as identh:
-      identh.write("""<div><script type="text/javascript">
+      identh.write("""<script type="text/javascript">
 var disqus_identifier = '"""+name+"""';
 var disqus_title = 'Boost.AFIO """+title+"""';
 </script>
-<a href="#comments"><span class="disqus-comment-count" data-disqus-identifier="""+'"'+name+'"'+"""></span></a>
-</div>
 """)
 
 # Patch all reference sections with Disqus commenting
