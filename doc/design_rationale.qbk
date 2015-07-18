@@ -9,26 +9,31 @@
 '''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
 
 __boost_afio__ came about out of the need for a scalable, high performance, portable asynchronous
-file i/o implementation library for a forthcoming filing system based graph store ACID compliant transactional
+file i/o and filesystem implementation library for a forthcoming filing system based graph store ACID compliant transactional
 persistence layer called __triplegit__ __dash__ call it a ["SQLite3 but for graphstores][footnote The
 [@http://unqlite.org/ UnQLite embedded NoSQL database engine] is exactly one of those of course.
 Unfortunately I intend TripleGit for implementing portable Component Objects for
 C++ extending C++ Modules, which means I need a database engine suitable for incorporation into
 a dynamic linker, which unfortunately is not quite UnQLite.]. The fact that a portable
-asynchronous file i/o library for C++ was needed at all came as a bit of a surprise: one
+asynchronous file i/o and filesystem library for C++ was needed at all came as a bit of a surprise: one
 thinks of these things as done and dusted decades ago, but it turns out that the fully featured
 [@http://nikhilm.github.io/uvbook/filesystem.html libuv], a C library, is good enough for most
 people needing portable asynchronous file i/o. However as great as libuv is, it isn't very C++-ish, and
 hooking it in with __boost_asio__ (parts of which are expected to enter the ISO C++ language
 standard) isn't particularly clean. I therefore resolved to write a native Boost asynchronous
-file i/o implementation, and keep it as simple as possible.
+file i/o and filesystem implementation, and keep it as simple as possible.
 
-For v1.0, AFIO used a simple dispatch engine which kept the extant ops in a hash table,
+[heading A quick version history]
+
+AFIO started life as a C++ 0x library written for an early Visual Studio 2013 Community Preview back
+in 2012 as a outside-of-work side project when I was working at BlackBerry. It was ported to Boost
+during Google Summer of Code 2013 with the help of student Paul Kirth, and VS2012 and VS2010 support
+was added. For v1.0, AFIO used a simple dispatch engine which kept the extant ops in a hash table,
 and the entire dispatch engine was protected by a single giant and recursive mutex. Performance
 never exceeded about 150k ops/sec maximum on a four core Intel Ivy Bridge CPU.
 
-That performance was embarrassing, so for v1.1 the entire engine was rewritten using vast
-numbers of atomics to be completely lock free, and very nearly wait free if it weren't for
+That performance was embarrassing, so for v1.1 the entire engine was rewritten using atomic shared
+pointers to be completely lock free, and very nearly wait free if it weren't for
 the thin spin locks around the central ops hash table. Now performance
 can reach 1.5m ops/sec on a four core Intel Ivy Bridge CPU, or more than half of Boost.ASIO's
 maximum dispatch rate.
@@ -49,13 +54,71 @@ and networking can be selected externally using macros. Indeed, any of the eight
 can coexist in the same translation unit too, I have unit test runs which prove it! With the v1.3
 engine AFIO optionally no longer needs Boost at all, not even for its unit testing. However the
 cost was dropping support for all Visual Studios before 2013 and all GCCs before 4.7 as they
-don't have the template aliasing support needed to implement the STL abstraction layer.
+don't have the template aliasing support needed to implement the STL abstraction layer. A very large
+amount of legacy cruft code e.g. support for non-variadic templates was cleaned out for the v1.3 release.
 
-We're not done yet however! The v1.4 engine will involve another large refactor, this time to
-make the AFIO API much easier to use as we'll be introducing a custom future type to replace
-async_io_op, and that lets us hook much more friendly programming onto it. We'll also be eliminating even more code from the dispatch
-loop, and hopefully will reign in the huge stochastic variance in dispatch latency in the v1.3 and
-earlier engines.
+[heading This version 1.4 of AFIO]
+During ACCU and C++ Now 2015 I spoke with a number of ISO WG21 committee members about the structural
+design problems in iostreams and the Filesystem TS (lack of filesystem race freedom, lack of context
+dependant filesystem), and what design the committee would prefer to see to fix those problems. As it
+happens, we were all close to the same page, so from the v1.4 engine onwards I resolved to refactor the AFIO API to:
+
+# Since v1.0 AFIO implemented the Concurrency TS continuations atop standard futures using a central hash table
+to keep the continuations information per future. This had the big advantage that standard STL and Boost
+futures could be used, but it came with many other problems, mainly performance and code complexity related.
+An additional problem was that the Concurrency TS had moved on considerably since 2012, and AFIO's emulation
+was now significantly out of date.
+For v1.4 a new lightweight future-promise factory toolkit library called __boost_monad__ was written which makes
+easy the writing of arbitrarily customisable future-promises for C++ which:
+ * Implements an almost complete Concurrency TS ([@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4399.html N4399])
+future-promise specification with almost all the Boost.Thread future-promise extensions.
+ * Are very considerably more performant (2x-3x) and much more reliably low latency (no memory allocation).
+ * Permit arbitrary wait composure of any kind of custom future-promise with one another.
+ * Are part of a general purpose lightweight C++ monadic programming implementation, so futures are merely
+asynchronous monads.
+ * Natively support C++ 1z coroutines ([@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4499.pdf N4499]).
+ The use of this future factory toolkit makes the AFIO continuations infrastructure redundant, and it will
+therefore be removed shortly. The monadic programming library also makes quite a bit of internal AFIO
+implementation code much more simplified.
+
+# For race free filesystem programming, you really need to base all path related operations on an open file
+descriptor or handle, so something like:
+
+ ``
+ std::shared_ptr<afio::async_io_handle> &h;  // Some open file handle
+ 
+ // Create a sibling file to h->path() race free
+ std::shared_ptr<afio::async_io_handle> newfileh=afio::file(h, "../newfile", afio::file_flags::create);
+
+ // Asynchronously create a sibling file to h->path() race free
+ // afio::future has type void because afio::future *always* carries a shared pointer to a handle
+ // (it only gets a type when the operation returns more than a file handle)
+ afio::future<void> newfilefh2=afio::async_file(h, "../newfile", afio::file_flags::create);
+
+ // Wait for the asynchronous file creation to complete, rethrowing any error or exception
+ std::shared_ptr<afio::async_io_handle> newfileh2=newfilefh2.get_handle();
+ ``
+
+ I'll admit this design isn't quite what the members of WG21 had in mind, especially the notion that `afio::future<void>`
+with type void always carries a shared pointer to a handle. However, this sort of custom future is exactly what Boost.Monad
+was written for, and remember you can compose `afio::future` with any other kind of custom future from the __boost_monad__ factory.
+
+# One oft-observed design limitation in the Filesystem TS is that it cannot support filesystems in filesystems,
+with the most classic example being a ZIP archive on a filesystem where it might be nice to allow generic C++
+filesystem code to not need to be aware that the filesystem it sees is inside a ZIP archive. The solution is twofold:
+ * Make the Filesystem TS operations hang as virtual member functions off some `filesystem` abstract base class.
+ * Have a thread local variable set the current `filesystem` instance to be used by the global Filesystem TS
+functions on that thread.
+
+ AFIO v1.4 and probably v1.5 won't implement this as this is really a thing for Boost.Filesystem to do. However,
+AFIO has an equivalent in that an `async_io_dispatcher_base` instance has a suite of virtual member functions
+which define what some filesystem is or does. AFIO v1.4 only provides POSIX and Windows kernel filesystem backends
+currently, however it is expected that v1.5 will add a new temporary filesystem backend which lets programs
+portably work inside `tmpfs` in whichever form that takes across Linux, FreeBSD, Apple OS X and Microsoft Windows.
+Additional backends implementing say a ZIP archive filesystem is similarly easy to add on.
+
+Note that due to the above refactoring some parts of this v1.4 release of AFIO are deprecated and are expected
+to be removed shortly. You can find a list of these shortly to be removed APIs and parts [link afio.release_notes here].
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 
@@ -125,9 +188,7 @@ The rules are as follows:
  operations to fail. If your dependent operation really needs to know if its preceding
  operation errored, just go ahead and check for it manually using the `h` member which
  is a shared_future __dash__ if that future contains an exception, your precondition
- has errored[footnote There is a single exception to this: where an immediate completion
- handler is being invoked from an operation which has errored. See [link afio.advanced_topics.custom_completion_handler
- reference documentation] on this.].
+ has errored.
  # The only exception to the preceding rule is the `barrier()` call which [*DOES] propagate
  errored state to its output. Something which catches a lot of people is that the first
  rule also applies to `barrier()`, so if an input op is errored on entry to `barrier()`,

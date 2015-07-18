@@ -24,7 +24,8 @@
 
 [def __boost__ Boost]
 [def __boost_afio__ Boost.AFIO]
-[def __boost_bindlib__ Boost.BindLib]
+[def __boost_bindlib__ [@https://github.com/ned14/Boost.APIBind Boost.APIBind]]
+[def __boost_monad__ [@https://ci.nedprod.com/job/Boost.Spinlock%20Test%20Linux%20GCC%204.8/doxygen/group__future__promise.html Boost.Monad]]
 [def __triplegit__ TripleGit]
 [def __dash__ \u2014]
 [def __tick__ [role aligncenter [role green \u2714]]]
@@ -139,16 +140,22 @@ As a quick check list, if you have ever experienced any of these problems, then 
   * File change monitoring (coming in v1.5).
   * File byte range advisory locking (coming in v1.5).
 
+[note Lest there be any disappointment in expectations, [*using AFIO alone will not magically improve your filesystem
+performance], if anything there is a performance penalty in naive use of AFIO as a direct replacement for
+naive synchronous file i/o. What AFIO gives you is a large amount of ['control] with easy to twiddle knobs
+for benchmarking optimal filesystem strategies under various use cases. In other words, using AFIO lets you
+more easily write and test code that never performs really badly in corner cases.]
+  
 __boost_afio__ is a __boost_bindlib__ based Boost library, and therefore is capable of any combination of
 the following build configurations:
 
 * Uses either Boost OR the C++ 11 STL for atomic, thread, future, chrono etc.
 * Uses either Boost OR the C++ 1y STL for Fileystem. At the time of writing, only VS2015 provides Filesystem
-in its STL though libstdc++ 5.0 is expected to also do so.
+in its STL though libstdc++ 6.0 is expected to also do so.
 * Uses either Boost OR standalone ASIO for the i/o engine.
 
-You may note that as a result AFIO can be used as a completely standalone header-only library totally independent from
-any dependencies on Boost which can be dropped into any existing build system as a simple single header include. This,
+You may note that as a result AFIO can be used as a [@https://boostgsoc13.github.io/boost.afio/afio-stable.tar.bz2 completely standalone header-only library totally independent from
+any dependencies on Boost] which can be dropped into any existing build system as [@https://boostgsoc13.github.io/boost.afio/afio-single-header.hpp.bz2 a simple single header include]. This,
 incidentally, also extends to its unit test suite which can use either __boost_test__ OR __catch__ (actually my own thread
 safe fork of CATCH).
 
@@ -182,6 +189,8 @@ Note that __boost_afio__ is a C++ 11 only library, and it requires, as an absolu
 * Rvalue reference support.
 * Variadic templates.
 * Template aliasing.
+* Noexcept.
+* Constexpr (C++ 11).
 
 Some popular compilers known to be minimally sufficient thanks to [@https://ci.nedprod.com/ our Jenkins CI bot] include:
 
@@ -190,7 +199,7 @@ Some popular compilers known to be minimally sufficient thanks to [@https://ci.n
 * clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
 
 The Jenkins CI bot runs a full suite of static analysis tools (currently clang and MSVC static analysers and
-clang-tidy, the ABI stability compliance checker is planned), runtime analysis tools (currently the clang undefined behaviour
+clang-tidy, [@http://ispras.linuxbase.org/index.php/ABI_compliance_checker the ABI stability compliance checker] is planned), runtime analysis tools (currently the clang undefined behaviour
 and thread sanitisers plus valgrind memcheck) plus a full set of unit tests for all supported compilers
 on all supported platforms for every single commit to master branch and every single pull request. Additionally,
 the Travis CI bot runs a full set of code coverage for the unit tests which is pushed to coveralls.io.
@@ -210,7 +219,7 @@ As a very quick example of minimal usage:
 [include compiling.qbk]
 [include quickstart.qbk]
 [include reference.qbk]
-[include advanced_topics.qbk]
+[/ [include advanced_topics.qbk]]
 [include release_notes.qbk]
 [include acknowledgments.qbk]
 

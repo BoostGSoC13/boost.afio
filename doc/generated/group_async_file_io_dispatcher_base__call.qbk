@@ -15,9 +15,6 @@
 '''<indexterm><primary>call</primary></indexterm>'''
 Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete. 
 
-[heading Description]
-This is effectively a convenience wrapper for [^`completion()`]. It creates an enqueued\u005ftask matching the [^`completion_t`] handler specification and calls the specified arbitrary callable, always returning completion on exit.
-
 [heading Synopsis]
 ``template<class R>
 std::vector< future< R > > async_file_io_dispatcher_base::call(const std::vector< future<>> & ops, const std::vector< std::function< R()>> & callables)``
@@ -38,6 +35,7 @@ A pair with a batch of futures returning the result of each of the callables and
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.
 [heading Example][call_example]
@@ -51,9 +49,6 @@ A pair with a batch of futures returning the result of each of the callables and
 
 '''<indexterm><primary>call</primary></indexterm>'''
 Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete. 
-
-[heading Description]
-This is effectively a convenience wrapper for [^`completion()`]. It creates an enqueued\u005ftask matching the [^`completion_t`] handler specification and calls the specified arbitrary callable, always returning completion on exit. If you are seeing performance issues, using [^`completion()`] directly will have much less overhead.
 
 [heading Synopsis]
 ``template<class R>
@@ -74,6 +69,7 @@ A pair with a batch of futures returning the result of each of the callables and
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.
 [heading Example][call_example]

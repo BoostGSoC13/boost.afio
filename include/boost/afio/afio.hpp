@@ -1400,7 +1400,7 @@ public:
     bool valid() const noexcept { return _parent && _id; }
     //! The parent dispatcher of this future
     async_file_io_dispatcher_base *parent() const noexcept { return _parent; }
-    //! \deprecated Expected to be removed in the v1.5 engine
+    //! \deprecate{Expected to be removed in the v1.5 engine}
     size_t id() const noexcept { return _id; }
     //! Retrieves the handle or exception from the shared state, rethrowing any exception. Returns a null shared pointer if this future is invalid.
     std::shared_ptr<async_io_handle> get_handle(bool return_null_if_errored=false) const
@@ -1698,8 +1698,8 @@ public:
 #endif
 #endif
     /*! \brief Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete.
-    \deprecated This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.
-    
+
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.}
     \return A batch of op handles
     \param ops A batch of precondition op handles.
     \param callbacks A batch of pairs of op flags and bound completion handler functions of type `completion_t`
@@ -1711,8 +1711,8 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks);
     /*! \brief Schedule the asynchronous invocation of the specified single function when the supplied single operation completes.
-    \deprecated This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.
 
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.}
     \return An op handle
     \param req A precondition op handle
     \param callback A pair of op flag and bound completion handler function of type `completion_t`
@@ -1725,8 +1725,8 @@ public:
     inline future<> completion(const future<> &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback);
 
     /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
-    \deprecated This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.
 
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.}
     This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit.
     
@@ -1742,8 +1742,8 @@ public:
     */
     template<class R> inline std::vector<future<R>> call(const std::vector<future<>> &ops, const std::vector<std::function<R()>> &callables);
     /*! \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
-    \deprecated This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.
 
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.}
     This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
     are seeing performance issues, using `completion()` directly will have much less overhead.
@@ -1759,8 +1759,8 @@ public:
     */
     template<class R> std::vector<future<R>> call(const std::vector<std::function<R()>> &callables) { return call(std::vector<future<>>(), callables); }
     /*! \brief Schedule an asynchronous invocation of the specified bound function when its supplied precondition completes.
-    \deprecated This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.
 
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.}
     This is effectively a convenience wrapper for `completion()`. It creates an enqueued_task matching the `completion_t`
     handler specification and calls the specified arbitrary callable, always returning completion on exit. If you
     are seeing performance issues, using `completion()` directly will have much less overhead.
@@ -2448,8 +2448,7 @@ public:
 
     
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
-    \deprecated This function will be eliminated after lightweight future-promises are merged as one simply calls when_all() on the futures.
-
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls when_all() on the futures.}
     If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations
     to occur only after \b all of those operations have completed, this is the correct function to use. The returned
     batch of ops exactly match the input batch of ops (including their exception states), but they will only
@@ -2668,8 +2667,8 @@ namespace detail
 }
 
 /*! \brief Returns a result when all the supplied ops complete. Does not propagate exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
 \param _ An instance of std::nothrow_t.
@@ -2687,8 +2686,8 @@ template<class Iterator> inline typename detail::enable_if_async_op<true, typena
     return detail::when_all_ops<false>(first, last);
 }
 /*! \brief Returns a result when any the supplied ops complete. Does not propagate exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
 \param _ An instance of std::nothrow_t.
@@ -2706,8 +2705,8 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
     return detail::when_any_ops<false>(first, last);
 }
 /*! \brief Returns a result when all the supplied ops complete. Does not propagate exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param _ An instance of std::nothrow_t.
 \param ops A vector of the async_io_ops to wait upon.
@@ -2723,8 +2722,8 @@ template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>
     return detail::when_all_ops<false>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when any the supplied ops complete. Does not propagate exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param _ An instance of std::nothrow_t.
 \param ops A vector of the async_io_ops to wait upon.
@@ -2740,8 +2739,8 @@ template<class T> inline stl_future<std::shared_ptr<async_io_handle>> when_any(s
     return detail::when_any_ops<false>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when all the supplied ops complete. Propagates exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
 \param first An iterator pointing to the first future<> to wait upon.
@@ -2758,8 +2757,8 @@ template<class Iterator> inline typename detail::enable_if_async_op<true, typena
     return detail::when_all_ops<true>(first, last);
 }
 /*! \brief Returns a result when any the supplied ops complete. Propagates exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \tparam "class Iterator" An iterator type.
 \param first An iterator pointing to the first future<> to wait upon.
@@ -2776,8 +2775,8 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
     return detail::when_any_ops<true>(first, last);
 }
 /*! \brief Returns a result when all the supplied ops complete. Propagates exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param ops A vector of the async_io_ops to wait upon.
 \ingroup when_all_ops
@@ -2792,8 +2791,8 @@ template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>
     return detail::when_all_ops<true>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when any the supplied ops complete. Propagates exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param ops A vector of the async_io_ops to wait upon.
 \ingroup when_all_ops
@@ -2808,8 +2807,8 @@ template<class T> inline stl_future<std::shared_ptr<async_io_handle>> when_any(s
     return detail::when_any_ops<true>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when the supplied op completes. Does not propagate exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param _ An instance of std::nothrow_t.
 \param op An future<> to wait upon.
@@ -2824,8 +2823,8 @@ template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>
     return when_all(_, ops);
 }
 /*! \brief Returns a result when the supplied op completes. Propagates exception states.
-\deprecated This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).
 
+\deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
 \return A stl_future vector of shared_ptr's to async_io_handle.
 \param ops A sequence of future<> to wait upon.
 \ingroup when_all_ops

@@ -584,7 +584,7 @@ A stl_future volume metadatas.
 ]
 [[``std::vector< future<> > barrier(const std::vector< future<>> & ops)``
 
-] [Schedule an asynchronous synchronisation of preceding operations. ] [[* const std::vector< future<>> &]: ['ops]:  A batch of op handles.
+] [Schedule an asynchronous synchronisation of preceding operations.  ] [[* const std::vector< future<>> &]: ['ops]:  A batch of op handles.
 
 
 

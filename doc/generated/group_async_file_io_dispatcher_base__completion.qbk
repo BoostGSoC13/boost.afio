@@ -33,6 +33,7 @@ A batch of op handles
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.
 [heading Example][completion_example1]
@@ -65,6 +66,7 @@ An op handle
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(1) to dispatch. Amortised O(1) to complete.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.
 [heading Example][completion_example1]

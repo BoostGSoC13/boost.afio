@@ -36,6 +36,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Non propagating
 
@@ -70,6 +71,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Non propagating
 
@@ -103,6 +105,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Non propagating
 
@@ -136,6 +139,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Non propagating
 
@@ -169,6 +173,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Propagating
 
@@ -202,6 +207,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Propagating
 
@@ -234,6 +240,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Propagating
 
@@ -266,6 +273,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Propagating
 
@@ -299,6 +307,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(1).
 [heading Exception Model]Non propagating
 
@@ -331,6 +340,7 @@ A stl\u005ffuture vector of shared\u005fptr's to async\u005fio\u005fhandle.
 [heading Header]
 `#include <boost/afio/afio.hpp>`
 
+[caution This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).]
 [heading Complexity]O(N).
 [heading Exception Model]Propagating
 
