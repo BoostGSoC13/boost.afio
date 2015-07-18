@@ -2501,89 +2501,12 @@ protected:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, future<> h, completion_t *callback);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, future<> h, std::function<completion_t> callback);
 
-    // Generic op receiving specialisation i.e. precondition is also input op. Skips sanity checking.
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, future<>))
-    {
-      std::vector<future<>> ret;
-      ret.reserve(preconditions.size());
-      detail::immediate_async_ops immediates(preconditions.size());
-      for (auto &i : preconditions)
-      {
-        ret.push_back(chain_async_op(immediates, optype, i, flags, f, i));
-      }
-      return ret;
-    }
-    // General non-specialised implementation taking some arbitrary parameter T with precondition
-    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T))
-    {
-      std::vector<future<>> ret;
-      ret.reserve(container.size());
-      assert(preconditions.size() == container.size());
-      if (preconditions.size() != container.size())
-        BOOST_AFIO_THROW(std::runtime_error("preconditions size does not match size of ops data"));
-      detail::immediate_async_ops immediates(preconditions.size());
-      auto precondition_it = preconditions.cbegin();
-      auto container_it = container.cbegin();
-      for (; precondition_it != preconditions.cend() && container_it != container.cend(); ++precondition_it, ++container_it)
-        ret.push_back(chain_async_op(immediates, optype, *precondition_it, flags, f, *container_it));
-      return ret;
-    }
-    // General non-specialised implementation taking some arbitrary parameter T containing precondition returning custom type
-    template<class R, class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, std::shared_ptr<promise<R>>))
-    {
-      std::vector<future<R>> ret;
-      ret.reserve(preconditions.size());
-      detail::immediate_async_ops immediates(preconditions.size());
-      for (auto &i : preconditions)
-      {
-        auto s(std::make_shared<promise<R>>());
-        ret.push_back(future<R>(chain_async_op(immediates, optype, i, flags, f, s), s->get_future()));
-      }
-      return ret;
-    }
-    // General non-specialised implementation taking some arbitrary parameter T with precondition returning custom type
-    template<class R, class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T, std::shared_ptr<promise<R>>))
-    {
-      std::vector<future<R>> ret;
-      ret.reserve(container.size());
-      assert(preconditions.size() == container.size());
-      if (preconditions.size() != container.size())
-        BOOST_AFIO_THROW(std::runtime_error("preconditions size does not match size of ops data"));
-      detail::immediate_async_ops immediates(preconditions.size());
-      auto precondition_it = preconditions.cbegin();
-      auto container_it = container.cbegin();
-      for (; precondition_it != preconditions.cend() && container_it != container.cend(); ++precondition_it, ++container_it)
-      {
-        auto s(std::make_shared<promise<R>>());
-        ret.push_back(future<R>(chain_async_op(immediates, optype, *precondition_it, flags, f, *container_it, s), s->get_future()));
-      }
-      return ret;
-    }
-    // General non-specialised implementation taking some arbitrary parameter T containing precondition
-    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T))
-    {
-      std::vector<future<>> ret;
-      ret.reserve(container.size());
-      detail::immediate_async_ops immediates(container.size());
-      for (auto &i : container)
-      {
-        ret.push_back(chain_async_op(immediates, optype, i.precondition, flags, f, i));
-      }
-      return ret;
-    }
-    // General non-specialised implementation taking some arbitrary parameter T containing precondition returning custom type
-    template<class R, class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T, std::shared_ptr<promise<R>>))
-    {
-      std::vector<future<R>> ret;
-      ret.reserve(container.size());
-      detail::immediate_async_ops immediates(container.size());
-      for (auto &i : container)
-      {
-        auto s(std::make_shared<promise<R>>());
-        ret.push_back(future<R>(chain_async_op(immediates, optype, i.precondition, flags, f, i, s), s->get_future()));
-      }
-      return ret;
-    }
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, future<>));
+    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T));
+    template<class R, class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, std::shared_ptr<promise<R>>));
+    template<class R, class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<future<>> &preconditions, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T, std::shared_ptr<promise<R>>));
+    template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T));
+    template<class R, class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T, std::shared_ptr<promise<R>>));
 
     template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, future<> h, T);
     template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> invoke_async_op_completions(size_t id, future<> h, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
