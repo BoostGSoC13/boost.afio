@@ -13,7 +13,7 @@
     [category afio]
     [authors [Douglas, Niall], [Kirth, Paul]]
     [copyright 2013-2015 Niall Douglas and Paul Kirth]
-    [purpose A portable asynchronous file i/o library extending Boost.ASIO]
+    [purpose A portable asynchronous file i/o and filesystem library extending Boost.ASIO]
     [license
         Distributed under the Boost Software License, Version 1.0.
         (See accompanying file LICENSE_1_0.txt or copy at

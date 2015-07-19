@@ -162,6 +162,8 @@ accessors.
 * Replaced all functions returning pairs of futures with afio::future<T> instead.
 
 
+USE ?dbhtml-include TO INSERT THE TRY IT NOW BUTTON INTO THE FRONT PAGE
+
 Make boost/afio/afio_v1.hpp for v1.3 branch. Add BOOST_AFIO_LATEST_NAMESPACE. v1 namespace must
 become not inline so v2 namespace is inline.
 

@@ -692,3 +692,32 @@ span.green { color: green; }
 
 /* Have Disqus comment counts be small */
 span.disqus-comment-count { font-size: x-small; margin-left: 1em; }
+
+/* Try it now online button */
+div.spirit-nav form { display: inline; float: left; }
+input.tryitnowbtn {
+  background: #3498db;
+  background-image: -webkit-linear-gradient(top, #3498db, #17425c);
+  background-image: -moz-linear-gradient(top, #3498db, #17425c);
+  background-image: -ms-linear-gradient(top, #3498db, #17425c);
+  background-image: -o-linear-gradient(top, #3498db, #17425c);
+  background-image: linear-gradient(to bottom, #3498db, #17425c);
+  -webkit-border-radius: 28;
+  -moz-border-radius: 28;
+  border-radius: 28px;
+  text-shadow: 2px 2px 3px #001040;
+  font-family: Arial;
+  color: #ffffff;
+  font-size: 12px;
+  padding: 2px 8px 2px 8px;
+  text-decoration: none;
+}
+input.tryitnowbtn:hover {
+  background: #46fc3c;
+  background-image: -webkit-linear-gradient(top, #46fc3c, #218a21);
+  background-image: -moz-linear-gradient(top, #46fc3c, #218a21);
+  background-image: -ms-linear-gradient(top, #46fc3c, #218a21);
+  background-image: -o-linear-gradient(top, #46fc3c, #218a21);
+  background-image: linear-gradient(to bottom, #46fc3c, #218a21);
+  text-decoration: none;
+}
