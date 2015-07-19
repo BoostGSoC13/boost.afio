@@ -694,7 +694,7 @@ span.green { color: green; }
 span.disqus-comment-count { font-size: x-small; margin-left: 1em; }
 
 /* Try it now online button */
-div.spirit-nav form { display: inline; float: left; }
+div.spirit-nav form { display: inline; float: left; height: 0px; }
 input.tryitnowbtn {
   background: #3498db;
   background-image: -webkit-linear-gradient(top, #3498db, #17425c);

@@ -493,9 +493,10 @@ into memory, regex it for the pattern and if found print the file's path.
 
 Let's now look at the AFIO implementation, and you should prepare yourself because it is far
 more mind bendy due to the many nestings of callbacks needed (it may remind you of WinRT or .NET
-code, everything is asynchronous callback). In the v1.4 engine we ought to gain Fiber support,
-these stackful coroutines are very similar to the resumable functions support coming in C++ 17
-and will let me rewrite the below to be vastly simpler:
+code, everything is asynchronous callback):
+
+[note In the v1.4 engine we ought to gain C++ 1z stackful coroutine support which will let me rewrite
+the below to be vastly simpler.]
 
 [find_in_files_afio]
 

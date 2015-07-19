@@ -61,25 +61,40 @@ amount of legacy cruft code e.g. support for non-variadic templates was cleaned 
 During ACCU and C++ Now 2015 I spoke with a number of ISO WG21 committee members about the structural
 design problems in iostreams and the Filesystem TS (lack of filesystem race freedom, lack of context
 dependant filesystem), and what design the committee would prefer to see to fix those problems. As it
-happens, we were all close to the same page, so from the v1.4 engine onwards I resolved to refactor the AFIO API to:
+happens, we were all close to the same page, so from the v1.4 engine onwards I resolved to refactor the AFIO API thusly:
 
 # Since v1.0 AFIO implemented the Concurrency TS continuations atop standard futures using a central hash table
 to keep the continuations information per future. This had the big advantage that standard STL and Boost
 futures could be used, but it came with many other problems, mainly performance and code complexity related.
 An additional problem was that the Concurrency TS had moved on considerably since 2012, and AFIO's emulation
 was now significantly out of date.
-For v1.4 a new lightweight future-promise factory toolkit library called __boost_monad__ was written which makes
+For v1.4 a new lightweight future-promise factory toolkit library called __boost_monad__ was written between the
+end of C++ Now (May) and the beginning of the AFIO peer review (July) which makes
 easy the writing of arbitrarily customisable future-promises for C++ which:
+
  * Implements an almost complete Concurrency TS ([@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4399.html N4399])
 future-promise specification with almost all the Boost.Thread future-promise extensions.
  * Are very considerably more performant (2x-3x) and much more reliably low latency (no memory allocation).
  * Permit arbitrary wait composure of any kind of custom future-promise with one another.
  * Are part of a general purpose lightweight C++ monadic programming implementation, so futures are merely
 asynchronous monads.
- * Natively support C++ 1z coroutines ([@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4499.pdf N4499]).
+ * Natively support C++ 1z coroutines ([@http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4499.pdf N4499])
+which are currently only supported by Visual Studio 2015.
+
  The use of this future factory toolkit makes the AFIO continuations infrastructure redundant, and it will
 therefore be removed shortly. The monadic programming library also makes quite a bit of internal AFIO
-implementation code much more simplified.
+implementation code much more simplified as thanks to the monads, one can use noexcept design throughout and therefore
+skip dealing directly with exception safety as the monads take away the potential of control flow being reversed
+by an exception throw.
+
+ [note This version of AFIO being presented for Boost review does not yet make use of lightweight future-promises,
+and instead mocks up the eventual API using the existing highly mature and very well tested engine. The API presented
+is expected to be final, except for the very few items specified as deprecated (see below for a list). This has been
+done in order to test that the engine rewrite based on lightweight future-promise exactly matches the behaviour of
+the current engine using an identical unit test suite.
+
+I should emphasise that I expect any programs written to match the presented API to continue to work after the engine
+rewrite __dash__ after all the internal unit test suite will do so.]
 
 # For race free filesystem programming, you really need to base all path related operations on an open file
 descriptor or handle, so something like:
@@ -106,19 +121,22 @@ was written for, and remember you can compose `afio::future` with any other kind
 # One oft-observed design limitation in the Filesystem TS is that it cannot support filesystems in filesystems,
 with the most classic example being a ZIP archive on a filesystem where it might be nice to allow generic C++
 filesystem code to not need to be aware that the filesystem it sees is inside a ZIP archive. The solution is twofold:
+
  * Make the Filesystem TS operations hang as virtual member functions off some `filesystem` abstract base class.
  * Have a thread local variable set the current `filesystem` instance to be used by the global Filesystem TS
 functions on that thread.
 
  AFIO v1.4 and probably v1.5 won't implement this as this is really a thing for Boost.Filesystem to do. However,
-AFIO has an equivalent in that an `async_io_dispatcher_base` instance has a suite of virtual member functions
-which define what some filesystem is or does. AFIO v1.4 only provides POSIX and Windows kernel filesystem backends
+AFIO is already ready for a Filesystem TS implementation matching the above design to be written on top of it in that
+an `async_io_dispatcher_base` instance has a suite of virtual member functions
+which define what some filesystem is or does. AFIO v1.4 only provides POSIX and NT kernel filesystem backends
 currently, however it is expected that v1.5 will add a new temporary filesystem backend which lets programs
 portably work inside `tmpfs` in whichever form that takes across Linux, FreeBSD, Apple OS X and Microsoft Windows.
-Additional backends implementing say a ZIP archive filesystem is similarly easy to add on.
+Additional backends implementing say a ZIP archive filesystem are similarly easy to add on.
 
-Note that due to the above refactoring some parts of this v1.4 release of AFIO are deprecated and are expected
+As mentioned above, note that due to the above refactoring some parts of this v1.4 release of AFIO are deprecated and are expected
 to be removed shortly. You can find a list of these shortly to be removed APIs and parts [link afio.release_notes here].
+The list is not long, and the removals are obvious.
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 

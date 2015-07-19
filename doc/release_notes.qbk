@@ -24,7 +24,7 @@ TS looked very different - indeed, the Concurrency TS was adjusted at the time t
 AFIO's implementation after Microsoft studied AFIO's design. However, the TS has moved on
 considerably since again, and AFIO's continuations API has not kept up.
 
-As a result, AFIO's non-standard when_all()/when_any() functions are going to be replaced with ones
+ As a result, AFIO's non-standard when_all()/when_any() functions are going to be replaced with ones
 exactly matching N4399 - lightweight future-promise already has an implementation which
 accepts any combination of custom future types into the same wait composure, and after
 AFIO is using those lightweight futures it can dispense with its own (highly inefficient)
@@ -40,7 +40,7 @@ these APIs will also be vanishing:
   * `async_io_dispatcher_base::barrier()` - replaced with when_all().
 
 * Lightweight future-promise also enables C++ 1z coroutines, and therefore the code examples
-in the documentation can then be rewritten to use C++ 1z coroutines where appropriately. This
+in the documentation can then be rewritten to use C++ 1z coroutines where appropriate. This
 should particularly aid the find regex in files tutorial example which is currently very messy.
 
 [/=================]
