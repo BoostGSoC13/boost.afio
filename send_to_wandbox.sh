@@ -21,3 +21,4 @@ if [[ $FRAME != "" ]]; then
 else
     echo $URL
 fi
+rm -rf send_to_wandbox_tmp

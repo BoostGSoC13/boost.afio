@@ -1336,6 +1336,35 @@ public:
 #endif
 };
 
+/*! \brief Retrieves the currently set async_file_io_dispatcher for this thread, optionally setting it to
+a new dispatcher.
+
+\return The current async_file_io_dispatcher.
+\param new_dispatcher The new async_file_io_dispatcher to set.
+\ingroup async_file_io_dispatcher
+*/
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> current_async_file_io_dispatcher(option<std::shared_ptr<async_file_io_dispatcher_base>> new_dispatcher = empty);
+
+/*! \class current_dispatcher_guard
+
+RAII holder for the current async file i/o dispatcher.
+
+\ingroup async_file_io_dispatcher
+*/
+class current_dispatcher_guard
+{
+  std::shared_ptr<async_file_io_dispatcher_base> _old;
+public:
+  current_dispatcher_guard(std::shared_ptr<async_file_io_dispatcher_base> _new) : _old(current_async_file_io_dispatcher(_new)) { }
+  ~current_dispatcher_guard() { current_async_file_io_dispatcher(_old); }
+  //! Restore the former async file i/o dispatcher now.
+  void release() { current_async_file_io_dispatcher(_old); _old.reset(); }
+  //! Don't restore the former async file i/o dispatcher.
+  void dismiss() { _old.reset(); }
+  //! Set a different former async file i/o dispatcher on destruction.
+  void reset(std::shared_ptr<async_file_io_dispatcher_base> p) { _old=p; }
+};
+
 // Temporary friends for future<>
 namespace detail
 {
@@ -1452,6 +1481,11 @@ public:
       if (!valid())
         throw future_error(future_errc::no_state);
       return _h.wait_until(deadline);
+    }
+    //! Schedules a callable to be invoked after this future becomes ready. If this future is null, use the current async file i/o dispatcher.
+    template<class U> future<> then(U &&f)
+    {
+      return f(*this);
     }
     //! Validates contents
     bool validate(bool check_handle=true) const
@@ -3847,6 +3881,185 @@ inline future<> async_file_io_dispatcher_base::depends(future<> precondition, fu
     i.push_back(std::move(callback));
     return std::move(completion(r, i).front());
 }
+
+namespace detail
+{
+  template<class T> struct async_dir
+  {
+    T path;
+    file_flags flags;
+    async_dir(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> operator()(future<> f=future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      async_path_op_req req(!dispatcher ? (
+        dispatcher = current_async_file_io_dispatcher().get(),
+        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->dir(std::vector<async_path_op_req>(1, std::move(req))).front());
+    }
+  };
+  template<class T> struct async_rmdir
+  {
+    T path;
+    file_flags flags;
+    async_rmdir(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      async_path_op_req req(!dispatcher ? (
+        dispatcher = current_async_file_io_dispatcher().get(),
+        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
+    }
+  };
+  template<class T> struct async_file
+  {
+    T path;
+    file_flags flags;
+    async_file(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      async_path_op_req req(!dispatcher ? (
+        dispatcher = current_async_file_io_dispatcher().get(),
+        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->file(std::vector<async_path_op_req>(1, std::move(req))).front());
+    }
+  };
+  template<class T> struct async_rmfile
+  {
+    T path;
+    file_flags flags;
+    async_rmfile(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      async_path_op_req req(!dispatcher ? (
+        dispatcher = current_async_file_io_dispatcher().get(),
+        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
+    }
+  };
+}
+/*! \brief Returns a callable which when called with a future<> schedules a dir operation
+
+\tparam "class T" The type of path to be used.
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup free_functions
+*/
+template<class T> inline detail::async_dir<T> async_dir(T _path, file_flags _flags = file_flags::none) 
+{
+  return detail::async_dir<T>(std::move(_path), _flags);
+}
+/*! \brief Synchronously issue a dir operation
+
+\tparam "class T" The type of path to use.
+\param _precondition The precondition to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup free_functions
+*/
+template<class T> inline std::shared_ptr<async_io_handle> dir(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+{
+  return async_dir(std::move(_path), _flags)(_precondition).get_handle();
+}
+
+/*! \brief Returns a callable which when called with a future<> schedules a rmdir operation
+
+\tparam "class T" The type of path to be used.
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup free_functions
+*/
+template<class T> inline detail::async_rmdir<T> async_rmdir(T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_rmdir<T>(std::move(_path), _flags);
+}
+inline detail::async_rmdir<BOOST_AFIO_V2_NAMESPACE::path> async_rmdir()
+{
+  return detail::async_rmdir<BOOST_AFIO_V2_NAMESPACE::path>(BOOST_AFIO_V2_NAMESPACE::path(), file_flags::none);
+}
+/*! \brief Synchronously issue a rmdir operation
+
+\tparam "class T" The type of path to use.
+\param _precondition The precondition to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup free_functions
+*/
+template<class T> inline std::shared_ptr<async_io_handle> rmdir(future<> _precondition, T _path = BOOST_AFIO_V2_NAMESPACE::path(), file_flags _flags = file_flags::none)
+{
+  return async_rmdir(std::move(_path), _flags)(_precondition).get_handle();
+}
+/*! \brief Synchronously issue a rmdir operation
+
+\tparam "class T" The type of path to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup free_functions
+*/
+template<class T> inline std::shared_ptr<async_io_handle> rmdir(T _path, file_flags _flags = file_flags::none)
+{
+  return async_rmdir(std::move(_path), _flags)(future<>()).get_handle();
+}
+
+/*! \brief Returns a callable which when called with a future<> schedules a file operation
+
+\tparam "class T" The type of path to be used.
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup free_functions
+*/
+template<class T> inline detail::async_file<T> async_file(T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_file<T>(std::move(_path), _flags);
+}
+/*! \brief Synchronously issue a file operation
+
+\tparam "class T" The type of path to use.
+\param _precondition The precondition to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup free_functions
+*/
+template<class T> inline std::shared_ptr<async_io_handle> file(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+{
+  return async_file(std::move(_path), _flags)(_precondition).get_handle();
+}
+
+/*! \brief Returns a callable which when called with a future<> schedules a rmfile operation
+
+\tparam "class T" The type of path to be used.
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup free_functions
+*/
+template<class T> inline detail::async_rmfile<T> async_rmfile(T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_rmfile<T>(std::move(_path), _flags);
+}
+inline detail::async_rmfile<BOOST_AFIO_V2_NAMESPACE::path> async_rmfile()
+{
+  return detail::async_rmfile<BOOST_AFIO_V2_NAMESPACE::path>(BOOST_AFIO_V2_NAMESPACE::path(), file_flags::none);
+}
+/*! \brief Synchronously issue a rmfile operation
+
+\tparam "class T" The type of path to use.
+\param _precondition The precondition to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup free_functions
+*/
+template<class T> inline std::shared_ptr<async_io_handle> rmfile(future<> _precondition, T _path = BOOST_AFIO_V2_NAMESPACE::path(), file_flags _flags = file_flags::none)
+{
+  return async_rmfile(std::move(_path), _flags)(_precondition).get_handle();
+}
+
 
 //! Utility routines often useful when using AFIO
 namespace utils

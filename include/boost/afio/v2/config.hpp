@@ -352,7 +352,7 @@ namespace boost { namespace asio {
 BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
-#include "spinlock/include/boost/spinlock/spinlock.hpp"
+#include "spinlock/include/boost/spinlock/monad.hpp"
 BOOST_AFIO_V2_NAMESPACE_BEGIN
   using BOOST_SPINLOCK_V1_NAMESPACE::is_lockable_locked;
   using spins_to_sleep = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_sleep;
@@ -362,6 +362,9 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
   template<class T> using spinlockbase = BOOST_SPINLOCK_V1_NAMESPACE::spinlockbase<T>;
   template<class T> using lockable_ptr = BOOST_SPINLOCK_V1_NAMESPACE::lockable_ptr<T>;
   template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_SPINLOCK_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
+  template<typename R> using option = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::option<R>;
+  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::empty;
+  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::make_option;
 BOOST_AFIO_V2_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -729,6 +729,8 @@ namespace detail {
     {
       if(!req.is_relative)
         return std::shared_ptr<async_io_handle>();
+      if(!req.precondition.valid())
+        return std::shared_ptr<async_io_handle>();
       Handle *p=static_cast<Handle *>(&*req.precondition);
 retry:
       async_path_op_req parentpath(p->path(true));
@@ -765,7 +767,10 @@ retry:
               BOOST_AFIO_THROW(std::invalid_argument("Cannot use a path fragment inside a file, try prepending a ../"));
             // Trim the preceding ..
             auto &nativepath=const_cast<BOOST_AFIO_V2_NAMESPACE::path::string_type &>(req.path.native());
-            nativepath=nativepath.substr(3);
+            if(nativepath.size()>=3)
+              nativepath=nativepath.substr(3);
+            else
+              nativepath.clear();
           }
           std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
           if(dirh)
@@ -3437,6 +3442,15 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_ba
 #else
     return std::make_shared<detail::async_file_io_dispatcher_compat>(threadpool, flagsforce, flagsmask);
 #endif
+}
+
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> current_async_file_io_dispatcher(option<std::shared_ptr<async_file_io_dispatcher_base>> new_dispatcher)
+{
+    static thread_local std::shared_ptr<async_file_io_dispatcher_base> current;
+    std::shared_ptr<async_file_io_dispatcher_base> ret(current);
+    if(new_dispatcher)
+        current=new_dispatcher.get();
+    return ret;
 }
 
 namespace utils

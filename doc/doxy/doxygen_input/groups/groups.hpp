@@ -29,6 +29,7 @@
 \defgroup when_all_ops x
 \defgroup async_data_op_req x
 \defgroup make_async_data_op_req x
+\defgroup free_functions x
 \defgroup utils x
 \defgroup async_io_handle__ops x
 */

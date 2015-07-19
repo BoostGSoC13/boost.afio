@@ -103,12 +103,13 @@ descriptor or handle, so something like:
  std::shared_ptr<afio::async_io_handle> &h;  // Some open file handle
  
  // Create a sibling file to h->path() race free
+ // Identical to afio::async_file("../newfile", afio::file_flags::create)(h).get_handle()
  std::shared_ptr<afio::async_io_handle> newfileh=afio::file(h, "../newfile", afio::file_flags::create);
 
  // Asynchronously create a sibling file to h->path() race free
  // afio::future has type void because afio::future *always* carries a shared pointer to a handle
  // (it only gets a type when the operation returns more than a file handle)
- afio::future<void> newfilefh2=afio::async_file(h, "../newfile", afio::file_flags::create);
+ afio::future<void> newfilefh2=afio::async_file("../newfile", afio::file_flags::create)(h);
 
  // Wait for the asynchronous file creation to complete, rethrowing any error or exception
  std::shared_ptr<afio::async_io_handle> newfileh2=newfilefh2.get_handle();
