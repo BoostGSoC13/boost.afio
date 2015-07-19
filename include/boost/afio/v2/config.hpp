@@ -352,7 +352,7 @@ namespace boost { namespace asio {
 BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
-#include "spinlock/include/boost/spinlock/monad.hpp"
+#include "../spinlock/include/boost/spinlock/monad.hpp"
 BOOST_AFIO_V2_NAMESPACE_BEGIN
   using BOOST_SPINLOCK_V1_NAMESPACE::is_lockable_locked;
   using spins_to_sleep = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_sleep;
