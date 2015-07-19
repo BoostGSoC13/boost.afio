@@ -3906,8 +3906,8 @@ namespace detail
   template<class T> struct async_read
   {
     async_data_op_req<T> req;
-    template<class U> async_read(U &&v, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _where)) { }
-    template<class U> async_read(U &&v, size_t _length, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _length, _where)) { }
+    template<class U> async_read(U &&v, off_t _where) : req(BOOST_AFIO_V2_NAMESPACE::make_async_data_op_req(std::forward<U>(v), _where)) { }
+    template<class U> async_read(U &&v, size_t _length, off_t _where) : req(BOOST_AFIO_V2_NAMESPACE::make_async_data_op_req(std::forward<U>(v), _length, _where)) { }
     future<> operator()(future<> f = future<>())
     {
       async_file_io_dispatcher_base *dispatcher = f.parent();
@@ -3919,8 +3919,8 @@ namespace detail
   template<class T> struct async_write
   {
     async_data_op_req<T> req;
-    template<class U> async_write(U &&v, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _where)) { }
-    template<class U> async_write(U &&v, size_t _length, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _length, _where)) { }
+    template<class U> async_write(U &&v, off_t _where) : req(BOOST_AFIO_V2_NAMESPACE::make_async_data_op_req(std::forward<U>(v), _where)) { }
+    template<class U> async_write(U &&v, size_t _length, off_t _where) : req(BOOST_AFIO_V2_NAMESPACE::make_async_data_op_req(std::forward<U>(v), _length, _where)) { }
     future<> operator()(future<> f = future<>())
     {
       async_file_io_dispatcher_base *dispatcher = f.parent();
