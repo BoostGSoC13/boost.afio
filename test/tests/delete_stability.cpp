@@ -2,7 +2,7 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and directories always succeeds", 120)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
     static BOOST_CONSTEXPR_OR_CONST size_t ITERATIONS=1000;
     static BOOST_CONSTEXPR_OR_CONST size_t ITEMS=10;
     // Oh Windows, oh Windows, how strange you are ...

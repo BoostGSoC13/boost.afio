@@ -3,8 +3,8 @@
 BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handling works", 300)
 {
 #ifndef BOOST_AFIO_THREAD_SANITIZING
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 
     // Oh Windows, oh Windows, how strange you are ...
     for (size_t n = 0; n < 10; n++)

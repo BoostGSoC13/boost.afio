@@ -2,8 +2,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of sparse and compressed files", 60)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     std::vector<char> buffer(1024*1024, 'n');
     ranctx ctx; raninit(&ctx, 1);
     u4 *buf=(u4 *) buffer.data();

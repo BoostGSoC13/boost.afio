@@ -22,8 +22,8 @@ For 2 concurrent writers, achieved 1266.4 attempts per second with a success rat
 //[benchmark_atomic_log
 int main(int argc, const char *argv[])
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    using BOOST_AFIO_V1_NAMESPACE::off_t;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    using BOOST_AFIO_V2_NAMESPACE::off_t;
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
     double traditional_locks=0, atomic_log_locks=0;
     try { filesystem::remove_all("testdir"); } catch(...) {}

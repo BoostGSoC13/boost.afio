@@ -73,9 +73,9 @@ File Created: Mar 2013
 #include <limits>
 #include <random>
 #include <unordered_map>
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
   template<class Key, class T, class Hash=std::hash<Key>, class Pred=std::equal_to<Key>, class Alloc=std::allocator<std::pair<const Key, T>>> using engine_unordered_map_t=std::unordered_map<Key, T, Hash, Pred, Alloc>;
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #include <sys/types.h>
 #ifdef __MINGW32__
@@ -115,7 +115,7 @@ typedef __int64 off64_t;
 #define S_IFLNK 0xA000
 #endif
 #endif
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 static inline filesystem::file_type to_st_type(uint16_t mode)
 {
     switch(mode & S_IFMT)
@@ -164,7 +164,7 @@ static BOOST_CONSTEXPR_OR_CONST int at_fdcwd=-100;
 #endif
 // Should give a compile time error on compilers with constexpr
 static inline BOOST_CONSTEXPR_OR_CONST int check_fdcwd(int dirh) { return (dirh!=at_fdcwd) ? throw std::runtime_error("dirh is not at_fdcwd on a platform which does not have XXXat() API support") : 0; }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 #ifdef WIN32
 // We also compile the posix compat layer for catching silly compile errors for POSIX
 #include <io.h>
@@ -241,7 +241,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #define BOOST_AFIO_POSIX_MUNMAP ::munmap
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 static inline chrono::system_clock::time_point to_timepoint(struct timespec ts)
 {
     // Need to have this self-adapt to the STL being used
@@ -295,12 +295,12 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
 #endif
     if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=((off_t) s.st_blocks*512)<(off_t) s.st_size; }
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
 #  ifdef WIN32
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 typedef std::vector<void *> stack_type;
 inline void collect_stack(stack_type &stack)
 {
@@ -336,7 +336,7 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
       s << std::endl;
   }
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 #  else
 #    include <dlfcn.h>
 // Set to 1 to use libunwind instead of glibc's stack backtracer
@@ -349,7 +349,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #        include <cxxabi.h>
 #      endif
 #    endif
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 typedef std::vector<void *> stack_type;
 inline void collect_stack(stack_type &stack)
 {
@@ -435,10 +435,10 @@ inline void print_stack(std::ostream &s, const stack_type &stack)
       s << std::endl;
   }
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 struct afio_exception_stack_entry
 {
   std::string name;
@@ -450,7 +450,7 @@ inline afio_exception_stack_t *&afio_exception_stack()
   static BOOST_AFIO_THREAD_LOCAL afio_exception_stack_t *s;
   return s;
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
 #include "ErrorHandling.ipp"
@@ -459,7 +459,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 #ifndef IOV_MAX
 #define IOV_MAX 1024
 #endif
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 struct iovec {
     void  *iov_base;    /* Starting address */
     size_t iov_len;     /* Number of bytes to transfer */
@@ -495,10 +495,10 @@ inline ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
         if(-1==(transferred=_write(fd, iov->iov_base, (unsigned) iov->iov_len))) return -1;
     return (ssize_t)(at);
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #elif !defined(IOV_MAX) || defined(__APPLE__)  // Android lacks preadv() and pwritev()
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 #ifndef IOV_MAX
 #define IOV_MAX 1024
 struct iovec {
@@ -523,12 +523,12 @@ inline ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset
         if(-1==(transferred=pwrite(fd, iov->iov_base, (unsigned) iov->iov_len, at))) return -1;
     return (ssize_t)(at-offset);
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #endif
 
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 std::shared_ptr<std_thread_pool> process_threadpool()
 {
@@ -576,9 +576,9 @@ namespace detail {
   struct actual_lock_file : std::enable_shared_from_this<actual_lock_file>
   {
     // TODO FIXME This needs to cope with sudden file relocations
-    BOOST_AFIO_V1_NAMESPACE::path path, lockfilepath;
+    BOOST_AFIO_V2_NAMESPACE::path path, lockfilepath;
   protected:
-    actual_lock_file(BOOST_AFIO_V1_NAMESPACE::path p) : path(p), lockfilepath(p)
+    actual_lock_file(BOOST_AFIO_V2_NAMESPACE::path p) : path(p), lockfilepath(p)
     {
       lockfilepath+=".afiolockfile";
     }
@@ -597,7 +597,7 @@ namespace detail {
     std::vector<struct flock> local_locks;
 #endif
     std::vector<async_lock_op_req> locks;
-    posix_actual_lock_file(BOOST_AFIO_V1_NAMESPACE::path p) : actual_lock_file(std::move(p)), h(0)
+    posix_actual_lock_file(BOOST_AFIO_V2_NAMESPACE::path p) : actual_lock_file(std::move(p)), h(0)
     {
 #ifndef WIN32
       bool done=false;
@@ -764,7 +764,7 @@ retry:
             if(req.path.native()[0]!='.' || req.path.native()[1]!='.')
               BOOST_AFIO_THROW(std::invalid_argument("Cannot use a path fragment inside a file, try prepending a ../"));
             // Trim the preceding ..
-            auto &nativepath=const_cast<BOOST_AFIO_V1_NAMESPACE::path::string_type &>(req.path.native());
+            auto &nativepath=const_cast<BOOST_AFIO_V2_NAMESPACE::path::string_type &>(req.path.native());
             nativepath=nativepath.substr(3);
           }
           std::shared_ptr<async_io_handle> dirh=p->container();  // quite likely empty
@@ -789,12 +789,12 @@ retry:
         ino_t st_ino;
         void *mapaddr; size_t mapsize;
         typedef spinlock<bool> pathlock_t;
-        mutable pathlock_t pathlock; BOOST_AFIO_V1_NAMESPACE::path _path;
+        mutable pathlock_t pathlock; BOOST_AFIO_V2_NAMESPACE::path _path;
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
         std::unique_ptr<posix_lock_file> lockfile;
 #endif
 
-        async_io_handle_posix(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V1_NAMESPACE::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), st_dev(0), st_ino(0), mapaddr(nullptr), mapsize(0), _path(path)
+        async_io_handle_posix(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : async_io_handle(_parent, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), st_dev(0), st_ino(0), mapaddr(nullptr), mapsize(0), _path(path)
         {
             if(fd!=-999)
             {
@@ -817,7 +817,7 @@ retry:
         }
         //! Returns the containing directory if my inode appears in it
         inline std::shared_ptr<async_io_handle> int_verifymyinode();
-        void update_path(BOOST_AFIO_V1_NAMESPACE::path oldpath, BOOST_AFIO_V1_NAMESPACE::path newpath)
+        void update_path(BOOST_AFIO_V2_NAMESPACE::path oldpath, BOOST_AFIO_V2_NAMESPACE::path newpath)
         {
           // For now, always zap the container
           dirh.reset();
@@ -856,7 +856,7 @@ retry:
           return available_to_directory_cache() ? open_states::opendir : open_states::open;
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path(bool refresh=false) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path path(bool refresh=false) override final
         {
           if(refresh)
           {
@@ -871,7 +871,7 @@ retry:
             }
             else
             {
-              BOOST_AFIO_V1_NAMESPACE::path newpath;
+              BOOST_AFIO_V2_NAMESPACE::path newpath;
 #if defined(__linux__)
               // Linux keeps a symlink at /proc/self/fd/n
               char in[PATH_MAX+1], out[32769];
@@ -967,7 +967,7 @@ retry:
 #error Unknown system
 #endif
               bool changed=false;
-              BOOST_AFIO_V1_NAMESPACE::path oldpath;
+              BOOST_AFIO_V2_NAMESPACE::path oldpath;
               {
                 lock_guard<pathlock_t> g(pathlock);
                 if((changed=(_path!=newpath)))
@@ -984,7 +984,7 @@ retry:
           lock_guard<pathlock_t> g(pathlock);
           return _path;
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path() const override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path path() const override final
         {
           lock_guard<pathlock_t> g(pathlock);
           return _path;
@@ -1002,7 +1002,7 @@ retry:
                 // If I'm the right sort of directory, register myself with the dircache. path(true) on some platforms may have
                 // already done this, but it's not much harm to repeat myself.
                 if(available_to_directory_cache())
-                  parent()->int_directory_cached_handle_path_changed(BOOST_AFIO_V1_NAMESPACE::path(), newpath, shared_from_this());                  
+                  parent()->int_directory_cached_handle_path_changed(BOOST_AFIO_V2_NAMESPACE::path(), newpath, shared_from_this());                  
             }
             if(!!(flags() & file_flags::hold_parent_open) && !(flags() & file_flags::int_hold_parent_open_nested))
               dirh=int_verifymyinode();
@@ -1026,7 +1026,7 @@ retry:
                   errno=ENOENT;
                   BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
                 }
-                BOOST_AFIO_V1_NAMESPACE::path leaf(path().filename());
+                BOOST_AFIO_V2_NAMESPACE::path leaf(path().filename());
                 BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT((int)(size_t)dirh->native_handle(), leaf.c_str(), &s), [this]{return path();});
               }
               else
@@ -1044,7 +1044,7 @@ retry:
               return directory_entry(const_cast<async_io_handle_posix *>(this)->path(true).filename().native(), stat, wanted);
             }
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path target() override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path target() override final
         {
 #ifdef WIN32
             return path();
@@ -1069,7 +1069,7 @@ retry:
                 errno=ENOENT;
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
-              BOOST_AFIO_V1_NAMESPACE::path leaf(path().filename());
+              BOOST_AFIO_V2_NAMESPACE::path leaf(path().filename());
               if((len = readlinkat((int)(size_t)dirh->native_handle(), leaf.c_str(), buffer, sizeof(buffer)-1)) == -1)
                   BOOST_AFIO_ERRGOS(-1);
             }
@@ -1127,12 +1127,12 @@ retry:
                 errno=ENOENT;
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
-              BOOST_AFIO_V1_NAMESPACE::path leaf(path().filename());
+              BOOST_AFIO_V2_NAMESPACE::path leaf(path().filename());
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str(), 0), [this]{return path();});
 #else
               // At least check if what I am about to delete matches myself
               BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-              BOOST_AFIO_V1_NAMESPACE::path p(path(true));
+              BOOST_AFIO_V2_NAMESPACE::path p(path(true));
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
               if(s.st_dev!=st_dev || s.st_ino!=st_ino)
               {
@@ -1167,12 +1167,12 @@ retry:
                 errno=ENOENT;
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
-              BOOST_AFIO_V1_NAMESPACE::path leaf(path().filename());
+              BOOST_AFIO_V2_NAMESPACE::path leaf(path().filename());
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT((int)(size_t)dirh->native_handle(), leaf.c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
 #else
               // At least check if what I am about to delete matches myself
               BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-              BOOST_AFIO_V1_NAMESPACE::path p(path(true));
+              BOOST_AFIO_V2_NAMESPACE::path p(path(true));
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
               if(s.st_dev!=st_dev || s.st_ino!=st_ino)
               {
@@ -1187,7 +1187,7 @@ retry:
           }
           BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_UNLINKAT(at_fdcwd, path(true).c_str(), opened_as_dir() ? AT_REMOVEDIR : 0), [this]{return path();});
 update_path:
-          BOOST_AFIO_V1_NAMESPACE::path oldpath, newpath;
+          BOOST_AFIO_V2_NAMESPACE::path oldpath, newpath;
           {
             lock_guard<pathlock_t> g(pathlock);
             oldpath=std::move(_path);
@@ -1209,12 +1209,12 @@ update_path:
                 errno=ENOENT;
                 BOOST_AFIO_ERRHOSFN(-1, [this]{return path();});
               }
-              BOOST_AFIO_V1_NAMESPACE::path leaf(path().filename());
+              BOOST_AFIO_V2_NAMESPACE::path leaf(path().filename());
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT((int)(size_t)dirh->native_handle(), leaf.c_str(), newdirh ? (int)(size_t)newdirh->native_handle() : at_fdcwd, req.path.c_str()), [this]{return path();});
 #else
               // At least check if what I am about to delete matches myself
               BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-              BOOST_AFIO_V1_NAMESPACE::path p(path(true));
+              BOOST_AFIO_V2_NAMESPACE::path p(path(true));
               BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, p.c_str(), &s), [this]{return path();});
               if(s.st_dev!=st_dev || s.st_ino!=st_ino)
               {
@@ -1232,7 +1232,7 @@ update_path:
           decode_relative_path<async_file_io_dispatcher_compat, async_io_handle_posix>(req, true);
           BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_RENAMEAT(at_fdcwd, path(true).c_str(), at_fdcwd, req.path.c_str()), [this]{return path();});
 update_path:
-          BOOST_AFIO_V1_NAMESPACE::path oldpath;
+          BOOST_AFIO_V2_NAMESPACE::path oldpath;
           {
             lock_guard<pathlock_t> g(pathlock);
             oldpath=std::move(_path);
@@ -1922,9 +1922,9 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void async_file_io_dispatcher_base::complet
               print_stack(buffer, i.stack);
             }
             if(is_system_error)
-              e=BOOST_AFIO_V1_NAMESPACE::make_exception_ptr(system_error(ec, buffer.str()));
+              e=BOOST_AFIO_V2_NAMESPACE::make_exception_ptr(system_error(ec, buffer.str()));
             else
-              e=BOOST_AFIO_V1_NAMESPACE::make_exception_ptr(std::runtime_error(buffer.str()));
+              e=BOOST_AFIO_V2_NAMESPACE::make_exception_ptr(std::runtime_error(buffer.str()));
           }
         }
 #endif
@@ -3334,13 +3334,13 @@ namespace detail {
     }
 }
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #if defined(WIN32) && !defined(USE_POSIX_ON_WIN32)
 #include "afio_iocp.ipp"
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh)
 {
@@ -3421,7 +3421,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
 #if BOOST_AFIO_POSIX_PROVIDES_AT_PATH_FUNCTIONS
         BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT((int)(size_t)dirh->native_handle(), leafname.c_str(), &s), [&]{return dirh->path()/leafname;});
 #else
-        BOOST_AFIO_V1_NAMESPACE::path path(dirh->path(true));
+        BOOST_AFIO_V2_NAMESPACE::path path(dirh->path(true));
         path/=leafname;
         BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_LSTATAT(at_fdcwd, path.c_str(), &s), [&path]{return path;});
 #endif
@@ -3442,7 +3442,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_ba
 namespace utils
 {
   // Stupid MSVC ...
-  namespace detail { using namespace BOOST_AFIO_V1_NAMESPACE::detail; }
+  namespace detail { using namespace BOOST_AFIO_V2_NAMESPACE::detail; }
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
@@ -3621,7 +3621,7 @@ namespace utils
 }
 
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #ifdef _MSC_VER
 #pragma warning(pop)

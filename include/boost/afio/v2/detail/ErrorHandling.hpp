@@ -45,28 +45,28 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_AFIO_EXCEPTION_LINE(p) __LINE__
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
   class path;
   namespace detail{
     
 #ifdef WIN32
-                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename);
+                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename);
                     extern "C" unsigned __stdcall GetLastError();
-#define BOOST_AFIO_ERRGWIN(code)                { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, nullptr); }
-#define BOOST_AFIO_ERRGWINFN(code, filename)    { BOOST_AFIO_V1_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, std::function<BOOST_AFIO_V1_NAMESPACE::path()>(filename)); }
+#define BOOST_AFIO_ERRGWIN(code)                { BOOST_AFIO_V2_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, nullptr); }
+#define BOOST_AFIO_ERRGWINFN(code, filename)    { BOOST_AFIO_V2_NAMESPACE::detail::int_throwWinError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, std::function<BOOST_AFIO_V2_NAMESPACE::path()>(filename)); }
 #define BOOST_AFIO_ERRHWIN(exp)             { unsigned __errcode=(unsigned)(exp); if(!__errcode) BOOST_AFIO_ERRGWIN(GetLastError()); }
 #define BOOST_AFIO_ERRHWINFN(exp, filename) { unsigned __errcode=(unsigned)(exp); if(!__errcode) BOOST_AFIO_ERRGWINFN(GetLastError(), filename); }
 
-                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename);
-#define BOOST_AFIO_ERRGNT(code)             { BOOST_AFIO_V1_NAMESPACE::detail::int_throwNTError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, nullptr); }
-#define BOOST_AFIO_ERRGNTFN(code, filename) { BOOST_AFIO_V1_NAMESPACE::detail::int_throwNTError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, std::function<BOOST_AFIO_V1_NAMESPACE::path()>(filename)); }
+                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename);
+#define BOOST_AFIO_ERRGNT(code)             { BOOST_AFIO_V2_NAMESPACE::detail::int_throwNTError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, nullptr); }
+#define BOOST_AFIO_ERRGNTFN(code, filename) { BOOST_AFIO_V2_NAMESPACE::detail::int_throwNTError(BOOST_AFIO_EXCEPTION_FILE(0), BOOST_AFIO_EXCEPTION_FUNCTION(0), BOOST_AFIO_EXCEPTION_LINE(0), code, std::function<BOOST_AFIO_V2_NAMESPACE::path()>(filename)); }
 #define BOOST_AFIO_ERRHNT(exp)              { unsigned __errcode=(unsigned)(exp); if(0/*STATUS_SUCCESS*/!=__errcode) BOOST_AFIO_ERRGNT(__errcode); }
 #define BOOST_AFIO_ERRHNTFN(exp, filename)  { unsigned __errcode=(unsigned)(exp); if(0/*STATUS_SUCCESS*/!=__errcode) BOOST_AFIO_ERRGNTFN(__errcode, filename); }
 #endif // WIN32
 
-                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename);
-#define BOOST_AFIO_ERRGOS(code)             { BOOST_AFIO_V1_NAMESPACE::detail::int_throwOSError(BOOST_AFIO_EXCEPTION_FILE(code), BOOST_AFIO_EXCEPTION_FUNCTION(code), BOOST_AFIO_EXCEPTION_LINE(code), code, nullptr); }
-#define BOOST_AFIO_ERRGOSFN(code, filename) { BOOST_AFIO_V1_NAMESPACE::detail::int_throwOSError(BOOST_AFIO_EXCEPTION_FILE(code), BOOST_AFIO_EXCEPTION_FUNCTION(code), BOOST_AFIO_EXCEPTION_LINE(code), code, std::function<BOOST_AFIO_V1_NAMESPACE::path()>(filename)); }
+                    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename);
+#define BOOST_AFIO_ERRGOS(code)             { BOOST_AFIO_V2_NAMESPACE::detail::int_throwOSError(BOOST_AFIO_EXCEPTION_FILE(code), BOOST_AFIO_EXCEPTION_FUNCTION(code), BOOST_AFIO_EXCEPTION_LINE(code), code, nullptr); }
+#define BOOST_AFIO_ERRGOSFN(code, filename) { BOOST_AFIO_V2_NAMESPACE::detail::int_throwOSError(BOOST_AFIO_EXCEPTION_FILE(code), BOOST_AFIO_EXCEPTION_FUNCTION(code), BOOST_AFIO_EXCEPTION_LINE(code), code, std::function<BOOST_AFIO_V2_NAMESPACE::path()>(filename)); }
             /*! Use this macro to wrap POSIX, UNIX or CLib functions. On BOOST_WINDOWS, the includes anything in
             MSVCRT which sets errno
             */
@@ -77,5 +77,5 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 #define BOOST_AFIO_ERRHOSFN(exp, filename)      { int __errcode=(int)(exp); if(__errcode<0) BOOST_AFIO_ERRGOSFN(errno, filename); }
   }//namespace detail
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 

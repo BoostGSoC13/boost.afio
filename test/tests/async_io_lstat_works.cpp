@@ -2,8 +2,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() works", 60)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     // Oh Windows, oh Windows, how strange you are ...
     for (size_t n = 0; n < 10; n++)
     {

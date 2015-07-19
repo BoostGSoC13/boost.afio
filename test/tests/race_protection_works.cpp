@@ -2,7 +2,7 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection works", 300)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
 #ifdef __APPLE__
     // This test cannot pass on OS X currently, so exit immediately.
     return;
@@ -156,7 +156,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
       dispatcher.reset();
       std::cout << "Checking that we successfully renamed " << (ITEMS*(ITERATIONS-1)+1) << " items into the same directory ..." << std::endl;
       BOOST_CHECK(_contents.size() == (ITEMS*(ITERATIONS-1)+1));
-      std::set<BOOST_AFIO_V1_NAMESPACE::filesystem::path> contents;
+      std::set<BOOST_AFIO_V2_NAMESPACE::filesystem::path> contents;
       for(auto &i : _contents)
         contents.insert(i.name());
       BOOST_CHECK(contents.size() == (ITEMS*(ITERATIONS-1)+1));

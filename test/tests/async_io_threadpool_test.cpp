@@ -7,8 +7,8 @@ Created: Feb 2013
 
 static int task()
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     thread::id this_id = this_thread::get_id();
         std::cout << "I am worker thread " << this_id << std::endl;
         return 78;
@@ -17,8 +17,8 @@ static int task()
  
 BOOST_AFIO_AUTO_TEST_CASE(async_io_thread_pool_works, "Tests that the async i/o thread pool implementation works", 10)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     
     thread::id this_id = this_thread::get_id();
     

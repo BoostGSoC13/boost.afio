@@ -2,7 +2,7 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as they are supposed to", 20)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
     auto dispatcher = make_async_file_io_dispatcher();
     auto dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
     dirh.get();
@@ -73,7 +73,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
       std::cout << "\nDeleting hellobaby file using OS ..." << std::endl;
       filesystem::remove("testdir/hellobaby");
       auto afterdelete = print_stat(h);
-      BOOST_CHECK(h->path() == BOOST_AFIO_V1_NAMESPACE::path());
+      BOOST_CHECK(h->path() == BOOST_AFIO_V2_NAMESPACE::path());
       std::cout << "\nEnumerating directory to make sure hellobaby is not there ..." << std::endl;
       auto contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 50)).get().first;
       for (auto &i : contents)

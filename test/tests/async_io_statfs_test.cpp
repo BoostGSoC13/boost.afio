@@ -2,7 +2,7 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_statfs, "Tests statfs", 20)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
     auto dispatcher = make_async_file_io_dispatcher();
     std::cout << "\n\nTesting statfs:\n";
     auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));

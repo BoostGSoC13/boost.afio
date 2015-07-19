@@ -2,8 +2,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions work", 120)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
 
     std::cout << "\n\nSystem page sizes are: " << std::endl;

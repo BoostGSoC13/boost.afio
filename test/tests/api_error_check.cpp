@@ -2,7 +2,7 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(api_error_check, "Tests that every API returns errors as it is supposed to", 20)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
     auto dispatcher = make_async_file_io_dispatcher();
 #define BOOST_AFIO_CHECK_SYSTEM_ERROR_CODE(call, errcode) try { BOOST_TEST_MESSAGE("Testing " #call); call; BOOST_FAIL("Exception not thrown by " #call); } \
   catch(const system_error &e) { BOOST_CHECK(e.code().value()==errcode); std::cout << "\nsystem_error message from " #call " was: " << e.what() << std::endl; } \

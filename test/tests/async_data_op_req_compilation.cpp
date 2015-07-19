@@ -4,8 +4,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use cases for async_data_op_req compile", 10)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     // Note that this test is mainly for testing metaprogramming compilation, it doesn't really do much
     {
         auto dispatcher=make_async_file_io_dispatcher();

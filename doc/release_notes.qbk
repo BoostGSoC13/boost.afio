@@ -47,6 +47,9 @@ should particularly aid the find regex in files tutorial example which is curren
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
+Todo:
+ * Add unit test for multi-version use within the same translation unit.
+
 * The v1.4 engine will be rewritten yet again to use a new custom future
 implementation whereby async_io_op shall become afio::future<T>. This should
 let the API no longer return two sets of futures when returning results
@@ -161,11 +164,12 @@ accessors.
 
 * Replaced all functions returning pairs of futures with afio::future<T> instead.
 
+* Docs now contain commenting facility per reference page plus on some of the essay pages.
 
-USE ?dbhtml-include TO INSERT THE TRY IT NOW BUTTON INTO THE FRONT PAGE
+* Online docs now include a "Try AFIO now in online compiler" button every page.
 
-Make boost/afio/afio_v1.hpp for v1.3 branch. Add BOOST_AFIO_LATEST_NAMESPACE. v1 namespace must
-become not inline so v2 namespace is inline.
+* Implemented multi-version compatibility, and backported that patch to the v1.3 branch.
+The v1.3 branch is now included in the v1.4 branch as v1.
 
 REWRITE CODE EXAMPLES TO USE NEW API.
 

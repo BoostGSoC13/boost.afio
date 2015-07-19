@@ -2,8 +2,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier works correctly under load", 180)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
     std::vector<std::pair<size_t, int>> groups;
     // Generate 500,000 sorted random numbers between 0-10000

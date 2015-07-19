@@ -8,7 +8,7 @@ File Created: Mar 2013
 #include <Windows.h>
 #include <winioctl.h>
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace windows_nt_kernel
 {
@@ -696,6 +696,6 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
     if(!!(wanted&metadata_flags::size)) { stat.st_size=s.st_size; }
 }
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #endif

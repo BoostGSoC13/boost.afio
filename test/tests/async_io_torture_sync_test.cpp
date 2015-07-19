@@ -2,8 +2,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_torture_sync, "Tortures the synchronous async i/o implementation", 60)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 #ifndef BOOST_AFIO_RUNNING_IN_CI
     auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::always_sync);
     std::cout << "\n\nSustained random synchronous i/o to 10 files of 1Mb:\n";

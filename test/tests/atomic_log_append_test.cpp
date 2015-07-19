@@ -7,8 +7,8 @@
 BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shared log file works as expected", 60)
 {
     std::cout << "\n\nTesting atomic append to a shared log file\n";
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    using BOOST_AFIO_V1_NAMESPACE::off_t;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    using BOOST_AFIO_V2_NAMESPACE::off_t;
     try { filesystem::remove_all("testdir"); } catch(...) {}
     filesystem::create_directory("testdir");
     std::vector<thread> threads;

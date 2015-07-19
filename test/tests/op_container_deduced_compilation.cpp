@@ -2,8 +2,8 @@
 
 BOOST_AFIO_AUTO_TEST_CASE(op_container_deduced_compilation, "Tests that all the op container classes compile with single arg deduced construction", 10)
 {
-    using namespace BOOST_AFIO_V1_NAMESPACE;
-    namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+    using namespace BOOST_AFIO_V2_NAMESPACE;
+    namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     // Note that this test is mainly for testing metaprogramming compilation.
     if(false)
     {

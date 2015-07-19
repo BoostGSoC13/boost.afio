@@ -51,7 +51,7 @@ DEALINGS IN THE SOFTWARE.
 
 
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
         namespace detail {
 enum class allocator_alignment : size_t
 {
@@ -255,5 +255,5 @@ operator!= (const aligned_allocator<T,TAlign,Tinit>&, const aligned_allocator<U,
 
 
         }//namespace detail
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 

@@ -5,8 +5,8 @@ int main(void)
     try
     {
         //[readwrite_example
-        namespace afio = BOOST_AFIO_V1_NAMESPACE;
-        namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
+        namespace afio = BOOST_AFIO_V2_NAMESPACE;
+        namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 
         std::shared_ptr<afio::async_file_io_dispatcher_base> dispatcher=
             afio::make_async_file_io_dispatcher();
@@ -75,7 +75,7 @@ int main(void)
         afio::when_all(req.precondition /*close*/, deletedfile).get();        /*< waits for file close and delete to complete, throwing any exceptions encountered >*/
         //]
     }
-    catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: program exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; return 1; }
+    catch(const BOOST_AFIO_V2_NAMESPACE::system_error &e) { std::cerr << "ERROR: program exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; return 1; }
     catch(const std::exception &e) { std::cerr << "ERROR: program exits via exception (" << e.what() << ")" << std::endl; return 1; }
     catch(...) { std::cerr << "ERROR: program exits via " << boost::current_exception_diagnostic_information(true) << std::endl; return 1; }
     return 0;

@@ -1,8 +1,8 @@
 #include "test_functions.hpp"
 
-using namespace BOOST_AFIO_V1_NAMESPACE;
-namespace asio = BOOST_AFIO_V1_NAMESPACE::asio;
-namespace afio = BOOST_AFIO_V1_NAMESPACE;
+using namespace BOOST_AFIO_V2_NAMESPACE;
+namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
+namespace afio = BOOST_AFIO_V2_NAMESPACE;
 
 struct test_handle : async_io_handle
 {

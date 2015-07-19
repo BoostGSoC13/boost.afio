@@ -218,9 +218,9 @@ EXPAND_AS_DEFINED      = BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD \
                          BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC \
                          BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC \
                          BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC \
-                         BOOST_AFIO_V1_NAMESPACE \
-                         BOOST_AFIO_V1_NAMESPACE_BEGIN \
-                         BOOST_AFIO_V1_NAMESPACE_END
+                         BOOST_AFIO_V2_NAMESPACE \
+                         BOOST_AFIO_V2_NAMESPACE_BEGIN \
+                         BOOST_AFIO_V2_NAMESPACE_END
 SKIP_FUNCTION_MACROS   = YES
 
 

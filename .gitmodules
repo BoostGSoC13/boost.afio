@@ -6,3 +6,7 @@
 	path = include/boost/afio/spinlock
 	url = https://github.com/ned14/boost.spinlock.git
         branch = master
+[submodule "include/boost/afio/v1/branch"]
+	path = include/boost/afio/v1/branch
+	url = https://github.com/BoostGSoC13/boost.afio.git
+	branch = v1.3_Boost_v1.58_branch

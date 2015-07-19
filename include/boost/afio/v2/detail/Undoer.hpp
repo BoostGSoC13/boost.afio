@@ -36,7 +36,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <utility>
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
   namespace detail{
             
             namespace Impl {
@@ -92,6 +92,6 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
         }//namespace detail
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 

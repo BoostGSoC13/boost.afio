@@ -9,7 +9,7 @@ File Created: Nov 2012
 #include <locale>
 #include <cstring>
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 namespace detail {
   inline void push_exception(std::string name) noexcept
   {
@@ -26,7 +26,7 @@ namespace detail {
 #endif
   }
 }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #ifdef WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -34,10 +34,10 @@ BOOST_AFIO_V1_NAMESPACE_END
 #endif
 #include <Windows.h>
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
   namespace detail{
             
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename)
             {
                 if(ERROR_NOT_ENOUGH_MEMORY==code || ERROR_OUTOFMEMORY==code) BOOST_AFIO_THROW(std::bad_alloc());
                 asio::error_code ec(code, system_category());
@@ -82,7 +82,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }
 
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwNTError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename)
             {
                 // system_category needs a win32 code, not NT kernel code
 #ifdef _MSC_VER
@@ -147,14 +147,14 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
             }
 
   } // namespace detail
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
   namespace detail{
 
-            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V1_NAMESPACE::path()> filename)
+            BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename)
             {
                 if(ENOMEM==code) BOOST_AFIO_THROW(std::bad_alloc());
                 asio::error_code ec(code, generic_category());
@@ -181,4 +181,4 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
                 BOOST_AFIO_THROW(system_error(ec, errstr));
             }// end int_throwOSError
   }// namespace detail
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END

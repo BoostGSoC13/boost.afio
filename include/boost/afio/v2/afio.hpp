@@ -42,15 +42,15 @@ DEALINGS IN THE SOFTWARE.
 
 // clang-format off
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
-#undef BOOST_AFIO_V1_NAMESPACE
-#undef BOOST_AFIO_V1_NAMESPACE_BEGIN
-#undef BOOST_AFIO_V1_NAMESPACE_END
+#undef BOOST_AFIO_V2_NAMESPACE
+#undef BOOST_AFIO_V2_NAMESPACE_BEGIN
+#undef BOOST_AFIO_V2_NAMESPACE_END
 #undef BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
 #undef BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC
 
-#define BOOST_AFIO_V1_NAMESPACE boost::afio
-#define BOOST_AFIO_V1_NAMESPACE_BEGIN namespace boost { namespace afio {
-#define BOOST_AFIO_V1_NAMESPACE_END } }
+#define BOOST_AFIO_V2_NAMESPACE boost::afio
+#define BOOST_AFIO_V2_NAMESPACE_BEGIN namespace boost { namespace afio {
+#define BOOST_AFIO_V2_NAMESPACE_END } }
 #define BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC
 #define BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC virtual
 #endif
@@ -103,7 +103,7 @@ for dispatch. This, being very useful for debugging, defaults to 1 except when
 \brief Determines if AFIO is bound against standalone ASIO or Boost.ASIO. Defaults to undefined, and therefore Boost.ASIO.
 */
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 // This isn't consistent on MSVC so hard code it
 typedef unsigned long long off_t;
@@ -1177,9 +1177,9 @@ public:
     [raceguarantee OS X..Paths are only refreshed for directories and files with a single hard link.]
     }
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path path(bool refresh=false) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the last known good path of this i/o handle. May be null if the file has been deleted.
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path path() const BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Returns the final flags used when this handle was opened
     file_flags flags() const { return _flags; }
     //! True if this handle was opened as a file
@@ -1226,7 +1226,7 @@ public:
     [raceguarantee OS X..No guarantees.]
     }
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V1_NAMESPACE::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     //! Tries to map the file into memory. Currently only works if handle is read-only.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Hard links the file to a new location on the same volume.
@@ -2850,7 +2850,7 @@ if necessary they are made canonical and absolute in the constructor according t
 struct async_path_op_req
 {
     bool is_relative;           //!< Whether the precondition is also where this path begins
-    BOOST_AFIO_V1_NAMESPACE::path path;            //!< The filing system path to be used for this operation
+    BOOST_AFIO_V2_NAMESPACE::path path;            //!< The filing system path to be used for this operation
     file_flags flags;           //!< The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
     future<> precondition;   //!< An optional precondition for this operation
     //! \brief Tags the path as being absolute
@@ -2874,7 +2874,7 @@ struct async_path_op_req
     \param _flags The flags to be used.
     */
 
-    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<future<>, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
+    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<future<>, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
     \tparam "class T" The type of path to be used.
@@ -2883,9 +2883,9 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V1_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V1_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V1_NAMESPACE::path(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V2_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V2_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V2_NAMESPACE::path(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! \overload
-    async_path_op_req(bool _is_relative, future<> _precondition, BOOST_AFIO_V1_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    async_path_op_req(bool _is_relative, future<> _precondition, BOOST_AFIO_V2_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
@@ -2935,7 +2935,7 @@ struct async_path_op_req::absolute : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> absolute(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V1_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
+  template<class T> absolute(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
 };
 inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
@@ -4416,27 +4416,27 @@ namespace utils
 }
 
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 // Specialise std::hash<> for directory_entry
 #ifndef BOOST_AFIO_DISABLE_STD_HASH_SPECIALIZATION
 #include <functional>
 namespace std
 {
-    template<> struct hash<BOOST_AFIO_V1_NAMESPACE::path>
+    template<> struct hash<BOOST_AFIO_V2_NAMESPACE::path>
     {
     public:
-        size_t operator()(const BOOST_AFIO_V1_NAMESPACE::path &p) const
+        size_t operator()(const BOOST_AFIO_V2_NAMESPACE::path &p) const
         {
-            return BOOST_AFIO_V1_NAMESPACE::path_hash()(p);
+            return BOOST_AFIO_V2_NAMESPACE::path_hash()(p);
         }
     };
-    template<> struct hash<BOOST_AFIO_V1_NAMESPACE::directory_entry>
+    template<> struct hash<BOOST_AFIO_V2_NAMESPACE::directory_entry>
     {
     public:
-        size_t operator()(const BOOST_AFIO_V1_NAMESPACE::directory_entry &p) const
+        size_t operator()(const BOOST_AFIO_V2_NAMESPACE::directory_entry &p) const
         {
-            return BOOST_AFIO_V1_NAMESPACE::directory_entry_hash()(p);
+            return BOOST_AFIO_V2_NAMESPACE::directory_entry_hash()(p);
         }
     };
 

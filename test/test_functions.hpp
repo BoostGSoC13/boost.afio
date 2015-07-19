@@ -36,8 +36,8 @@ extern "C" void tzset(void);
 #include <random>
 #include <fstream>
 #include "../detail/SpookyV2.h"
-#include "boost/afio/detail/Aligned_Allocator.hpp"
-#include "boost/afio/detail/valgrind/valgrind.h"
+#include "Aligned_Allocator.hpp"
+#include "boost/afio/v2/detail/valgrind/valgrind.h"
 #include <time.h>
 
 #ifdef BOOST_AFIO_INCLUDE_SPOOKY_IMPL
@@ -90,7 +90,7 @@ try{\
 # define BOOST_AFIO_CHECK_NO_THROW(expr) BOOST_CHECK_NO_THROW(expr)
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 // Force maximum CPUs available to threads in this process, if available on this platform
 #ifdef MAXIMUM_TEST_CPUS
@@ -153,7 +153,7 @@ static inline void watchdog_thread(size_t timeout, std::shared_ptr<std::pair<ato
 
 #define BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(callable) \
   try { callable; } \
-  catch(const BOOST_AFIO_V1_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; throw; } \
+  catch(const BOOST_AFIO_V2_NAMESPACE::system_error &e) { std::cerr << "ERROR: unit test exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; throw; } \
   catch(const std::exception &e) { std::cerr << "ERROR: unit test exits via exception (" << e.what() << ")" << std::endl; throw; }
 #if BOOST_AFIO_USE_BOOST_UNIT_TEST
 template<class T> inline void wrap_test_method(T &t)
@@ -164,7 +164,7 @@ template<class T> inline void wrap_test_method(T &t)
 }
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #if BOOST_AFIO_USE_BOOST_UNIT_TEST
 // Define a unit test description and timeout
@@ -208,12 +208,12 @@ static void BOOST_AUTO_TC_INVOKER( test_name )()                        \
     /*boost::unit_test::unit_test_monitor_t::instance().p_timeout.set(timeout);*/ \
     BOOST_TEST_MESSAGE(desc);                                           \
     std::cout << std::endl << desc << std::endl;                        \
-    try { BOOST_AFIO_V1_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
-    BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
-    auto cv=std::make_shared<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
+    try { BOOST_AFIO_V2_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
+    BOOST_AFIO_V2_NAMESPACE::set_maximum_cpus();                                                 \
+    auto cv=std::make_shared<std::pair<BOOST_AFIO_V2_NAMESPACE::atomic<bool>, BOOST_AFIO_V2_NAMESPACE::condition_variable>>(); \
     cv->first=false;                                                    \
-    BOOST_AFIO_V1_NAMESPACE::thread watchdog(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv);                 \
-    boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { BOOST_AFIO_V1_NAMESPACE::wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
+    BOOST_AFIO_V2_NAMESPACE::thread watchdog(BOOST_AFIO_V2_NAMESPACE::watchdog_thread, timeout, cv);                 \
+    boost::unit_test::unit_test_monitor_t::instance().execute([&]() -> int { BOOST_AFIO_V2_NAMESPACE::wrap_test_method(t); cv->first=true; cv->second.notify_all(); watchdog.join(); return 0; }); \
 }                                                                       \
                                                                         \
 struct BOOST_AUTO_TC_UNIQUE_ID( test_name ) {};                         \
@@ -237,17 +237,17 @@ CATCH_TEST_CASE(BOOST_CATCH_AUTO_TEST_CASE_NAME(__test_name), __desc)           
     }                                                                   \
     BOOST_TEST_MESSAGE(__desc);                                           \
     std::cout << std::endl << __desc << std::endl;                        \
-    try { BOOST_AFIO_V1_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
-    BOOST_AFIO_V1_NAMESPACE::set_maximum_cpus();                                                 \
-    auto cv=std::make_shared<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>>(); \
+    try { BOOST_AFIO_V2_NAMESPACE::filesystem::remove_all("testdir"); } catch(...) { } \
+    BOOST_AFIO_V2_NAMESPACE::set_maximum_cpus();                                                 \
+    auto cv=std::make_shared<std::pair<BOOST_AFIO_V2_NAMESPACE::atomic<bool>, BOOST_AFIO_V2_NAMESPACE::condition_variable>>(); \
     cv->first=false;                                                    \
     struct __deleter_t {                                                \
-      std::shared_ptr<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>> cv;     \
-      BOOST_AFIO_V1_NAMESPACE::thread watchdog;                                             \
-      __deleter_t(std::shared_ptr<std::pair<BOOST_AFIO_V1_NAMESPACE::atomic<bool>, BOOST_AFIO_V1_NAMESPACE::condition_variable>> _cv, \
-        BOOST_AFIO_V1_NAMESPACE::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
+      std::shared_ptr<std::pair<BOOST_AFIO_V2_NAMESPACE::atomic<bool>, BOOST_AFIO_V2_NAMESPACE::condition_variable>> cv;     \
+      BOOST_AFIO_V2_NAMESPACE::thread watchdog;                                             \
+      __deleter_t(std::shared_ptr<std::pair<BOOST_AFIO_V2_NAMESPACE::atomic<bool>, BOOST_AFIO_V2_NAMESPACE::condition_variable>> _cv, \
+        BOOST_AFIO_V2_NAMESPACE::thread &&_watchdog) : cv(std::move(_cv)), watchdog(std::move(_watchdog)) { } \
       ~__deleter_t() { cv->first=true; cv->second.notify_all(); watchdog.join(); } \
-    } __deleter(cv, BOOST_AFIO_V1_NAMESPACE::thread(BOOST_AFIO_V1_NAMESPACE::watchdog_thread, timeout, cv));         \
+    } __deleter(cv, BOOST_AFIO_V2_NAMESPACE::thread(BOOST_AFIO_V2_NAMESPACE::watchdog_thread, timeout, cv));         \
     BOOST_AFIO_TRAP_EXCEPTIONS_IN_TEST(__test_name ## _impl())         \
     catch(...) { std::cerr << "ERROR: unit test exits via unknown exception" << std::endl; throw; } \
 }                                                                       \
@@ -255,7 +255,7 @@ static void __test_name ## _impl()                                      \
 
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 // From http://burtleburtle.net/bob/rand/smallprng.html
 typedef unsigned int  u4;
@@ -911,6 +911,6 @@ static void print_stat(std::shared_ptr<async_io_handle> dirh, directory_entry di
 #undef PRINT_FIELD
 }
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #endif

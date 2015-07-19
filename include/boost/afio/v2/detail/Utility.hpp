@@ -50,7 +50,7 @@ DEALINGS IN THE SOFTWARE.
 #endif
 #endif
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
   namespace detail {
 #ifdef _MSC_VER
             static inline int win32_exception_filter()
@@ -98,7 +98,7 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
 
             BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void print_fatal_exception_message_to_stderr(const char *msg);
         }
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 #ifndef BOOST_AFIO_THROW_FATAL
 // Need some portable way of throwing a really absolutely definitely fatal exception
@@ -114,7 +114,7 @@ BOOST_AFIO_V1_NAMESPACE_END
 namespace boost { namespace afio { namespace fatal_exception_throw {
             template<class T> inline void do_throw_fatal_exception(const T &v) noexcept
             {
-                BOOST_AFIO_V1_NAMESPACE::detail::print_fatal_exception_message_to_stderr(v.what());
+                BOOST_AFIO_V2_NAMESPACE::detail::print_fatal_exception_message_to_stderr(v.what());
                 throw v;
             }
             extern "C" inline void boost_afio_do_throw_fatal_exception(std::function<void()> impl) noexcept{ impl(); }
@@ -142,7 +142,7 @@ namespace boost { namespace afio { namespace fatal_exception_throw {
 #endif // BOOST_AFIO_THROW_FATAL
 
 
-BOOST_AFIO_V1_NAMESPACE_BEGIN
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
   namespace detail {
     // Support for make_unique. I keep wishing it was already here!
@@ -290,6 +290,6 @@ BOOST_AFIO_V1_NAMESPACE_BEGIN
         }
     };
 
-BOOST_AFIO_V1_NAMESPACE_END
+BOOST_AFIO_V2_NAMESPACE_END
 
 
