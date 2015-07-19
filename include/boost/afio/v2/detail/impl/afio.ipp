@@ -3446,7 +3446,11 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_ba
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> current_async_file_io_dispatcher(option<std::shared_ptr<async_file_io_dispatcher_base>> new_dispatcher)
 {
+#ifdef __FreeBSD__
+    static __thread std::shared_ptr<async_file_io_dispatcher_base> current;
+#else
     static thread_local std::shared_ptr<async_file_io_dispatcher_base> current;
+#endif
     std::shared_ptr<async_file_io_dispatcher_base> ret(current);
     if(new_dispatcher)
         current=new_dispatcher.get();

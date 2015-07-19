@@ -1854,24 +1854,9 @@ public:
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
     \exceptionmodelstd
-    \qexample{adopt_example}
+    \qexample{adopt_batch_example}
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
-    /*! \brief Schedule an adoption of a third party handle.
-
-    This function enables you to adopt third party custom async_io_handle derivatives
-    as ops into the scheduler. Think of it as if you were calling file(), except the
-    op returns the supplied handle and otherwise does nothing.
-
-    \return An op handle.
-    \param h A handle to adopt.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-    \exceptionmodelstd
-    \qexample{adopt_example}
-    */
-    inline future<> adopt(std::shared_ptr<async_io_handle> h);
     /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
     Note that if there is already a handle open to the directory requested, that will be returned instead of
@@ -1890,30 +1875,9 @@ public:
     }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory creation is constant time.}
     \exceptionmodelstd
-    \qexample{filedir_example}
+    \qexample{filedir_batch_example}
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> dir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous directory creation and open after an optional precondition.
-
-    Note that if there is already a handle open to the directory requested, that will be returned instead of
-    a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
-    is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
-    happen.
-
-    \ntkernelnamespacenote
-
-    \return An op handle.
-    \param req An `async_path_op_req` structure.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \raceguarantees{
-    [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
-    }
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    inline future<> dir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
 
     Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
@@ -1935,33 +1899,9 @@ public:
     }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if directory deletion is constant time.}
     \exceptionmodelstd
-    \qexample{filedir_example}
+    \qexample{filedir_batch_example}
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous directory deletion after an optional precondition.
-
-    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
-        
-    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
-    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
-    portable code should delete by directory handle as the precondition and known leafname.
-    
-    \ntkernelnamespacenote
-    
-    \return An op handle.
-    \param req An `async_path_op_req` structure.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \raceguarantees{
-    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
-    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
-    [raceguarantee OS X..No guarantees.]
-    }
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    inline future<> rmdir(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
     
     Be aware that any files created are by default sparse if supported on the local filing system. On
@@ -1979,29 +1919,9 @@ public:
     }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file creation is constant time.}
     \exceptionmodelstd
-    \qexample{filedir_example}
+    \qexample{filedir_batch_example}
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous file creation and open after an optional precondition.
-    
-    Be aware that any files created are by default sparse if supported on the local filing system. On
-    Windows opening any file for writing converts it to sparse. Use file_flags::no_sparse to prevent
-    this on those filing systems which permit it.
-
-    \ntkernelnamespacenote
-    
-    \return An op handle.
-    \param req An `async_path_op_req` structure.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \raceguarantees{
-    [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
-    }
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    inline future<> file(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous file deletions after optional preconditions.
     
     Note that you can delete files before they are closed on Windows just as with POSIX if and only
@@ -2027,37 +1947,9 @@ public:
     }
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if file deletion is constant time.}
     \exceptionmodelstd
-    \qexample{filedir_example}
+    \qexample{filedir_batch_example}
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    /*! \brief Schedule an asynchronous file deletion after an optional precondition.
-    
-    Note that you can delete files before they are closed on Windows just as with POSIX if and only
-    if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
-    this). The actual file data will be deleted when the last handle is closed on the system.
-    
-    Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
-    
-    Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
-    files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
-    portable code should delete by directory handle as the precondition and known leafname.
-    
-    \ntkernelnamespacenote
-
-    \return An op handle.
-    \param req An `async_path_op_req` structure.
-    \ingroup async_file_io_dispatcher_base__filedirops
-    \qbk{distinguish, single}
-    \raceguarantees{
-    [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
-    [raceguarantee Windows..Race free if handle open, else up to the containing directory.]
-    [raceguarantee OS X..No guarantees.]
-    }
-    \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
-    \exceptionmodelstd
-    \qexample{filedir_example}
-    */
-    inline future<> rmfile(const async_path_op_req &req);
     /*! \brief Schedule a batch of asynchronous symlink creations and opens after a precondition.
 
     Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
@@ -2073,9 +1965,14 @@ public:
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete if symlink creation is constant time.}
     \exceptionmodelstd
-    \qexample{filedir_example}
+    \qexample{filedir_batch_example}
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    inline future<> adopt(std::shared_ptr<async_io_handle> h);
+    inline future<> dir(const async_path_op_req &req);
+    inline future<> rmdir(const async_path_op_req &req);
+    inline future<> file(const async_path_op_req &req);
+    inline future<> rmfile(const async_path_op_req &req);
     /*! \brief Schedule an asynchronous symlink creation and open after a precondition.
 
     Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse
@@ -3884,6 +3781,18 @@ inline future<> async_file_io_dispatcher_base::depends(future<> precondition, fu
 
 namespace detail
 {
+  struct async_adopt
+  {
+    std::shared_ptr<async_io_handle> h;
+    async_adopt(std::shared_ptr<async_io_handle> _h) : h(std::move(_h)) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->adopt(std::vector<std::shared_ptr<async_io_handle>>(1, std::move(h))).front());
+    }
+  };
   template<class T> struct async_dir
   {
     T path;
@@ -3944,120 +3853,508 @@ namespace detail
       return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
     }
   };
+  template<class T> struct async_symlink
+  {
+    T path;
+    file_flags flags;
+    async_symlink(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      async_path_op_req req(!dispatcher ? (
+        dispatcher = current_async_file_io_dispatcher().get(),
+        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->symlink(std::vector<async_path_op_req>(1, std::move(req))).front());
+    }
+  };
+  template<class T> struct async_rmsymlink
+  {
+    T path;
+    file_flags flags;
+    async_rmsymlink(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      async_path_op_req req(!dispatcher ? (
+        dispatcher = current_async_file_io_dispatcher().get(),
+        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->rmsymlink(std::vector<async_path_op_req>(1, std::move(req))).front());
+    }
+  };
+  struct async_sync
+  {
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->sync(std::vector<future<>>(1, std::move(f))).front());
+    }
+  };
+  struct async_close
+  {
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->close(std::vector<future<>>(1, std::move(f))).front());
+    }
+  };
+  template<class T> struct async_read
+  {
+    async_data_op_req<T> req;
+    template<class U> async_read(U &&v, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _where)) { }
+    template<class U> async_read(U &&v, size_t _length, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _length, _where)) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->read(std::vector<future<>>(1, std::move(req))).front());
+    }
+  };
+  template<class T> struct async_write
+  {
+    async_data_op_req<T> req;
+    template<class U> async_write(U &&v, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _where)) { }
+    template<class U> async_write(U &&v, size_t _length, off_t _where) : req(make_async_data_op_req(std::forward<U>(v), _length, _where)) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->write(std::vector<future<>>(1, std::move(req))).front());
+    }
+  };
+  struct async_truncate
+  {
+    off_t _size;
+    async_truncate(off_t size) : _size(size) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->truncate(std::vector<future<>>(1, std::move(f)), std::vector<off_t>(1, _size)).front());
+    }
+  };
+  struct async_enumerate
+  {
+    size_t maxitems;
+    bool restart;
+    path glob;
+    metadata_flags metadata;
+    async_enumerate_op_req::filter filtering;
+    async_enumerate(size_t _maxitems, bool _restart, path _glob, metadata_flags _metadata, async_enumerate_op_req::filter _filtering) : maxitems(_maxitems), restart(_restart), glob(_glob), metadata(_metadata), filtering(_filtering) { }
+    future<std::pair<std::vector<directory_entry>, bool>> operator()(future<> f = future<>())
+    {
+      async_enumerate_op_req req(std::move(f), maxitems, restart, std::move(glob), metadata, filtering);
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->enumerate(std::vector<async_enumerate_op_req>(1, std::move(req))).front());
+    }
+  };
+  struct async_zero
+  {
+    std::vector<std::pair<off_t, off_t>> ranges;
+    async_zero(std::vector<std::pair<off_t, off_t>> _ranges) : ranges(_ranges) { }
+    future<> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->zero(std::vector<future<>>(1, std::move(f)), std::vector<std::vector<std::pair<off_t, off_t>>>(1, std::move(ranges))).front());
+    }
+  };
+  struct async_extents
+  {
+    future<std::vector<std::pair<off_t, off_t>>> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->extents(std::vector<future<>>(1, std::move(f))).front());
+    }
+  };
+  struct async_statfs
+  {
+    fs_metadata_flags req;
+    async_statfs(fs_metadata_flags _req) : req(_req) { }
+    future<statfs_t> operator()(future<> f = future<>())
+    {
+      async_file_io_dispatcher_base *dispatcher = f.parent();
+      if (!dispatcher)
+        dispatcher = current_async_file_io_dispatcher().get();
+      return std::move(dispatcher->statfs(std::vector<future<>>(1, std::move(f)), std::vector<fs_metadata_flags>(1, req)).front());
+    }
+  };
+  // depends ??? (put this on the future instead?)
 }
-/*! \brief Returns a callable which when called with a future<> schedules a dir operation
+/*! \brief Returns a callable which when called with a future<> schedules a third party handle adoption.
+
+This function enables you to adopt third party custom async_io_handle derivatives
+as ops into the scheduler. Think of it as if you were calling file(), except the
+op returns the supplied handle and otherwise does nothing.
+
+\return A callable with the specification future<T>(future<>)
+\param h A handle to adopt.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelstd
+\qexample{adopt_example}
+*/
+inline detail::async_adopt async_adopt(std::shared_ptr<async_io_handle> h)
+{
+  return detail::async_adopt(std::move(h));
+}
+
+/*! \brief Returns a callable which when called with a future<> schedules a directory creation and open after an optional precondition.
+
+Note that if there is already a handle open to the directory requested, that will be returned instead of
+a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
+is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
+happen.
+
+\ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
+\return A callable with the specification future<T>(future<>)
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup free_functions
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
 template<class T> inline detail::async_dir<T> async_dir(T _path, file_flags _flags = file_flags::none) 
 {
   return detail::async_dir<T>(std::move(_path), _flags);
 }
-/*! \brief Synchronously issue a dir operation
+/*! \brief Synchronous directory creation and open after an optional precondition.
+
+Note that if there is already a handle open to the directory requested, that will be returned instead of
+a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
+is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
+happen.
+
+\ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup free_functions
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single relative}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
 template<class T> inline std::shared_ptr<async_io_handle> dir(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return async_dir(std::move(_path), _flags)(_precondition).get_handle();
 }
+/*! \brief Synchronous directory creation and open after an optional precondition.
 
-/*! \brief Returns a callable which when called with a future<> schedules a rmdir operation
+Note that if there is already a handle open to the directory requested, that will be returned instead of
+a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
+is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
+happen.
 
-\tparam "class T" The type of path to be used.
-\param _path The filing system path to be used.
-\param _flags The flags to be used.
-\ingroup free_functions
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single absolute}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
+*/
+template<class T> inline std::shared_ptr<async_io_handle> dir(T _path, file_flags _flags = file_flags::none)
+{
+  return async_dir(std::move(_path), _flags)(future<>()).get_handle();
+}
+
+/*! \brief Returns a callable which when called with a future<> schedules an asynchronous directory deletion after an optional precondition.
+
+Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+
+Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+portable code should delete by directory handle as the precondition and known leafname.
+
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to use.
+\return A callable with the specification future<T>(future<>)
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+[raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+[raceguarantee OS X..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
 template<class T> inline detail::async_rmdir<T> async_rmdir(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags);
 }
-inline detail::async_rmdir<BOOST_AFIO_V2_NAMESPACE::path> async_rmdir()
+inline detail::async_rmdir<path> async_rmdir(file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<BOOST_AFIO_V2_NAMESPACE::path>(BOOST_AFIO_V2_NAMESPACE::path(), file_flags::none);
+  return detail::async_rmdir<path>(path(), _flags);
 }
-/*! \brief Synchronously issue a rmdir operation
+/*! \brief Synchronously do an asynchronous directory deletion after an optional precondition.
+
+Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+
+Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+portable code should delete by directory handle as the precondition and known leafname.
+
+\ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup free_functions
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single relative}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+[raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+[raceguarantee OS X..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> rmdir(future<> _precondition, T _path = BOOST_AFIO_V2_NAMESPACE::path(), file_flags _flags = file_flags::none)
+template<class T> inline std::shared_ptr<async_io_handle> rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return async_rmdir(std::move(_path), _flags)(_precondition).get_handle();
 }
-/*! \brief Synchronously issue a rmdir operation
+/*! \brief Synchronously do an asynchronous directory deletion after an optional precondition.
+
+Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+
+Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+portable code should delete by directory handle as the precondition and known leafname.
+
+\ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup free_functions
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single absolute}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory deletion is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
 template<class T> inline std::shared_ptr<async_io_handle> rmdir(T _path, file_flags _flags = file_flags::none)
 {
   return async_rmdir(std::move(_path), _flags)(future<>()).get_handle();
 }
 
-/*! \brief Returns a callable which when called with a future<> schedules a file operation
+/*! \brief Returns a callable which when called with a future<> schedules an asynchronous file creation and open after an optional precondition.
 
-\tparam "class T" The type of path to be used.
-\param _path The filing system path to be used.
-\param _flags The flags to be used.
-\ingroup free_functions
+Be aware that any files created are by default sparse if supported on the local filing system. On
+Windows opening any file for writing converts it to sparse. Use file_flags::no_sparse to prevent
+this on those filing systems which permit it.
+
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to use.
+\return A callable with the specification future<T>(future<>)
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
 template<class T> inline detail::async_file<T> async_file(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags);
 }
-/*! \brief Synchronously issue a file operation
+/*! \brief Synchronously issue a file creation and open after an optional precondition.
+
+Be aware that any files created are by default sparse if supported on the local filing system. On
+Windows opening any file for writing converts it to sparse. Use file_flags::no_sparse to prevent
+this on those filing systems which permit it.
+
+\ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup free_functions
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single relative}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
 template<class T> inline std::shared_ptr<async_io_handle> file(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return async_file(std::move(_path), _flags)(_precondition).get_handle();
 }
+/*! \brief Synchronously issue a file creation and open after an optional precondition.
 
-/*! \brief Returns a callable which when called with a future<> schedules a rmfile operation
+Be aware that any files created are by default sparse if supported on the local filing system. On
+Windows opening any file for writing converts it to sparse. Use file_flags::no_sparse to prevent
+this on those filing systems which permit it.
 
-\tparam "class T" The type of path to be used.
-\param _path The filing system path to be used.
-\param _flags The flags to be used.
-\ingroup free_functions
-*/
-template<class T> inline detail::async_rmfile<T> async_rmfile(T _path, file_flags _flags = file_flags::none)
-{
-  return detail::async_rmfile<T>(std::move(_path), _flags);
-}
-inline detail::async_rmfile<BOOST_AFIO_V2_NAMESPACE::path> async_rmfile()
-{
-  return detail::async_rmfile<BOOST_AFIO_V2_NAMESPACE::path>(BOOST_AFIO_V2_NAMESPACE::path(), file_flags::none);
-}
-/*! \brief Synchronously issue a rmfile operation
+\ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup free_functions
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single absolute}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file creation is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> rmfile(future<> _precondition, T _path = BOOST_AFIO_V2_NAMESPACE::path(), file_flags _flags = file_flags::none)
+template<class T> inline std::shared_ptr<async_io_handle> file(T _path, file_flags _flags = file_flags::none)
+{
+  return async_file(std::move(_path), _flags)(future<>()).get_handle();
+}
+
+/*! \brief Returns a callable which when called with a future<> schedules an asynchronous file deletion after an optional precondition.
+
+Note that you can delete files before they are closed on Windows just as with POSIX if and only
+if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+this). The actual file data will be deleted when the last handle is closed on the system.
+
+Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+
+Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+portable code should delete by directory handle as the precondition and known leafname.
+
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to be used.
+\return A callable with the specification future<T>(future<>)
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+[raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+[raceguarantee OS X..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
+*/
+template<class T> inline detail::async_rmfile<T> async_rmfile(T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_rmfile<T>(std::move(_path), _flags);
+}
+inline detail::async_rmfile<path> async_rmfile(file_flags _flags = file_flags::none)
+{
+  return detail::async_rmfile<path>(path(), _flags);
+}
+/*! \brief Synchronously do a file deletion after an optional precondition.
+
+Note that you can delete files before they are closed on Windows just as with POSIX if and only
+if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+this). The actual file data will be deleted when the last handle is closed on the system.
+
+Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+
+Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+portable code should delete by directory handle as the precondition and known leafname.
+
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to be used.
+\param _precondition The precondition to use.
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single relative}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
+[raceguarantee Windows..Race free if handle open, else up to the containing directory.]
+[raceguarantee OS X..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
+*/
+template<class T> inline std::shared_ptr<async_io_handle> rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return async_rmfile(std::move(_path), _flags)(_precondition).get_handle();
+}
+/*! \brief Synchronously do a file deletion after an optional precondition.
+
+Note that you can delete files before they are closed on Windows just as with POSIX if and only
+if all open handles to that file were opened with permission for the file to be deleted (AFIO always sets
+this). The actual file data will be deleted when the last handle is closed on the system.
+
+Make sure you read the docs for `async_io_handle::unlink()` for important caveats.
+
+Note that on operating systems with an unstable `async_io_handle::path(true)` you need to be cautious of deleting
+files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this,
+portable code should delete by directory handle as the precondition and known leafname.
+
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to be used.
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup async_file_io_dispatcher_base__filedirops
+\qbk{distinguish, single absolute}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if file deletion is constant time.}
+\exceptionmodelstd
+\qexample{filedir_example}
+*/
+template<class T> inline std::shared_ptr<async_io_handle> rmfile(T _path, file_flags _flags = file_flags::none)
+{
+  return async_rmfile(std::move(_path), _flags)(future<>()).get_handle();
 }
 
 
