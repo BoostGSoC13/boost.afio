@@ -6,7 +6,7 @@
 #include <future>
 #include <initializer_list>
 #include "boost/exception/diagnostic_information.hpp"
-#include "boost/afio/detail/Aligned_Allocator.hpp"
+#include "boost/../libs/afio/test/Aligned_Allocator.hpp"
 
 /* My Intel Core i7 3770K running Windows 8 x64 with 7200rpm drive, using
 Sysinternals RAMMap to clear disc cache (http://technet.microsoft.com/en-us/sysinternals/ff700229.aspx)

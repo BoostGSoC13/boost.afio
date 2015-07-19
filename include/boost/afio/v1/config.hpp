@@ -55,7 +55,7 @@ DEALINGS IN THE SOFTWARE.
 # include <_mingw.h>
 #endif
 
-#include "bindlib/include/import.h"
+#include "../bindlib/include/import.h"
 
 #ifndef __cpp_exceptions
 # error Boost.AFIO needs C++ exceptions to be turned on
@@ -65,6 +65,13 @@ DEALINGS IN THE SOFTWARE.
 #endif
 #ifndef __cpp_variadic_templates
 # error Boost.AFIO needs variadic template support in the compiler
+#endif
+
+#if defined(BOOST_AFIO_LATEST_VERSION) && BOOST_AFIO_LATEST_VERSION < 1
+# error You need to include the latest version of Boost.AFIO before any earlier versions within the same translation unit
+#endif
+#ifndef BOOST_AFIO_LATEST_VERSION
+# define BOOST_AFIO_LATEST_VERSION 1
 #endif
 
 #undef BOOST_AFIO_V1_STL11_IMPL
@@ -115,7 +122,11 @@ DEALINGS IN THE SOFTWARE.
 #  define BOOST_AFIO_V1_ASIO_IMPL boost
 # endif
 #endif
+#if BOOST_AFIO_LATEST_VERSION == 1
 #define BOOST_AFIO_V1 (boost), (afio), (BOOST_BINDLIB_NAMESPACE_VERSION(v1, BOOST_AFIO_V1_STL11_IMPL, BOOST_AFIO_V1_FILESYSTEM_IMPL, BOOST_AFIO_V1_ASIO_IMPL), inline)
+#else
+#define BOOST_AFIO_V1 (boost), (afio), (BOOST_BINDLIB_NAMESPACE_VERSION(v1, BOOST_AFIO_V1_STL11_IMPL, BOOST_AFIO_V1_FILESYSTEM_IMPL, BOOST_AFIO_V1_ASIO_IMPL))
+#endif
 #define BOOST_AFIO_V1_NAMESPACE       BOOST_BINDLIB_NAMESPACE      (BOOST_AFIO_V1)
 #define BOOST_AFIO_V1_NAMESPACE_BEGIN BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1)
 #define BOOST_AFIO_V1_NAMESPACE_END   BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1)
@@ -250,15 +261,15 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_STL11_RATIO_MAP_NAMESPACE_END           BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_BEGIN        BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl11, inline))
 #define BOOST_STL11_THREAD_MAP_NAMESPACE_END          BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1, (stl11, inline))
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, atomic)
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, chrono)
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, condition_variable)
-#include BOOST_BINDLIB_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_FILESYSTEM_IMPL, filesystem)
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, future)
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, mutex)
-#include BOOST_BINDLIB_INCLUDE_STL1z(bindlib, BOOST_AFIO_V1_ASIO_IMPL, networking)
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, ratio)
-#include BOOST_BINDLIB_INCLUDE_STL11(bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, atomic)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, chrono)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, condition_variable)
+#include BOOST_BINDLIB_INCLUDE_STL1z(../bindlib, BOOST_AFIO_V1_FILESYSTEM_IMPL, filesystem)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, future)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, mutex)
+#include BOOST_BINDLIB_INCLUDE_STL1z(../bindlib, BOOST_AFIO_V1_ASIO_IMPL, networking)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, ratio)
+#include BOOST_BINDLIB_INCLUDE_STL11(../bindlib, BOOST_AFIO_V1_STL11_IMPL, thread)
 
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V1, (stl1z, inline), (asio))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V1, (stl1z, inline), (asio))

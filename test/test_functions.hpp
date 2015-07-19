@@ -36,8 +36,8 @@ extern "C" void tzset(void);
 #include <random>
 #include <fstream>
 #include "../detail/SpookyV2.h"
-#include "boost/afio/detail/Aligned_Allocator.hpp"
-#include "boost/afio/detail/valgrind/valgrind.h"
+#include "Aligned_Allocator.hpp"
+#include "boost/afio/v1/detail/valgrind/valgrind.h"
 #include <time.h>
 
 #ifdef BOOST_AFIO_INCLUDE_SPOOKY_IMPL
