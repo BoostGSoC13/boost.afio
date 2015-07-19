@@ -141,92 +141,111 @@ The list is not long, and the removals are obvious.
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 
-[section:overview A quick overview of the design]
+
+
+[section:overview AFIO single page cheat sheet]
 
 '''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
 
-__boost_afio__ version 1 is amongst the smallest standalone libraries in the Boost C++ libraries.
-Its total active lines of code is around 1,000 lines, and implementing its documentatation and
-other associated necessities for Boost peer review took longer than writing and debugging
-the code itself. Yet despite its shortness of length, AFIO has some unusual design choices,
-and probably what some might initially think (before they've used it) is an unintuitive API.
+AFIO models file descriptors/handles as a reference counted `std::shared_ptr<async_io_handle>` where `async_io_handle` is an
+opaque abstract base class. `async_io_handle` may, or may not, refer to a currently open file descriptor/handle
+i.e. it is possible to close it before the reference count reaches zero.
 
-Some quick terminology:
+__boost_afio__ version 1.4 provides a new free function tag dispatched continuations API in addition to the
+traditional batch API previously supported. The supported operations are as follows:
 
-* __afio_op__ is a reference to a scheduled operation. I'll call this an ["op reference] or just
-plain ["op] from now on for convenience. There can be many op references, but only one unique op.
-You can distinguish between ops using their dispatcher parent pointer and the id field, which
-is always a unique non-zero `size_t` value[footnote Until, that is, a `size_t` wraps. The code
-handles this correctly by the way, always ensuring every newly allocated integer id is always
-non-zero and always not yet in the hash table of currently known operations.]. An op's id
-is guaranteed to be unique within its dispatcher until its last op reference is destructed, at
-which point that id becomes available for reuse.
-* __afio_when_all__ returns a future which will become
-ready when all the ops passed in as input have completed. One can therefore wait for
-a given set of ops to complete using `when_all(ops).wait()`. If you just want to wait for
-a single op, call its get() member function.
-* __afio_barrier__ schedules a synchronisation
-of its input batch of ops by only completing any of its output batch (which is a duplicate of its input)
-when the very last one of its inputs completes. This is effectively an asynchronous
-`when_all()`.
+[table:supported_operations
+[[Operation][Asynchronous Single][Synchronous Single][Asynchronous Batch]]
+[[Adopt a foreign fd/handle][`async_adopt()`][`adopt()`][`std::vector< future<> > async_io_dispatcher_base::adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)`]]
+[[Open/create a directory][`async_dir()`][`dir()`][`std::vector< future<> > async_io_dispatcher_base::dir(const std::vector< async_path_op_req > & reqs)`]]
+[[todo][todo][todo]]
+]
 
-Here were the design imperatives underpinning the AFIO design:
+The new free function tag dispatch API should make programming AFIO much easier on the programmer
+compared to writing single issues of the batch API as it was before.
 
-# Everything, absolutely everything happens asynchronously. If you want synchronous,
-wait for the asynchronous operation to complete (and make this easy to program, see above).
+Here is how you would open a file and read some data using each style of API:
 
-# Everything, absolutely everything is batch. This is one of my big bugbears with filing
-system API design: they do everything in units of a single file operation at a time (with
-the notable exception of the `readv()` and `writev()` scatter/gather file i/o family of
-POSIX functions). Yet, and especially if it's within the same directory, a batch API
-can be [*very] significantly faster than a multitude of single APIs.
+[table:api_style_examples
+[[Asynchronous Single][Synchronous Single][Asynchronous Batch]]
+[[todo][todo][todo]]
+]
+
+Some other things you ought to be aware of:
+
+# ASIO, most Boost code and the STL 11 tend to follow the following API pattern:
+
+ ``
+ std::filesystem::create_directory("foo");      // throw exception if fails
+ std::error_code ec;
+ std::filesystem::create_directory("foo", ec);  // set ec to error code if fails 
+ ``
+
+ Thanks to lightweight futures, AFIO avoids the need for this pattern. As lightweight futures
+can return value/error/exception AFIO guarantees that expected errors always return an
+error code (`get_error()`) whilst unexpected errors always return an exception
+(`get_exception()`). For compatibility with STL futures, calling `get_exception()` or `get()`
+on a lightweight future with an error code state will convert that error code into a suitable
+exception, so if you wish to avoid the overhead of an exception throw simply test the future
+for an errored state before retrieving any value like this:
+
+ ``
+ afio::future<> &h;   // some outstanding scheduled AFIO operation
+ // Block until operation completes, retrieving any error code which will be non-null if
+ // there is an errored or excepted state
+ if(h.get_error()) {
+   if(h.has_error())
+     // It's an expected error
+   else
+     // It's an unexpected error, use h.get_exception() to retrieve
+ } else
+   // It's a value, use h.get() to retrieve
+ ``
  
- As much as AFIO is as constrained by the system-level filing system API as anyone else,
- AFIO employs a thread source (which is probably a thread pool, but could be anything)
- as a crude, universally portable method of dispatching multiple filing system
- operations at the same time. For those platforms which support a less crude method of
- delivering batches of filing system operations e.g. an actual batch API, that is
- used instead. Additionally, micro-kernel platforms are always able to multiplex ['any] set
- of asynchronous syscalls using a single thread, so for those platforms no thread pool
- is needed at all.
+ The above can be more tersely written using monadic operations (if those are enabled at
+compile time) instead:
  
+ ``
+ afio::future<> &h;   // some outstanding scheduled AFIO operation
+ h.get_monad()
+   >> [](std::error_code ec) { /* it's an expected error */ }
+   >> [](std::exception_ptr e) { /* it's an exception */ }
+   >> [](monad<std::shared_ptr<async_io_handle> value) { /* it's a value */ };
+ ``
+ 
+# On Microsoft Windows, AFIO [*always] uses NT kernel paths, never Win32 paths. By skipping the Win32
+translation layer one achieves significantly better performance and much closer to POSIX semantics
+including case sensitivity, plus there are no issues with path length limits.
+On Windows `afio::path` (NT kernel paths) will usually auto convert to and from `filesystem::path`
+(Win32 paths), however do note there is not always a one to one mapping from a NT kernel path to
+a Win32 path in which case the Win32 paths to send in will never be the Win32 paths you get out.
+See the documentation for __afio_path__.
+
+[caution Until [@https://github.com/BoostGSoC13/boost.afio/issues/79 issue #79] is resolved, don't
+do directory enumerations from an x86 binary on a x64 Windows system. This is due to a bug in
+Microsoft's WOW64 syscall translation layer which Microsoft have decided is wontfix.]
+
 # Error reporting [*always] follows the ["earliest possible reporting] rule. As absolutely
 everything is asynchronous in AFIO, that also means that exception handling also occurs
-asynchronously. So how are exceptions delivered to something which might make use of them?
-The rules are as follows:
- # If you try to use an op reference as an input and that reference is
- errored at the point of use, the exception contained by that op is immediately rethrown.
- # If you use an op reference that has not yet completed (and therefore its error state
- is currently unknown) as an input to a `when_all()` function, and that input later errors
- during the wait, if that `when_all()` function is not a `std::nothrow_t` variant the
- exception will be rethrown at the point that one waits on the future returned by the
- `when_all()`.
- # If you schedule an operation with a precondition which errors, that exception is
- [*NOT] propagated to its dependencies. This is because you usually don't want that to
- happen e.g. if you run out of disc space during a write, you don't want all further
- operations to fail. If your dependent operation really needs to know if its preceding
- operation errored, just go ahead and check for it manually using the `h` member which
- is a shared_future __dash__ if that future contains an exception, your precondition
- has errored.
- # The only exception to the preceding rule is the `barrier()` call which [*DOES] propagate
- errored state to its output. Something which catches a lot of people is that the first
- rule also applies to `barrier()`, so if an input op is errored on entry to `barrier()`,
- it rethrows there and then, but if that input op errored a microsecond after the
- `barrier()` started, then it does not rethrow but instead propagates the errored state
- into its output.
+asynchronously. So if you try to use a future as an input and that future is
+errored at the point of use, the errored state is immediately rethrown. As futures may
+become errored asynchronously, that means you must always write code which assumes any
+API which consumes a future can throw (unless you know for a fact the future is ready and
+not errored).
 
-# Keep things very, very simple for this first version of AFIO. That means no direct ACL nor
-permissions support, no direct ability to cancel scheduled operations, no direct ability
-to delay scheduling (e.g. on the basis of a timer) etc. What you get is the bare essentials,
-but it is very straightforward to wrap up functionality from __boost_filesystem__ or
-__boost_iostreams__ as an asynchronous closure operation using __afio_call__, and timers
-are provided already by __boost_asio__ which can be wrapped as preconditions for other
-operations.
+# Handles to directories may ignore requests to close them i.e. `std::shared_ptr<async_io_handle>.close()`
+is a no-op. This is due to a performance feature called ["directory handle caching] which shares
+read-only directory handles amongst all users unless specifically requested not to do so.
 
-# Lastly, even though no filing system known to this author currently supports such a
-feature, __boost_afio__ implements ['write ordering constraints] at the whole file level
-as well as the traditionally supported individual write level. This part will need some
-explaining, so it gets a whole section to itself.
+# As a general rule, AFIO spots when you try to delete a currently open file handle where
+that is illegal on your platform (Microsoft Windows) and will instead rename the file to a
+cryptographically strong random name and ask the operating system to delete
+it later when the last handle is closed. This emulates POSIX semantics, albeit imperfectly.
+One caveat is it cannot always do this with directories,
+though it tries hard to try again later where it can. A future version of AFIO will add `tmpfs`
+support which will let us relocate troublesome directories into the temp directory where they can
+be deleted much later, thus more closely matching POSIX semantics still further.
+ 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 

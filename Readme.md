@@ -59,16 +59,7 @@ Boost.AFIO Jenkins CI status:
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=shared,label=freebsd10-clang3.3/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=shared,label=freebsd10-clang3.3/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=standalone,label=freebsd10-clang3.3/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=standalone,label=freebsd10-clang3.3/badge/icon" /></a></div>
 </td></tr>
-<tr align="center"><td rowspan="4">Ubuntu Linux 12.04 LTS</td><td>clang 3.2</td><td>libstdc++ 4.8</td><td>x86</td><td>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=static,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=static,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=shared,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=shared,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=standalone,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=standalone,label=linux-gcc-clang/badge/icon" /></a></div>
-</td><td>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=static,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=static,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=shared,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=shared,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=standalone,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.2,LINKTYPE=standalone,label=linux-gcc-clang/badge/icon" /></a></div>
-</td></tr>
-<tr align="center"><td>clang 3.3</td><td>libstdc++ 4.8</td><td>x86</td><td>
+<tr align="center"><td rowspan="2">Ubuntu Linux 12.04 LTS</td><td>clang 3.3</td><td>libstdc++ 4.8</td><td>x86</td><td>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=static,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=static,label=linux-gcc-clang/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=shared,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=shared,label=linux-gcc-clang/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=standalone,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.3,LINKTYPE=standalone,label=linux-gcc-clang/badge/icon" /></a></div>
@@ -85,15 +76,6 @@ Boost.AFIO Jenkins CI status:
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.4,LINKTYPE=static,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.4,LINKTYPE=static,label=linux-gcc-clang/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.4,LINKTYPE=shared,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.4,LINKTYPE=shared,label=linux-gcc-clang/badge/icon" /></a></div>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.4,LINKTYPE=standalone,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=clang++-3.4,LINKTYPE=standalone,label=linux-gcc-clang/badge/icon" /></a></div>
-</td></tr>
-<tr align="center"><td>GCC 4.7</td><td>libstdc++ 4.7</td><td>x86</td><td>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=static,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=static,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=shared,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=shared,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=standalone,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=standalone,label=linux-gcc-clang/badge/icon" /></a></div>
-</td><td>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=static,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=static,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=shared,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=shared,label=linux-gcc-clang/badge/icon" /></a></div>
-  <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=standalone,label=linux-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Test/CPPSTD=c++11,CXX=g++-4.7,LINKTYPE=standalone,label=linux-gcc-clang/badge/icon" /></a></div>
 </td></tr>
 <tr align="center"><td rowspan="8">Ubuntu Linux 14.04 LTS</td><td>clang 3.5</td><td>libstdc++ 4.9</td><td>x64</td><td>
   <div><a href="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.5,LINKTYPE=static,label=linux64-gcc-clang/"><img src="https://ci.nedprod.com/job/Boost.AFIO%20Build/CPPSTD=c++11,CXX=clang++-3.5,LINKTYPE=static,label=linux64-gcc-clang/badge/icon" /></a></div>

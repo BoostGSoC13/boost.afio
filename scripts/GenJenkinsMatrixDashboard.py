@@ -5,10 +5,8 @@ inputs=[
   ((0, "Android 5.0", "GCC 4.8", "libc++", "x86"), {"CPPSTD":["c++11"], "CXX":["g++-4.8"], "LINKTYPE":["standalone"], "label":"android-ndk"}),
   ((1, "FreeBSD 10.1 on ZFS", "clang 3.4", "libc++", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.3"], "label":"freebsd10-clang3.3"}),
 
-  ((4, "Ubuntu Linux 12.04 LTS", "clang 3.2", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.2"], "label":"linux-gcc-clang"}),
-  ((0, "Ubuntu Linux 12.04 LTS", "clang 3.3", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.3"], "label":"linux-gcc-clang"}),
+  ((2, "Ubuntu Linux 12.04 LTS", "clang 3.3", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.3"], "label":"linux-gcc-clang"}),
   ((0, "Ubuntu Linux 12.04 LTS", "clang 3.4", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.4"], "label":"linux-gcc-clang"}),
-  ((0, "Ubuntu Linux 12.04 LTS", "GCC 4.7", "libstdc++ 4.7", "x86"), {"CPPSTD":["c++11"], "CXX":["g++-4.7"], "label":"linux-gcc-clang"}),
 
   ((8, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.5"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "ARMv7"), {"CPPSTD":["c++11"], "CXX":["clang++-3.5"], "label":"arm-gcc-clang"}),
@@ -23,7 +21,7 @@ inputs=[
   ((0, "Microsoft Windows 8.1", "Visual Studio 2015", "Dinkumware", "x64"), {"CPPSTD":["c++14"], "CXX":["msvc-14.0"], "label":"win8-msvc-mingw"}),
 ]
 CPPSTDs=["c++11", "c++14"]
-CXXs=["g++-4.7", "g++-4.8", "g++-4.9"]
+CXXs=["g++-4.8", "g++-4.9", "g++-5"]
 LINKTYPEs=["static", "shared", "standalone"]
 
 print('''<p align="center">

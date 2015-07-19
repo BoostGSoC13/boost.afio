@@ -6,7 +6,7 @@
   http://www.boost.org/LICENSE_1_0.txt)
 =============================================================================/]
 
-[section:quickstart Quick Start]
+[section:quickstart Quick Start Tutorial]
 
 So why bother with __boost_afio__? What's wrong with the STL iostreams and Filesystem?
 
@@ -56,9 +56,9 @@ experienced any of these problems, then AFIO may be useful to you:
     and ext4 and performance was actually tolerable with under a second pause. Ten million item directories is plenty fast, and
     one million item directories you won't notice over a ten item directory. Note that your GUI file
     explorer will very likely hang on ten million item directories, indeed so do most command line tools.
-  * Exclusive lock files (manually operated support already there, async support coming in v1.4).
-  * File change monitoring (coming in v1.4).
-  * File byte range advisory locking (coming in v1.4).
+  * Exclusive lock files (manually operated support already there, async support coming in v1.5).
+  * File change monitoring (coming in v1.5).
+  * File byte range advisory locking (coming in v1.5).
  
 You'll probably note that these are POSIX file semantics. On Microsoft Windows, AFIO directly uses
 the NT kernel API and can therefore achieve reasonably accurate POSIX file semantics, at the cost of

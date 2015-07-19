@@ -171,7 +171,13 @@ accessors.
 * Implemented multi-version compatibility, and backported that patch to the v1.3 branch.
 The v1.3 branch is now included in the v1.4 branch as v1.
 
+FINISH TABLE OF FUNCTIONS IN DESIGN OVERVIEW
+
 REWRITE CODE EXAMPLES TO USE NEW API.
+
+ADD get_monad() TO FUTURE.
+
+Linux: UPDATE TABLE IN COMPILATION DOCS.
 
 TEST MULTIABI BUILD.
 
