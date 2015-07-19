@@ -196,7 +196,7 @@ Some popular compilers known to be minimally sufficient thanks to [@https://ci.n
 
 * Microsoft Visual Studio 2015, released in 2015. v1.0-v1.2 supported VS2010, v1.3 supported VS2013.
 * GNU Compiler Collection v4.8, released in 2013. v1.0-v1.2 supported GCC 4.6, v1.3 supported GCC v4.7.
-* clang v3.2, released in 2012. clang v3.1 is known to produce segfaulting binaries.
+* clang v3.3, released in 2013. v1.0-v1.3 supported clang v3.2. clang v3.1 is known to produce segfaulting binaries.
 
 The Jenkins CI bot runs a full suite of static analysis tools (currently clang and MSVC static analysers and
 clang-tidy, [@http://ispras.linuxbase.org/index.php/ABI_compliance_checker the ABI stability compliance checker] is planned), runtime analysis tools (currently the clang undefined behaviour

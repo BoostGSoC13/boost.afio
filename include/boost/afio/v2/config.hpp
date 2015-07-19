@@ -69,6 +69,12 @@ DEALINGS IN THE SOFTWARE.
 #ifndef __cpp_noexcept
 # error Boost.AFIO needs noexcept support in the compiler
 #endif
+#if !defined(__cpp_constexpr) && _MSC_VER < 1900
+# error Boost.AFIO needs constexpr (C++ 11) support in the compiler
+#endif
+#ifndef __cpp_thread_local
+# error Boost.AFIO needs thread_local support in the compiler
+#endif
 
 #if defined(BOOST_AFIO_LATEST_VERSION) && BOOST_AFIO_LATEST_VERSION < 2
 # error You need to include the latest version of Boost.AFIO before any earlier versions within the same translation unit
