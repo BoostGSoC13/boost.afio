@@ -3913,7 +3913,7 @@ namespace detail
       async_file_io_dispatcher_base *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_async_file_io_dispatcher().get();
-      return std::move(dispatcher->read(std::vector<future<>>(1, std::move(req))).front());
+      return std::move(dispatcher->read(std::vector<async_data_op_req<T>>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_write
@@ -3926,7 +3926,7 @@ namespace detail
       async_file_io_dispatcher_base *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_async_file_io_dispatcher().get();
-      return std::move(dispatcher->write(std::vector<future<>>(1, std::move(req))).front());
+      return std::move(dispatcher->write(std::vector<async_data_op_req<T>>(1, std::move(req))).front());
     }
   };
   struct async_truncate
