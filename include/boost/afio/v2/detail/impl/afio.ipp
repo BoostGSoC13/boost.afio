@@ -619,7 +619,7 @@ namespace detail {
         if(-1!=fstat(h, &before) && -1!=lstat(lockfilepath.c_str(), &after) && before.st_ino==after.st_ino)
           done=true;
         else
-          close(h);
+          ::close(h);
       } while(!done);
 #endif
     }
@@ -636,7 +636,7 @@ namespace detail {
       while(-1==(retcode=fcntl(h, F_SETLK, &l)) && EINTR==errno);
       if(-1!=retcode)
         BOOST_AFIO_ERRHOS(unlink(lockfilepath.c_str()));
-      BOOST_AFIO_ERRHOS(close(h));
+      BOOST_AFIO_ERRHOS(::close(h));
       lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       process_lockfile_registry_ptr->path_to_lockfile.erase(path);
 #endif
