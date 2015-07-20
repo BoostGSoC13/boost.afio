@@ -171,9 +171,14 @@ accessors.
 * Implemented multi-version compatibility, and backported that patch to the v1.3 branch.
 The v1.3 branch is now included in the v1.4 branch as v1.
 
+* Implemented free functions for future continuation for all AFIO operations.
+
+
 FINISH TABLE OF FUNCTIONS IN DESIGN OVERVIEW
 
 REWRITE CODE EXAMPLES TO USE NEW API.
+
+TYPEDEF std::shared_ptr<async_io_handle> TO SOMETHING INTELLIGENT.
 
 ADD get_monad() TO FUTURE.
 

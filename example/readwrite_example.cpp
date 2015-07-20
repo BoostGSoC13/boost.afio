@@ -8,13 +8,12 @@ int main(void)
         namespace afio = BOOST_AFIO_V2_NAMESPACE;
         namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 
-        std::shared_ptr<afio::async_file_io_dispatcher_base> dispatcher=
-            afio::make_async_file_io_dispatcher();
-            
+        // Set a dispatcher as current for this thread
+        afio::current_dispatcher_guard h(afio::make_async_file_io_dispatcher());
+
         // Schedule an opening of a file called example_file.txt
-        afio::async_path_op_req req("example_file.txt",
-            afio::file_flags::create|afio::file_flags::read_write);
-        afio::future<> openfile(dispatcher->file(req)); /*< schedules open file as soon as possible >*/
+        afio::future<> openfile = afio::async_file("example_file.txt",
+          afio::file_flags::create | afio::file_flags::read_write)(/*now*/);
         
         // Something a bit surprising for many people is that writing off
         // the end of a file in AFIO does NOT extend the file and writes
@@ -26,7 +25,7 @@ int main(void)
         // workaround: either open a file for append-only access, in which
         // case all writes extend the file for you, or else you explicitly
         // extend files before writing, like this:
-        afio::future<> resizedfile(dispatcher->truncate(openfile, 12)); /*< schedules resize file ready for writing after open file completes >*/
+        afio::future<> resizedfile = openfile.then(afio::async_truncate(12));
     
         // Config a write gather. You could do this of course as a batch
         // of writes, but a write gather has optimised host OS support in most
@@ -38,30 +37,27 @@ int main(void)
         buffers.push_back(asio::const_buffer("Wo", 2));
         buffers.push_back(asio::const_buffer("rl", 2));
         buffers.push_back(asio::const_buffer("d\n", 2));
-        // Schedule the write gather to offset zero
-        afio::future<> written(dispatcher->write(
-            afio::make_async_data_op_req(resizedfile, buffers, 0))); /*< schedules write after resize file completes >*/
+        // Schedule the write gather to offset zero after the resize file
+        afio::future<> written(resizedfile.then(afio::async_write(buffers, 0)));
         
         // Have the compiler config the exact same write gather as earlier for you
         // The compiler assembles an identical sequence of ASIO write gather
         // buffers for you
         std::vector<std::string> buffers2={ "He", "ll", "o ", "Wo", "rl", "d\n" };
-        afio::future<> written2(dispatcher->write(
-            afio::make_async_data_op_req(written, buffers2, 0))); /*< schedules write after previous write completes >*/
+        // Schedule this to occur after the previous write completes
+        afio::future<> written2(written.then(afio::async_write(buffers2, 0)));
         
         // Schedule making sure the previous batch has definitely reached physical storage
         // This won't complete until the write is on disc
-        afio::future<> stored(dispatcher->sync(written2)); /*< schedules sync after write completes >*/
+        afio::future<> stored(written2.then(afio::async_sync()));
                 
         // Schedule filling this array from the file. Note how convenient std::array
         // is and completely replaces C style char buffer[bytes]
         std::array<char, 12> buffer;
-        afio::future<> read(dispatcher->read(
-            afio::make_async_data_op_req(stored, buffer, 0))); /*< schedules read after sync completes >*/
+        afio::future<> read(stored.then(afio::async_read(buffer, 0)));
             
         // Schedule the closing and deleting of example_file.txt after the contents read
-        req.precondition=dispatcher->close(read); /*< schedules close file after read completes >*/
-        afio::future<> deletedfile(dispatcher->rmfile(req)); /*< schedules delete file after close completes >*/
+        afio::future<> deletedfile(read.then(afio::async_close()).then(afio::async_rmfile()));
         
         // Wait until the buffer has been filled, checking all steps for errors
         afio::when_all(openfile, resizedfile, written, written2, stored, read).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/
@@ -72,7 +68,7 @@ int main(void)
         std::cout << "Contents of file is '" << contents << "'" << std::endl;
 
         // Check remaining ops for errors
-        afio::when_all(req.precondition /*close*/, deletedfile).get();        /*< waits for file close and delete to complete, throwing any exceptions encountered >*/
+        deletedfile.get();
         //]
     }
     catch(const BOOST_AFIO_V2_NAMESPACE::system_error &e) { std::cerr << "ERROR: program exits via system_error code " << e.code().value() << " (" << e.what() << ")" << std::endl; return 1; }

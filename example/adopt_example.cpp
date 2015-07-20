@@ -52,11 +52,13 @@ struct test_handle : boost::afio::async_io_handle
 
 int main(void)
 {
-    auto dispatcher = boost::afio::make_async_file_io_dispatcher(
-        boost::afio::process_threadpool());
-    auto h=std::make_shared<test_handle>(dispatcher.get());
-    auto adopted=dispatcher->adopt(h);
-    when_all(adopted).wait();
-    return 0;
+  using namespace BOOST_AFIO_V2_NAMESPACE;
+  auto dispatcher = boost::afio::make_async_file_io_dispatcher(
+    boost::afio::process_threadpool());
+  current_dispatcher_guard h(dispatcher);
+  auto foreignh=std::make_shared<test_handle>(dispatcher.get());
+  auto adopted = async_adopt(foreignh)();
+  adopted.get();
+  return 0;
 }
 //]

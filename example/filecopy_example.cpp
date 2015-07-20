@@ -32,8 +32,8 @@ namespace {
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
         // Schedule the opening of the output file for writing
-        auto oh=dispatcher->file(async_path_op_req(dest, file_flags::create|file_flags::write));
-        // Schedule the opening of all the input files for reading
+        auto oh = async_file(dest, file_flags::create | file_flags::write)();
+        // Schedule the opening of all the input files for reading as a batch
         std::vector<async_path_op_req> ihs_reqs; ihs_reqs.reserve(sources.size());
         for(auto &&source : sources)
             ihs_reqs.push_back(async_path_op_req(source, file_flags::read
@@ -63,7 +63,7 @@ namespace {
         }
         // Schedule resizing output to correct size, retrieving errors
         totalbytes=offset;
-        auto ohresize=dispatcher->truncate(oh, offset);
+        auto ohresize=oh.then(async_truncate(offset));
         when_all(ohresize).get();
 
         // Schedule the parallel processing of all input files, sequential per file,
@@ -83,17 +83,16 @@ namespace {
               if(thischunk>chunk_size) thischunk=chunk_size;
               //std::cout << "Writing " << thischunk << " from offset " << o << " in  " << lasts[idx]->path() << std::endl;
               // Schedule a filling of buffer from offset o after last has completed
-              auto readchunk = dispatcher->read(make_async_data_op_req(
-                  lasts[idx], buffer->data(), (size_t) thischunk, o));
+              auto readchunk = lasts[idx].then(async_read(buffer->data(), (size_t)thischunk, o));
               // Schedule a writing of buffer to offset offset+o after readchunk is ready
               // Note the call to dispatcher->depends() to make sure the write only occurs
               // after the read completes
-              auto writechunk=dispatcher->write(make_async_data_op_req(
-                  dispatcher->depends(readchunk, ohresize), buffer->data(),
-                  (size_t) thischunk, offset+o));
+              auto writechunk = dispatcher->depends(readchunk, ohresize)
+                .then(async_write(buffer->data(), (size_t)thischunk, offset + o));
               // Schedule incrementing written after write has completed
-              auto incwritten=dispatcher->call(writechunk, [&written, thischunk]{
-                  written+=thischunk;
+              auto incwritten = writechunk.then([&written, thischunk](future<> f) {
+                written += thischunk;
+                return f;
               });
               // Don't do next read until written is incremented
               lasts[idx]=dispatcher->depends(incwritten, readchunk);
@@ -123,6 +122,8 @@ int main(int argc, const char *argv[])
         off_t totalbytes=0;
         std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
             boost::afio::make_async_file_io_dispatcher();
+        // Set a dispatcher as current for this thread
+        boost::afio::current_dispatcher_guard guard(dispatcher);
 
         boost::afio::filesystem::path dest=argv[1];
         std::vector<boost::afio::filesystem::path> sources;

@@ -3,11 +3,10 @@
 int main(void)
 {
     //[enumerate_example
-    std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
-        boost::afio::make_async_file_io_dispatcher();
-    
+    boost::afio::current_dispatcher_guard h(boost::afio::make_async_file_io_dispatcher());
+
     // Schedule an opening of the root directory
-    boost::afio::future<> rootdir(dispatcher->dir(boost::afio::async_path_op_req("/")));
+    boost::afio::future<> rootdir(boost::afio::async_dir("/")());
     
     std::pair<std::vector<boost::afio::directory_entry>, bool> list;
     // This is used to reset the enumeration to the start
@@ -16,10 +15,8 @@ int main(void)
     {
         // Schedule an enumeration of an open directory handle
         boost::afio::future<std::pair<std::vector<boost::afio::directory_entry>, bool>>
-          enumeration(
-            dispatcher->enumerate(boost::afio::async_enumerate_op_req(
-                /* This is the handle to enumerate */
-                rootdir,
+          enumeration(rootdir.then(
+            boost::afio::async_enumerate(
                 /* This is the maximum entries to enumerate. Note
                 the use of compatibility_maximum() which is the
                 same value your libc uses. The problem with smaller
