@@ -15,5 +15,9 @@ File Created: Mar 2013
 #endif
 
 #define BOOST_AFIO_HEADERS_ONLY 0
-#include "boost/afio/detail/impl/afio.ipp"
+#include "boost/afio/afio.hpp"
+#if BOOST_AFIO_LATEST_VERSION != 2
+# error Mismatched afio.cpp to latest version
+#endif
+#include "boost/afio/v2/detail/impl/afio.ipp"
 
