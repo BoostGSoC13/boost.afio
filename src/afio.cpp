@@ -15,6 +15,10 @@ File Created: Mar 2013
 #endif
 
 #define BOOST_AFIO_HEADERS_ONLY 0
+#if !defined(BOOST_AFIO_NEVER_VALIDATE_INPUTS) && !defined(BOOST_AFIO_COMPILING_FOR_GCOV)
+#define BOOST_AFIO_VALIDATE_INPUTS 1
+#endif
+
 #include "boost/afio/afio.hpp"
 #if BOOST_AFIO_LATEST_VERSION != 2
 # error Mismatched afio.cpp to latest version
