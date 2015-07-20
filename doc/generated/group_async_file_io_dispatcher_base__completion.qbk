@@ -31,7 +31,7 @@ Schedule a batch of asynchronous invocations of the specified functions when the
 A batch of op handles 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.
@@ -64,7 +64,7 @@ Schedule the asynchronous invocation of the specified single function when the s
 An op handle 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(1) to dispatch. Amortised O(1) to complete.

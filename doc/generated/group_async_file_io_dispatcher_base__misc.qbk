@@ -29,7 +29,7 @@ Completes an operation with a handle or an error, usually used when an operation
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(N) where N is the number of completions dependent on this op.
 [heading Exception Model]Should not throw any exception except for out of memory.
@@ -57,7 +57,7 @@ Completes an operation with an error, usually used when an operation was previou
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(N) where N is the number of completions dependent on this op.
 [heading Exception Model]Should not throw any exception except for out of memory.

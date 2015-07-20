@@ -46,7 +46,7 @@ Metadata about a filing system. Unsupported entries are -1.
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [include generated/struct_statfs_t_1_1f_flags_t.qbk]
 

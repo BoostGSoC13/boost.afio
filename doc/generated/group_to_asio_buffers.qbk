@@ -30,7 +30,7 @@ Passing through asio::mutable\u005fbuffer.
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -57,7 +57,7 @@ Passing through asio::const\u005fbuffer.
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -87,7 +87,7 @@ std::vector<asio::mutable_buffer> to_asio_buffers(T * v, size_t length)``
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -117,7 +117,7 @@ std::vector<asio::const_buffer> to_asio_buffers(const T * v, size_t length)``
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -145,7 +145,7 @@ A buffer at v sized length.
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -173,7 +173,7 @@ A buffer at v sized length.
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -205,7 +205,7 @@ std::vector< asio::mutable_buffer > to_asio_buffers(T & v)``
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -237,7 +237,7 @@ std::vector< asio::const_buffer > to_asio_buffers(const T & v)``
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -267,7 +267,7 @@ std::vector< asio::mutable_buffer > to_asio_buffers(T(&) v)``
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -297,7 +297,7 @@ std::vector< asio::const_buffer > to_asio_buffers(const T(&) v)``
 A vector of ASIO buffers
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''

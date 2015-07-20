@@ -117,7 +117,7 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 # configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = ../../include/boost/afio/afio.hpp \
+INPUT                  = ../../include/boost/afio/v2/afio.hpp \
 			./doxygen_input/pages \
 			./doxygen_input/groups
 INPUT_ENCODING         = UTF-8

@@ -29,7 +29,14 @@
 \defgroup when_all_ops x
 \defgroup async_data_op_req x
 \defgroup make_async_data_op_req x
-\defgroup free_functions x
+\defgroup async_filedirops x
+\defgroup async_enumerate x
+\defgroup async_extents x
+\defgroup async_statfs x
+\defgroup sync_filedirops x
+\defgroup sync_enumerate x
+\defgroup sync_extents x
+\defgroup sync_statfs x
 \defgroup utils x
 \defgroup async_io_handle__ops x
 */

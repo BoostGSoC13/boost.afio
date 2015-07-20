@@ -2173,6 +2173,7 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<statfs_t>> statfs(const std::vector<future<>> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
     inline future<> adopt(std::shared_ptr<async_io_handle> h);
     inline future<> dir(const async_path_op_req &req);
     inline future<> rmdir(const async_path_op_req &req);
@@ -2189,6 +2190,7 @@ public:
     inline future<std::pair<std::vector<directory_entry>, bool>> enumerate(const async_enumerate_op_req &req);
     inline future<std::vector<std::pair<off_t, off_t>>> extents(const future<> &op);
     inline future<statfs_t> statfs(const future<> &op, const fs_metadata_flags &req);
+#endif
 
     // Undocumented deliberately
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
@@ -3820,7 +3822,7 @@ op returns the supplied handle and otherwise does nothing.
 
 \return A callable with the specification future<T>(future<>)
 \param h A handle to adopt.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
 \exceptionmodelstd
@@ -3844,7 +3846,7 @@ happen.
 \return A callable with the specification future<T>(future<>)
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
@@ -3870,7 +3872,7 @@ happen.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
@@ -3895,7 +3897,7 @@ happen.
 \tparam "class T" The type of path to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single absolute}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
@@ -3923,7 +3925,7 @@ portable code should delete by directory handle as the precondition and known le
 \return A callable with the specification future<T>(future<>)
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -3956,7 +3958,7 @@ portable code should delete by directory handle as the precondition and known le
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -3984,7 +3986,7 @@ portable code should delete by directory handle as the precondition and known le
 \tparam "class T" The type of path to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single absolute}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
@@ -4010,7 +4012,7 @@ this on those filing systems which permit it.
 \return A callable with the specification future<T>(future<>)
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, Windows..Race free up to the containing directory.]
@@ -4036,7 +4038,7 @@ this on those filing systems which permit it.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, Windows..Race free up to the containing directory.]
@@ -4061,7 +4063,7 @@ this on those filing systems which permit it.
 \tparam "class T" The type of path to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single absolute}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
@@ -4093,7 +4095,7 @@ portable code should delete by directory handle as the precondition and known le
 \return A callable with the specification future<T>(future<>)
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -4130,7 +4132,7 @@ portable code should delete by directory handle as the precondition and known le
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -4162,7 +4164,7 @@ portable code should delete by directory handle as the precondition and known le
 \tparam "class T" The type of path to be used.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single absolute}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
@@ -4190,7 +4192,7 @@ an invalid handle is output.
 \return A callable with the specification future<T>(future<>)
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, Windows..Link creation is race free up to the containing directory. Destination is unavoidably racy.]
@@ -4217,7 +4219,7 @@ an invalid handle is output.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, Windows..Link creation is race free up to the containing directory. Destination is unavoidably racy.]
@@ -4243,7 +4245,7 @@ an invalid handle is output.
 \tparam "class T" The type of path to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single absolute}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
@@ -4271,7 +4273,7 @@ portable code should delete by directory handle as the precondition and known le
 \return A callable with the specification future<T>(future<>)
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -4304,7 +4306,7 @@ portable code should delete by directory handle as the precondition and known le
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -4332,7 +4334,7 @@ portable code should delete by directory handle as the precondition and known le
 \tparam "class T" The type of path to be used.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single absolute}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
@@ -4350,7 +4352,7 @@ template<class T> inline std::shared_ptr<async_io_handle> rmsymlink(T _path, fil
 /*! \brief Returns a callable which when called with a future<> schedules an asynchronous content synchronisation with physical storage after a preceding operation.
 
 \return A callable with the specification future<T>(future<>)
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if content synchronisation is constant time (which is extremely unlikely).}
 \exceptionmodelstd
@@ -4363,7 +4365,7 @@ inline detail::async_sync async_sync()
 /*! \brief Synchronously do a content synchronisation with physical storage after a preceding operation.
 
 \param _precondition The precondition to use.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if content synchronisation is constant time (which is extremely unlikely).}
 \exceptionmodelstd
@@ -4389,7 +4391,7 @@ that we are aware of, and so zeros are simply written.
 
 \return A callable with the specification future<T>(future<>)
 \param ranges A sequence of extents to zero and deallocate
-\ingroup async_file_io_dispatcher_base__extents
+\ingroup async_extents
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
 \exceptionmodelstd
@@ -4413,7 +4415,7 @@ that we are aware of, and so zeros are simply written.
 
 \param _precondition The precondition to use.
 \param ranges A sequence of extents to zero and deallocate
-\ingroup async_file_io_dispatcher_base__extents
+\ingroup sync_extents
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation is constant time.}
 \exceptionmodelstd
@@ -4433,7 +4435,7 @@ Note that failure to explicitly schedule closing a file handle using this call m
 by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 \return A callable with the specification future<T>(future<>)
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if closing handles is constant time.}
 \exceptionmodelstd
@@ -4451,8 +4453,7 @@ Note that failure to explicitly schedule closing a file handle using this call m
 by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 \param _precondition The precondition to use.
-\param ranges A sequence of extents to zero and deallocate
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if closing handles is constant time.}
 \exceptionmodelstd
@@ -4472,7 +4473,7 @@ inline std::shared_ptr<async_io_handle> close(future<> _precondition)
 \return A callable with the specification future<T>(future<>)
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if reading data is constant time.}
 \exceptionmodelstd
@@ -4491,7 +4492,7 @@ template<class T> inline detail::async_read async_read(T &&v, off_t _where)
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if reading data is constant time.}
 \exceptionmodelstd
@@ -4509,7 +4510,7 @@ template<class T> inline detail::async_read async_read(T &&v, size_t _length, of
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if reading data is constant time.}
 \exceptionmodelstd
@@ -4528,7 +4529,7 @@ template<class T> inline std::shared_ptr<async_io_handle> read(future<> _precond
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if reading data is constant time.}
 \exceptionmodelstd
@@ -4548,7 +4549,7 @@ template<class T> inline std::shared_ptr<async_io_handle> read(future<> _precond
 \return A callable with the specification future<T>(future<>)
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if writing data is constant time.}
 \exceptionmodelstd
@@ -4567,7 +4568,7 @@ template<class T> inline detail::async_write async_write(T &&v, off_t _where)
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if writing data is constant time.}
 \exceptionmodelstd
@@ -4585,7 +4586,7 @@ template<class T> inline detail::async_write async_write(T &&v, size_t _length, 
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if writing data is constant time.}
 \exceptionmodelstd
@@ -4604,7 +4605,7 @@ template<class T> inline std::shared_ptr<async_io_handle> write(future<> _precon
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
 \param _where The file offset to do the i/o
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if writing data is constant time.}
 \exceptionmodelstd
@@ -4620,7 +4621,7 @@ template<class T> inline std::shared_ptr<async_io_handle> write(future<> _precon
 
 \return A callable with the specification future<T>(future<>)
 \param newsize The new size for the file.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup async_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if truncating file lengths is constant time.}
 \exceptionmodelstd
@@ -4633,9 +4634,8 @@ inline detail::async_truncate async_truncate(off_t newsize)
 /*! \brief Synchronously do a file length truncation after a preceding operation.
 
 \param _precondition The precondition to use.
-\param v Some item understood by `to_asio_buffers()`
 \param newsize The new size for the file.
-\ingroup async_file_io_dispatcher_base__filedirops
+\ingroup sync_filedirops
 \qbk{distinguish, single}
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if truncating file lengths is constant time.}
 \exceptionmodelstd
@@ -4665,7 +4665,7 @@ give you the worst performance possible, whereas maxitems=2 will probably only r
 \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
 \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
 \param _filtering Any filtering you want AFIO to do for you.
-\ingroup async_file_io_dispatcher_base__enumerate
+\ingroup async_enumerate
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
@@ -4696,12 +4696,13 @@ the filename being retrieved, so it may have to retry. Put another way, setting 
 give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 \return A vector of results and a bool indicating if there is more.
+\param _precondition The precondition to use.
 \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
 \param _restart Restarts the enumeration for this open directory handle.
 \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
 \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
 \param _filtering Any filtering you want AFIO to do for you.
-\ingroup async_file_io_dispatcher_base__enumerate
+\ingroup sync_enumerate
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
@@ -4737,7 +4738,7 @@ give you the worst performance possible, whereas maxitems=2 will probably only r
 \param _restart Restarts the enumeration for this open directory handle.
 \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
 \param _filtering Any filtering you want AFIO to do for you.
-\ingroup async_file_io_dispatcher_base__enumerate
+\ingroup async_enumerate
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
@@ -4768,12 +4769,13 @@ the filename being retrieved, so it may have to retry. Put another way, setting 
 give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 \return A vector of results and a bool indicating if there is more.
+\param _precondition The precondition to use.
 \param _glob A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
 \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
 \param _restart Restarts the enumeration for this open directory handle.
 \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
 \param _filtering Any filtering you want AFIO to do for you.
-\ingroup async_file_io_dispatcher_base__enumerate
+\ingroup sync_enumerate
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
@@ -4809,7 +4811,7 @@ give you the worst performance possible, whereas maxitems=2 will probably only r
 \param _restart Restarts the enumeration for this open directory handle.
 \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
 \param _filtering Any filtering you want AFIO to do for you.
-\ingroup async_file_io_dispatcher_base__enumerate
+\ingroup async_enumerate
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
@@ -4840,12 +4842,13 @@ the filename being retrieved, so it may have to retry. Put another way, setting 
 give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 \return A vector of results and a bool indicating if there is more.
+\param _precondition The precondition to use.
 \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
 \param _maxitems The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
 \param _restart Restarts the enumeration for this open directory handle.
 \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
 \param _filtering Any filtering you want AFIO to do for you.
-\ingroup async_file_io_dispatcher_base__enumerate
+\ingroup sync_enumerate
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Race free per batch of up to ['maxitems] for ino and type only. Remember that
@@ -4873,7 +4876,7 @@ with respect to one another) when other threads or processes are concurrently ca
 is a host OS API limitation.
 
 \return A callable with the specification future<T>(future<>)
-\ingroup async_file_io_dispatcher_base__extents
+\ingroup async_extents
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Very racy, even individual extent offset and length can race. The following filters are applied
@@ -4897,7 +4900,7 @@ with respect to one another) when other threads or processes are concurrently ca
 is a host OS API limitation.
 
 \return A vector of extents
-\ingroup async_file_io_dispatcher_base__extents
+\ingroup sync_extents
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X..Very racy, even individual extent offset and length can race. The following filters are applied
@@ -4919,7 +4922,7 @@ inline std::vector<std::pair<off_t, off_t>> extents(future<> _precondition)
 
 \return A callable with the specification future<T>(future<>)
 \param req A metadata request.
-\ingroup async_file_io_dispatcher_base__statfs
+\ingroup async_statfs
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, OS X..Race free.]
@@ -4941,7 +4944,7 @@ inline detail::async_statfs async_statfs(fs_metadata_flags req)
 \return The volume metadata requested.
 \param _precondition The precondition to use.
 \param req A metadata request.
-\ingroup async_file_io_dispatcher_base__statfs
+\ingroup sync_statfs
 \qbk{distinguish, single}
 \raceguarantees{
 [raceguarantee FreeBSD, OS X..Race free.]

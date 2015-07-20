@@ -215,17 +215,6 @@ A batch of op handles.
 
 ]
 ]
-[[``future adopt(std::shared_ptr< async_io_handle > h)``
-
-] [Schedule an adoption of a third party handle. ] [[* std::shared_ptr< async_io_handle >]: ['h]:  A handle to adopt.
-
-
-
-][
-An op handle. 
-
-]
-]
 [[``std::vector< future<> > dir(const std::vector< async_path_op_req > & reqs)``
 
 ] [Schedule a batch of asynchronous directory creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
@@ -234,17 +223,6 @@ An op handle.
 
 ][
 A batch of op handles. 
-
-]
-]
-[[``future dir(const async_path_op_req & req)``
-
-] [Schedule an asynchronous directory creation and open after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
-
-
-
-][
-An op handle. 
 
 ]
 ]
@@ -259,17 +237,6 @@ A batch of op handles.
 
 ]
 ]
-[[``future rmdir(const async_path_op_req & req)``
-
-] [Schedule an asynchronous directory deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
-
-
-
-][
-An op handle. 
-
-]
-]
 [[``std::vector< future<> > file(const std::vector< async_path_op_req > & reqs)``
 
 ] [Schedule a batch of asynchronous file creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
@@ -278,17 +245,6 @@ An op handle.
 
 ][
 A batch of op handles. 
-
-]
-]
-[[``future file(const async_path_op_req & req)``
-
-] [Schedule an asynchronous file creation and open after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
-
-
-
-][
-An op handle. 
 
 ]
 ]
@@ -303,17 +259,6 @@ A batch of op handles.
 
 ]
 ]
-[[``future rmfile(const async_path_op_req & req)``
-
-] [Schedule an asynchronous file deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
-
-
-
-][
-An op handle. 
-
-]
-]
 [[``std::vector< future<> > symlink(const std::vector< async_path_op_req > & reqs)``
 
 ] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
@@ -322,17 +267,6 @@ An op handle.
 
 ][
 A batch of op handles. 
-
-]
-]
-[[``future symlink(const async_path_op_req & req)``
-
-] [Schedule an asynchronous symlink creation and open after a precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
-
-
-
-][
-An op handle. 
 
 ]
 ]
@@ -347,17 +281,6 @@ A batch of op handles.
 
 ]
 ]
-[[``future rmsymlink(const async_path_op_req & req)``
-
-] [Schedule an asynchronous symlink deletion after an optional precondition. ] [[* const async_path_op_req &]: ['req]:  An [^`async_path_op_req`] structure.
-
-
-
-][
-An op handle. 
-
-]
-]
 [[``std::vector< future<> > sync(const std::vector< future<>> & ops)``
 
 ] [Schedule a batch of asynchronous content synchronisations with physical storage after preceding operations. ] [[* const std::vector< future<>> &]: ['ops]:  A batch of op handles.
@@ -366,17 +289,6 @@ An op handle.
 
 ][
 A batch of op handles. 
-
-]
-]
-[[``future sync(const future<> & req)``
-
-] [Schedule an asynchronous content synchronisation with physical storage after a preceding operation. ] [[* const future<> &]: ['req]:  An op handle.
-
-
-
-][
-An op handle. 
 
 ]
 ]
@@ -393,19 +305,6 @@ A batch of op handles.
 
 ]
 ]
-[[``future zero(const future<> & req, const std::vector< std::pair< off_t, off_t >> & ranges)``
-
-] [Schedule an asynchronous zero and deallocation of physical storage ("hole punching") after a preceding operation. ] [[* const future<> &]: ['req]:  An op handle. 
-
-[* const std::vector< std::pair< off_t, off_t >> &]: ['ranges]:  A vector of extents to zero and deallocate.
-
-
-
-][
-An op handle. 
-
-]
-]
 [[``std::vector< future<> > close(const std::vector< future<>> & ops)``
 
 ] [Schedule a batch of asynchronous file or directory handle closes after preceding operations. ] [[* const std::vector< future<>> &]: ['ops]:  A batch of op handles.
@@ -414,17 +313,6 @@ An op handle.
 
 ][
 A batch of op handles. 
-
-]
-]
-[[``future close(const future<> & req)``
-
-] [Schedule an asynchronous file or directory handle close after a preceding operation. ] [[* const future<> &]: ['req]:  An op handle.
-
-
-
-][
-An op handle. 
 
 ]
 ]
@@ -441,18 +329,6 @@ A batch of op handles.
 ]
 ]
 [[``template<class T>
-future read(const async_data_op_req< T > & req)``
-
-] [Schedule an asynchronous data read after a preceding operation, where offset and total data read must not exceed the present file size. ] [[* const async_data_op_req< T > &]: ['req]:  An async_data_op_req<T> structure.
-
-
-
-][
-An op handle. 
-
-]
-]
-[[``template<class T>
 std::vector< future<> > write(const std::vector< async_data_op_req< const T >> & ops)``
 
 ] [Schedule a batch of asynchronous data writes after preceding operations, where offset and total data written must not exceed the present file size. ] [[* const std::vector< async_data_op_req< const T >> &]: ['ops]:  A batch of async_data_op_req<const T> structures.
@@ -461,18 +337,6 @@ std::vector< future<> > write(const std::vector< async_data_op_req< const T >> &
 
 ][
 A batch of op handles. 
-
-]
-]
-[[``template<class T>
-future write(const async_data_op_req< const T > & req)``
-
-] [Schedule an asynchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. ] [[* const async_data_op_req< const T > &]: ['req]:  An async_data_op_req<const T> structure.
-
-
-
-][
-An op handle. 
 
 ]
 ]
@@ -489,19 +353,6 @@ A batch of op handles.
 
 ]
 ]
-[[``future truncate(const future<> & op, off_t newsize)``
-
-] [Schedule an asynchronous file length truncation after a preceding operation. ] [[* const future<> &]: ['op]:  An op handle. 
-
-[* off_t]: ['newsize]:  The new size for the file.
-
-
-
-][
-An op handle. 
-
-]
-]
 [[``std::vector< future< std::pair< std::vector< directory_entry >, bool > > > enumerate(const std::vector< async_enumerate_op_req > & reqs)``
 
 ] [Schedule a batch of asynchronous directory enumerations after preceding operations. ] [[* const std::vector< async_enumerate_op_req > &]: ['reqs]:  A batch of enumeration requests.
@@ -510,17 +361,6 @@ An op handle.
 
 ][
 A batch of stl_future vectors of directory entries with boolean returning false if done. 
-
-]
-]
-[[``future< std::pair< std::vector< directory_entry >, bool > > enumerate(const async_enumerate_op_req & req)``
-
-] [Schedule an asynchronous directory enumeration after a preceding operation. ] [[* const async_enumerate_op_req &]: ['req]:  An enumeration request.
-
-
-
-][
-A stl_future vector of directory entries with a boolean returning false if done. 
 
 ]
 ]
@@ -535,17 +375,6 @@ A batch of stl_future vectors of extents.
 
 ]
 ]
-[[``future< std::vector< std::pair< off_t, off_t > > > extents(const future<> & op)``
-
-] [Schedule an asynchronous extent enumeration after a preceding operation. ] [[* const future<> &]: ['op]:  An op handle.
-
-
-
-][
-A stl_future vector of extents. 
-
-]
-]
 [[``std::vector< future< statfs_t > > statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)``
 
 ] [Schedule a batch of asynchronous volume enumerations after preceding operations. ] [[* const std::vector< future<>> &]: ['ops]:  A batch of op handles. 
@@ -556,19 +385,6 @@ A stl_future vector of extents.
 
 ][
 A batch of stl_future volume metadatas. 
-
-]
-]
-[[``future< statfs_t > statfs(const future<> & op, const fs_metadata_flags & req)``
-
-] [Schedule an asynchronous volume enumeration after a preceding operation. ] [[* const future<> &]: ['op]:  An op handle. 
-
-[* const fs_metadata_flags &]: ['req]:  A metadata request.
-
-
-
-][
-A stl_future volume metadatas. 
 
 ]
 ]
@@ -657,7 +473,7 @@ std::vector< future<> > write(const std::vector< async_data_op_req< T >> & ops)`
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [/ link afio.reference.functions.async_file_io_dispatcher `async_file_io_dispatcher()`]
 [include generated/group_async_file_io_dispatcher_base__filter.qbk]

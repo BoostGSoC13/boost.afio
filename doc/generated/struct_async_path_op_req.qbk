@@ -125,7 +125,7 @@ async_path_op_req(bool _is_relative, future<> _precondition, T && _path,
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [include generated/struct_async_path_op_req_1_1absolute.qbk]
 [include generated/struct_async_path_op_req_1_1relative.qbk]

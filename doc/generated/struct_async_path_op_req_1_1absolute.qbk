@@ -57,7 +57,7 @@ absolute(future<> _precondition, T && _path, file_flags _flags = file_flags::non
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect]

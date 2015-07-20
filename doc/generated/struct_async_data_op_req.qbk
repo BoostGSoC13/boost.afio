@@ -16,7 +16,7 @@
 A convenience bundle of precondition, data and where for reading into a T as specified by its to_asio_buffers() overload. Data [*MUST] stay around until the operation completes. 
 
 [heading Synopsis]
-``template<class T, >
+``template<class T>
 struct async_data_op_req
       : public detail::async_data_op_req_impl< false >
 {
@@ -29,8 +29,7 @@ struct async_data_op_req
 [heading Template parameter(s)]
 [table
 [[Parameter] [Description]]
-[[class T] []]
-[[] [Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload. ]]
+[[class T] [Any readable (if const) or writable (if non-const) type T as specified by its to_asio_buffers() overload. ]]
 ]
 
 [heading Constructor(s)]
@@ -130,7 +129,7 @@ True if contents are correct
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect]

@@ -137,7 +137,7 @@ void set_future_value(T v)``
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect]

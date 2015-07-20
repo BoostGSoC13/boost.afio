@@ -174,17 +174,13 @@ The v1.3 branch is now included in the v1.4 branch as v1.
 * Implemented free functions for future continuation for all AFIO operations.
 
 
-FINISH TABLE OF FUNCTIONS IN DESIGN OVERVIEW
 
-REWRITE CODE EXAMPLES TO USE NEW API.
+Todo:
 
-TYPEDEF std::shared_ptr<async_io_handle> TO SOMETHING INTELLIGENT.
-
-ADD get_monad() TO FUTURE.
-
-Linux: UPDATE TABLE IN COMPILATION DOCS.
-
-TEST MULTIABI BUILD.
+* TYPEDEF std::shared_ptr<async_io_handle> TO SOMETHING INTELLIGENT.
+* ADD get_monad() TO FUTURE.
+* Linux: UPDATE TABLE IN COMPILATION DOCS.
+* TEST MULTIABI BUILD.
 
 [/=================]
 [heading Boost 1.58 AFIO v1.31 18th April 2015]

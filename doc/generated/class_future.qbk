@@ -93,10 +93,21 @@ class future
 
 ]
 ]
+[[``template<class U>
+auto then(U && f)``
+
+] [Schedules a callable to be invoked after this future becomes ready. If this future is null, use the current async file i/o dispatcher. ] [[* U &&]: ['f]:  
+
+
+
+][
+
+]
+]
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect]

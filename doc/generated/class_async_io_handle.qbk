@@ -34,7 +34,7 @@ In which way this handle is opened or not.
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
@@ -260,7 +260,7 @@ The path the symbolic link points to. May not exist or even be valid.
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [include generated/group_async_io_handle__ops.qbk]
 

@@ -34,7 +34,7 @@ auto make_async_data_op_req(future<> _precondition, T && v, off_t _where)``
 An async\u005fdata\u005fop\u005freq matching the supplied parameter type. Constructs an instance.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Example]
 [readwrite_example]
@@ -68,7 +68,7 @@ async_data_op_req<const std::initializer_list<T> > make_async_data_op_req(future
 An async\u005fdata\u005fop\u005freq matching the supplied parameter type. Constructs an instance.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Example]
 [readwrite_example]
@@ -104,7 +104,7 @@ auto make_async_data_op_req(future<> _precondition, T && v, size_t _length,
 An async\u005fdata\u005fop\u005freq matching the supplied parameter type. Constructs an instance.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Example]
 [readwrite_example]

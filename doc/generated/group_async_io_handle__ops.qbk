@@ -35,7 +35,7 @@ Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, N
 The path of this i/o handle right now. 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Race Guarantees][raceguarantees 
 [raceguarantee FreeBSD..Paths are only refreshed for directories, not files.]
@@ -68,7 +68,7 @@ Returns a mostly filled directory\u005fentry for the file or directory reference
 A directory entry for this handle. 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Race Guarantees][raceguarantees 
 [raceguarantee FreeBSD..Race free if handle open for directories and regular files only, else if handle closed or a symlink race free up to the containing directory. All metadata is fetched in a single shot.]
@@ -104,7 +104,7 @@ Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, N
 The path the symbolic link points to. May not exist or even be valid.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Race Guarantees][raceguarantees 
 [raceguarantee FreeBSD..Race free up to the containing directory.]
@@ -141,7 +141,7 @@ Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, N
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Race Guarantees][raceguarantees 
 [raceguarantee FreeBSD..Race free up to the containing directory for both source and target.]
@@ -177,7 +177,7 @@ Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, N
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Race Guarantees][raceguarantees 
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -214,7 +214,7 @@ Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, N
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Race Guarantees][raceguarantees 
 [raceguarantee FreeBSD, Linux..Race free up to the containing directory for both source and target.]

@@ -376,7 +376,7 @@ path & concat(InputIterator begin, InputIterator end)``
 ]
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [include generated/struct_path_1_1make_absolute.qbk]
 [include generated/group_normalise_path.qbk]

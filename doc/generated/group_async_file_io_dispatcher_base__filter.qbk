@@ -26,7 +26,7 @@ Clears the post op and readwrite filters. Not threadsafe.
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(1).
 [heading Example][filter_example]
@@ -58,7 +58,7 @@ Note that filters are currently implemented as a linear scan, so a full iteratio
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(N) where N is the total number of filters currently configured.
 [heading Example][filter_example]
@@ -90,7 +90,7 @@ Note that buffer filters are currently implemented as a linear scan, so a full i
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(N) where N is the total number of filters currently configured.
 [heading Example][filter_example]

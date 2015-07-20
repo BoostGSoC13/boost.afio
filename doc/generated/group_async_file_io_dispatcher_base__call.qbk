@@ -33,7 +33,7 @@ std::vector< future< R > > async_file_io_dispatcher_base::call(const std::vector
 A pair with a batch of futures returning the result of each of the callables and a batch of op handles. 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.
@@ -67,7 +67,7 @@ std::vector<future<R> > async_file_io_dispatcher_base::call(const std::vector< s
 A pair with a batch of futures returning the result of each of the callables and a batch of op handles. 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [caution This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.]
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.
@@ -107,7 +107,7 @@ future< typename std::result_of< C(Args...)>::type > async_file_io_dispatcher_ba
 A pair with a stl\u005ffuture returning the result of the callable and an op handle. 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]Amortised O(1) to dispatch. Amortised O(1) to complete.
 [heading Exception Model]Propagates exceptions of any input preconditions with an errored state at the point of dispatch, and throws a `std::invalid_argument` if any inputs have values which could not possibly be correct. Once a batch of input ops has been verified at the point of entry as not errored, you are guaranteed that the batch is atomically scheduled as a whole, unless a failure to allocate memory occurs.

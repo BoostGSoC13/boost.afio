@@ -30,7 +30,7 @@ Returns the page sizes of this architecture which is useful for calculating dire
 The page sizes of this architecture.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]Whatever the system API takes (one would hope constant time).
 [heading Exception Model]Any error from the operating system or std::bad_alloc.
@@ -59,7 +59,7 @@ Returns a reasonable default size for file\u005fbuffer\u005fallocator, typically
 A value of a TLB large page size close to 1Mb.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]Whatever the system API takes (one would hope constant time).
 [heading Exception Model]Any error from the operating system or std::bad_alloc.
@@ -87,7 +87,7 @@ Fills the buffer supplied with cryptographically strong randomness. Uses the OS 
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]Whatever the system API takes.
 [heading Exception Model]Any error from the operating system.
@@ -125,7 +125,7 @@ This lets one pack one byte of input into two bytes of output.
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(N) where N is the length of the number.
 [heading Exception Model]Throws exception if output buffer is too small for input.
@@ -159,7 +159,7 @@ Note that this routine is about 43% slower than to\u005fhex\u005fstring(), half 
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]O(N) where N is the length of the string.
 [heading Exception Model]Throws exception if output buffer is too small for input or input size is not multiple of two.
@@ -189,7 +189,7 @@ Returns a cryptographically random string capable of being used as a filename. E
 A string representing the randomness at a 2x ratio, so if 32 bytes were requested, this string would be 64 bytes long.
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]Whatever the system API takes.
 [heading Exception Model]Any error from the operating system.

@@ -30,7 +30,7 @@ Schedule an asynchronous synchronisation of preceding operations.
 A batch of op handles. 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 [heading Complexity]Amortised O(N) to dispatch. Amortised O(N) to complete.
 [heading Exception Model]See detailed description above.

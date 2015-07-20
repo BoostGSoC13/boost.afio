@@ -4,6 +4,137 @@
     http://www.boost.org/LICENSE_1_0.txt)
 ===============================================================================/]
 
+[section:overview AFIO single page cheat sheet]
+
+'''<?dbhtml-include href="disqus_identifiers/overview.html"?>'''
+
+AFIO models file descriptors/handles as a reference counted `std::shared_ptr<async_io_handle>` where `async_io_handle` is an
+opaque abstract base class. `async_io_handle` may, or may not, refer to a currently open file descriptor/handle
+i.e. it is possible to close it before the reference count reaches zero.
+
+__boost_afio__ version 1.4 provides a new free function tag dispatched continuations API in addition to the
+traditional batch API previously supported. The supported operations are as follows:
+
+[table:supported_operations
+[[Operation][Asynchronous Single][Synchronous Single][Asynchronous Batch]]
+[[Adopt a foreign fd/handle]                  [`future< > async_adopt(std::shared_ptr< async_io_handle > h)`][`std::shared_ptr< async_io_handle > adopt(future<> precondition, std::shared_ptr< async_io_handle > h)`][`std::vector< future<> > async_io_dispatcher_base::adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)`]]
+[[Open/create a directory]                    [`future< > async_dir(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > dir(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::dir(const std::vector< async_path_op_req > & reqs)`]]
+[[Delete a directory]                         [`future< > async_rmdir(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > rmdir(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::rmdir(const std::vector< async_path_op_req > & reqs)`]]
+[[Open/create a file]                         [`future< > async_file(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > file(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::file(const std::vector< async_path_op_req > & reqs)`]]
+[[Delete a file]                              [`future< > async_rmfile(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > rmfile(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::rmfile(const std::vector< async_path_op_req > & reqs)`]]
+[[Open/create a symlink]                      [`future< > async_symlink(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > symlink(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::symlink(const std::vector< async_path_op_req > & reqs)`]]
+[[Delete a symlink]                           [`future< > async_rmsymlink(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > rmsymlink(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::rmsymlink(const std::vector< async_path_op_req > & reqs)`]]
+[[Synchronise changes to non-volatile storage][`future< > async_sync()`][`std::shared_ptr< async_io_handle > sync(future<> precondition)`][`std::vector< future<> > async_io_dispatcher_base::sync(const std::vector< future<>> & ops)`]]
+[[Deallocate physical storage]                [`future< > async_zero(std::vector< std::pair< off_t, off_t >> ranges)`][`std::shared_ptr< async_io_handle > zero(future<> precondition, std::vector< std::pair< off_t, off_t >> ranges)`][`std::vector< future<> > async_io_dispatcher_base::zero(const std::vector< future<>> & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)`]]
+[[Close a fd/handle]                          [`future< > async_close()`][`std::shared_ptr< async_io_handle > close(future<> precondition)`][`std::vector< future<> > async_io_dispatcher_base::close(const std::vector< future<>> & ops)`]]
+[[Scatter read]                               [`future< > async_read(T && v, off_t _where)`][`std::shared_ptr< async_io_handle > read(future<> precondition, T && v, off_t _where)`][`template<class T> std::vector< future<> > async_io_dispatcher_base::read(const std::vector< async_data_op_req< T >> & ops)`]]
+[[Gather write]                               [`future< > async_write(T && v, off_t _where)`][`std::shared_ptr< async_io_handle > write(future<> precondition, T && v, off_t _where)`][`template<class T> std::vector< future<> > async_io_dispatcher_base::write(const std::vector< async_data_op_req< const T >> & ops)`]]
+[[Resize file]                                [`future< > async_truncate(off_t newsize)`][`std::shared_ptr< async_io_handle > truncate(future<> precondition, off_t newsize)`][`std::vector< future<> > async_io_dispatcher_base::truncate(const std::vector< future<>> & ops, const std::vector< off_t > & sizes)`]]
+[[Enumerate directory contents]               [`future< std::pair<std::vector<directory_entry>, bool> > async_enumerate(size_t _maxitems = 2, bool _restart = true, path _glob = path(), metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)`][`std::pair<std::vector<directory_entry>, bool> enumerate(future<> precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(), metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)`][`future< std::pair< std::vector< directory_entry >, bool > > async_io_dispatcher_base::enumerate(const async_enumerate_op_req & req)`]]
+[[Enumerate file storage extents]             [`future< std::vector<std::pair<off_t, off_t> > > async_extents()`][`std::vector<std::pair<off_t, off_t> > extents(future<> precondition)`][`std::vector< future< std::vector< std::pair< off_t, off_t > > > > async_io_dispatcher_base::extents(const std::vector< future<>> & ops)`]]
+[[Examine mounted volume]                     [`future< statfs_t > async_statfs(fs_metadata_flags req)`][`statfs_t statfs(future<> precondition, fs_metadata_flags req)`][`std::vector< future< statfs_t > > async_io_dispatcher_base::statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)`]]
+
+[[Get current path of an open fd/handle even if other processes are renaming it (Linux, Windows, FreeBSD directories only, not OS X)][N/A][path async_io_handle::path(bool refresh = false)][N/A]]
+[[Get open fd/handle metadata][N/A][path async_io_handle::direntry(metadata_flags wanted = directory_entry::metadata_fastpath())][N/A]]
+[[][N/A][stat_t async_io_handle::lstat(metadata_flags wanted = directory_entry::metadata_fastpath())][N/A]]
+[[Get target path of a symlink][N/A][path async_io_handle::target()][N/A]]
+[[Map a read-only file into memory][N/A][void * async_io_handle::try_mapfile()][N/A]]
+[[Hard link an open fd/handle to a new path][N/A][void async_io_handle::link(const async_path_op_req & req)][N/A]]
+[[Unlink an open fd/handle from its existing path (caution!)][N/A][void async_io_handle::unlink()][N/A]]
+[[Strong atomically relink an open fd/handle from its existing path to a different path][N/A][void async_io_handle::atomic_relink(const async_path_op_req & req)][N/A]]
+]
+
+The new free function tag dispatch API should make programming AFIO much easier on the programmer
+compared to writing single issues of the batch API as it was before.
+
+Here is how you would open a file and read some data using each style of API:
+
+[table:api_style_examples
+[[Asynchronous Single][Synchronous Single][Asynchronous Batch]]
+[[todo][todo][todo]]
+]
+
+Some other things you ought to be aware of:
+
+# ASIO, most Boost code and the STL 11 tend to follow the following API pattern:
+
+ ``
+ std::filesystem::create_directory("foo");      // throw exception if fails
+ std::error_code ec;
+ std::filesystem::create_directory("foo", ec);  // set ec to error code if fails 
+ ``
+
+ Thanks to lightweight futures, AFIO avoids the need for this pattern. As lightweight futures
+can return value/error/exception AFIO guarantees that expected errors always return an
+error code (`get_error()`) whilst unexpected errors always return an exception
+(`get_exception()`). For compatibility with STL futures, calling `get_exception()` or `get()`
+on a lightweight future with an error code state will convert that error code into a suitable
+exception, so if you wish to avoid the overhead of an exception throw simply test the future
+for an errored state before retrieving any value like this:
+
+ ``
+ afio::future<> &h;   // some outstanding scheduled AFIO operation
+ // Block until operation completes, retrieving any error code which will be non-null if
+ // there is an errored or excepted state
+ if(h.get_error()) {
+   if(h.has_error())
+     // It's an expected error
+   else
+     // It's an unexpected error, use h.get_exception() to retrieve
+ } else
+   // It's a value, use h.get() to retrieve
+ ``
+ 
+ The above can be more tersely written using monadic operations (if those are enabled at
+compile time) instead:
+ 
+ ``
+ afio::future<> &h;   // some outstanding scheduled AFIO operation
+ h.get_monad()
+   >> [](std::error_code ec) { /* it's an expected error */ }
+   >> [](std::exception_ptr e) { /* it's an exception */ }
+   >> [](monad<std::shared_ptr<async_io_handle> value) { /* it's a value */ };
+ ``
+ 
+# On Microsoft Windows, AFIO [*always] uses NT kernel paths, never Win32 paths. By skipping the Win32
+translation layer one achieves significantly better performance and much closer to POSIX semantics
+including case sensitivity, plus there are no issues with path length limits.
+On Windows `afio::path` (NT kernel paths) will usually auto convert to and from `filesystem::path`
+(Win32 paths), however do note there is not always a one to one mapping from a NT kernel path to
+a Win32 path in which case the Win32 paths to send in will never be the Win32 paths you get out.
+See the documentation for __afio_path__.
+
+ [caution Until [@https://github.com/BoostGSoC13/boost.afio/issues/79 issue #79] is resolved, don't
+do directory enumerations from an x86 binary on a x64 Windows system. This is due to a bug in
+Microsoft's WOW64 syscall translation layer which Microsoft have decided is wontfix.]
+
+# Error reporting [*always] follows the ["earliest possible reporting] rule. As absolutely
+everything is asynchronous in AFIO, that also means that exception handling also occurs
+asynchronously. So if you try to use a future as an input and that future is
+errored at the point of use, the errored state is immediately rethrown. As futures may
+become errored asynchronously, that means you must always write code which assumes any
+API which consumes a future can throw (unless you know for a fact the future is ready and
+not errored).
+
+# Handles to directories may ignore requests to close them i.e. `std::shared_ptr<async_io_handle>.close()`
+is a no-op. This is due to a performance feature called ["directory handle caching] which shares
+read-only directory handles amongst all users unless specifically requested not to do so.
+
+# As a general rule, AFIO spots when you try to delete a currently open file handle where
+that is illegal on your platform (Microsoft Windows) and will instead rename the file to a
+cryptographically strong random name and ask the operating system to delete
+it later when the last handle is closed. This emulates POSIX semantics, albeit imperfectly.
+One caveat is it cannot always do this with directories,
+though it tries hard to try again later where it can. A future version of AFIO will add `tmpfs`
+support which will let us relocate troublesome directories into the temp directory where they can
+be deleted much later, thus more closely matching POSIX semantics still further.
+ 
+
+'''<?dbhtml-include href="disqus_comments.html"?>'''
+
+[endsect] [/overview]
+
+
 [section:design Design Introduction and Rationale]
 
 '''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
@@ -116,8 +247,10 @@ descriptor or handle, so something like:
  ``
 
  I'll admit this design isn't quite what the members of WG21 had in mind, especially the notion that `afio::future<void>`
-with type void always carries a shared pointer to a handle. However, this sort of custom future is exactly what Boost.Monad
-was written for, and remember you can compose `afio::future` with any other kind of custom future from the __boost_monad__ factory.
+with type void always carries a shared pointer to a handle. However the above design fits very nicely with `future.then()`
+such that you can write `future<void>.then(async_file("../newfile", afio::file_flags::create)))` and that works a treat.
+A potential extension in the future might be to add an additional overload for each async free function with its first
+parameter being the precondition, this would simply thunk through to the construct and call idiom above.
 
 # One oft-observed design limitation in the Filesystem TS is that it cannot support filesystems in filesystems,
 with the most classic example being a ZIP archive on a filesystem where it might be nice to allow generic C++
@@ -140,116 +273,6 @@ to be removed shortly. You can find a list of these shortly to be removed APIs a
 The list is not long, and the removals are obvious.
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
-
-
-
-[section:overview AFIO single page cheat sheet]
-
-'''<?dbhtml-include href="disqus_identifiers/design_rationale.html"?>'''
-
-AFIO models file descriptors/handles as a reference counted `std::shared_ptr<async_io_handle>` where `async_io_handle` is an
-opaque abstract base class. `async_io_handle` may, or may not, refer to a currently open file descriptor/handle
-i.e. it is possible to close it before the reference count reaches zero.
-
-__boost_afio__ version 1.4 provides a new free function tag dispatched continuations API in addition to the
-traditional batch API previously supported. The supported operations are as follows:
-
-[table:supported_operations
-[[Operation][Asynchronous Single][Synchronous Single][Asynchronous Batch]]
-[[Adopt a foreign fd/handle][`async_adopt()`][`adopt()`][`std::vector< future<> > async_io_dispatcher_base::adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)`]]
-[[Open/create a directory][`async_dir()`][`dir()`][`std::vector< future<> > async_io_dispatcher_base::dir(const std::vector< async_path_op_req > & reqs)`]]
-[[todo][todo][todo]]
-]
-
-The new free function tag dispatch API should make programming AFIO much easier on the programmer
-compared to writing single issues of the batch API as it was before.
-
-Here is how you would open a file and read some data using each style of API:
-
-[table:api_style_examples
-[[Asynchronous Single][Synchronous Single][Asynchronous Batch]]
-[[todo][todo][todo]]
-]
-
-Some other things you ought to be aware of:
-
-# ASIO, most Boost code and the STL 11 tend to follow the following API pattern:
-
- ``
- std::filesystem::create_directory("foo");      // throw exception if fails
- std::error_code ec;
- std::filesystem::create_directory("foo", ec);  // set ec to error code if fails 
- ``
-
- Thanks to lightweight futures, AFIO avoids the need for this pattern. As lightweight futures
-can return value/error/exception AFIO guarantees that expected errors always return an
-error code (`get_error()`) whilst unexpected errors always return an exception
-(`get_exception()`). For compatibility with STL futures, calling `get_exception()` or `get()`
-on a lightweight future with an error code state will convert that error code into a suitable
-exception, so if you wish to avoid the overhead of an exception throw simply test the future
-for an errored state before retrieving any value like this:
-
- ``
- afio::future<> &h;   // some outstanding scheduled AFIO operation
- // Block until operation completes, retrieving any error code which will be non-null if
- // there is an errored or excepted state
- if(h.get_error()) {
-   if(h.has_error())
-     // It's an expected error
-   else
-     // It's an unexpected error, use h.get_exception() to retrieve
- } else
-   // It's a value, use h.get() to retrieve
- ``
- 
- The above can be more tersely written using monadic operations (if those are enabled at
-compile time) instead:
- 
- ``
- afio::future<> &h;   // some outstanding scheduled AFIO operation
- h.get_monad()
-   >> [](std::error_code ec) { /* it's an expected error */ }
-   >> [](std::exception_ptr e) { /* it's an exception */ }
-   >> [](monad<std::shared_ptr<async_io_handle> value) { /* it's a value */ };
- ``
- 
-# On Microsoft Windows, AFIO [*always] uses NT kernel paths, never Win32 paths. By skipping the Win32
-translation layer one achieves significantly better performance and much closer to POSIX semantics
-including case sensitivity, plus there are no issues with path length limits.
-On Windows `afio::path` (NT kernel paths) will usually auto convert to and from `filesystem::path`
-(Win32 paths), however do note there is not always a one to one mapping from a NT kernel path to
-a Win32 path in which case the Win32 paths to send in will never be the Win32 paths you get out.
-See the documentation for __afio_path__.
-
-[caution Until [@https://github.com/BoostGSoC13/boost.afio/issues/79 issue #79] is resolved, don't
-do directory enumerations from an x86 binary on a x64 Windows system. This is due to a bug in
-Microsoft's WOW64 syscall translation layer which Microsoft have decided is wontfix.]
-
-# Error reporting [*always] follows the ["earliest possible reporting] rule. As absolutely
-everything is asynchronous in AFIO, that also means that exception handling also occurs
-asynchronously. So if you try to use a future as an input and that future is
-errored at the point of use, the errored state is immediately rethrown. As futures may
-become errored asynchronously, that means you must always write code which assumes any
-API which consumes a future can throw (unless you know for a fact the future is ready and
-not errored).
-
-# Handles to directories may ignore requests to close them i.e. `std::shared_ptr<async_io_handle>.close()`
-is a no-op. This is due to a performance feature called ["directory handle caching] which shares
-read-only directory handles amongst all users unless specifically requested not to do so.
-
-# As a general rule, AFIO spots when you try to delete a currently open file handle where
-that is illegal on your platform (Microsoft Windows) and will instead rename the file to a
-cryptographically strong random name and ask the operating system to delete
-it later when the last handle is closed. This emulates POSIX semantics, albeit imperfectly.
-One caveat is it cannot always do this with directories,
-though it tries hard to try again later where it can. A future version of AFIO will add `tmpfs`
-support which will let us relocate troublesome directories into the temp directory where they can
-be deleted much later, thus more closely matching POSIX semantics still further.
- 
-
-'''<?dbhtml-include href="disqus_comments.html"?>'''
-
-[endsect] [/overview]
 
 [section:acid_write_ordering Write ordering constraints, and how these can
 be used to achieve some of the Durability in ACID without needing `fsync()`]

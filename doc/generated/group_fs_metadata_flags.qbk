@@ -58,7 +58,7 @@ Bitflags for availability of metadata from [^`struct ``statfs_t`]
 
 
 [heading Header]
-`#include <boost/afio/afio.hpp>`
+`#include <boost/afio/v2/afio.hpp>`
 
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''

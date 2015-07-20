@@ -229,7 +229,14 @@ for i in glob.glob("generated/*.qbk"):
 # Generate disqus html fragments for these sections
 disqus_sections=[
     ("introduction", "Introduction"),
-    ("design_rationale", "Design Introduction and Rationale")
+    ("design_rationale", "Design Introduction and Rationale"),
+    ("overview", "Single page cheat sheet"),
+    ("compilation", "Compilation"),
+    ("hello_world", "Hello World, asynchronously!"),
+    ("file_concat", "Concatenating files"),
+    ("atomic_logging", "Achieving atomicity on the filing system"),
+    ("filesystem_races", "Handling races on the filing system"),
+    ("so_what", "What benefit does asynchronous file i/o bring me? A demonstration of AFIO's power")
 ]
 for name, title in disqus_sections:
     write_disqus_fragment(name, title)
