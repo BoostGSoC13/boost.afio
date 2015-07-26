@@ -83,6 +83,19 @@
     <ClCompile Include="..\detail\SpookyV2.cpp" />
     <ClCompile Include="..\test\test_all.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\boost\afio\v2\afio.hpp" />
+    <ClInclude Include="..\include\boost\afio\v2\config.hpp" />
+    <ClInclude Include="..\include\boost\afio\v2\detail\ErrorHandling.hpp" />
+    <ClInclude Include="..\include\boost\afio\v2\detail\impl\nt_kernel_stuff.hpp" />
+    <ClInclude Include="..\include\boost\afio\v2\detail\Undoer.hpp" />
+    <ClInclude Include="..\include\boost\afio\v2\detail\Utility.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\include\boost\afio\v2\detail\impl\afio.ipp" />
+    <None Include="..\include\boost\afio\v2\detail\impl\afio_iocp.ipp" />
+    <None Include="..\include\boost\afio\v2\detail\impl\ErrorHandling.ipp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

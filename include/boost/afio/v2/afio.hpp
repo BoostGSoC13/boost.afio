@@ -1442,6 +1442,14 @@ public:
         auto e=get_exception_ptr(_h);
         return e ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->_h.get();
     }
+    //! Retrieves the handle or exception from the shared state, rethrowing any exception but setting _ec if there is an error. Returns a null shared pointer if this future is invalid.
+    std::shared_ptr<async_io_handle> get_handle(error_type &ec) const
+    {
+      if (!_parent && !_id)
+        return std::shared_ptr<async_io_handle>();
+      ec = get_error();
+      return ec ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->_h.get();
+    }
     //! Dereferences the handle from the shared state. Same as *h.get_handle().
     const async_io_handle &operator *() const { return *get_handle(); }
     //! Dereferences the handle from the shared state. Same as *h.get_handle().
@@ -1458,9 +1466,35 @@ public:
       _h.get();
     }
     //! Waits for the future to become ready, returning any error state found
-    error_type get_error() const;
+    error_type get_error() const
+    {
+      if (!valid())
+        throw future_error(future_errc::no_state);
+      auto e = get_exception_ptr(_h);
+      if (e)
+      {
+        try
+        {
+          rethrow_exception(e);
+        }
+        catch (const system_error &_e)
+        {
+          return _e.code();
+        }
+        catch (...)
+        {
+          return error_type((int)monad_errc::exception_present, monad_category());
+        }
+      }
+      return error_type();
+    }
     //! Waits for the future to become ready, returning any error state found
-    exception_type get_exception() const;
+    exception_type get_exception() const
+    {
+      if (!valid())
+        throw future_error(future_errc::no_state);
+      return get_exception_ptr(_h);
+    }
     //! Waits for the future to become ready. Throws a `future_errc::no_state` if this future is invalid.
     void wait() const
     {
@@ -1849,9 +1883,7 @@ public:
 
     /*! \brief Schedule a batch of third party handle adoptions.
 
-    This function enables you to adopt third party custom async_io_handle derivatives
-    as ops into the scheduler. Think of it as if you were calling file(), except the
-    op returns the supplied handle and otherwise does nothing.
+    \docs_adopt
 
     \return A batch of op handles.
     \param hs A batch of handles to adopt.
@@ -1864,11 +1896,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
     /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
-    Note that if there is already a handle open to the directory requested, that will be returned instead of
-    a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
-    is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
-    happen.
-
+    \docs_dir
     \ntkernelnamespacenote
 
     \return A batch of op handles.
@@ -3599,18 +3627,6 @@ inline future<> async_file_io_dispatcher_base::depends(future<> precondition, fu
 
 namespace detail
 {
-  struct async_adopt
-  {
-    std::shared_ptr<async_io_handle> h;
-    async_adopt(std::shared_ptr<async_io_handle> _h) : h(std::move(_h)) { }
-    future<> operator()(future<> f = future<>())
-    {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
-      if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
-      return std::move(dispatcher->adopt(std::vector<std::shared_ptr<async_io_handle>>(1, std::move(h))).front());
-    }
-  };
   template<class T> struct async_dir
   {
     T path;
@@ -3814,101 +3830,143 @@ namespace detail
   };
   // depends ??? (put this on the future instead?)
 }
-/*! \brief Returns a callable which when called with a future<> schedules a third party handle adoption.
 
-This function enables you to adopt third party custom async_io_handle derivatives
-as ops into the scheduler. Think of it as if you were calling file(), except the
-op returns the supplied handle and otherwise does nothing.
+/*! \brief Asynchronous directory creation and open after an optional precondition.
 
-\return A callable with the specification future<T>(future<>)
-\param h A handle to adopt.
-\ingroup async_filedirops
-\qbk{distinguish, single}
-\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-\exceptionmodelstd
-\qexample{adopt_example}
-*/
-inline detail::async_adopt async_adopt(std::shared_ptr<async_io_handle> h)
-{
-  return detail::async_adopt(std::move(h));
-}
-
-/*! \brief Returns a callable which when called with a future<> schedules a directory creation and open after an optional precondition.
-
-Note that if there is already a handle open to the directory requested, that will be returned instead of
-a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
-is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
-happen.
-
+\docs_dir
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A callable with the specification future<T>(future<>)
+\return A future<void>
+\param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
 \ingroup async_filedirops
-\qbk{distinguish, single}
+\qbk{distinguish, relative}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
 }
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-\exceptionmodelstd
+\exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline detail::async_dir<T> async_dir(T _path, file_flags _flags = file_flags::none) 
+template<class T> inline future<> async_dir(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_dir<T>(std::move(_path), _flags);
+  return detail::async_dir(std::move(_path), _flags)(std::move(_precondition));
+}
+/*! \brief Asynchronous directory creation and open after an optional precondition.
+
+\docs_dir
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to be used.
+\return A future<void>
+\param _path The filing system path to be used.
+\param _flags The flags to be used.
+\ingroup async_filedirops
+\qbk{distinguish, absolute}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelfree
+\qexample{filedir_example}
+*/
+template<class T> inline future<> async_dir(T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_dir(std::move(_path), _flags)(future<>());
 }
 /*! \brief Synchronous directory creation and open after an optional precondition.
 
-Note that if there is already a handle open to the directory requested, that will be returned instead of
-a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
-is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
-happen.
-
+\docs_dir
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
+\return A handle to the directory.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
 \ingroup sync_filedirops
-\qbk{distinguish, single relative}
+\qbk{distinguish, relative throwing}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
 }
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-\exceptionmodelstd
+\exceptionmodelfree
 \qexample{filedir_example}
 */
 template<class T> inline std::shared_ptr<async_io_handle> dir(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
-  return async_dir(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  return detail::async_dir(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous directory creation and open after an optional precondition.
 
-Note that if there is already a handle open to the directory requested, that will be returned instead of
-a new handle unless file_flags::unique_directory_handle is specified. For such handles where available_to_directory_cache()
-is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to
-happen.
-
+\docs_dir
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
+\return A handle to the directory.
 \param _path The filing system path to use.
 \param _flags The flags to use.
 \ingroup sync_filedirops
-\qbk{distinguish, single absolute}
+\qbk{distinguish, absolute throwing}
 \raceguarantees{
 [raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
 }
 \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
-\exceptionmodelstd
+\exceptionmodelfree
 \qexample{filedir_example}
 */
 template<class T> inline std::shared_ptr<async_io_handle> dir(T _path, file_flags _flags = file_flags::none)
 {
-  return async_dir(std::move(_path), _flags)(future<>()).get_handle();
+  return detail::async_dir(std::move(_path), _flags)(future<>()).get_handle();
+}
+/*! \brief Synchronous directory creation and open after an optional precondition.
+
+\docs_dir
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to use.
+\return A handle to the directory.
+\param _ec Error code to set.
+\param _precondition The precondition to use.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup sync_filedirops
+\qbk{distinguish, relative non throwing}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..Race free up to the containing directory.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelfree
+\qexample{filedir_example}
+*/
+template<class T> inline std::shared_ptr<async_io_handle> dir(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_dir(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+}
+/*! \brief Synchronous directory creation and open after an optional precondition.
+
+\docs_dir
+\ntkernelnamespacenote
+
+\tparam "class T" The type of path to use.
+\return A handle to the directory.
+\param _ec Error code to set.
+\param _path The filing system path to use.
+\param _flags The flags to use.
+\ingroup sync_filedirops
+\qbk{distinguish, absolute non throwing}
+\raceguarantees{
+[raceguarantee FreeBSD, Linux, OS X, Windows..No guarantees.]
+}
+\complexity{Amortised O(1) to dispatch. Amortised O(1) to complete if directory creation is constant time.}
+\exceptionmodelfree
+\qexample{filedir_example}
+*/
+template<class T> inline std::shared_ptr<async_io_handle> dir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+{
+  return detail::async_dir(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 /*! \brief Returns a callable which when called with a future<> schedules an asynchronous directory deletion after an optional precondition.

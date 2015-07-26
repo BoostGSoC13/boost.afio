@@ -371,7 +371,9 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
   template<typename R> using option = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::option<R>;
   using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::empty;
   using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::make_option;
-BOOST_AFIO_V2_NAMESPACE_END
+  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::monad_errc;
+  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::monad_category;
+  BOOST_AFIO_V2_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Set up dll import/export options

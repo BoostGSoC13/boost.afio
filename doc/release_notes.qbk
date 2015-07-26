@@ -177,7 +177,9 @@ The v1.3 branch is now included in the v1.4 branch as v1.
 
 Todo:
 
-* TYPEDEF std::shared_ptr<async_io_handle> TO SOMETHING INTELLIGENT.
+* TYPEDEF std::shared_ptr<async_io_handle> TO handle_ptr
+* ADD collect(...) WHICHS RETHROWS ANY ERROR IN INPUTS
+* ADD LINKS TO CHEAT SHEET
 * ADD get_monad() TO FUTURE.
 * Linux: UPDATE TABLE IN COMPILATION DOCS.
 * TEST MULTIABI BUILD.

@@ -167,6 +167,16 @@ future
 
 ]
 ]
+[[``std::shared_ptr< async_io_handle > get_handle(error_type & ec)``
+
+] [Retrieves the handle or exception from the shared state, rethrowing any exception but setting _ec if there is an error. Returns a null shared pointer if this future is invalid. ] [[* error_type &]: ['ec]:  
+
+
+
+][
+
+]
+]
 [[``const async_io_handle & operator*()``
 
 ] [Dereferences the handle from the shared state. Same as *h.get_handle(). ] [
