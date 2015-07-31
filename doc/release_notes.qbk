@@ -183,9 +183,11 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * Fixed issue #84 Symlinks were never being followed on Windows.
 
+* Fixed issue #83 Fix failure to handle Dedup reparse point types.
+
 Todo:
 
-* FIX ALWAYS OPENING REPARSE POINT + DEDUP FILE HANDLING
+* FIX symlink() CANNOT DO RACE-FREE
 * ADD collect(...) WHICHS RETHROWS ANY ERROR IN INPUTS TO LIGHTWEIGHT FUTURE WITH EMULATION IN AFIO
 
 

@@ -46,6 +46,31 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
       BOOST_CHECK(mklink.get_handle()->target()==mkdir.get_handle()->path());
 //      BOOST_CHECK(mkdir.get()->container()->native_handle()==test.get()->native_handle());
 
+      // Enumerate the directory and make sure it returns the correct metadata too
+      auto items = enumerate(test, 10).first;
+      BOOST_CHECK(items.size() == 2);
+      for (auto &item : items)
+      {
+        if (item.name() == "dir")
+        {
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+          BOOST_CHECK(item.fetch_lstat(test.get_handle()).st_type == filesystem::file_type::directory_file);
+#else
+          BOOST_CHECK(item.fetch_lstat(test.get_handle()).st_type == filesystem::file_type::directory);
+#endif
+          BOOST_CHECK(item.fetch_lstat(test.get_handle()).st_ino == mkdirstat.st_ino);
+        }
+        else if (item.name() == "linktodir")
+        {
+#ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
+          BOOST_CHECK(item.fetch_lstat(test.get_handle()).st_type == filesystem::file_type::symlink_file);
+#else
+          BOOST_CHECK(item.fetch_lstat(test.get_handle()).st_type == filesystem::file_type::symlink);
+#endif
+          BOOST_CHECK(item.fetch_lstat(test.get_handle()).st_ino == mklinkstat.st_ino);
+        }
+      }
+
       auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));
       auto rmfile(dispatcher->close(dispatcher->rmfile(dispatcher->depends(rmlink, mkfile))));
       auto rmdir(dispatcher->close(dispatcher->rmdir(dispatcher->depends(rmfile, mkdir))));

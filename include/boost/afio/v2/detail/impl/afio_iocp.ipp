@@ -21,7 +21,11 @@ namespace detail {
       DWORD creatdisp=0, ntflags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/;
       if(!overlapped)
         ntflags|=0x20/*FILE_SYNCHRONOUS_IO_NONALERT*/;
-      if(flags!=file_flags::none)
+      if(flags==file_flags::none)
+
+        ntflags|=0x00200000/*FILE_OPEN_REPARSE_POINT*/;
+
+      else
       {
         if(!!(flags & file_flags::int_opening_link))
             ntflags|=0x00200000/*FILE_OPEN_REPARSE_POINT*/;
@@ -84,7 +88,7 @@ namespace detail {
       oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
       UNICODE_STRING _path;
       // If relative path, or symlinked DOS path, use case insensitive
-      bool isSymlinkedDosPath=(path.native()[0]=='\\' && path.native()[1]=='?' && path.native()[2]=='?' && path.native()[3]=='\\');
+      bool isSymlinkedDosPath=(path.native().size()>3 && path.native()[0]=='\\' && path.native()[1]=='?' && path.native()[2]=='?' && path.native()[3]=='\\');
       oa.Attributes=(path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
       //if(!!(flags & file_flags::int_opening_link))
       //  oa.Attributes|=0x100/*OBJ_OPENLINK*/;
@@ -190,7 +194,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
 {
   windows_nt_kernel::init();
   using namespace windows_nt_kernel;
-  bool isSymlinkedDosPath=(p.native()[0]=='\\' && p.native()[1]=='?' && p.native()[2]=='?' && p.native()[3]=='\\');
+  bool isSymlinkedDosPath=(p.native().size()>3 && p.native()[0]=='\\' && p.native()[1]=='?' && p.native()[2]=='?' && p.native()[3]=='\\');
   bool needToOpen=!isSymlinkedDosPath || path_normalise::guid_all==type;
   // Path is probably \Device\Harddisk...
   NTSTATUS ntstat;
@@ -496,7 +500,21 @@ namespace detail
                 }
             }
             if(!!(wanted&metadata_flags::ino)) { stat.st_ino=fai.InternalInformation.IndexNumber.QuadPart; }
-            if(!!(wanted&metadata_flags::type)) { stat.st_type=windows_nt_kernel::to_st_type(fai.BasicInformation.FileAttributes); }
+            if(!!(wanted&metadata_flags::type))
+            {
+              ULONG ReparsePointTag=fai.EaInformation.ReparsePointTag;
+              // We need to get its reparse tag to see if it's a symlink
+              if(fai.BasicInformation.FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT && !ReparsePointTag)
+              {
+                BOOST_AFIO_TYPEALIGNMENT(8) char buffer[sizeof(REPARSE_DATA_BUFFER)+32769];
+                DWORD written=0;
+                REPARSE_DATA_BUFFER *rpd=(REPARSE_DATA_BUFFER *) buffer;
+                memset(rpd, 0, sizeof(*rpd));
+                BOOST_AFIO_ERRHWINFN(DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, NULL, 0, rpd, sizeof(buffer), &written, NULL));
+                ReparsePointTag=rpd->ReparseTag;
+              }
+              stat.st_type=windows_nt_kernel::to_st_type(fai.BasicInformation.FileAttributes, ReparsePointTag);
+            }
             if(!!(wanted&metadata_flags::nlink)) { stat.st_nlink=(int16_t) fai.StandardInformation.NumberOfLinks; }
             if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(fai.BasicInformation.LastAccessTime); }
             if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(fai.BasicInformation.LastWriteTime); }
@@ -529,7 +547,7 @@ namespace detail
             case IO_REPARSE_TAG_SYMLINK:
                 return BOOST_AFIO_V2_NAMESPACE::path(path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(BOOST_AFIO_V2_NAMESPACE::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(BOOST_AFIO_V2_NAMESPACE::path::value_type)), BOOST_AFIO_V2_NAMESPACE::path::direct());
             }
-            BOOST_AFIO_THROW(std::runtime_error("Unknown type of symbolic link."));
+            BOOST_AFIO_THROW(std::system_error(EINVAL, generic_category()));
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() override final
         {
@@ -732,7 +750,7 @@ namespace detail
             oa.RootDirectory=dirh ? dirh->native_handle() : nullptr;
             UNICODE_STRING _path;
             // If relative path, or symlinked DOS path, use case insensitive
-            bool isSymlinkedDosPath=(req.path.native()[0]=='\\' && req.path.native()[1]=='?' && req.path.native()[2]=='?' && req.path.native()[3]=='\\');
+            bool isSymlinkedDosPath=(req.path.native().size()>3 && req.path.native()[0]=='\\' && req.path.native()[1]=='?' && req.path.native()[2]=='?' && req.path.native()[3]=='\\');
             oa.Attributes=(req.path.native()[0]!='\\' || isSymlinkedDosPath) ? 0x40/*OBJ_CASE_INSENSITIVE*/ : 0;
             _path.Buffer=const_cast<path::value_type *>(req.path.c_str());
             _path.MaximumLength=(_path.Length=(USHORT) (req.path.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
@@ -882,7 +900,7 @@ namespace detail
               rpd->ReparseTag=IO_REPARSE_TAG_MOUNT_POINT;
             else
               rpd->ReparseTag=IO_REPARSE_TAG_SYMLINK;
-            if(isalpha(destpath.native()[4]) && destpath.native()[5]==':')
+            if(destpath.native().size()>5 && isalpha(destpath.native()[4]) && destpath.native()[5]==':')
             {
                 memcpy(rpd->MountPointReparseBuffer.PathBuffer, destpath.c_str(), destpathbytes+sizeof(path::value_type));
                 rpd->MountPointReparseBuffer.SubstituteNameOffset=0;
@@ -1314,7 +1332,7 @@ namespace detail
                       continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
-                    item.stat.st_type=to_st_type(ffdi->FileAttributes);
+                    item.stat.st_type=to_st_type(ffdi->FileAttributes, ffdi->ReparsePointTag);
                     item.stat.st_atim=to_timepoint(ffdi->LastAccessTime);
                     item.stat.st_mtim=to_timepoint(ffdi->LastWriteTime);
                     item.stat.st_ctim=to_timepoint(ffdi->ChangeTime);

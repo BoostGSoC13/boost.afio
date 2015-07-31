@@ -339,7 +339,10 @@ namespace windows_nt_kernel
     } FILE_INTERNAL_INFORMATION, *PFILE_INTERNAL_INFORMATION;
 
     typedef struct _FILE_EA_INFORMATION {
-      ULONG EaSize;
+      union {
+        ULONG EaSize;
+        ULONG ReparsePointTag;
+      };
     } FILE_EA_INFORMATION, *PFILE_EA_INFORMATION;
 
     typedef struct _FILE_ACCESS_INFORMATION {
@@ -435,10 +438,19 @@ namespace windows_nt_kernel
       LARGE_INTEGER AllocationSize;
       ULONG         FileAttributes;
       ULONG         FileNameLength;
-      ULONG         EaSize;
+      union {
+        ULONG       EaSize;
+        ULONG       ReparsePointTag;
+      };
       LARGE_INTEGER FileId;
       WCHAR         FileName[1];
     } FILE_ID_FULL_DIR_INFORMATION, *PFILE_ID_FULL_DIR_INFORMATION;
+
+    // From https://msdn.microsoft.com/en-us/library/windows/hardware/ff540354(v=vs.85).aspx
+    typedef struct _FILE_REPARSE_POINT_INFORMATION {
+      LARGE_INTEGER FileReference;
+      ULONG    Tag;
+    } FILE_REPARSE_POINT_INFORMATION, *PFILE_REPARSE_POINT_INFORMATION;
 
     // From http://msdn.microsoft.com/en-us/library/windows/hardware/ff552012(v=vs.85).aspx
     typedef struct _REPARSE_DATA_BUFFER {
@@ -580,10 +592,10 @@ namespace windows_nt_kernel
         }
     }
 
-    static inline filesystem::file_type to_st_type(ULONG FileAttributes)
+    static inline filesystem::file_type to_st_type(ULONG FileAttributes, ULONG ReparsePointTag)
     {
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
-        if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
+        if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT && (ReparsePointTag == IO_REPARSE_TAG_MOUNT_POINT || ReparsePointTag == IO_REPARSE_TAG_SYMLINK))
             return filesystem::file_type::symlink_file;
             //return filesystem::file_type::reparse_file;
         else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)
@@ -591,7 +603,7 @@ namespace windows_nt_kernel
         else
             return filesystem::file_type::regular_file;
 #else
-        if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)
+        if(FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT && (ReparsePointTag == IO_REPARSE_TAG_MOUNT_POINT || ReparsePointTag == IO_REPARSE_TAG_SYMLINK))
             return filesystem::file_type::symlink;
             //return filesystem::file_type::reparse_file;
         else if(FileAttributes&FILE_ATTRIBUTE_DIRECTORY)

@@ -3373,7 +3373,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
                 ntstat=NtWaitForSingleObject(dirh->native_handle(), FALSE, NULL);
             BOOST_AFIO_ERRHNTFN(ntstat, [dirh]{return dirh->path();});
             if(!!(wanted&metadata_flags::ino)) { stat.st_ino=ffdi->FileId.QuadPart; }
-            if(!!(wanted&metadata_flags::type)) { stat.st_type=windows_nt_kernel::to_st_type(ffdi->FileAttributes); }
+            if(!!(wanted&metadata_flags::type)) { stat.st_type=windows_nt_kernel::to_st_type(ffdi->FileAttributes, ffdi->ReparsePointTag); }
             if(!!(wanted&metadata_flags::atim)) { stat.st_atim=to_timepoint(ffdi->LastAccessTime); }
             if(!!(wanted&metadata_flags::mtim)) { stat.st_mtim=to_timepoint(ffdi->LastWriteTime); }
             if(!!(wanted&metadata_flags::ctim)) { stat.st_ctim=to_timepoint(ffdi->ChangeTime); }
