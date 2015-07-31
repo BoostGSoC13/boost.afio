@@ -22,7 +22,7 @@ static std::pair<bool, std::shared_ptr<boost::afio::handle>> _callback(size_t id
 int main(void)
 {
   using namespace boost::afio;
-  auto dispatcher=make_async_file_io_dispatcher();
+  auto dispatcher=make_dispatcher();
   typedef chrono::duration<double, ratio<1, 1>> secs_type;
   {
     size_t total1=0, total2=0, total3=0;
@@ -58,7 +58,7 @@ int main(void)
     std::cout << "OS sleep overhead is calculated to be " << chrono::duration_cast<secs_type>(sleepoverhead).count() << " seconds." << std::endl;
   }  
   
-  std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> callback(async_op_flags::none, _callback);
+  std::pair<async_op_flags, dispatcher::completion_t *> callback(async_op_flags::none, _callback);
   std::ofstream csv("afio_latencies.csv");
   csv << "Timing overhead is calculated to be," << chrono::duration_cast<secs_type>(overhead).count()
 #ifdef MULTIPLIER

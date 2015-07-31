@@ -48,7 +48,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_barrier, "Tests that the async i/o barrier wo
         return true;
     };
     // For each of those runs, dispatch ops and a barrier for them
-    auto dispatcher = make_async_file_io_dispatcher();
+    auto dispatcher = make_dispatcher();
     auto begin = chrono::high_resolution_clock::now();
     size_t opscount = 0;
     future<> next;

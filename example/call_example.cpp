@@ -5,7 +5,7 @@ int main(void)
 {
     //[call_example
     // Create a dispatcher instance
-    auto dispatcher=boost::afio::make_async_file_io_dispatcher();
+    auto dispatcher=boost::afio::make_dispatcher();
     
     // Schedule an asynchronous call of some function with some bound set of arguments
     auto helloworld=dispatcher->call(boost::afio::future<>() /* no precondition */, [](std::string text) -> int {

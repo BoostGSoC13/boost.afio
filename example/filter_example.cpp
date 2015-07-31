@@ -20,17 +20,17 @@ static void readwrite_filter(detail::OpType optype, handle *h,
 
 int main(void)
 {
-    std::shared_ptr<async_file_io_dispatcher_base> dispatcher=
-        make_async_file_io_dispatcher();
+    dispatcher_ptr dispatcher=
+        make_dispatcher();
         
     // Install filters BEFORE scheduling any ops as the filter APIs are NOT
     // threadsafe. This filters all file opens.
     dispatcher->post_op_filter({ std::make_pair(detail::OpType::file /* just file opens */,
-        std::function<async_file_io_dispatcher_base::filter_t>(open_file_filter)) });
+        std::function<dispatcher::filter_t>(open_file_filter)) });
 
     // This filters all reads and writes
     dispatcher->post_readwrite_filter({ std::make_pair(detail::OpType::Unknown /* all */,
-        std::function<async_file_io_dispatcher_base::filter_readwrite_t>(readwrite_filter)) });
+        std::function<dispatcher::filter_readwrite_t>(readwrite_filter)) });
     return 0;
 }
 //]

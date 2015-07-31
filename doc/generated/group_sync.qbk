@@ -19,7 +19,7 @@ Schedule a batch of asynchronous content synchronisations with physical storage 
 It goes without saying that this call can take very significant amounts of time to complete!
 
 [heading Synopsis]
-``future async_file_io_dispatcher_base::sync(const std::vector< future<>> & ops)``
+``future dispatcher::sync(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 
@@ -87,7 +87,7 @@ Synchronous content synchronisation with physical storage after a preceding oper
 It goes without saying that this call can take very significant amounts of time to complete!
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> sync(future<> _precondition)``
+``handle_ptr sync(future<> _precondition)``
 
 [heading Parameters]
 
@@ -121,7 +121,7 @@ Synchronous content synchronisation with physical storage after a preceding oper
 It goes without saying that this call can take very significant amounts of time to complete! 
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> sync(asio::error_code & _ec, future<> _precondition)``
+``handle_ptr sync(asio::error_code & _ec, future<> _precondition)``
 
 [heading Parameters]
 

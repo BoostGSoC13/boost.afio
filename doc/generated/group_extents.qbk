@@ -19,7 +19,7 @@ Schedule a batch of asynchronous extent enumerations after preceding operations.
 In a sparsely allocated file, it can be useful to know which extents contain non-zero data. Note that this call is racy (i.e. the extents are enumerated one by one on some platforms, this means they may be out of date with respect to one another) when other threads or processes are concurrently calling zero() or write() - this is a host OS API limitation.
 
 [heading Synopsis]
-``future< std::vector< std::pair< off_t, off_t > > > async_file_io_dispatcher_base::extents(const std::vector< future<>> & ops)``
+``future< std::vector< std::pair< off_t, off_t > > > dispatcher::extents(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 

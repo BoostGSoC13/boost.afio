@@ -16,7 +16,7 @@
 Schedule a batch of asynchronous file length truncations after preceding operations. 
 
 [heading Synopsis]
-``future async_file_io_dispatcher_base::truncate(const std::vector< future<>> & ops, const std::vector< off_t > & sizes)``
+``future dispatcher::truncate(const std::vector< future<>> & ops, const std::vector< off_t > & sizes)``
 
 [heading Parameters]
 
@@ -80,7 +80,7 @@ A future<void>
 Synchronous file length truncation after a preceding operation. 
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> truncate(future<> _precondition, off_t newsize)``
+``handle_ptr truncate(future<> _precondition, off_t newsize)``
 
 [heading Parameters]
 
@@ -112,7 +112,7 @@ A handle with outcome.
 Synchronous file length truncation after a preceding operation. 
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> truncate(asio::error_code & _ec, future<> _precondition, off_t newsize)``
+``handle_ptr truncate(asio::error_code & _ec, future<> _precondition, off_t newsize)``
 
 [heading Parameters]
 

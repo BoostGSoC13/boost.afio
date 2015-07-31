@@ -3,7 +3,7 @@
 int main(void)
 {
     //[enumerate_example
-    boost::afio::current_dispatcher_guard h(boost::afio::make_async_file_io_dispatcher());
+    boost::afio::current_dispatcher_guard h(boost::afio::make_dispatcher());
 
     // Schedule an opening of the root directory
     boost::afio::future<> rootdir(boost::afio::async_dir("/")());

@@ -3,7 +3,7 @@
 int main(void)
 {
   using namespace boost::afio;
-  auto dispatcher=boost::afio::make_async_file_io_dispatcher();
+  auto dispatcher=boost::afio::make_dispatcher();
         
   auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
   try

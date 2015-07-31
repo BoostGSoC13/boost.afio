@@ -19,7 +19,7 @@ Schedule a batch of asynchronous symlink creations and opens after a preconditio
 Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse point instead of a symlink due to the default lack of the [^`SeCreateSymbolicLinkPrivilege`] for non-Administrative users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX except for Linux you cannot do this and an invalid handle is output. Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``future async_file_io_dispatcher_base::symlink(const std::vector< async_path_op_req > & reqs)``
+``future dispatcher::symlink(const std::vector< async_path_op_req > & reqs)``
 
 [heading Parameters]
 
@@ -141,7 +141,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 
 [heading Synopsis]
 ``template<class T>
-std::shared_ptr<async_io_handle> symlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)``
+handle_ptr symlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -183,7 +183,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 
 [heading Synopsis]
 ``template<class T, typename>
-std::shared_ptr<async_io_handle> symlink(T _path, file_flags _flags = file_flags::none)``
+handle_ptr symlink(T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -224,8 +224,8 @@ Note that if creating, the target for the symlink is the precondition. On Window
 
 [heading Synopsis]
 ``template<class T>
-std::shared_ptr<async_io_handle> symlink(asio::error_code & _ec, future<> _precondition, T _path,
-                                           file_flags _flags = file_flags::none)``
+handle_ptr symlink(asio::error_code & _ec, future<> _precondition, T _path,
+                   file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -268,7 +268,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 
 [heading Synopsis]
 ``template<class T, typename>
-std::shared_ptr<async_io_handle> symlink(asio::error_code & _ec, T _path, file_flags _flags = file_flags::none)``
+handle_ptr symlink(asio::error_code & _ec, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 

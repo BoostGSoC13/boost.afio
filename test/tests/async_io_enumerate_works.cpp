@@ -4,7 +4,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
 {
     using namespace BOOST_AFIO_V2_NAMESPACE;
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-    auto dispatcher=make_async_file_io_dispatcher();
+    auto dispatcher=make_dispatcher();
     std::cout << "Opening root directory for enumeration" << std::endl;
     auto rootdir(dispatcher->dir(async_path_op_req("/", file_flags::read)));
     auto rootdir2(dispatcher->dir(async_path_op_req("/", file_flags::read)));

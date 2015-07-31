@@ -68,14 +68,14 @@ future
 
 ]
 ]
-[[`` future(async_file_io_dispatcher_base * parent, size_t id, shared_future< std::shared_ptr< async_io_handle >> handle,
+[[`` future(dispatcher * parent, size_t id, shared_future< handle_ptr > handle,
         bool check_handle = true, bool validate = true)``
 
-] [] [[* async_file_io_dispatcher_base *]: ['parent]:  The dispatcher this op belongs to. 
+] [] [[* dispatcher *]: ['parent]:  The dispatcher this op belongs to. 
 
 [* size_t]: ['id]:  The unique non-zero id of this op. 
 
-[* shared_future< std::shared_ptr< async_io_handle >>]: ['handle]:  A shared_ptr to shared state between all instances of this reference. 
+[* shared_future< handle_ptr >]: ['handle]:  A shared_ptr to shared state between all instances of this reference. 
 
 [* bool]: ['check_handle]:  Whether to have validation additionally check if a handle is not null 
 
@@ -87,9 +87,9 @@ future
 
 ]
 ]
-[[`` future(std::shared_ptr< async_io_handle > _handle, bool check_handle = true, bool validate = true)``
+[[`` future(handle_ptr _handle, bool check_handle = true, bool validate = true)``
 
-] [] [[* std::shared_ptr< async_io_handle >]: ['_handle]:  A shared_ptr to shared state between all instances of this reference. 
+] [] [[* handle_ptr]: ['_handle]:  A shared_ptr to shared state between all instances of this reference. 
 
 [* bool]: ['check_handle]:  Whether to have validation additionally check if a handle is not null 
 
@@ -101,9 +101,9 @@ future
 
 ]
 ]
-[[`` future(async_file_io_dispatcher_base * parent, size_t id)``
+[[`` future(dispatcher * parent, size_t id)``
 
-] [] [[* async_file_io_dispatcher_base *]: ['parent]:  The dispatcher this op belongs to. 
+] [] [[* dispatcher *]: ['parent]:  The dispatcher this op belongs to. 
 
 [* size_t]: ['id]:  The unique non-zero id of this op. 
 
@@ -141,7 +141,7 @@ future
 
 ]
 ]
-[[``async_file_io_dispatcher_base * parent()``
+[[``dispatcher * parent()``
 
 ] [The parent dispatcher of this future. ] [
 
@@ -157,7 +157,7 @@ future
 
 ]
 ]
-[[``std::shared_ptr< async_io_handle > get_handle(bool return_null_if_errored = false)``
+[[``handle_ptr get_handle(bool return_null_if_errored = false)``
 
 ] [Retrieves the handle or exception from the shared state, rethrowing any exception. Returns a null shared pointer if this future is invalid. ] [[* bool]: ['return_null_if_errored]:  
 
@@ -167,7 +167,7 @@ future
 
 ]
 ]
-[[``std::shared_ptr< async_io_handle > get_handle(error_type & ec)``
+[[``handle_ptr get_handle(error_type & ec)``
 
 ] [Retrieves the handle or exception from the shared state, rethrowing any exception but setting _ec if there is an error. Returns a null shared pointer if this future is invalid. ] [[* error_type &]: ['ec]:  
 
@@ -177,7 +177,7 @@ future
 
 ]
 ]
-[[``const async_io_handle & operator*()``
+[[``const handle & operator*()``
 
 ] [Dereferences the handle from the shared state. Same as *h.get_handle(). ] [
 
@@ -185,7 +185,7 @@ future
 
 ]
 ]
-[[``async_io_handle & operator*()``
+[[``handle & operator*()``
 
 ] [Dereferences the handle from the shared state. Same as *h.get_handle(). ] [
 
@@ -193,7 +193,7 @@ future
 
 ]
 ]
-[[``const async_io_handle * operator->()``
+[[``const handle * operator->()``
 
 ] [Dereferences the handle from the shared state. Same as h.get_handle()->get(). ] [
 
@@ -201,7 +201,7 @@ future
 
 ]
 ]
-[[``async_io_handle * operator->()``
+[[``handle * operator->()``
 
 ] [Dereferences the handle from the shared state. Same as h.get_handle()->get(). ] [
 

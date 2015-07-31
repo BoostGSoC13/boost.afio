@@ -9,7 +9,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
     u4 *buf=(u4 *) buffer.data();
     for(size_t n=0; n<buffer.size()/sizeof(*buf); n++)
       buf[n]=ranval(&ctx);
-    auto dispatcher = make_async_file_io_dispatcher();
+    auto dispatcher = make_dispatcher();
     std::cout << "\n\nTesting async range content zeroing of sparse and compressed files:\n";
     {
       // Create a 1Mb file

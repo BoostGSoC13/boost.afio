@@ -39,7 +39,7 @@ class find_in_files
 public:
     std::promise<int> finished;
     std::regex regexpr; // The precompiled regular expression
-    std::shared_ptr<async_file_io_dispatcher_base> dispatcher;
+    dispatcher_ptr dispatcher;
     recursive_mutex opslock;
     std::deque<future<>> ops; // For exception gathering
     std::atomic<size_t> bytesread, filesread, filesmatched, scheduled, completed;
@@ -117,7 +117,7 @@ public:
                 dispatcher->op_from_scheduled_id(id), buffer->data(), _length, 0));
             auto read_done=dispatcher->completion(read, 
                 std::make_pair(async_op_flags::none/*regex search might be slow*/, 
-                    std::function<async_file_io_dispatcher_base::completion_t>(
+                    std::function<dispatcher::completion_t>(
                         std::bind(&find_in_files::file_read, this, std::placeholders::_1, 
                             std::placeholders::_2, buffer, length))));
             doscheduled({ read, read_done });
@@ -149,7 +149,7 @@ public:
             }
             if(!dir_reqs.empty())
             {
-                std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> dir_openedfs(dir_reqs.size(), std::make_pair(async_op_flags::None, std::bind(&find_in_files::dir_opened, this, std::placeholders::_1, std::placeholders::_2)));
+                std::vector<std::pair<async_op_flags, std::function<dispatcher::completion_t>>> dir_openedfs(dir_reqs.size(), std::make_pair(async_op_flags::None, std::bind(&find_in_files::dir_opened, this, std::placeholders::_1, std::placeholders::_2)));
                 auto dir_opens=dispatcher->dir(dir_reqs);
                 doscheduled(dir_opens);
                 auto dir_openeds=dispatcher->completion(dir_opens, dir_openedfs);
@@ -163,7 +163,7 @@ public:
         // The Windows NT kernel filing system driver gets upset with too much concurrency
         // when used with OSDirect so throttle directory enumerations to enforce some depth first traversal.
         {
-            std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> dir_openedf=std::make_pair(async_op_flags::none, std::bind(&find_in_files::dir_opened, this, 
+            std::pair<async_op_flags, std::function<dispatcher::completion_t>> dir_openedf=std::make_pair(async_op_flags::none, std::bind(&find_in_files::dir_opened, this, 
                 std::placeholders::_1, std::placeholders::_2));
             for(auto &entry : entries)
             {
@@ -188,7 +188,7 @@ public:
         // Algorithm 1
         {
             std::vector<async_path_op_req> file_reqs; file_reqs.reserve(entries.size());
-            std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> file_openedfs; file_openedfs.reserve(entries.size());
+            std::vector<std::pair<async_op_flags, std::function<dispatcher::completion_t>>> file_openedfs; file_openedfs.reserve(entries.size());
             for(auto &entry : entries)
             {
                 if((entry.st_type()&S_IFREG)==S_IFREG)
@@ -232,7 +232,7 @@ public:
                         auto file_open=dispatcher->file(async_path_op_req::absolute(lastdir, h->path()/entry.name(), flags));
                         auto file_opened=dispatcher->completion(file_open, 
                             std::make_pair(async_op_flags::none, 
-                                std::function<async_file_io_dispatcher_base::completion_t>(
+                                std::function<dispatcher::completion_t>(
                                     std::bind(&find_in_files::file_opened, this, 
                                         std::placeholders::_1, std::placeholders::_2, length))));
                         doscheduled({ file_open, file_opened });
@@ -258,7 +258,7 @@ public:
             bool>>>(std::move(enumeration));
         auto enumeration_done=dispatcher->completion(enumeration, 
             make_pair(async_op_flags::none,
-                std::function<async_file_io_dispatcher_base::completion_t>(
+                std::function<dispatcher::completion_t>(
                     std::bind(&find_in_files::dir_enumerated, this, 
                         std::placeholders::_1, std::placeholders::_2, listing))));
         doscheduled({enumeration, enumeration_done});
@@ -298,7 +298,7 @@ public:
     // Constructor, which starts the ball rolling
     find_in_files(const char *_regexpr) : regexpr(_regexpr),
         // Create an AFIO dispatcher that bypasses any filing system buffers
-        dispatcher(make_async_file_io_dispatcher(process_threadpool(), file_flags::will_be_sequentially_accessed/*|file_flags::os_direct*/)),
+        dispatcher(make_dispatcher(process_threadpool(), file_flags::will_be_sequentially_accessed/*|file_flags::os_direct*/)),
         bytesread(0), filesread(0), filesmatched(0), scheduled(0), completed(0)
     {
         filepaths.reserve(50000);
@@ -307,7 +307,7 @@ public:
         std::cout << "\n\nStarting directory enumerations ..." << std::endl;
         auto cur_dir=dispatcher->dir(async_path_op_req(""));
         auto cur_dir_opened=dispatcher->completion(cur_dir, std::make_pair(async_op_flags::none, 
-            std::function<async_file_io_dispatcher_base::completion_t>(
+            std::function<dispatcher::completion_t>(
                 std::bind(&find_in_files::dir_opened, this, 
                     std::placeholders::_1, std::placeholders::_2))));
         doscheduled({cur_dir, cur_dir_opened});

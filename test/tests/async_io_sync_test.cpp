@@ -5,7 +5,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_sync, "Tests async fsync", 5)
     using namespace BOOST_AFIO_V2_NAMESPACE;
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     std::vector<char> buffer(64, 'n');
-    auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::always_sync);
+    auto dispatcher = make_dispatcher(process_threadpool(), file_flags::always_sync);
     std::cout << "\n\nTesting synchronous directory and file creation:\n";
     {
       auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));

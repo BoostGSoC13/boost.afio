@@ -5,8 +5,8 @@ int main(void)
 {
     //[completion_example1
     // Create a dispatcher instance
-    std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
-        boost::afio::make_async_file_io_dispatcher();
+    std::shared_ptr<boost::afio::dispatcher> dispatcher=
+        boost::afio::make_dispatcher();
     
     // Completion handlers are the lowest level completion routine available, and therefore the least
     // overhead but at the cost of considerable extra programmer effort. You almost certainly want
@@ -35,8 +35,8 @@ int main(void)
         return std::make_pair(true, precondition.get_handle());
     };
     
-    // Bind any user defined parameters to create a proper boost::afio::async_file_io_dispatcher_base::completion_t
-    std::function<boost::afio::async_file_io_dispatcher_base::completion_t> boundf=
+    // Bind any user defined parameters to create a proper boost::afio::dispatcher::completion_t
+    std::function<boost::afio::dispatcher::completion_t> boundf=
         std::bind(completer,
             /* The standard parameters */
             std::placeholders::_1, std::placeholders::_2,

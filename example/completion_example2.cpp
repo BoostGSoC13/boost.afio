@@ -5,8 +5,8 @@ int main(void)
 {
     //[completion_example2
     // Create a dispatcher instance
-    std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
-        boost::afio::make_async_file_io_dispatcher();
+    std::shared_ptr<boost::afio::dispatcher> dispatcher=
+        boost::afio::make_dispatcher();
     
     // One thing direct programming of completion handlers can do which call() cannot is immediate
     // completions. These run immediately after the precondition finishes by the thread worker
@@ -14,7 +14,7 @@ int main(void)
     // be useful for ensuring data is still cache-local for example.
     
     // Create the completion, using the standard form
-    auto completion=[](std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher,
+    auto completion=[](std::shared_ptr<boost::afio::dispatcher> dispatcher,
         /* These are always the standard parameters */
         size_t id, boost::afio::future<> precondition)
       /* This is always the return type */
@@ -24,7 +24,7 @@ int main(void)
       
         // Create some callable entity which will do the actual completion. It can be
         // anything you like, but you need a minimum of its integer id.
-        auto completer=[](std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher,
+        auto completer=[](std::shared_ptr<boost::afio::dispatcher> dispatcher,
                           size_t id, boost::afio::future<> op) -> int
         {
             try
@@ -51,8 +51,8 @@ int main(void)
         return std::make_pair(false, precondition.get_handle());
     };
        
-    // Bind any user defined parameters to create a proper boost::afio::async_file_io_dispatcher_base::completion_t
-    std::function<boost::afio::async_file_io_dispatcher_base::completion_t> boundf=
+    // Bind any user defined parameters to create a proper boost::afio::dispatcher::completion_t
+    std::function<boost::afio::dispatcher::completion_t> boundf=
         std::bind(completion, dispatcher,
             /* The standard parameters */
             std::placeholders::_1, std::placeholders::_2);

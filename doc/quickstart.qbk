@@ -75,8 +75,8 @@ all those tedious platform specific and filing system specific quirks for you.
 
 Using __boost_afio__ is centred around the __afio_dispatcher__ abstract base class,
 whose underlying platform-specific implementation class is instantiated using the
-[link afio.reference.functions.make_async_file_io_dispatcher `make_async_file_io_dispatcher()`]
-factory function. Once you have a `std::shared_ptr<async_file_io_dispatcher_base>`,
+[link afio.reference.functions.make_dispatcher `make_dispatcher()`]
+factory function. Once you have a `dispatcher_ptr`,
 you simply call its member functions to have the dispatcher schedule asynchronous
 work items for you, each returning a __afio_op__. Note that dispatchers can be
 specialised with specific flags, so you could have one dispatcher which always

@@ -309,9 +309,9 @@ namespace detail
             BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, [&path]{return path;});
             return h;
         }
-        async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags) : handle(_parent, flags),
+        async_io_handle_windows(dispatcher *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags) : handle(_parent, flags),
           myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
-        inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
+        inline async_io_handle_windows(dispatcher *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         inline handle_ptr int_verifymyinode();
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
@@ -662,7 +662,7 @@ namespace detail
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, fni, sizeof(FILE_RENAME_INFORMATION)+fni->FileNameLength, FileRenameInformation), [this]{return path();});
         }
     };
-    inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
+    inline async_io_handle_windows::async_io_handle_windows(dispatcher *_parent,
       const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
       : handle(_parent, flags),
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
@@ -672,10 +672,10 @@ namespace detail
         lockfile=process_lockfile_registry::open<win_lock_file>(this);
     }
 
-    class async_file_io_dispatcher_windows : public async_file_io_dispatcher_base
+    class async_file_io_dispatcher_windows : public dispatcher
     {
         template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
-        friend class async_file_io_dispatcher_base;
+        friend class dispatcher;
         friend class directory_entry;
         friend void directory_entry::_int_fetch(metadata_flags wanted, handle_ptr dirh);
         friend struct async_io_handle_windows;
@@ -1609,7 +1609,7 @@ namespace detail
         }
 
     public:
-        async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : async_file_io_dispatcher_base(threadpool, flagsforce, flagsmask), pagesize(utils::page_sizes().front())
+        async_file_io_dispatcher_windows(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask) : dispatcher(threadpool, flagsforce, flagsmask), pagesize(utils::page_sizes().front())
         {
         }
 
@@ -1868,7 +1868,7 @@ namespace detail
         }
         BOOST_AFIO_ERRHWIN(CloseHandle(h));
       }
-      async_file_io_dispatcher_base::completion_returntype lock(size_t id, future<> op, async_lock_op_req req, void *_thislockfile) override final
+      dispatcher::completion_returntype lock(size_t id, future<> op, async_lock_op_req req, void *_thislockfile) override final
       {
         windows_nt_kernel::init();
         using namespace windows_nt_kernel;

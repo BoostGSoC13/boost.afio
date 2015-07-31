@@ -20,7 +20,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-virtual std::vector<future<> > async_file_io_dispatcher_base::read(const std::vector< async_data_op_req< T >> & ops)``
+virtual std::vector<future<> > dispatcher::read(const std::vector< async_data_op_req< T >> & ops)``
 
 [heading Parameters]
 
@@ -134,7 +134,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-std::shared_ptr<async_io_handle> read(future<> _precondition, T && v, off_t _where)``
+handle_ptr read(future<> _precondition, T && v, off_t _where)``
 
 [heading Parameters]
 
@@ -172,8 +172,8 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-std::shared_ptr<async_io_handle> read(future<> _precondition, T && v, size_t _length,
-                                        off_t _where)``
+handle_ptr read(future<> _precondition, T && v, size_t _length,
+                off_t _where)``
 
 [heading Parameters]
 
@@ -212,8 +212,8 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-std::shared_ptr<async_io_handle> read(asio::error_code & _ec, future<> _precondition, T && v,
-                                        off_t _where)``
+handle_ptr read(asio::error_code & _ec, future<> _precondition, T && v,
+                off_t _where)``
 
 [heading Parameters]
 
@@ -252,8 +252,8 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-std::shared_ptr<async_io_handle> read(asio::error_code & _ec, future<> _precondition, T && v,
-                                        size_t _length, off_t _where)``
+handle_ptr read(asio::error_code & _ec, future<> _precondition, T && v,
+                size_t _length, off_t _where)``
 
 [heading Parameters]
 

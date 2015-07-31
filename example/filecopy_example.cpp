@@ -27,7 +27,7 @@ namespace {
     // Parallel copy files in sources into dest, concatenating
     stl_future<std::vector<handle_ptr>> async_concatenate_files(
         atomic<off_t> &written, off_t &totalbytes,
-        std::shared_ptr<async_file_io_dispatcher_base> dispatcher,
+        dispatcher_ptr dispatcher,
         boost::afio::filesystem::path dest, std::vector<boost::afio::filesystem::path> sources,
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
@@ -120,8 +120,8 @@ int main(int argc, const char *argv[])
     {
         atomic<off_t> written(0);
         off_t totalbytes=0;
-        std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
-            boost::afio::make_async_file_io_dispatcher();
+        std::shared_ptr<boost::afio::dispatcher> dispatcher=
+            boost::afio::make_dispatcher();
         // Set a dispatcher as current for this thread
         boost::afio::current_dispatcher_guard guard(dispatcher);
 

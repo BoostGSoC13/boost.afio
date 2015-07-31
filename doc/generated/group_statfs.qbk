@@ -16,7 +16,7 @@
 Schedule a batch of asynchronous volume enumerations after preceding operations. 
 
 [heading Synopsis]
-``future< statfs_t > async_file_io_dispatcher_base::statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)``
+``future< statfs_t > dispatcher::statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)``
 
 [heading Parameters]
 

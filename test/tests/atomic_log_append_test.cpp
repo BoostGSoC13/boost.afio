@@ -20,7 +20,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
         {
 //[extents_example
             // Create a dispatcher
-            auto dispatcher = make_async_file_io_dispatcher();
+            auto dispatcher = make_dispatcher();
             // Schedule opening the log file for hole punching
             auto logfilez(dispatcher->file(async_path_op_req("testdir/log",
                 file_flags::create | file_flags::read_write)));

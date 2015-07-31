@@ -355,7 +355,8 @@ On first use, this instantiates a default std_thread_pool running `BOOST_AFIO_MA
 BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threadpool();
 
 
-class async_file_io_dispatcher_base;
+class dispatcher;
+using dispatcher_ptr = std::shared_ptr<dispatcher>;
 template<class T=void> class future;
 struct async_path_op_req;
 template<class T> struct async_data_op_req;
@@ -364,7 +365,7 @@ struct async_lock_op_req;
 namespace detail {
     struct async_io_handle_posix;
     struct async_io_handle_windows;
-    struct async_file_io_dispatcher_base_p;
+    struct dispatcher_p;
     class async_file_io_dispatcher_compat;
     class async_file_io_dispatcher_windows;
     class async_file_io_dispatcher_linux;
@@ -1128,7 +1129,7 @@ by handle. This can consume considerable time, especially if SyncOnClose is enab
 */
 class handle : public std::enable_shared_from_this<handle>
 {
-    friend class async_file_io_dispatcher_base;
+    friend class dispatcher;
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
     friend class detail::async_file_io_dispatcher_compat;
@@ -1136,19 +1137,19 @@ class handle : public std::enable_shared_from_this<handle>
     friend class detail::async_file_io_dispatcher_linux;
     friend class detail::async_file_io_dispatcher_qnx;
 
-    async_file_io_dispatcher_base *_parent;
+    dispatcher *_parent;
     chrono::system_clock::time_point _opened;
     file_flags _flags;
 protected:
     handle_ptr dirh;
     atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
-    handle(async_file_io_dispatcher_base *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    handle(dispatcher *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
     //! Calling this directly can cause misoperation. Best to avoid unless you have inspected the source code for the consequences.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle() { }
     //! Returns the parent of this io handle
-    async_file_io_dispatcher_base *parent() const { return _parent; }
+    dispatcher *parent() const { return _parent; }
     //! Returns a handle to the directory containing this handle. Only works if `file_flags::hold_parent_open` was specified when this handle was opened.
     handle_ptr container() const { return dirh; }
     //! In which way this handle is opened or not
@@ -1345,7 +1346,7 @@ a new dispatcher.
 \param new_dispatcher The new async_file_io_dispatcher to set.
 \ingroup async_file_io_dispatcher
 */
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> current_async_file_io_dispatcher(option<std::shared_ptr<async_file_io_dispatcher_base>> new_dispatcher = empty);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC dispatcher_ptr current_dispatcher(option<dispatcher_ptr> new_dispatcher = empty);
 
 /*! \class current_dispatcher_guard
 
@@ -1355,16 +1356,16 @@ RAII holder for the current async file i/o dispatcher.
 */
 class current_dispatcher_guard
 {
-  std::shared_ptr<async_file_io_dispatcher_base> _old;
+  dispatcher_ptr _old;
 public:
-  current_dispatcher_guard(std::shared_ptr<async_file_io_dispatcher_base> _new) : _old(current_async_file_io_dispatcher(_new)) { }
-  ~current_dispatcher_guard() { current_async_file_io_dispatcher(_old); }
+  current_dispatcher_guard(dispatcher_ptr _new) : _old(current_dispatcher(_new)) { }
+  ~current_dispatcher_guard() { current_dispatcher(_old); }
   //! Restore the former async file i/o dispatcher now.
-  void release() { current_async_file_io_dispatcher(_old); _old.reset(); }
+  void release() { current_dispatcher(_old); _old.reset(); }
   //! Don't restore the former async file i/o dispatcher.
   void dismiss() { _old.reset(); }
   //! Set a different former async file i/o dispatcher on destruction.
-  void reset(std::shared_ptr<async_file_io_dispatcher_base> p) { _old=p; }
+  void reset(dispatcher_ptr p) { _old=p; }
 };
 
 // Temporary friends for future<>
@@ -1384,7 +1385,7 @@ template<> class future<void>
     template<bool rethrow, class Iterator> friend inline stl_future<std::vector<handle_ptr>> detail::when_all_ops(Iterator first, Iterator last);
     template<bool rethrow, class Iterator> friend inline stl_future<handle_ptr> detail::when_any_ops(Iterator first, Iterator last);
 
-    async_file_io_dispatcher_base *_parent;              //!< The parent dispatcher
+    dispatcher *_parent;              //!< The parent dispatcher
     size_t _id;                                          //!< A unique id for this operation
     shared_future<handle_ptr> _h;  //!< A stl_future handle to the item being operated upon
 public:
@@ -1411,7 +1412,7 @@ public:
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    future(async_file_io_dispatcher_base *parent, size_t id, shared_future<handle_ptr> handle, bool check_handle=true, bool validate=true) : _parent(parent), _id(id), _h(std::move(handle)) { if(validate) _validate(check_handle); }
+    future(dispatcher *parent, size_t id, shared_future<handle_ptr> handle, bool check_handle=true, bool validate=true) : _parent(parent), _id(id), _h(std::move(handle)) { if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _handle A shared_ptr to shared state between all instances of this reference.
     \param check_handle Whether to have validation additionally check if a handle is not null
@@ -1422,7 +1423,7 @@ public:
     \param parent The dispatcher this op belongs to.
     \param id The unique non-zero id of this op.
     */
-    future(async_file_io_dispatcher_base *parent, size_t id) : _parent(parent), _id(id) { }
+    future(dispatcher *parent, size_t id) : _parent(parent), _id(id) { }
     //! \cassign
     future &operator=(const future &o) { _parent = o._parent; _id = o._id; _h = o._h; return *this; }
     //! \massign
@@ -1430,7 +1431,7 @@ public:
     //! True if this future is valid
     bool valid() const noexcept { return _parent && _id; }
     //! The parent dispatcher of this future
-    async_file_io_dispatcher_base *parent() const noexcept { return _parent; }
+    dispatcher *parent() const noexcept { return _parent; }
     //! \deprecate{Expected to be removed in the v1.5 engine}
     size_t id() const noexcept { return _id; }
     //! Retrieves the handle or exception from the shared state, rethrowing any exception. Returns a null shared pointer if this future is invalid.
@@ -1591,7 +1592,7 @@ public:
   \param check_handle Whether to have validation additionally check if a handle is not null
   \param validate Whether to check the inputs and shared state for valid (and not errored) values
   */
-  future(async_file_io_dispatcher_base *parent, size_t id, shared_future<handle_ptr> handle, stl_future<T> result, bool check_handle = true, bool validate = true) : future<void>(parent, id, std::move(handle), check_handle, validate), _result(std::move(result)) { }
+  future(dispatcher *parent, size_t id, shared_future<handle_ptr> handle, stl_future<T> result, bool check_handle = true, bool validate = true) : future<void>(parent, id, std::move(handle), check_handle, validate), _result(std::move(result)) { }
   /*! Constructs an instance from an existing future<void>
   \param o The future<void>
   \param result The future<T> to add
@@ -1653,29 +1654,29 @@ namespace detail
     template<class Impl, class Handle> handle_ptr decode_relative_path(async_path_op_req &req, bool force_absolute=false);
 }
 
-/*! \class async_file_io_dispatcher_base
+/*! \class dispatcher
 \brief Abstract base class for dispatching file i/o asynchronously
 
 This is a reference counted instance with platform-specific implementation optionally hidden in object code.
-Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` function.
+Construct an instance using the `boost::afio::make_dispatcher()` function.
 
 \qbk{
 [/ link afio.reference.functions.async_file_io_dispatcher `async_file_io_dispatcher()`]
-[/ include generated/group_async_file_io_dispatcher_base__filter.qbk]
-[/ include generated/group_async_file_io_dispatcher_base__completion.qbk]
-[/ include generated/group_async_file_io_dispatcher_base__call.qbk]
-[include generated/group_async_file_io_dispatcher_base__filedirops.qbk]
-[include generated/group_async_file_io_dispatcher_base__enumerate.qbk]
-[include generated/group_async_file_io_dispatcher_base__extents.qbk]
-[include generated/group_async_file_io_dispatcher_base__statfs.qbk]
-[/ include generated/group_async_file_io_dispatcher_base__depends.qbk]
-[/ include generated/group_async_file_io_dispatcher_base__barrier.qbk]
-[include generated/group_async_file_io_dispatcher_base__misc.qbk]
+[/ include generated/group_dispatcher__filter.qbk]
+[/ include generated/group_dispatcher__completion.qbk]
+[/ include generated/group_dispatcher__call.qbk]
+[include generated/group_dispatcher__filedirops.qbk]
+[include generated/group_dispatcher__enumerate.qbk]
+[include generated/group_dispatcher__extents.qbk]
+[include generated/group_dispatcher__statfs.qbk]
+[/ include generated/group_dispatcher__depends.qbk]
+[/ include generated/group_dispatcher__barrier.qbk]
+[include generated/group_dispatcher__misc.qbk]
 }
 */
-class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_from_this<async_file_io_dispatcher_base>
+class BOOST_AFIO_DECL dispatcher : public std::enable_shared_from_this<dispatcher>
 {
-    //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
+    //friend BOOST_AFIO_DECL dispatcher_ptr async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
     template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
@@ -1684,14 +1685,14 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     friend class detail::async_file_io_dispatcher_linux;
     friend class detail::async_file_io_dispatcher_qnx;
 
-    detail::async_file_io_dispatcher_base_p *p;
+    detail::dispatcher_p *p;
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, handle_ptr h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, handle_ptr h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> int_op_from_scheduled_id(size_t id) const;
 
 protected:
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
     std::pair<bool, handle_ptr> doadopt(size_t, future<>, handle_ptr h)
     {
         return std::make_pair(true, h);
@@ -1699,7 +1700,7 @@ protected:
 public:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void testing_flags(detail::unit_testing_flags flags);
     //! Destroys the dispatcher, blocking inefficiently if any ops are still in flight.
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_file_io_dispatcher_base();
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~dispatcher();
 
     //! Returns the thread source used by this dispatcher
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<thread_source> threadsource() const;
@@ -1718,20 +1719,20 @@ public:
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> op_from_scheduled_id(size_t id) const;
 
-    // The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
+    // The type of an op filter callback handler \ingroup dispatcher__filter
     typedef void filter_t(detail::OpType, future<> &);
-    // The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
+    // The type of a readwrite filter callback handler \ingroup dispatcher__filter
     typedef void filter_readwrite_t(detail::OpType, handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
     /* \brief Clears the post op and readwrite filters. Not threadsafe.
 
-    \ingroup async_file_io_dispatcher_base__filter
+    \ingroup dispatcher__filter
     \complexity{O(1).}
     \qexample{filter_example}
     */
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter_clear();
     /* \brief Install op filters for non-buffer taking ops. Not threadsafe.
 
-    `std::function<async_file_io_dispatcher_base::filter_t>` will be called after every op of type `detail::OpType`
+    `std::function<dispatcher::filter_t>` will be called after every op of type `detail::OpType`
     completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type and op output.
 
     Note that filters are currently implemented as a linear scan, so a full iteration of all filters is done
@@ -1739,14 +1740,14 @@ public:
     are issued. Any exceptions thrown by the filter are thrown away.
 
     \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_t`
-    \ingroup async_file_io_dispatcher_base__filter
+    \ingroup dispatcher__filter
     \complexity{O(N) where N is the total number of filters currently configured.}
     \qexample{filter_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_op_filter(std::vector<std::pair<detail::OpType, std::function<dispatcher::filter_t>>> filters);
     /* \brief Install read/write op filters, useful for tight ASIO integration. Not threadsafe.
 
-    `std::function<async_file_io_dispatcher_base::filter_buffers_t>` will be called after every op of type `detail::OpType`
+    `std::function<dispatcher::filter_buffers_t>` will be called after every op of type `detail::OpType`
     completes (`detail::OpType::Unknown` means call this filter for all ops) with the op type, file handle, op input, 
     file offset, buffers offset, buffers amount, error state and bytes transferred. Any filter other than read() and write()
     will be ignored, for those use post_op_filter().
@@ -1757,20 +1758,20 @@ public:
     as if the read/write operation threw them, and filter processing stops at the filter which threw.
 
     \param filters A batch of pairs of op type to be filtered and bound filter handler functions of type `filter_buffers_t`
-    \ingroup async_file_io_dispatcher_base__filter
+    \ingroup dispatcher__filter
     \complexity{O(N) where N is the total number of filters currently configured.}
     \qexample{filter_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<dispatcher::filter_readwrite_t>>> filters);
 
-    // The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
+    // The type returned by a completion handler \ingroup dispatcher__completion
     typedef std::pair<bool, handle_ptr> completion_returntype;
-    // The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
+    // The type of a completion handler \ingroup dispatcher__completion
     typedef completion_returntype completion_t(size_t, future<>);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 #if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) || BOOST_AFIO_HEADERS_ONLY==0 // Only really used for benchmarking
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> &callbacks);
-    inline future<> completion(const future<> &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, dispatcher::completion_t *>> &callbacks);
+    inline future<> completion(const future<> &req, const std::pair<async_op_flags, dispatcher::completion_t *> &callback);
 #endif
 #endif
     /* \brief Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete.
@@ -1779,26 +1780,26 @@ public:
     \return A batch of op handles
     \param ops A batch of precondition op handles.
     \param callbacks A batch of pairs of op flags and bound completion handler functions of type `completion_t`
-    \ingroup async_file_io_dispatcher_base__completion
+    \ingroup dispatcher__completion
     \qbk{distinguish, batch bound functions}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
     \exceptionmodelstd
     \qexample{completion_example1}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> &callbacks);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> completion(const std::vector<future<>> &ops, const std::vector<std::pair<async_op_flags, std::function<dispatcher::completion_t>>> &callbacks);
     /* \brief Schedule the asynchronous invocation of the specified single function when the supplied single operation completes.
 
     \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls .then() on the future.}
     \return An op handle
     \param req A precondition op handle
     \param callback A pair of op flag and bound completion handler function of type `completion_t`
-    \ingroup async_file_io_dispatcher_base__completion
+    \ingroup dispatcher__completion
     \qbk{distinguish, single bound function}
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
     \exceptionmodelstd
     \qexample{completion_example1}
     */
-    inline future<> completion(const future<> &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback);
+    inline future<> completion(const future<> &req, const std::pair<async_op_flags, std::function<dispatcher::completion_t>> &callback);
 
     /* \brief Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete.
 
@@ -1810,7 +1811,7 @@ public:
     \tparam "class R" A compiler deduced return type of the bound functions.
     \param ops A batch of precondition op handles. If default constructed, a precondition is null.
     \param callables A batch of bound functions to call, returning R.
-    \ingroup async_file_io_dispatcher_base__call
+    \ingroup dispatcher__call
     \qbk{distinguish, batch bound functions}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
     \exceptionmodelstd
@@ -1827,7 +1828,7 @@ public:
     \return A pair with a batch of futures returning the result of each of the callables and a batch of op handles.
     \tparam "class R" A compiler deduced return type of the bound functions.
     \param callables A batch of bound functions to call, returning R.
-    \ingroup async_file_io_dispatcher_base__call
+    \ingroup dispatcher__call
     \qbk{distinguish, batch bound functions without preconditions}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
     \exceptionmodelstd
@@ -1870,7 +1871,7 @@ public:
     \param req A precondition op handle. If default constructed, the precondition is null.
     \param callback An unbound callable to call.
     \param args An arbitrary sequence of arguments to bind to the callable.
-    \ingroup async_file_io_dispatcher_base__call
+    \ingroup dispatcher__call
     \qbk{distinguish, single unbound callable}
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
     \exceptionmodelstd
@@ -1890,7 +1891,7 @@ public:
 
     \return A batch of op handles.
     \param hs A batch of handles to adopt.
-    \ingroup async_file_io_dispatcher_base__filedirops
+    \ingroup dispatcher__filedirops
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N/threadpool) to complete.}
     \exceptionmodelstd
@@ -2202,7 +2203,7 @@ public:
     
     \return A batch of op handles.
     \param ops A batch of op handles.
-    \ingroup async_file_io_dispatcher_base__barrier
+    \ingroup dispatcher__barrier
     \qbk{distinguish, batch}
     \complexity{Amortised O(N) to dispatch. Amortised O(N) to complete.}
     \exceptionmodel{See detailed description above.}
@@ -2217,7 +2218,7 @@ public:
     \return The op handle op.
     \param precondition The op handle which must complete for op to be passed through.
     \param op The op handle to return.
-    \ingroup async_file_io_dispatcher_base__depends
+    \ingroup dispatcher__depends
     \complexity{Amortised O(1) to dispatch. Amortised O(1) to complete.}
     \exceptionmodelstd
     \qexample{filecopy_example}
@@ -2226,7 +2227,7 @@ public:
 
     /*! \brief Completes an operation with a handle or an error, usually used when an operation was previously deferred.
 
-    \ingroup async_file_io_dispatcher_base__misc
+    \ingroup dispatcher__misc
     \qbk{distinguish, normal}
     \complexity{O(N) where N is the number of completions dependent on this op.}
     \exceptionmodel{Should not throw any exception except for out of memory.}
@@ -2234,7 +2235,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, handle_ptr h, exception_ptr e=exception_ptr());
     /*! \brief Completes an operation with an error, usually used when an operation was previously deferred.
 
-    \ingroup async_file_io_dispatcher_base__misc
+    \ingroup dispatcher__misc
     \qbk{distinguish, errored}
     \complexity{O(N) where N is the number of completions dependent on this op.}
     \exceptionmodel{Should not throw any exception except for out of memory.}
@@ -2252,7 +2253,7 @@ protected:
     template<class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T));
     template<class R, class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T, std::shared_ptr<promise<R>>));
 
-    template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, future<> h, T);
+    template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher::completion_returntype dobarrier(size_t id, future<> h, T);
     template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle_ptr invoke_async_op_completions(size_t id, future<> h, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
     template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> chain_async_op(detail::immediate_async_ops &immediates, int optype, const future<> &precondition, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
 };
@@ -2272,7 +2273,7 @@ For slow hard drives, or worse, SANs, a queue depth of 64 or higher might delive
 [call_example]
 }
 */
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<async_file_io_dispatcher_base> make_async_file_io_dispatcher(std::shared_ptr<thread_source> threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC dispatcher_ptr make_dispatcher(std::shared_ptr<thread_source> threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
 
 namespace detail
 {
@@ -2382,7 +2383,7 @@ namespace detail
         for(auto &op : ops)
             state->in.push_back(op._h);
         auto ret=state->out.get_future();
-        typedef std::function<typename async_file_io_dispatcher_base::completion_t> ft;
+        typedef std::function<typename dispatcher::completion_t> ft;
         std::vector<std::pair<async_op_flags, ft>> completions;
         completions.reserve(ops.size());
         for(size_t n=0; n<ops.size(); n++)
@@ -3381,20 +3382,20 @@ namespace detail {
 }
 
 #if defined(BOOST_AFIO_ENABLE_BENCHMARKING_COMPLETION) // Only really used for benchmarking
-inline future<> async_file_io_dispatcher_base::completion(const future<> &req, const std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> &callback)
+inline future<> dispatcher::completion(const future<> &req, const std::pair<async_op_flags, dispatcher::completion_t *> &callback)
 {
     std::vector<future<>> r;
-    std::vector<std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *>> i;
+    std::vector<std::pair<async_op_flags, dispatcher::completion_t *>> i;
     r.reserve(1); i.reserve(1);
     r.push_back(req);
     i.push_back(callback);
     return std::move(completion(r, i).front());
 }
 #endif
-inline future<> async_file_io_dispatcher_base::completion(const future<> &req, const std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> &callback)
+inline future<> dispatcher::completion(const future<> &req, const std::pair<async_op_flags, std::function<dispatcher::completion_t>> &callback)
 {
     std::vector<future<>> r;
-    std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
+    std::vector<std::pair<async_op_flags, std::function<dispatcher::completion_t>>> i;
     r.reserve(1); i.reserve(1);
     r.push_back(req);
     i.push_back(callback);
@@ -3407,7 +3408,7 @@ namespace detail {
         return std::make_pair(true, _.get_handle(true));
     }
 }
-template<class R> inline std::vector<future<R>> async_file_io_dispatcher_base::call(const std::vector<future<>> &ops, const std::vector<std::function<R()>> &callables)
+template<class R> inline std::vector<future<R>> dispatcher::call(const std::vector<future<>> &ops, const std::vector<std::function<R()>> &callables)
 {
     typedef packaged_task<R()> tasktype;
     std::vector<stl_future<R>> retfutures;
@@ -3428,7 +3429,7 @@ template<class R> inline std::vector<future<R>> async_file_io_dispatcher_base::c
       ret.push_back(future<R>(std::move(_ret[n]), std::move(retfutures[n])));
     return ret;
 }
-template<class R> inline future<R> async_file_io_dispatcher_base::call(const future<> &req, std::function<R()> callback)
+template<class R> inline future<R> dispatcher::call(const future<> &req, std::function<R()> callback)
 {
     std::vector<future<>> i;
     std::vector<std::function<R()>> c;
@@ -3439,72 +3440,72 @@ template<class R> inline future<R> async_file_io_dispatcher_base::call(const fut
 }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-template<class C, class... Args> inline future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type> async_file_io_dispatcher_base::call(const future<> &req, C callback, Args... args)
+template<class C, class... Args> inline future<typename detail::vs2013_variadic_overload_resolution_workaround<C, Args...>::type> dispatcher::call(const future<> &req, C callback, Args... args)
 #else
-template<class C, class... Args> inline future<typename std::result_of<C(Args...)>::type> async_file_io_dispatcher_base::call(const future<> &req, C callback, Args... args)
+template<class C, class... Args> inline future<typename std::result_of<C(Args...)>::type> dispatcher::call(const future<> &req, C callback, Args... args)
 #endif
 {
     typedef typename std::result_of<C(Args...)>::type rettype;
     return call(req, std::function<rettype()>(std::bind<rettype>(callback, args...)));
 }
 
-inline future<> async_file_io_dispatcher_base::adopt(handle_ptr h)
+inline future<> dispatcher::adopt(handle_ptr h)
 {
     std::vector<handle_ptr> i;
     i.reserve(1);
     i.push_back(std::move(h));
     return std::move(adopt(i).front());
 }
-inline future<> async_file_io_dispatcher_base::dir(const async_path_op_req &req)
+inline future<> dispatcher::dir(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(dir(i).front());
 }
-inline future<> async_file_io_dispatcher_base::rmdir(const async_path_op_req &req)
+inline future<> dispatcher::rmdir(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmdir(i).front());
 }
-inline future<> async_file_io_dispatcher_base::file(const async_path_op_req &req)
+inline future<> dispatcher::file(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(file(i).front());
 }
-inline future<> async_file_io_dispatcher_base::rmfile(const async_path_op_req &req)
+inline future<> dispatcher::rmfile(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmfile(i).front());
 }
-inline future<> async_file_io_dispatcher_base::symlink(const async_path_op_req &req)
+inline future<> dispatcher::symlink(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(symlink(i).front());
 }
-inline future<> async_file_io_dispatcher_base::rmsymlink(const async_path_op_req &req)
+inline future<> dispatcher::rmsymlink(const async_path_op_req &req)
 {
     std::vector<async_path_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmsymlink(i).front());
 }
-inline future<> async_file_io_dispatcher_base::sync(const future<> &req)
+inline future<> dispatcher::sync(const future<> &req)
 {
     std::vector<future<>> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(sync(i).front());
 }
-inline future<> async_file_io_dispatcher_base::zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges)
+inline future<> dispatcher::zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges)
 {
     std::vector<future<>> i;
     std::vector<std::vector<std::pair<off_t, off_t>>> r;
@@ -3514,7 +3515,7 @@ inline future<> async_file_io_dispatcher_base::zero(const future<> &req, const s
     r.push_back(ranges);
     return std::move(zero(i, r).front());
 }
-inline future<> async_file_io_dispatcher_base::close(const future<> &req)
+inline future<> dispatcher::close(const future<> &req)
 {
     std::vector<future<>> i;
     i.reserve(1);
@@ -3522,14 +3523,14 @@ inline future<> async_file_io_dispatcher_base::close(const future<> &req)
     return std::move(close(i).front());
 }
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-inline future<> async_file_io_dispatcher_base::read(const detail::async_data_op_req_impl<false> &req)
+inline future<> dispatcher::read(const detail::async_data_op_req_impl<false> &req)
 {
     std::vector<detail::async_data_op_req_impl<false>> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(read(i).front());
 }
-inline future<> async_file_io_dispatcher_base::write(const detail::async_data_op_req_impl<true> &req)
+inline future<> dispatcher::write(const detail::async_data_op_req_impl<true> &req)
 {
     std::vector<detail::async_data_op_req_impl<true>> i;
     i.reserve(1);
@@ -3537,15 +3538,15 @@ inline future<> async_file_io_dispatcher_base::write(const detail::async_data_op
     return std::move(write(i).front());
 }
 #endif
-template<class T> inline std::vector<future<>> async_file_io_dispatcher_base::read(const std::vector<async_data_op_req<T>> &ops)
+template<class T> inline std::vector<future<>> dispatcher::read(const std::vector<async_data_op_req<T>> &ops)
 {
     return read(detail::async_file_io_dispatcher_rwconverter<false, T>()(ops));
 }
-template<class T> inline std::vector<future<>> async_file_io_dispatcher_base::write(const std::vector<async_data_op_req<T>> &ops)
+template<class T> inline std::vector<future<>> dispatcher::write(const std::vector<async_data_op_req<T>> &ops)
 {
     return write(detail::async_file_io_dispatcher_rwconverter<true, T>()(ops));
 }
-inline future<> async_file_io_dispatcher_base::truncate(const future<> &op, off_t newsize)
+inline future<> dispatcher::truncate(const future<> &op, off_t newsize)
 {
     std::vector<future<>> o;
     std::vector<off_t> i;
@@ -3555,21 +3556,21 @@ inline future<> async_file_io_dispatcher_base::truncate(const future<> &op, off_
     i.push_back(newsize);
     return std::move(truncate(o, i).front());
 }
-inline future<std::pair<std::vector<directory_entry>, bool>> async_file_io_dispatcher_base::enumerate(const async_enumerate_op_req &req)
+inline future<std::pair<std::vector<directory_entry>, bool>> dispatcher::enumerate(const async_enumerate_op_req &req)
 {
     std::vector<async_enumerate_op_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(enumerate(i).front());
 }
-inline future<std::vector<std::pair<off_t, off_t>>> async_file_io_dispatcher_base::extents(const future<> &op)
+inline future<std::vector<std::pair<off_t, off_t>>> dispatcher::extents(const future<> &op)
 {
     std::vector<future<>> o;
     o.reserve(1);
     o.push_back(op);
     return std::move(extents(o).front());
 }
-inline future<statfs_t> async_file_io_dispatcher_base::statfs(const future<> &op, const fs_metadata_flags &req)
+inline future<statfs_t> dispatcher::statfs(const future<> &op, const fs_metadata_flags &req)
 {
   std::vector<future<>> o;
   std::vector<fs_metadata_flags> i;
@@ -3579,12 +3580,12 @@ inline future<statfs_t> async_file_io_dispatcher_base::statfs(const future<> &op
   i.push_back(req);
   return std::move(statfs(o, i).front());
 }
-inline future<> async_file_io_dispatcher_base::depends(future<> precondition, future<> op)
+inline future<> dispatcher::depends(future<> precondition, future<> op)
 {
-    std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>> callback(std::make_pair(async_op_flags::immediate,
+    std::pair<async_op_flags, std::function<dispatcher::completion_t>> callback(std::make_pair(async_op_flags::immediate,
     [BOOST_AFIO_LAMBDA_MOVE_CAPTURE(op)](size_t, future<>) { return std::make_pair(true, op.get_handle()); }));
     std::vector<future<>> r;
-    std::vector<std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>> i;
+    std::vector<std::pair<async_op_flags, std::function<dispatcher::completion_t>>> i;
     r.reserve(1); i.reserve(1);
     r.push_back(precondition);
     i.push_back(std::move(callback));
@@ -3600,9 +3601,9 @@ namespace detail
     async_dir(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
     future<> operator()(future<> f=future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       async_path_op_req req(!dispatcher ? (
-        dispatcher = current_async_file_io_dispatcher().get(),
+        dispatcher = current_dispatcher().get(),
         async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
       return std::move(dispatcher->dir(std::vector<async_path_op_req>(1, std::move(req))).front());
@@ -3615,9 +3616,9 @@ namespace detail
     async_rmdir(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       async_path_op_req req(!dispatcher ? (
-        dispatcher = current_async_file_io_dispatcher().get(),
+        dispatcher = current_dispatcher().get(),
         async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
       return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
@@ -3630,9 +3631,9 @@ namespace detail
     async_file(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       async_path_op_req req(!dispatcher ? (
-        dispatcher = current_async_file_io_dispatcher().get(),
+        dispatcher = current_dispatcher().get(),
         async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
       return std::move(dispatcher->file(std::vector<async_path_op_req>(1, std::move(req))).front());
@@ -3645,9 +3646,9 @@ namespace detail
     async_rmfile(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       async_path_op_req req(!dispatcher ? (
-        dispatcher = current_async_file_io_dispatcher().get(),
+        dispatcher = current_dispatcher().get(),
         async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
       return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
@@ -3660,9 +3661,9 @@ namespace detail
     async_symlink(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       async_path_op_req req(!dispatcher ? (
-        dispatcher = current_async_file_io_dispatcher().get(),
+        dispatcher = current_dispatcher().get(),
         async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
       return std::move(dispatcher->symlink(std::vector<async_path_op_req>(1, std::move(req))).front());
@@ -3675,9 +3676,9 @@ namespace detail
     async_rmsymlink(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       async_path_op_req req(!dispatcher ? (
-        dispatcher = current_async_file_io_dispatcher().get(),
+        dispatcher = current_dispatcher().get(),
         async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
       return std::move(dispatcher->rmsymlink(std::vector<async_path_op_req>(1, std::move(req))).front());
@@ -3687,9 +3688,9 @@ namespace detail
   {
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->sync(std::vector<future<>>(1, std::move(f))).front());
     }
   };
@@ -3697,9 +3698,9 @@ namespace detail
   {
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->close(std::vector<future<>>(1, std::move(f))).front());
     }
   };
@@ -3710,9 +3711,9 @@ namespace detail
     template<class U> async_read(U &&v, size_t _length, off_t _where) : req(BOOST_AFIO_V2_NAMESPACE::make_async_data_op_req(future<>(), std::forward<U>(v), _length, _where)) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       req.precondition = f;
       return std::move(dispatcher->read(std::vector<async_data_op_req_impl<false>>(1, std::move(req))).front());
     }
@@ -3724,9 +3725,9 @@ namespace detail
     template<class U> async_write(U &&v, size_t _length, off_t _where) : req(BOOST_AFIO_V2_NAMESPACE::make_async_data_op_req(future<>(), std::forward<U>(v), _length, _where)) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       req.precondition = f;
       return std::move(dispatcher->write(std::vector<async_data_op_req_impl<true>>(1, std::move(req))).front());
     }
@@ -3737,9 +3738,9 @@ namespace detail
     async_truncate(off_t size) : _size(size) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->truncate(std::vector<future<>>(1, std::move(f)), std::vector<off_t>(1, _size)).front());
     }
   };
@@ -3754,9 +3755,9 @@ namespace detail
     future<std::pair<std::vector<directory_entry>, bool>> operator()(future<> f = future<>())
     {
       async_enumerate_op_req req(std::move(f), maxitems, restart, std::move(glob), metadata, filtering);
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->enumerate(std::vector<async_enumerate_op_req>(1, std::move(req))).front());
     }
   };
@@ -3766,9 +3767,9 @@ namespace detail
     async_zero(std::vector<std::pair<off_t, off_t>> _ranges) : ranges(_ranges) { }
     future<> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->zero(std::vector<future<>>(1, std::move(f)), std::vector<std::vector<std::pair<off_t, off_t>>>(1, std::move(ranges))).front());
     }
   };
@@ -3776,9 +3777,9 @@ namespace detail
   {
     future<std::vector<std::pair<off_t, off_t>>> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->extents(std::vector<future<>>(1, std::move(f))).front());
     }
   };
@@ -3788,9 +3789,9 @@ namespace detail
     async_statfs(fs_metadata_flags _req) : req(_req) { }
     future<statfs_t> operator()(future<> f = future<>())
     {
-      async_file_io_dispatcher_base *dispatcher = f.parent();
+      dispatcher *dispatcher = f.parent();
       if (!dispatcher)
-        dispatcher = current_async_file_io_dispatcher().get();
+        dispatcher = current_dispatcher().get();
       return std::move(dispatcher->statfs(std::vector<future<>>(1, std::move(f)), std::vector<fs_metadata_flags>(1, req)).front());
     }
   };

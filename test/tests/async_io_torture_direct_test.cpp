@@ -4,7 +4,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_torture_direct, "Tortures the direct async i/
 {
     using namespace BOOST_AFIO_V2_NAMESPACE;
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-    auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::os_direct);
+    auto dispatcher = make_dispatcher(process_threadpool(), file_flags::os_direct);
     std::cout << "\n\nSustained random direct i/o to 10 files of 10Mb:\n";
     evil_random_io(dispatcher, 10, 10 * 1024 * 1024, 4096);
 }

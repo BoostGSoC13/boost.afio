@@ -176,6 +176,8 @@ The v1.3 branch is now included in the v1.4 branch as v1.
 * async_io_handle is now handle. Instead of explicit std::shared_ptr<async_io_handle>
 we now have handle_ptr.
 
+* async_file_io_dispatcher_base is now dispatcher. Instead of explicit std::shared_ptr<async_file_io_dispatcher_base>
+we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 Todo:
 

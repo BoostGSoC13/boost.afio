@@ -291,7 +291,7 @@ static void checkwrite(detail::OpType, handle *h, const detail::async_data_op_re
         BOOST_CHECK(transferred==amount);
 }
 static int donothing(atomic<size_t> *callcount, int i) { ++*callcount; return i; }
-static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t bytes)
+static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t bytes)
 {
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
@@ -305,13 +305,13 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
         // Install a file open filter
         dispatcher->post_op_filter_clear();
         atomic<size_t> filtercount(0);
-        std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>> filters;
-        filters.push_back(std::make_pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_t>>(detail::OpType::file, std::bind(dofilter, &filtercount, std::placeholders::_1, std::placeholders::_2)));
+        std::vector<std::pair<detail::OpType, std::function<dispatcher::filter_t>>> filters;
+        filters.push_back(std::make_pair<detail::OpType, std::function<dispatcher::filter_t>>(detail::OpType::file, std::bind(dofilter, &filtercount, std::placeholders::_1, std::placeholders::_2)));
         dispatcher->post_op_filter(filters);
 
         // Install a write filter
-        std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> rwfilters;
-        rwfilters.push_back(std::make_pair(detail::OpType::Unknown, std::function<async_file_io_dispatcher_base::filter_readwrite_t>(checkwrite)));
+        std::vector<std::pair<detail::OpType, std::function<dispatcher::filter_readwrite_t>>> rwfilters;
+        rwfilters.push_back(std::make_pair(detail::OpType::Unknown, std::function<dispatcher::filter_readwrite_t>(checkwrite)));
         dispatcher->post_readwrite_filter(rwfilters);
         
         // Start opening 1000 files
@@ -412,7 +412,7 @@ static void _1000_open_write_close_deletes(std::shared_ptr<async_file_io_dispatc
 static u4 mkfill() { static char ret='0'; if(ret+1>'z') ret='0'; return ret++; }
 #endif
 
-static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispatcher, size_t no, size_t bytes, size_t alignment=0)
+static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, size_t alignment=0)
 {
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
 
@@ -610,7 +610,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
                             manywrittenfiles[n]=dispatcher->write(op.req);
                     }
                     else
-                        manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<async_op_flags, std::function<async_file_io_dispatcher_base::completion_t>>(async_op_flags::none, std::bind(checkHash, std::ref(op), towriteptrs[n], std::placeholders::_1, std::placeholders::_2)));
+                        manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<async_op_flags, std::function<dispatcher::completion_t>>(async_op_flags::none, std::bind(checkHash, std::ref(op), towriteptrs[n], std::placeholders::_1, std::placeholders::_2)));
             }
             // After replay, read the entire file into memory
             manywrittenfiles[n]=dispatcher->read(async_data_op_req<char>(manywrittenfiles[n], towriteptrs[n], towritesizes[n], 0));

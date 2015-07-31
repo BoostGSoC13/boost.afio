@@ -28,9 +28,9 @@ RAII holder for the current async file i/o dispatcher.
 [heading Constructor(s)]
 [table
 [[Function] [Description] [Parameters] ]
-[[``current_dispatcher_guard(std::shared_ptr< async_file_io_dispatcher_base > _new)``
+[[``current_dispatcher_guard(dispatcher_ptr _new)``
 
-] [] [[* std::shared_ptr< async_file_io_dispatcher_base >]: ['_new]:  
+] [] [[* dispatcher_ptr]: ['_new]:  
 
 
 
@@ -61,9 +61,9 @@ RAII holder for the current async file i/o dispatcher.
 
 ]
 ]
-[[``void reset(std::shared_ptr< async_file_io_dispatcher_base > p)``
+[[``void reset(dispatcher_ptr p)``
 
-] [Set a different former async file i/o dispatcher on destruction. ] [[* std::shared_ptr< async_file_io_dispatcher_base >]: ['p]:  
+] [Set a different former async file i/o dispatcher on destruction. ] [[* dispatcher_ptr]: ['p]:  
 
 
 

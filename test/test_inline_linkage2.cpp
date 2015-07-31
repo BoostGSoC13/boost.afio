@@ -5,7 +5,7 @@ void test_inline_linkage2()
     using namespace boost::afio;
     using namespace std;
     vector<char> buffer(64, 'n');
-    auto dispatcher = boost::afio::make_async_file_io_dispatcher(boost::afio::process_threadpool(), boost::afio::file_flags::always_sync);
+    auto dispatcher = boost::afio::make_dispatcher(boost::afio::process_threadpool(), boost::afio::file_flags::always_sync);
     std::cout << "\n\nTesting synchronous directory and file creation:\n";
     {
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));

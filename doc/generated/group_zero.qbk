@@ -19,7 +19,7 @@ Schedule a batch of asynchronous zeroing and deallocations of physical storage (
 Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions, and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC\u005fFL\u005fPUNCH\u005fHOLE which if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API that we are aware of, and so zeros are simply written.
 
 [heading Synopsis]
-``future async_file_io_dispatcher_base::zero(const std::vector< future<>> & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)``
+``future dispatcher::zero(const std::vector< future<>> & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)``
 
 [heading Parameters]
 
@@ -89,7 +89,7 @@ Synchronous zeroing and deallocation of physical storage ("hole punching") after
 Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions, and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC\u005fFL\u005fPUNCH\u005fHOLE which if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API that we are aware of, and so zeros are simply written.
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> zero(future<> _precondition, std::vector< std::pair< off_t, off_t >> ranges)``
+``handle_ptr zero(future<> _precondition, std::vector< std::pair< off_t, off_t >> ranges)``
 
 [heading Parameters]
 
@@ -124,7 +124,7 @@ Synchronous zeroing and deallocation of physical storage ("hole punching") after
 Most extent based filing systems provide an optimised way of zeroing parts of a file by deallocating the storage backing those regions, and marking those regions as unwritten instead of actually writing zero bytes to storage. They appear as zeroes to anything reading those ranges, and have the big advantage of not consuming any actual physical storage. On Windows, extent deallocation writes zeros for ordinary files and only actually deallocates physical storage if the file is sparse or compressed (note that AFIO by default creates sparse files where possible, and converts any file opened for writing to a sparse file). For your information, deallocation on NTFS is on a 64Kb granularity, but the zeros are written at a byte granularity. On Linux, an attempt is made to use FALLOC\u005fFL\u005fPUNCH\u005fHOLE which if it fails then a write of zeros corresponding to the same ranges is made instead. On FreeBSD, long runs of zeros are automatically detected and eliminated on physical storage, and so zeros are simply written. On OS X, there is no formal hole punching API that we are aware of, and so zeros are simply written.
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> zero(asio::error_code & _ec, future<> _precondition, std::vector< std::pair< off_t, off_t >> ranges)``
+``handle_ptr zero(asio::error_code & _ec, future<> _precondition, std::vector< std::pair< off_t, off_t >> ranges)``
 
 [heading Parameters]
 

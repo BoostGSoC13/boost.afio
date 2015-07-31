@@ -3,7 +3,7 @@
 //[adopt_example
 struct test_handle : boost::afio::handle
 {
-    test_handle(boost::afio::async_file_io_dispatcher_base *parent) :
+    test_handle(boost::afio::dispatcher *parent) :
         boost::afio::handle(parent,
         boost::afio::file_flags::none) {}
     virtual void close() override final
@@ -53,8 +53,7 @@ struct test_handle : boost::afio::handle
 int main(void)
 {
   using namespace BOOST_AFIO_V2_NAMESPACE;
-  auto dispatcher = boost::afio::make_async_file_io_dispatcher(
-    boost::afio::process_threadpool());
+  auto dispatcher = boost::afio::make_dispatcher();
   current_dispatcher_guard h(dispatcher);
   auto foreignh=std::make_shared<test_handle>(dispatcher.get());
   auto adopted = async_adopt(foreignh)();

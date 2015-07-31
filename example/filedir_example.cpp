@@ -5,8 +5,8 @@ int main(void)
   //[filedir_example
   using namespace BOOST_AFIO_V2_NAMESPACE;
   using BOOST_AFIO_V2_NAMESPACE::rmdir;
-  std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher =
-    boost::afio::make_async_file_io_dispatcher();
+  std::shared_ptr<boost::afio::dispatcher> dispatcher =
+    boost::afio::make_dispatcher();
   current_dispatcher_guard h(dispatcher);
 
   // Free function

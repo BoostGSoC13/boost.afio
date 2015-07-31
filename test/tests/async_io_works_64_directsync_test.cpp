@@ -5,7 +5,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_works_64_directsync, "Tests that the direct s
     using namespace BOOST_AFIO_V2_NAMESPACE;
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 #ifndef BOOST_AFIO_RUNNING_IN_CI
-    auto dispatcher = make_async_file_io_dispatcher(process_threadpool(), file_flags::os_direct | file_flags::always_sync);
+    auto dispatcher = make_dispatcher(process_threadpool(), file_flags::os_direct | file_flags::always_sync);
     std::cout << "\n\n1000 file opens, writes 64Kb, closes, and deletes with direct synchronous i/o:\n";
     _1000_open_write_close_deletes(dispatcher, 65536);
 #endif

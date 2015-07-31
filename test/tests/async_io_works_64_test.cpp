@@ -4,7 +4,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_works_64, "Tests that the async i/o implement
 {
     using namespace BOOST_AFIO_V2_NAMESPACE;
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-    auto dispatcher=make_async_file_io_dispatcher(process_threadpool(), file_flags::none);
+    auto dispatcher=make_dispatcher(process_threadpool(), file_flags::none);
     std::cout << "\n\n1000 file opens, writes 64Kb, closes, and deletes:\n";
     _1000_open_write_close_deletes(dispatcher, 65536);
 }

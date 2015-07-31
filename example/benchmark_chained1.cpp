@@ -16,12 +16,12 @@ static std::pair<bool, std::shared_ptr<boost::afio::handle>> _callback(size_t, b
 int main(void)
 {
     using namespace boost::afio;
-    auto dispatcher=make_async_file_io_dispatcher();
+    auto dispatcher=make_dispatcher();
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
     
-    std::pair<async_op_flags, async_file_io_dispatcher_base::completion_t *> callback(async_op_flags::none, _callback);
+    std::pair<async_op_flags, dispatcher::completion_t *> callback(async_op_flags::none, _callback);
     atomic<size_t> threads(0);
 #if 0
     std::cout << "Attach profiler now and hit Return" << std::endl;

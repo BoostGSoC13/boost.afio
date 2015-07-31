@@ -32,7 +32,7 @@ class future
 [table
 [[Parameter] [Default] [Description]]
 [[class T] [void] []]
-[[] [] [Any returned result. Note this is defaulted to [^`void`] for you, so usually you write [^`future<>`]. As of v1.4 of the AFIO engine, the legacy [^`async_io_op`] struct has been replaced with this custom future type based on the lightweight future-promise factory toolkit in forthcoming Boost.Monad. This custom future type consists of two pieces of future data each with different semantics:A [^`std::shared_ptr<``async_io_handle``>`] retrieved using [^`get_handle()`], [^`operator*`] and [^`operator->`] - this is the shared i/o handle returned by the asynchronous operation. This has non-consuming semantics i.e. you can call [^`get_handle()`] as many times as you like. Note that for legacy compatibility reasons, calling [^`get_handle()`] on an invalid instance returns a null shared pointer instead of an exception throw.If T is non-void, any type [^`T`] - this is any additional data returned by an asynchronous operation above and beyond the i/o handle (e.g. [^`enumerate()`] returns a [^`std::pair<std::vector<``directory_entry``>, bool>`]. This has ['consuming] semantics, so calling [^`get()`] returns the result exactly once.]]
+[[] [] [Any returned result. Note this is defaulted to [^`void`] for you, so usually you write [^`future<>`]. As of v1.4 of the AFIO engine, the legacy [^`async_io_op`] struct has been replaced with this custom future type based on the lightweight future-promise factory toolkit in forthcoming Boost.Monad. This custom future type consists of two pieces of future data each with different semantics:A [^`handle_ptr`] retrieved using [^`get_handle()`], [^`operator*`] and [^`operator->`] - this is the shared i/o handle returned by the asynchronous operation. This has non-consuming semantics i.e. you can call [^`get_handle()`] as many times as you like. Note that for legacy compatibility reasons, calling [^`get_handle()`] on an invalid instance returns a null shared pointer instead of an exception throw.If T is non-void, any type [^`T`] - this is any additional data returned by an asynchronous operation above and beyond the i/o handle (e.g. [^`enumerate()`] returns a [^`std::pair<std::vector<``directory_entry``>, bool>`]. This has ['consuming] semantics, so calling [^`get()`] returns the result exactly once.]]
 ]
 
 [heading Constructor(s)]
@@ -43,14 +43,14 @@ class future
 ] [] [
 
 ]]
-[[``future(async_file_io_dispatcher_base * parent, size_t id, shared_future< std::shared_ptr< async_io_handle >> handle,
+[[``future(dispatcher * parent, size_t id, shared_future< handle_ptr > handle,
         stl_future< T > result, bool check_handle = true, bool validate = true)``
 
-] [] [[* async_file_io_dispatcher_base *]: ['parent]:  The dispatcher this op belongs to. 
+] [] [[* dispatcher *]: ['parent]:  The dispatcher this op belongs to. 
 
 [* size_t]: ['id]:  The unique non-zero id of this op. 
 
-[* shared_future< std::shared_ptr< async_io_handle >>]: ['handle]:  A shared_future to shared state between all instances of this reference. 
+[* shared_future< handle_ptr >]: ['handle]:  A shared_future to shared state between all instances of this reference. 
 
 [* stl_future< T >]: ['result]:  A future to any result from the operation. 
 

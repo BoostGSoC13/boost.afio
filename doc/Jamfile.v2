@@ -37,7 +37,7 @@ else
 boostbook afio 
     : afio.qbk
     : <dependency>Jamfile.v2
-        <dependency>generated/class_async_file_io_dispatcher_base.qbk
+        <dependency>generated/class_dispatcher.qbk
         <xsl:param>chunk.section.depth=4
 #    <auto-index>off
 #    <auto-index-internal>on

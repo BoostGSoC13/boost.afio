@@ -17,7 +17,7 @@ int main()
     
 
     //set up the afio dispatcher
-    auto dispatcher = boost::afio::make_async_file_io_dispatcher();
+    auto dispatcher = boost::afio::make_dispatcher();
 
     //set up an array to hold our integers
     int ary[ary_size];

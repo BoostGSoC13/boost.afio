@@ -3,7 +3,7 @@
 int main(void)
 {
     using namespace boost::afio;
-    auto dispatcher=make_async_file_io_dispatcher();
+    auto dispatcher=make_dispatcher();
     current_dispatcher_guard h(dispatcher);
 
 {

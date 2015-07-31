@@ -10,8 +10,8 @@ int main(void)
     // parallel ops and a barrier which completes only when the last of that
     // parallel group completes. Chain the next group to only execute after the
     // preceding group's barrier completes. Repeat until all groups have been executed.
-    std::shared_ptr<boost::afio::async_file_io_dispatcher_base> dispatcher=
-        boost::afio::make_async_file_io_dispatcher();
+    std::shared_ptr<boost::afio::dispatcher> dispatcher=
+        boost::afio::make_dispatcher();
     std::vector<std::pair<size_t, int>> groups;
     boost::afio::atomic<size_t> callcount[10000];
     memset(&callcount, 0, sizeof(callcount));

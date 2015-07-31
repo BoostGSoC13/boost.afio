@@ -19,7 +19,7 @@ Schedule a batch of asynchronous file or directory handle closes after preceding
 Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``future async_file_io_dispatcher_base::close(const std::vector< future<>> & ops)``
+``future dispatcher::close(const std::vector< future<>> & ops)``
 
 [heading Parameters]
 
@@ -87,7 +87,7 @@ Synchronous file or directory handle close after a preceding operation.
 Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> close(future<> _precondition)``
+``handle_ptr close(future<> _precondition)``
 
 [heading Parameters]
 
@@ -121,7 +121,7 @@ Synchronous file or directory handle close after a preceding operation.
 Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``std::shared_ptr<async_io_handle> close(asio::error_code & _ec, future<> _precondition)``
+``handle_ptr close(asio::error_code & _ec, future<> _precondition)``
 
 [heading Parameters]
 

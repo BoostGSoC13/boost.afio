@@ -6,7 +6,7 @@ namespace afio = BOOST_AFIO_V2_NAMESPACE;
 
 struct test_handle : handle
 {
-    test_handle(async_file_io_dispatcher_base *parent) : handle(parent, file_flags::none) {}
+    test_handle(dispatcher *parent) : handle(parent, file_flags::none) {}
     virtual void close() override final
     {
         // Do nothing
@@ -53,7 +53,7 @@ struct test_handle : handle
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_adopt, "Tests foreign fd adoption", 5)
 {
-    auto dispatcher = make_async_file_io_dispatcher(process_threadpool());
+    auto dispatcher = make_dispatcher(process_threadpool());
     std::cout << "\n\nTesting foreign fd adoption:\n";
     auto h=std::make_shared<test_handle>(dispatcher.get());
     auto adopted=dispatcher->adopt(h);
