@@ -71,3 +71,31 @@ A shared\u005fptr to the best available async\u005ffile\u005fio\u005fdispatcher 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 [endsect]
 
+[section:depends depends]
+'''<?dbhtml-include href="disqus_identifiers/depends.html"?>'''
+
+'''<indexterm><primary>depends</primary></indexterm>'''
+Make ready a future after a precondition future readies. 
+
+[heading Synopsis]
+``future depends(future<> precondition, future<> out)``
+
+[heading Parameters]
+
+[table
+[[Type] [Concept] [Name] [Description] ]
+[[future<>] [] [precondition] [The future which must signal before the returned future signals. ]]
+[[future<>] [] [out] [The future to return. ]]
+]
+
+
+[heading Returns]
+A future which returns out after precondition signals. 
+
+[heading Header]
+`#include <boost/afio/v2/afio.hpp>`
+
+
+'''<?dbhtml-include href="disqus_comments.html"?>'''
+[endsect]
+

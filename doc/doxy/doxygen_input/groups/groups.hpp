@@ -7,14 +7,14 @@
 // Note that group descriptions are (currently) not used.
 
 /*!
-\defgroup macros x
-\defgroup process_threadpool x
-\defgroup normalise_path x
-\defgroup when_all_futures x
-\defgroup file_flags x
-\defgroup metadata_flags x
-\defgroup async_op_flags x
-\defgroup fs_metadata_flags x
+\defgroup macros Macros
+\defgroup process_threadpool Process Thread pool
+\defgroup normalise_path Normalise path
+\defgroup when_all_futures when_all()
+\defgroup file_flags file_flags
+\defgroup metadata_flags metadata_flags
+\defgroup async_op_flags async_op_flags
+\defgroup fs_metadata_flags fs_metadata
 \defgroup async_file_io_dispatcher_base__filter x
 \defgroup async_file_io_dispatcher_base__completion x
 \defgroup async_file_io_dispatcher_base__call x
@@ -25,18 +25,24 @@
 \defgroup async_file_io_dispatcher_base__statfs x
 \defgroup async_file_io_dispatcher_base__misc x
 \defgroup async_file_io_dispatcher_base__depends x
-\defgroup async_file_io_dispatcher x
-\defgroup when_all_ops x
-\defgroup async_data_op_req x
-\defgroup make_async_data_op_req x
-\defgroup async_filedirops x
-\defgroup async_enumerate x
-\defgroup async_extents x
-\defgroup async_statfs x
-\defgroup sync_filedirops x
-\defgroup sync_enumerate x
-\defgroup sync_extents x
-\defgroup sync_statfs x
-\defgroup utils x
-\defgroup async_io_handle__ops x
+\defgroup async_file_io_dispatcher dispatcher
+\defgroup async_data_op_req async_data_op_req
+\defgroup make_async_data_op_req make_async_data_op_req
+\defgroup utils Utilities
+\defgroup async_io_handle__ops Handle Ops
+\defgroup dir Opening/Creating Directories
+\defgroup rmdir Deleting Directories
+\defgroup file Opening/Creating Files
+\defgroup rmfile Deleting Files
+\defgroup symlink Opening/Creating Symlinks
+\defgroup rmsymlink Deleting Symlinks
+\defgroup sync Fsync
+\defgroup zero Zeroing and Deallocation
+\defgroup close Closing files
+\defgroup read Reading data
+\defgroup write Writing data
+\defgroup truncate Resizing files
+\defgroup enumerate Enumerating directory contents
+\defgroup extents Enumerating file extents
+\defgroup statfs Fetch metadata of storage volume
 */

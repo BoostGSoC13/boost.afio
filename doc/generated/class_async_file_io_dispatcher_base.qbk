@@ -83,138 +83,6 @@ This is a reference counted instance with platform-specific implementation optio
 
 ]
 ]
-[[``future op_from_scheduled_id(size_t id)``
-
-] [Returns an op ref for a given [*currently] scheduled op id, throwing an exception if id not scheduled at the point of call. Can be used to retrieve exception state from some op id, or one's own shared stl_future. ] [[* size_t]: ['id]:  The unique integer id for the op. 
-
-
-
-][
-An future<> with the same shared stl_future as all op refs with this id. 
-
-]
-]
-[[``void post_op_filter_clear()``
-
-] [Clears the post op and readwrite filters. Not threadsafe. ] [
-
-][
-
-]
-]
-[[``void post_op_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>> filters)``
-
-] [Install op filters for non-buffer taking ops. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_t`]
-
-
-
-][
-
-]
-]
-[[``void post_readwrite_filter(std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>> filters)``
-
-] [Install read/write op filters, useful for tight ASIO integration. Not threadsafe. ] [[* std::vector< std::pair< detail::OpType, std::function< async_file_io_dispatcher_base::filter_readwrite_t >>>]: ['filters]:  A batch of pairs of op type to be filtered and bound filter handler functions of type [^`filter_buffers_t`]
-
-
-
-][
-
-]
-]
-[[``std::vector< future<> > completion(const std::vector< future<>> & ops, const std::vector< std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >>> & callbacks)``
-
-] [Schedule a batch of asynchronous invocations of the specified functions when their supplied operations complete. ] [[* const std::vector< future<>> &]: ['ops]:  A batch of precondition op handles. 
-
-[* const std::vector< std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >>> &]: ['callbacks]:  A batch of pairs of op flags and bound completion handler functions of type [^`completion_t`]
-
-
-
-][
-A batch of op handles 
-
-]
-]
-[[``future completion(const future<> & req, const std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >> & callback)``
-
-] [Schedule the asynchronous invocation of the specified single function when the supplied single operation completes. ] [[* const future<> &]: ['req]:  A precondition op handle 
-
-[* const std::pair< async_op_flags, std::function< async_file_io_dispatcher_base::completion_t >> &]: ['callback]:  A pair of op flag and bound completion handler function of type [^`completion_t`]
-
-
-
-][
-An op handle 
-
-]
-]
-[[``template<class R>
-std::vector< future< R > > call(const std::vector< future<>> & ops, const std::vector< std::function< R()>> & callables)``
-
-] [Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete. ] [[* const std::vector< future<>> &]: ['ops]:  A batch of precondition op handles. If default constructed, a precondition is null. 
-
-[* const std::vector< std::function< R()>> &]: ['callables]:  A batch of bound functions to call, returning R.
-
-
-
-][
-A pair with a batch of futures returning the result of each of the callables and a batch of op handles. 
-
-]
-]
-[[``template<class R>
-std::vector< future< R > > call(const std::vector< std::function< R()>> & callables)``
-
-] [Schedule a batch of asynchronous invocations of the specified bound functions when their supplied preconditions complete. ] [[* const std::vector< std::function< R()>> &]: ['callables]:  A batch of bound functions to call, returning R.
-
-
-
-][
-A pair with a batch of futures returning the result of each of the callables and a batch of op handles. 
-
-]
-]
-[[``template<class R>
-future< R > call(const future<> & req, std::function< R()> callback)``
-
-] [Schedule an asynchronous invocation of the specified bound function when its supplied precondition completes. ] [[* const future<> &]: ['req]:  A precondition op handle. If default constructed, the precondition is null. 
-
-[* std::function< R()>]: ['callback]:  A bound functions to call, returning R.
-
-
-
-][
-A pair with a stl_future returning the result of the callable and an op handle. 
-
-]
-]
-[[``template<class C, class... Args>
-future< typename std::result_of< C(Args...)>::type > call(const future<> & req, C callback, Args... args)``
-
-] [Schedule an asynchronous invocation of the specified unbound callable when its supplied precondition completes. Note that this function essentially calls [^`std::bind()`] on the callable and the args and passes it to the other call() overload taking a [^`std::function<>`]. You should therefore use [^`std::ref()`] etc. as appropriate. ] [[* const future<> &]: ['req]:  A precondition op handle. If default constructed, the precondition is null. 
-
-[* C]: ['callback]:  An unbound callable to call. 
-
-[* Args...]: ['args]:  An arbitrary sequence of arguments to bind to the callable.
-
-
-
-][
-A pair with a stl_future returning the result of the callable and an op handle. 
-
-]
-]
-[[``std::vector< future<> > adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)``
-
-] [Schedule a batch of third party handle adoptions. ] [[* const std::vector< std::shared_ptr< async_io_handle >> &]: ['hs]:  A batch of handles to adopt.
-
-
-
-][
-A batch of op handles. 
-
-]
-]
 [[``std::vector< future<> > dir(const std::vector< async_path_op_req > & reqs)``
 
 ] [Schedule a batch of asynchronous directory creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
@@ -388,27 +256,6 @@ A batch of stl_future volume metadatas.
 
 ]
 ]
-[[``std::vector< future<> > lock(const std::vector< async_lock_op_req > & req)``
-
-] [] [[* const std::vector< async_lock_op_req > &]: ['req]:  
-
-
-
-][
-
-]
-]
-[[``std::vector< future<> > barrier(const std::vector< future<>> & ops)``
-
-] [Schedule an asynchronous synchronisation of preceding operations.  ] [[* const std::vector< future<>> &]: ['ops]:  A batch of op handles.
-
-
-
-][
-A batch of op handles. 
-
-]
-]
 [[``future depends(future<> precondition, future<> op)``
 
 ] [Schedule the return of an op handle after another op handle completes. This is useful when you need to supply one op handle to a function but it must not begin until another op handle has finished. ] [[* future<>]: ['precondition]:  The op handle which must complete for op to be passed through. 
@@ -476,15 +323,15 @@ std::vector< future<> > write(const std::vector< async_data_op_req< T >> & ops)`
 `#include <boost/afio/v2/afio.hpp>`
 
 [/ link afio.reference.functions.async_file_io_dispatcher `async_file_io_dispatcher()`]
-[include generated/group_async_file_io_dispatcher_base__filter.qbk]
-[include generated/group_async_file_io_dispatcher_base__completion.qbk]
-[include generated/group_async_file_io_dispatcher_base__call.qbk]
+[/ include generated/group_async_file_io_dispatcher_base__filter.qbk]
+[/ include generated/group_async_file_io_dispatcher_base__completion.qbk]
+[/ include generated/group_async_file_io_dispatcher_base__call.qbk]
 [include generated/group_async_file_io_dispatcher_base__filedirops.qbk]
 [include generated/group_async_file_io_dispatcher_base__enumerate.qbk]
 [include generated/group_async_file_io_dispatcher_base__extents.qbk]
 [include generated/group_async_file_io_dispatcher_base__statfs.qbk]
-[include generated/group_async_file_io_dispatcher_base__depends.qbk]
-[include generated/group_async_file_io_dispatcher_base__barrier.qbk]
+[/ include generated/group_async_file_io_dispatcher_base__depends.qbk]
+[/ include generated/group_async_file_io_dispatcher_base__barrier.qbk]
 [include generated/group_async_file_io_dispatcher_base__misc.qbk]
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
