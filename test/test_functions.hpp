@@ -280,7 +280,7 @@ static void raninit(ranctx *x, u4 seed) {
 }
 
 static void dofilter(atomic<size_t> *callcount, detail::OpType, future<> &) { ++*callcount; }
-static void checkwrite(detail::OpType, handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const asio::error_code &, size_t transferred)
+static void checkwrite(detail::OpType, handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const error_code &, size_t transferred)
 {
     size_t amount=0;
     for(auto &i: req.buffers)

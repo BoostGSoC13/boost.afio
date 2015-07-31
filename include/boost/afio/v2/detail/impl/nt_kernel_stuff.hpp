@@ -643,6 +643,19 @@ namespace windows_nt_kernel
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
+
+    // C++ error code from GetLastError()
+    static inline error_code make_error_code()
+    {
+      return error_code((int) GetLastError(), system_category());
+    }
+
+    // C++ error code from NTSTATUS
+    static inline error_code make_error_code(NTSTATUS ntstat)
+    {
+      SetWin32LastErrorFromNtStatus(ntstat);
+      return error_code((int)GetLastError(), system_category());
+    }
 } // namespace
 
 // WinVista and later have the SetFileInformationByHandle() function, but for WinXP

@@ -1908,7 +1908,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void dispatcher::complete_async_op(size_t i
         if(afio_exception_stack() && !(p->testing_flags & detail::unit_testing_flags::no_symbol_lookup))
         {
           std::string originalmsg;
-          asio::error_code ec;
+          error_code ec;
           bool is_runtime_error=false, is_system_error=false;
           try { rethrow_exception(e); }
           catch(const system_error &r) { ec=r.code(); originalmsg=r.what(); is_system_error=true; }
@@ -2660,7 +2660,7 @@ namespace detail {
                 while(-1==(_bytesread=preadv(p->fd, (&vecs.front())+n, (int) amount, offset)) && EINTR==errno);
                 if(!this->p->filters_buffers.empty())
                 {
-                    asio::error_code ec(errno, generic_category());
+                    error_code ec(errno, generic_category());
                     for(auto &i: this->p->filters_buffers)
                     {
                         if(i.first==OpType::Unknown || i.first==OpType::read)
@@ -2716,7 +2716,7 @@ namespace detail {
                 }
                 if(!this->p->filters_buffers.empty())
                 {
-                    asio::error_code ec(errno, generic_category());
+                    error_code ec(errno, generic_category());
                     for(auto &i: this->p->filters_buffers)
                     {
                         if(i.first==OpType::Unknown || i.first==OpType::write)
@@ -3440,7 +3440,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::
     try
     {
         if(uri!="file:///")
-            return make_exception_ptr(std::invalid_argument("Unsupported URI"));
+            return error_code(ENXIO, generic_category());
 #if defined(WIN32) && !defined(USE_POSIX_ON_WIN32)
         return dispatcher_ptr(std::make_shared<detail::async_file_io_dispatcher_windows>(threadpool, flagsforce, flagsmask));
 #else

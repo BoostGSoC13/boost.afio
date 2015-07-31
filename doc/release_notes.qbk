@@ -181,9 +181,10 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * make_dispatcher() now takes a URI and returns a monad.
 
+* Fixed issue #84 Symlinks were never being followed on Windows.
+
 Todo:
 
-* MAKE ntcreatefile() result<T>
 * FIX ALWAYS OPENING REPARSE POINT + DEDUP FILE HANDLING
 * ADD collect(...) WHICHS RETHROWS ANY ERROR IN INPUTS TO LIGHTWEIGHT FUTURE WITH EMULATION IN AFIO
 

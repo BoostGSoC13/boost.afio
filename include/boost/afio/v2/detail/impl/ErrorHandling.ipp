@@ -40,7 +40,7 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwWinError(const char *file, const char *function, int lineno, unsigned code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename)
             {
                 if(ERROR_NOT_ENOUGH_MEMORY==code || ERROR_OUTOFMEMORY==code) BOOST_AFIO_THROW(std::bad_alloc());
-                asio::error_code ec(code, system_category());
+                error_code ec(code, system_category());
                 DWORD len;
                 char buffer[1024];
                 if(!(len=FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 0, code, 0, buffer, sizeof(buffer), 0)))
@@ -103,7 +103,7 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-                asio::error_code ec(GetLastError(), system_category());
+                error_code ec(GetLastError(), system_category());
                 DWORD len;
                 char buffer[1024];
                 if(!(len=FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_HMODULE,
@@ -157,7 +157,7 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
             BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_throwOSError(const char *file, const char *function, int lineno, int code, std::function<BOOST_AFIO_V2_NAMESPACE::path()> filename)
             {
                 if(ENOMEM==code) BOOST_AFIO_THROW(std::bad_alloc());
-                asio::error_code ec(code, generic_category());
+                error_code ec(code, generic_category());
                 std::string errstr(strerror(code));
                 errstr.append(" ("+to_string(code)+") in '"+std::string(file)+"':"+std::string(function)+":"+to_string(lineno));
                 // Add the filename where appropriate. This helps debugging a lot.

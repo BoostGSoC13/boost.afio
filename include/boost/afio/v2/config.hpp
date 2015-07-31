@@ -284,10 +284,6 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN    BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V2, (stl1z, inline), (asio))
 #define BOOST_STL1z_NETWORKING_MAP_NAMESPACE_END      BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V2, (stl1z, inline), (asio))
 BOOST_STL1z_NETWORKING_MAP_NAMESPACE_BEGIN
-// Boost ASIO doesn't map error_code for me
-#if !defined(ASIO_STANDALONE) || !ASIO_STANDALONE
-typedef boost::system::error_code error_code;
-#endif
 // Need to bind in asio::windows
 #ifdef WIN32
 # if ASIO_STANDALONE
@@ -327,10 +323,12 @@ template<class _Res> using stl_future = ::std::future<_Res>;
 #endif
 
 #if ASIO_STANDALONE
+typedef asio::error_code error_code;
 using std::generic_category;
 using std::system_category;
 using std::system_error;
 #else
+typedef boost::system::error_code error_code;
 using boost::system::generic_category;
 using boost::system::system_category;
 using boost::system::system_error;

@@ -21,7 +21,7 @@ BOOST_AFIO_AUTO_TEST_CASE(free_functions_work, "Tests that the free functions wo
     auto dirdeleted = rmdir(diropened);
   }
   {
-    asio::error_code ec;
+    error_code ec;
     auto diropened = dir(ec, "testdir", file_flags::create);
     auto fileopened = file(ec, diropened, "testfile", file_flags::create | file_flags::write);
     auto filedeleted = rmfile(ec, fileopened);

@@ -1395,7 +1395,7 @@ public:
     //! The type of value potentially returned
     using value_type = void;
     //! The error type potentially returned
-    using error_type = asio::error_code;
+    using error_type = error_code;
     //! The exception type potentially returned
     using exception_type = exception_ptr;
 
@@ -1722,7 +1722,7 @@ public:
     // The type of an op filter callback handler \ingroup dispatcher__filter
     typedef void filter_t(detail::OpType, future<> &);
     // The type of a readwrite filter callback handler \ingroup dispatcher__filter
-    typedef void filter_readwrite_t(detail::OpType, handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
+    typedef void filter_readwrite_t(detail::OpType, handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const error_code &, size_t);
     /* \brief Clears the post op and readwrite filters. Not threadsafe.
 
     \ingroup dispatcher__filter
@@ -3919,7 +3919,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline handle_ptr dir(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr dir(error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_dir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -3942,7 +3942,7 @@ template<class T> inline handle_ptr dir(asio::error_code &_ec, future<> _precond
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr dir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr dir(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_dir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4063,7 +4063,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmdir(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmdir(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4085,7 +4085,7 @@ template<class T=path> inline handle_ptr rmdir(asio::error_code &_ec, future<> _
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4203,7 +4203,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline handle_ptr file(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr file(error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4226,7 +4226,7 @@ template<class T> inline handle_ptr file(asio::error_code &_ec, future<> _precon
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr file(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr file(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4347,7 +4347,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmfile(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4370,7 +4370,7 @@ template<class T=path> inline handle_ptr rmfile(asio::error_code &_ec, future<> 
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4489,7 +4489,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline handle_ptr symlink(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr symlink(error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_symlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4512,7 +4512,7 @@ template<class T> inline handle_ptr symlink(asio::error_code &_ec, future<> _pre
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_symlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4633,7 +4633,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmsymlink(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4656,7 +4656,7 @@ template<class T=path> inline handle_ptr rmsymlink(asio::error_code &_ec, future
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4705,7 +4705,7 @@ inline handle_ptr sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr sync(asio::error_code &_ec, future<> _precondition)
+inline handle_ptr sync(error_code &_ec, future<> _precondition)
 {
   return detail::async_sync()(std::move(_precondition)).get_handle(_ec);
 }
@@ -4758,7 +4758,7 @@ inline handle_ptr zero(future<> _precondition, std::vector<std::pair<off_t, off_
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline handle_ptr zero(asio::error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline handle_ptr zero(error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
   return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle(_ec);
 }
@@ -4808,7 +4808,7 @@ inline handle_ptr close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline handle_ptr close(asio::error_code &_ec, future<> _precondition)
+inline handle_ptr close(error_code &_ec, future<> _precondition)
 {
   return detail::async_close()(std::move(_precondition)).get_handle(_ec);
 }
@@ -4913,7 +4913,7 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(asio::error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
   return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4935,7 +4935,7 @@ template<class T> inline handle_ptr read(asio::error_code &_ec, future<> _precon
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(asio::error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
   return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -5040,7 +5040,7 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t 
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(asio::error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline handle_ptr write(error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
   return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -5062,7 +5062,7 @@ template<class T> inline handle_ptr write(asio::error_code &_ec, future<> _preco
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(asio::error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline handle_ptr write(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
   return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -5115,7 +5115,7 @@ inline handle_ptr truncate(future<> _precondition, off_t newsize)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr truncate(asio::error_code &_ec, future<> _precondition, off_t newsize)
+inline handle_ptr truncate(error_code &_ec, future<> _precondition, off_t newsize)
 {
   return detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
 }
@@ -5204,7 +5204,7 @@ birthtim, sparse, compressed.]
 \exceptionmodelfree
 \qexample{enumerate_example}
 */
-inline std::pair<std::vector<directory_entry>, bool> enumerate(asio::error_code &_ec, future<> _precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(),
+inline std::pair<std::vector<directory_entry>, bool> enumerate(error_code &_ec, future<> _precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(),
   metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
 {
   auto ret= detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
@@ -5295,7 +5295,7 @@ birthtim, sparse, compressed.]
 \exceptionmodelfree
 \qexample{enumerate_example}
 */
-inline std::pair<std::vector<directory_entry>, bool> enumerate(asio::error_code &_ec, future<> _precondition, path _glob, size_t _maxitems = 2, bool _restart = true,
+inline std::pair<std::vector<directory_entry>, bool> enumerate(error_code &_ec, future<> _precondition, path _glob, size_t _maxitems = 2, bool _restart = true,
   metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
 {
   auto ret = detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
@@ -5386,7 +5386,7 @@ birthtim, sparse, compressed.]
 \exceptionmodelfree
 \qexample{enumerate_example}
 */
-inline std::pair<std::vector<directory_entry>, bool> enumerate(asio::error_code &_ec, future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
+inline std::pair<std::vector<directory_entry>, bool> enumerate(error_code &_ec, future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
   bool _restart = true, path _glob = path(), async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
 {
   auto ret = detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
@@ -5458,7 +5458,7 @@ into single extents.]
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline std::vector<std::pair<off_t, off_t>> extents(asio::error_code &_ec, future<> _precondition)
+inline std::vector<std::pair<off_t, off_t>> extents(error_code &_ec, future<> _precondition)
 {
   auto ret = detail::async_extents()(std::move(_precondition));
   if (!(_ec = ret.get_error()))
@@ -5535,7 +5535,7 @@ is fetched separately.]
 \exceptionmodelfree
 \qexample{statfs_example}
 */
-inline statfs_t statfs(asio::error_code &_ec, future<> _precondition, fs_metadata_flags req)
+inline statfs_t statfs(error_code &_ec, future<> _precondition, fs_metadata_flags req)
 {
   auto ret = detail::async_statfs(req)(std::move(_precondition));
   if (!(_ec = ret.get_error()))

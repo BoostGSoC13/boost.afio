@@ -18,11 +18,13 @@ namespace detail {
     {
       DWORD access=FILE_READ_ATTRIBUTES|SYNCHRONIZE, attribs=FILE_ATTRIBUTE_NORMAL;
       DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
-      DWORD creatdisp=0, ntflags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/|0x00200000/*FILE_OPEN_REPARSE_POINT*/;
+      DWORD creatdisp=0, ntflags=0x4000/*FILE_OPEN_FOR_BACKUP_INTENT*/;
       if(!overlapped)
         ntflags|=0x20/*FILE_SYNCHRONOUS_IO_NONALERT*/;
       if(flags!=file_flags::none)
       {
+        if(!!(flags & file_flags::int_opening_link))
+            ntflags|=0x00200000/*FILE_OPEN_REPARSE_POINT*/;
         if(!!(flags & file_flags::int_opening_dir))
         {
             /* NOTE TO SELF: Never, ever, ever again request FILE_DELETE_CHILD perms. It subtly breaks renaming, enumeration
@@ -823,7 +825,7 @@ namespace detail
           return dounlink(true, id, std::move(op), std::move(req));
         }
         // Called in unknown thread
-        void boost_asio_symlink_completion_handler(size_t id, handle_ptr h, std::shared_ptr<std::unique_ptr<path::value_type[]>> buffer, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_symlink_completion_handler(size_t id, handle_ptr h, std::shared_ptr<std::unique_ptr<path::value_type[]>> buffer, const error_code &ec, size_t bytes_transferred)
         {
             if(ec)
             {
@@ -904,14 +906,14 @@ namespace detail
             auto dirop(ret.second);
             asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, id,
               BOOST_AFIO_LAMBDA_MOVE_CAPTURE(dirop),
-              BOOST_AFIO_LAMBDA_MOVE_CAPTURE(buffer)](const asio::error_code &ec, size_t bytes){ boost_asio_symlink_completion_handler(id, std::move(dirop), std::move(buffer), ec, bytes);});
+              BOOST_AFIO_LAMBDA_MOVE_CAPTURE(buffer)](const error_code &ec, size_t bytes){ boost_asio_symlink_completion_handler(id, std::move(dirop), std::move(buffer), ec, bytes);});
             DWORD bytesout=0;
             BOOL ok=DeviceIoControl(ret.second->native_handle(), FSCTL_SET_REPARSE_POINT, rpd, (DWORD)(rpd->ReparseDataLength+headerlen), NULL, 0, &bytesout, ol.get());
             DWORD errcode=GetLastError();
             if(!ok && ERROR_IO_PENDING!=errcode)
             {
                 //std::cerr << "ERROR " << errcode << std::endl;
-                asio::error_code ec(errcode, asio::error::get_system_category());
+                error_code ec(errcode, asio::error::get_system_category());
                 ol.complete(ec, ol.get()->InternalHigh);
             }
             else
@@ -953,7 +955,7 @@ namespace detail
             auto bytes_to_transfer=std::make_shared<std::pair<atomic<bool>, atomic<off_t>>>();
             bytes_to_transfer->first=false;
             bytes_to_transfer->second=bytes;
-            auto completion_handler=[this, id, h, bytes_to_transfer, buffers](const asio::error_code &ec, size_t bytes, off_t thisbytes)
+            auto completion_handler=[this, id, h, bytes_to_transfer, buffers](const error_code &ec, size_t bytes, off_t thisbytes)
             {
               if(ec)
               {
@@ -987,7 +989,7 @@ namespace detail
               if(!ok && ERROR_IO_PENDING!=errcode)
               {
                 //std::cerr << "ERROR " << errcode << std::endl;
-                asio::error_code ec(errcode, asio::error::get_system_category());
+                error_code ec(errcode, asio::error::get_system_category());
                 ol.complete(ec, ol.get()->InternalHigh);
               }
               else
@@ -1025,7 +1027,7 @@ namespace detail
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, handle_ptr h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, handle_ptr h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const error_code &ec, size_t bytes_transferred)
         {
             if(!this->p->filters_buffers.empty())
             {
@@ -1109,7 +1111,7 @@ namespace detail
                 elems[pages].Alignment=0;
                 auto t(std::make_tuple(req.where, 0, req.buffers.size(), amount));
                 asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, id, h, bytes_to_transfer,
-                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const asio::error_code &ec, size_t bytes) {
+                  BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const error_code &ec, size_t bytes) {
                     boost_asio_readwrite_completion_handler(iswrite, id, std::move(h),
                       bytes_to_transfer, std::move(t), ec, bytes); });
                 ol.get()->Offset=(DWORD) (req.where & 0xffffffff);
@@ -1122,7 +1124,7 @@ namespace detail
                 if(!ok && ERROR_IO_PENDING!=errcode)
                 {
                     //std::cerr << "ERROR " << errcode << std::endl;
-                    asio::error_code ec(errcode, asio::error::get_system_category());
+                    error_code ec(errcode, asio::error::get_system_category());
                     ol.complete(ec, ol.get()->InternalHigh);
                 }
                 else
@@ -1135,7 +1137,7 @@ namespace detail
                 {
                     auto t(std::make_tuple(req.where+offset, n, 1, asio::buffer_size(b)));
                     asio::windows::overlapped_ptr ol(threadsource()->io_service(),  [this, id, h, bytes_to_transfer,
-                      BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const asio::error_code &ec, size_t bytes) {
+                      BOOST_AFIO_LAMBDA_MOVE_CAPTURE(t)](const error_code &ec, size_t bytes) {
                         boost_asio_readwrite_completion_handler(iswrite, id, std::move(h),
                         bytes_to_transfer, std::move(t), ec, bytes); });
                     ol.get()->Offset=(DWORD) ((req.where+offset) & 0xffffffff);
@@ -1149,7 +1151,7 @@ namespace detail
                     if(!ok && ERROR_IO_PENDING!=errcode)
                     {
                         //std::cerr << "ERROR " << errcode << std::endl;
-                        asio::error_code ec(errcode, asio::error::get_system_category());
+                        error_code ec(errcode, asio::error::get_system_category());
                         ol.complete(ec, ol.get()->InternalHigh);
                     }
                     else
@@ -1250,7 +1252,7 @@ namespace detail
             }
         };
         typedef std::shared_ptr<enumerate_state> enumerate_state_t;
-        void boost_asio_enumerate_completion_handler(enumerate_state_t state, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_enumerate_completion_handler(enumerate_state_t state, const error_code &ec, size_t bytes_transferred)
         {
             using namespace windows_nt_kernel;
             size_t id=state->id;
@@ -1354,7 +1356,7 @@ namespace detail
                 _glob.Buffer=const_cast<path::value_type *>(req.glob.c_str());
                 _glob.MaximumLength=(_glob.Length=(USHORT) (req.glob.native().size()*sizeof(path::value_type)))+sizeof(path::value_type);
             }
-            asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, state](const asio::error_code &ec, size_t bytes)
+            asio::windows::overlapped_ptr ol(threadsource()->io_service(), [this, state](const error_code &ec, size_t bytes)
             {
               if(!state)
                 abort();
@@ -1391,7 +1393,7 @@ namespace detail
             {
                 //std::cerr << "ERROR " << errcode << std::endl;
                 SetWin32LastErrorFromNtStatus(ntstat);
-                asio::error_code ec(GetLastError(), asio::error::get_system_category());
+                error_code ec(GetLastError(), asio::error::get_system_category());
                 ol.complete(ec, ol.get()->InternalHigh);
             }
             else
@@ -1430,7 +1432,7 @@ namespace detail
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             auto buffers=std::make_shared<std::vector<FILE_ALLOCATED_RANGE_BUFFER>>(entries);
-            auto completion_handler=[this, id, op, ret, entries, buffers](const asio::error_code &ec, size_t bytes)
+            auto completion_handler=[this, id, op, ret, entries, buffers](const error_code &ec, size_t bytes)
             {
               handle_ptr h(op.get_handle());
               if(ec)
@@ -1482,7 +1484,7 @@ namespace detail
                     continue;
                   }
                   //std::cerr << "ERROR " << errcode << std::endl;
-                  asio::error_code ec(errcode, asio::error::get_system_category());
+                  error_code ec(errcode, asio::error::get_system_category());
                   ol.complete(ec, ol.get()->InternalHigh);
                 }
                 else
@@ -1873,7 +1875,7 @@ namespace detail
         windows_nt_kernel::init();
         using namespace windows_nt_kernel;
         win_lock_file *thislockfile=(win_lock_file *) _thislockfile;
-        auto completion_handler=[this, id, op, req](const asio::error_code &ec)
+        auto completion_handler=[this, id, op, req](const error_code &ec)
         {
           handle_ptr h(op.get_handle());
           if(ec)
@@ -1920,7 +1922,7 @@ namespace detail
         if(STATUS_PENDING!=ntstat)
         {
           SetWin32LastErrorFromNtStatus(ntstat);
-          asio::error_code ec(GetLastError(), asio::error::get_system_category());
+          error_code ec(GetLastError(), asio::error::get_system_category());
           completion_handler(ec);
         }
         else
