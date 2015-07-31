@@ -6,7 +6,7 @@ int main(void)
     //[completion_example1
     // Create a dispatcher instance
     std::shared_ptr<boost::afio::dispatcher> dispatcher=
-        boost::afio::make_dispatcher();
+        boost::afio::make_dispatcher().get();
     
     // Completion handlers are the lowest level completion routine available, and therefore the least
     // overhead but at the cost of considerable extra programmer effort. You almost certainly want

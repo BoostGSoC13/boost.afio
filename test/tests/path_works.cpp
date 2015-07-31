@@ -3,7 +3,7 @@
 BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as they are supposed to", 20)
 {
     using namespace BOOST_AFIO_V2_NAMESPACE;
-    auto dispatcher = make_dispatcher();
+    auto dispatcher = make_dispatcher().get();
     auto dirh = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
     dirh.get();
     {

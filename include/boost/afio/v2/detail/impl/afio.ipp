@@ -3435,13 +3435,22 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
     have_metadata=have_metadata | wanted;
 }
 
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher_ptr make_dispatcher(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask)
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri, file_flags flagsforce, file_flags flagsmask, std::shared_ptr<thread_source> threadpool) noexcept
 {
+    try
+    {
+        if(uri!="file:///")
+            return make_exception_ptr(std::invalid_argument("Unsupported URI"));
 #if defined(WIN32) && !defined(USE_POSIX_ON_WIN32)
-    return std::make_shared<detail::async_file_io_dispatcher_windows>(threadpool, flagsforce, flagsmask);
+        return dispatcher_ptr(std::make_shared<detail::async_file_io_dispatcher_windows>(threadpool, flagsforce, flagsmask));
 #else
-    return std::make_shared<detail::async_file_io_dispatcher_compat>(threadpool, flagsforce, flagsmask);
+        return dispatcher_ptr(std::make_shared<detail::async_file_io_dispatcher_compat>(threadpool, flagsforce, flagsmask));
 #endif
+    }
+    catch(...)
+    {
+        return current_exception();
+    }
 }
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher_ptr current_dispatcher(option<dispatcher_ptr> new_dispatcher)

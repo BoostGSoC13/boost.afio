@@ -38,7 +38,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
     try
     {
       // HoldParentOpen is actually ineffectual as renames zap the parent container, but it tests more code.
-      auto dispatcher = make_dispatcher(process_threadpool(), file_flags::hold_parent_open);
+      auto dispatcher = make_dispatcher("file:///", file_flags::hold_parent_open).get();
       auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
       future<> dirh;
 

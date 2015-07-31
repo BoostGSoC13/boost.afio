@@ -32,7 +32,7 @@ int main(int argc, const char *argv[])
     if(argc>1)
       writers=totalwriters=atoi(argv[1]);
     {
-      auto dispatcher = make_dispatcher();
+      auto dispatcher = make_dispatcher().get();
       auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
       auto mkdir1(dispatcher->dir(async_path_op_req::relative(mkdir, "1", file_flags::create)));
       auto mkdir2(dispatcher->dir(async_path_op_req::relative(mkdir, "2", file_flags::create)));
@@ -77,7 +77,7 @@ int main(int argc, const char *argv[])
           try
           {
             // Create a dispatcher
-            auto dispatcher = make_dispatcher();
+            auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
                 file_flags::create | file_flags::read_write)));
@@ -137,7 +137,7 @@ int main(int argc, const char *argv[])
           try
           {
             // Create a dispatcher
-            auto dispatcher = make_dispatcher();
+            auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
                 file_flags::create | file_flags::read_write)));
@@ -231,7 +231,7 @@ int main(int argc, const char *argv[])
           try
           {
             // Create a dispatcher
-            auto dispatcher = make_dispatcher();
+            auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
                 file_flags::create | file_flags::read_write | file_flags::os_lockable)));
@@ -287,7 +287,7 @@ int main(int argc, const char *argv[])
           try
           {
             // Create a dispatcher
-            auto dispatcher = make_dispatcher();
+            auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
             auto logfile(dispatcher->file(async_path_op_req("testdir/log",
                 file_flags::create | file_flags::read_write)));

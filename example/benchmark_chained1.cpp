@@ -16,7 +16,7 @@ static std::pair<bool, std::shared_ptr<boost::afio::handle>> _callback(size_t, b
 int main(void)
 {
     using namespace boost::afio;
-    auto dispatcher=make_dispatcher();
+    auto dispatcher=make_dispatcher().get();
     typedef chrono::duration<double, ratio<1, 1>> secs_type;
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);

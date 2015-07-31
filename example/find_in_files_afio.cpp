@@ -298,7 +298,7 @@ public:
     // Constructor, which starts the ball rolling
     find_in_files(const char *_regexpr) : regexpr(_regexpr),
         // Create an AFIO dispatcher that bypasses any filing system buffers
-        dispatcher(make_dispatcher(process_threadpool(), file_flags::will_be_sequentially_accessed/*|file_flags::os_direct*/)),
+        dispatcher(make_dispatcher("file:///", file_flags::will_be_sequentially_accessed/*|file_flags::os_direct*/).get()),
         bytesread(0), filesread(0), filesmatched(0), scheduled(0), completed(0)
     {
         filepaths.reserve(50000);

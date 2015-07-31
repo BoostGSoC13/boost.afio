@@ -7,7 +7,7 @@ BOOST_AFIO_AUTO_TEST_CASE(op_container_deduced_compilation, "Tests that all the 
     // Note that this test is mainly for testing metaprogramming compilation.
     if(false)
     {
-        auto dispatcher=make_dispatcher();
+        auto dispatcher=make_dispatcher().get();
         // Test that async_path_op_req constructs from path
         auto file1(dispatcher->file(filesystem::path("foo")));
         // Test that async_path_op_req constructs from literal

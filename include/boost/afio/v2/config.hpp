@@ -368,6 +368,8 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
   template<class T> using spinlockbase = BOOST_SPINLOCK_V1_NAMESPACE::spinlockbase<T>;
   template<class T> using lockable_ptr = BOOST_SPINLOCK_V1_NAMESPACE::lockable_ptr<T>;
   template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_SPINLOCK_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
+  template<typename R> using monad = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::monad<R>;
+  template<typename R> using result = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::result<R>;
   template<typename R> using option = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::option<R>;
   using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::empty;
   using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::make_option;

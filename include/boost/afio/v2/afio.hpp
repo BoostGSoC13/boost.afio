@@ -1657,7 +1657,7 @@ namespace detail
 /*! \class dispatcher
 \brief Abstract base class for dispatching file i/o asynchronously
 
-This is a reference counted instance with platform-specific implementation optionally hidden in object code.
+This is a reference counted instance with platform-specific implementation in object code.
 Construct an instance using the `boost::afio::make_dispatcher()` function.
 
 \qbk{
@@ -2257,23 +2257,31 @@ protected:
     template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle_ptr invoke_async_op_completions(size_t id, future<> h, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
     template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> chain_async_op(detail::immediate_async_ops &immediates, int optype, const future<> &precondition, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
 };
-/*! \brief Instatiates the best available async_file_io_dispatcher implementation for this system.
+/*! \brief Instatiates the best available async_file_io_dispatcher implementation for this system for the given uri.
 
 Note that the number of threads in the threadpool supplied is the maximum non-async op queue depth (e.g. file opens, closes etc.).
 For fast SSDs, there isn't much gain after eight-sixteen threads, so the process threadpool is set to eight by default.
 For slow hard drives, or worse, SANs, a queue depth of 64 or higher might deliver significant benefits.
 
-\return A shared_ptr to the best available async_file_io_dispatcher implementation for this system.
-\param threadpool The threadpool instance to use for asynchronous dispatch.
+URIs currently supported by AFIO:
+- <b>`__fileurl__`</b> The dispatcher will refer to the local filesystem of this machine.
+
+\return A shared_ptr to the best available async_file_io_dispatcher implementation for this system for the given uri.
+\param uri Where to open the dispatcher upon.
 \param flagsforce The flags to bitwise OR with any opened file flags. Used to force on certain flags.
 \param flagsmask The flags to bitwise AND with any opened file flags. Used to force off certain flags.
+\param threadpool The threadpool instance to use for asynchronous dispatch.
 \ingroup async_file_io_dispatcher
 \qbk{
 [heading Example]
 [call_example]
 }
 */
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC dispatcher_ptr make_dispatcher(std::shared_ptr<thread_source> threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
+#ifdef DOXYGEN_SHOULD_SKIP_THIS
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri="file : / / /", file_flags flagsforce = file_flags::none, file_flags flagsmask = file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
+#else
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri="file:///", file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
+#endif
 
 namespace detail
 {

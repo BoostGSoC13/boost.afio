@@ -213,7 +213,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
     }
 #endif
     
-    auto dispatcher=make_dispatcher();
+    auto dispatcher=make_dispatcher().get();
     std::cout << "\n\nThread source use count is: " << dispatcher->threadsource().use_count() << std::endl;
     BOOST_AFIO_CHECK_THROWS(dispatcher->op_from_scheduled_id(78));
 }

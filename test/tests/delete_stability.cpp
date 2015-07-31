@@ -23,7 +23,7 @@ BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and direc
     try
     {    
       // HoldParentOpen is actually ineffectual as renames zap the parent container, but it tests more code.
-      auto dispatcher = make_dispatcher(process_threadpool(), file_flags::hold_parent_open);
+      auto dispatcher = make_dispatcher("file:///", file_flags::hold_parent_open).get();
       auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
       
       // Monte Carlo creating or deleting lots of directories containing a few files of 4Kb

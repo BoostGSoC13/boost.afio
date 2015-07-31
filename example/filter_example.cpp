@@ -21,7 +21,7 @@ static void readwrite_filter(detail::OpType optype, handle *h,
 int main(void)
 {
     dispatcher_ptr dispatcher=
-        make_dispatcher();
+        make_dispatcher().get();
         
     // Install filters BEFORE scheduling any ops as the filter APIs are NOT
     // threadsafe. This filters all file opens.

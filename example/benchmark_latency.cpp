@@ -22,7 +22,7 @@ static std::pair<bool, std::shared_ptr<boost::afio::handle>> _callback(size_t id
 int main(void)
 {
   using namespace boost::afio;
-  auto dispatcher=make_dispatcher();
+  auto dispatcher=make_dispatcher().get();
   typedef chrono::duration<double, ratio<1, 1>> secs_type;
   {
     size_t total1=0, total2=0, total3=0;

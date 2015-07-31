@@ -8,7 +8,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_data_op_req_compilation, "Tests that all the use
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     // Note that this test is mainly for testing metaprogramming compilation, it doesn't really do much
     {
-        auto dispatcher=make_dispatcher();
+        auto dispatcher=make_dispatcher().get();
         auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
         mkdir.get();
         auto mkfile(dispatcher->file(async_path_op_req::relative(mkdir, "foo", file_flags::create|file_flags::read_write)));

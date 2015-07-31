@@ -16,7 +16,7 @@
 Abstract base class for dispatching file i/o asynchronously. 
 
 [heading Description]
-This is a reference counted instance with platform-specific implementation optionally hidden in object code. Construct an instance using the [^`boost::afio::make_dispatcher()`] function.
+This is a reference counted instance with platform-specific implementation in object code. Construct an instance using the [^`boost::afio::make_dispatcher()`] function.
 
 [heading Synopsis]
 ``class dispatcher

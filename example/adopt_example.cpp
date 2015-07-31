@@ -53,7 +53,7 @@ struct test_handle : boost::afio::handle
 int main(void)
 {
   using namespace BOOST_AFIO_V2_NAMESPACE;
-  auto dispatcher = boost::afio::make_dispatcher();
+  auto dispatcher = boost::afio::make_dispatcher().get();
   current_dispatcher_guard h(dispatcher);
   auto foreignh=std::make_shared<test_handle>(dispatcher.get());
   auto adopted = async_adopt(foreignh)();

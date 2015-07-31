@@ -9,7 +9,7 @@ int main(void)
         namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 
         // Set a dispatcher as current for this thread
-        afio::current_dispatcher_guard h(afio::make_dispatcher());
+        afio::current_dispatcher_guard h(afio::make_dispatcher().get());
 
         // Schedule an opening of a file called example_file.txt
         afio::future<> openfile = afio::async_file("example_file.txt",

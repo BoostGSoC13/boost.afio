@@ -121,7 +121,7 @@ int main(int argc, const char *argv[])
         atomic<off_t> written(0);
         off_t totalbytes=0;
         std::shared_ptr<boost::afio::dispatcher> dispatcher=
-            boost::afio::make_dispatcher();
+            boost::afio::make_dispatcher().get();
         // Set a dispatcher as current for this thread
         boost::afio::current_dispatcher_guard guard(dispatcher);
 

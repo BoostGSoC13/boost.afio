@@ -6,7 +6,7 @@ int main(void)
     //[completion_example2
     // Create a dispatcher instance
     std::shared_ptr<boost::afio::dispatcher> dispatcher=
-        boost::afio::make_dispatcher();
+        boost::afio::make_dispatcher().get();
     
     // One thing direct programming of completion handlers can do which call() cannot is immediate
     // completions. These run immediately after the precondition finishes by the thread worker

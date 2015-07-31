@@ -6,7 +6,7 @@ int main(void)
   using namespace BOOST_AFIO_V2_NAMESPACE;
   using BOOST_AFIO_V2_NAMESPACE::rmdir;
   std::shared_ptr<boost::afio::dispatcher> dispatcher =
-    boost::afio::make_dispatcher();
+    boost::afio::make_dispatcher().get();
   current_dispatcher_guard h(dispatcher);
 
   // Free function

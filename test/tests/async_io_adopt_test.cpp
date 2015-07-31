@@ -53,7 +53,7 @@ struct test_handle : handle
 
 BOOST_AFIO_AUTO_TEST_CASE(async_io_adopt, "Tests foreign fd adoption", 5)
 {
-    auto dispatcher = make_dispatcher(process_threadpool());
+    auto dispatcher = make_dispatcher().get();
     std::cout << "\n\nTesting foreign fd adoption:\n";
     auto h=std::make_shared<test_handle>(dispatcher.get());
     auto adopted=dispatcher->adopt(h);

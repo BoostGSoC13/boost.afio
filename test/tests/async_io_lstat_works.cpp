@@ -19,7 +19,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
       }
     }
 
-    auto dispatcher=make_dispatcher();
+    auto dispatcher=make_dispatcher().get();
     auto test(dispatcher->dir(async_path_op_req("testdir", file_flags::create|file_flags::write)));
     {
       auto mkdir(dispatcher->dir(async_path_op_req::relative(test, "dir", file_flags::create|file_flags::write)));
