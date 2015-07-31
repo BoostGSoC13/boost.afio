@@ -14,7 +14,7 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace detail {
     // Helper for opening files. Lightweight means open with no access, it can be faster.
-    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(std::shared_ptr<async_io_handle> dirh, BOOST_AFIO_V2_NAMESPACE::path path, file_flags flags, bool overlapped=true) noexcept
+    static inline std::pair<NTSTATUS, HANDLE> ntcreatefile(handle_ptr dirh, BOOST_AFIO_V2_NAMESPACE::path path, file_flags flags, bool overlapped=true) noexcept
     {
       DWORD access=FILE_READ_ATTRIBUTES|SYNCHRONIZE, attribs=FILE_ATTRIBUTE_NORMAL;
       DWORD fileshare=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
@@ -98,7 +98,7 @@ namespace detail {
     struct win_lock_file : public lock_file<win_actual_lock_file>
     {
       asio::windows::object_handle ev;
-      win_lock_file(async_io_handle *_h=nullptr) : lock_file<win_actual_lock_file>(_h), ev(_h->parent()->threadsource()->io_service())
+      win_lock_file(handle *_h=nullptr) : lock_file<win_actual_lock_file>(_h), ev(_h->parent()->threadsource()->io_service())
       {
         HANDLE evh;
         BOOST_AFIO_ERRHWIN(INVALID_HANDLE_VALUE!=(evh=CreateEvent(nullptr, true, false, nullptr)));
@@ -122,7 +122,7 @@ namespace detail {
       }
       return false;
     }
-    static inline bool isDeletedFile(std::shared_ptr<async_io_handle> h)
+    static inline bool isDeletedFile(handle_ptr h)
     {
       windows_nt_kernel::init();
       using namespace windows_nt_kernel;
@@ -196,7 +196,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
   if(needToOpen)
   {
     // Open with no rights and no access
-    std::tie(ntstat, h)=detail::ntcreatefile(std::shared_ptr<async_io_handle>(), p, file_flags::none, false);
+    std::tie(ntstat, h)=detail::ntcreatefile(handle_ptr(), p, file_flags::none, false);
     BOOST_AFIO_ERRHNTFN(ntstat, [&p]{return p;});
   }
   auto unh=detail::Undoer([&h]{if(h) CloseHandle(h);});
@@ -294,7 +294,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC filesystem::path normalise_path(path p, path_n
 
 namespace detail
 {
-    struct async_io_handle_windows : public async_io_handle
+    struct async_io_handle_windows : public handle
     {
         std::unique_ptr<asio::windows::random_access_handle> h;
         void *myid;
@@ -309,10 +309,10 @@ namespace detail
             BOOST_AFIO_ERRHWINFN(INVALID_HANDLE_VALUE!=h, [&path]{return path;});
             return h;
         }
-        async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags) : async_io_handle(_parent, flags),
+        async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags) : handle(_parent, flags),
           myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
         inline async_io_handle_windows(async_file_io_dispatcher_base *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
-        inline std::shared_ptr<async_io_handle> int_verifymyinode();
+        inline handle_ptr int_verifymyinode();
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
@@ -664,7 +664,7 @@ namespace detail
     };
     inline async_io_handle_windows::async_io_handle_windows(async_file_io_dispatcher_base *_parent,
       const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
-      : async_io_handle(_parent, flags),
+      : handle(_parent, flags),
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
         has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr), _path(path)
     {
@@ -674,13 +674,13 @@ namespace detail
 
     class async_file_io_dispatcher_windows : public async_file_io_dispatcher_base
     {
-        template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
+        template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
         friend class async_file_io_dispatcher_base;
         friend class directory_entry;
-        friend void directory_entry::_int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
+        friend void directory_entry::_int_fetch(metadata_flags wanted, handle_ptr dirh);
         friend struct async_io_handle_windows;
         size_t pagesize;
-        std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false)
+        handle_ptr decode_relative_path(async_path_op_req &req, bool force_absolute=false)
         {
           return detail::decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req, force_absolute);
         }
@@ -714,9 +714,9 @@ namespace detail
             // Deleting the input op?
             if(req.path.empty())
             {
-              std::shared_ptr<async_io_handle> h(op.get_handle());
+              handle_ptr h(op.get_handle());
               async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
-              if(p->is_open()!=async_io_handle::open_states::closed)
+              if(p->is_open()!=handle::open_states::closed)
               {
                 p->unlink();
                 return std::make_pair(true, op.get_handle());
@@ -780,7 +780,7 @@ namespace detail
             NTSTATUS status=0;
             HANDLE h=nullptr;
             req.flags=fileflags(req.flags);
-            std::shared_ptr<async_io_handle> dirh=decode_relative_path(req);
+            handle_ptr dirh=decode_relative_path(req);
             std::tie(status, h)=ntcreatefile(dirh, req.path, req.flags);
             if(dirh)
               req.path=dirh->path()/req.path;
@@ -823,7 +823,7 @@ namespace detail
           return dounlink(true, id, std::move(op), std::move(req));
         }
         // Called in unknown thread
-        void boost_asio_symlink_completion_handler(size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::unique_ptr<path::value_type[]>> buffer, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_symlink_completion_handler(size_t id, handle_ptr h, std::shared_ptr<std::unique_ptr<path::value_type[]>> buffer, const asio::error_code &ec, size_t bytes_transferred)
         {
             if(ec)
             {
@@ -847,7 +847,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dosymlink(size_t id, future<> op, async_path_op_req req)
         {
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             req.flags=fileflags(req.flags);
             req.flags=req.flags|file_flags::int_opening_link;
@@ -936,7 +936,7 @@ namespace detail
             } FILE_ZERO_DATA_INFORMATION, *PFILE_ZERO_DATA_INFORMATION;
 #define FSCTL_SET_ZERO_DATA             CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 50, METHOD_BUFFERED, FILE_WRITE_DATA)
 #endif
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             auto buffers=std::make_shared<std::vector<FILE_ZERO_DATA_INFORMATION>>();
@@ -999,7 +999,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dosync(size_t id, future<> op, future<>)
         {
-          std::shared_ptr<async_io_handle> h(op.get_handle());
+          handle_ptr h(op.get_handle());
           async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
           assert(p);
           off_t bytestobesynced=p->write_count_since_fsync();
@@ -1011,7 +1011,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype doclose(size_t id, future<> op, future<>)
         {
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             if(!!(p->flags() & file_flags::int_opening_dir) && !(p->flags() & file_flags::unique_directory_handle) && !!(p->flags() & file_flags::read) && !(p->flags() & file_flags::write))
@@ -1025,7 +1025,7 @@ namespace detail
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, std::shared_ptr<async_io_handle> h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const asio::error_code &ec, size_t bytes_transferred)
+        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, handle_ptr h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const asio::error_code &ec, size_t bytes_transferred)
         {
             if(!this->p->filters_buffers.empty())
             {
@@ -1071,7 +1071,7 @@ namespace detail
             }
             //std::cout << "id=" << id << " total=" << bytes_to_transfer->second << " this=" << bytes_transferred << std::endl;
         }
-        template<bool iswrite> void doreadwrite(size_t id, std::shared_ptr<async_io_handle> h, detail::async_data_op_req_impl<iswrite> req, async_io_handle_windows *p)
+        template<bool iswrite> void doreadwrite(size_t id, handle_ptr h, detail::async_data_op_req_impl<iswrite> req, async_io_handle_windows *p)
         {
             // asio::async_read_at() seems to have a bug and only transfers 64Kb per buffer
             // asio::windows::random_access_handle::async_read_some_at() clearly bothers
@@ -1162,7 +1162,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype doread(size_t id, future<> op, detail::async_data_op_req_impl<false> req)
         {
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("R %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
@@ -1198,7 +1198,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dowrite(size_t id, future<> op, detail::async_data_op_req_impl<true> req)
         {
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("W %u %p (%c) @ %u, b=%u\n", (unsigned) id, h.get(), p->path().native().back(), (unsigned) req.where, (unsigned) req.buffers.size());
@@ -1213,7 +1213,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dotruncate(size_t id, future<> op, off_t _newsize)
         {
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             BOOST_AFIO_DEBUG_PRINT("T %u %p (%c)\n", (unsigned) id, h.get(), p->path().native().back());
@@ -1254,7 +1254,7 @@ namespace detail
         {
             using namespace windows_nt_kernel;
             size_t id=state->id;
-            std::shared_ptr<async_io_handle> h(state->op.get_handle());
+            handle_ptr h(state->op.get_handle());
             std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=state->ret;
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
             async_enumerate_op_req &req=state->req;
@@ -1342,7 +1342,7 @@ namespace detail
         void doenumerate(enumerate_state_t state)
         {
             size_t id=state->id;
-            std::shared_ptr<async_io_handle> h(state->op.get_handle());
+            handle_ptr h(state->op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             using namespace windows_nt_kernel;
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
@@ -1413,7 +1413,7 @@ namespace detail
             doenumerate(std::move(state));
 
             // Indicate we're not finished yet
-            return std::make_pair(false, std::shared_ptr<async_io_handle>());
+            return std::make_pair(false, handle_ptr());
         }
         // Called in unknown thread
         completion_returntype doextents(size_t id, future<> op, std::shared_ptr<promise<std::vector<std::pair<off_t, off_t>>>> ret, size_t entries)
@@ -1426,13 +1426,13 @@ namespace detail
             } FILE_ALLOCATED_RANGE_BUFFER, *PFILE_ALLOCATED_RANGE_BUFFER;
 #define FSCTL_QUERY_ALLOCATED_RANGES    CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 51,  METHOD_NEITHER, FILE_READ_DATA)
 #endif
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             auto buffers=std::make_shared<std::vector<FILE_ALLOCATED_RANGE_BUFFER>>(entries);
             auto completion_handler=[this, id, op, ret, entries, buffers](const asio::error_code &ec, size_t bytes)
             {
-              std::shared_ptr<async_io_handle> h(op.get_handle());
+              handle_ptr h(op.get_handle());
               if(ec)
               {
                 if(ERROR_MORE_DATA==ec.value())
@@ -1505,7 +1505,7 @@ namespace detail
           {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
-            std::shared_ptr<async_io_handle> h(op.get_handle());
+            handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             assert(p);
             statfs_t ret;
@@ -1600,7 +1600,7 @@ namespace detail
         // Called in unknown thread
         completion_returntype dolock(size_t id, future<> op, async_lock_op_req req)
         {
-          std::shared_ptr<async_io_handle> h(op.get_handle());
+          handle_ptr h(op.get_handle());
           async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
           assert(p);
           if(!p->lockfile)
@@ -1795,9 +1795,9 @@ namespace detail
         }
     };
 
-    inline std::shared_ptr<async_io_handle> async_io_handle_windows::int_verifymyinode()
+    inline handle_ptr async_io_handle_windows::int_verifymyinode()
     {
-        std::shared_ptr<async_io_handle> dirh(container());
+        handle_ptr dirh(container());
         if(!dirh)
         {
           async_path_op_req req(path(true));
@@ -1837,7 +1837,7 @@ namespace detail
           for(size_t n=0; n<10; n++)
           {
             // TODO FIXME: Lock file needs to copy exact security descriptor from its original
-            std::tie(status, h)=ntcreatefile(std::shared_ptr<async_io_handle>(), lockfilepath, file_flags::create|file_flags::read_write|file_flags::temporary_file|file_flags::int_file_share_delete);
+            std::tie(status, h)=ntcreatefile(handle_ptr(), lockfilepath, file_flags::create|file_flags::read_write|file_flags::temporary_file|file_flags::int_file_share_delete);
             // This may fail with STATUS_DELETE_PENDING, if so sleep and loop
             if(!status)
               break;
@@ -1875,7 +1875,7 @@ namespace detail
         win_lock_file *thislockfile=(win_lock_file *) _thislockfile;
         auto completion_handler=[this, id, op, req](const asio::error_code &ec)
         {
-          std::shared_ptr<async_io_handle> h(op.get_handle());
+          handle_ptr h(op.get_handle());
           if(ec)
           {
             exception_ptr e;
@@ -1926,7 +1926,7 @@ namespace detail
         else
           thislockfile->ev.async_wait(completion_handler);
         // Indicate we're not finished yet
-        return std::make_pair(false, std::shared_ptr<async_io_handle>());
+        return std::make_pair(false, handle_ptr());
       }
     };
 } // namespace

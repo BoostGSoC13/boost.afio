@@ -12,7 +12,7 @@ typedef decltype(boost::afio::chrono::high_resolution_clock::now()) time_point;
 size_t id_offset;
 static time_point points[100000];
 static time_point::duration overhead, timesliceoverhead, sleepoverhead;
-static std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>> _callback(size_t id, boost::afio::future<> op)
+static std::pair<bool, std::shared_ptr<boost::afio::handle>> _callback(size_t id, boost::afio::future<> op)
 {
   using namespace boost::afio;
   points[id-id_offset]=chrono::high_resolution_clock::now();

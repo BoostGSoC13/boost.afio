@@ -1,18 +1,18 @@
 #include "afio_pch.hpp"
 
 //[adopt_example
-struct test_handle : boost::afio::async_io_handle
+struct test_handle : boost::afio::handle
 {
     test_handle(boost::afio::async_file_io_dispatcher_base *parent) :
-        boost::afio::async_io_handle(parent,
+        boost::afio::handle(parent,
         boost::afio::file_flags::none) {}
     virtual void close() override final
     {
         // Do nothing
     }
-    virtual async_io_handle::open_states is_open() const override final
+    virtual handle::open_states is_open() const override final
     {
-        return async_io_handle::open_states::open;
+        return handle::open_states::open;
     }
     virtual void *native_handle() const override final
     {

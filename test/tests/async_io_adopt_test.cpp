@@ -4,22 +4,22 @@ using namespace BOOST_AFIO_V2_NAMESPACE;
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 namespace afio = BOOST_AFIO_V2_NAMESPACE;
 
-struct test_handle : async_io_handle
+struct test_handle : handle
 {
-    test_handle(async_file_io_dispatcher_base *parent) : async_io_handle(parent, file_flags::none) {}
+    test_handle(async_file_io_dispatcher_base *parent) : handle(parent, file_flags::none) {}
     virtual void close() override final
     {
         // Do nothing
     }
-    virtual async_io_handle::open_states is_open() const override final
+    virtual handle::open_states is_open() const override final
     {
-      return async_io_handle::open_states::open;
+      return handle::open_states::open;
     }
     virtual void *native_handle() const override final
     {
         return nullptr;
     }
-    using async_io_handle::path;
+    using handle::path;
     virtual afio::path path(bool refresh=false) override final
     {
       return "foo";

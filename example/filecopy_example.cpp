@@ -25,7 +25,7 @@ namespace {
     static std::vector<std::unique_ptr<file_buffer_type>> buffers;
 
     // Parallel copy files in sources into dest, concatenating
-    stl_future<std::vector<std::shared_ptr<async_io_handle>>> async_concatenate_files(
+    stl_future<std::vector<handle_ptr>> async_concatenate_files(
         atomic<off_t> &written, off_t &totalbytes,
         std::shared_ptr<async_file_io_dispatcher_base> dispatcher,
         boost::afio::filesystem::path dest, std::vector<boost::afio::filesystem::path> sources,

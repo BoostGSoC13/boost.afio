@@ -18,7 +18,7 @@ int main(void)
         /* These are always the standard parameters */
         size_t id, boost::afio::future<> precondition)
       /* This is always the return type */
-      -> std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>>
+      -> std::pair<bool, std::shared_ptr<boost::afio::handle>>
     {
         std::cout << "I am completion" << std::endl;
       
@@ -68,7 +68,7 @@ int main(void)
                 boundf));
         
     // Create a boost::stl_future<> representing the ops passed to when_all()
-    boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::async_io_handle>>> stl_future
+    boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::handle>>> stl_future
         =boost::afio::when_all(op);
     // ... and wait for it to complete
     stl_future.wait();

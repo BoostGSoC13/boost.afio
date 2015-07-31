@@ -19,12 +19,12 @@ int main(void)
         /* From now on user defined parameters */
         std::string text)
       /* This is always the return type */
-      -> std::pair<bool, std::shared_ptr<boost::afio::async_io_handle>>
+      -> std::pair<bool, std::shared_ptr<boost::afio::handle>>
     {
         /* id is the unique, non-zero integer id of this op.
            precondition is the op you supplied as precondition. As it will by definition
            have completed by now, you can fetch from its h member variable a shared pointer
-           to the shared stl_future containing either the output async_io_handle or the error state.
+           to the shared stl_future containing either the output handle or the error state.
         */
         std::cout << text << std::endl;
         
@@ -49,7 +49,7 @@ int main(void)
             std::make_pair(boost::afio::async_op_flags::none, boundf));
         
     // Create a boost::stl_future<> representing the ops passed to when_all()
-    boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::async_io_handle>>> stl_future
+    boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::handle>>> stl_future
         =boost::afio::when_all(helloworld);
     // ... and wait for it to complete
     stl_future.wait();

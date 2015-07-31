@@ -86,7 +86,7 @@ BOOST_AFIO_AUTO_TEST_CASE(path_works, "Tests that the path functions work as the
     }
 
     std::cout << "\nCreating hard links testfile2 and testfile3 from testfile ..." << std::endl;
-    std::shared_ptr<async_io_handle> h;
+    handle_ptr h;
     future<> op = dispatcher->file(async_path_op_req::relative(dirh, testfilestr, file_flags::create | file_flags::read_write));
     h = op.get_handle();
     BOOST_CHECK(h->path(true)==dirh->path()/testfilestr);

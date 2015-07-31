@@ -173,13 +173,13 @@ The v1.3 branch is now included in the v1.4 branch as v1.
 
 * Implemented free functions for future continuation for all AFIO operations.
 
+* async_io_handle is now handle. Instead of explicit std::shared_ptr<async_io_handle>
+we now have handle_ptr.
 
 
 Todo:
 
-* RENAME async_io_handle TO handle
 * RENAME async_io_dispatcher_base TO dispatcher
-* TYPEDEF std::shared_ptr<handle> TO handle_ptr
 * TYPEDEF std::shared_ptr<dispatcher> TO dispatcher_ptr
 * MAKE ntcreatefile() result<T>
 * FIX ALWAYS OPENING REPARSE POINT + DEDUP FILE HANDLING

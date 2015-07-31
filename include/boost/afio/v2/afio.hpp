@@ -788,7 +788,9 @@ namespace detail {
     BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(unit_testing_flags)
 }
 
-class async_io_handle;
+class handle;
+//! A type alias to a shared pointer to handle
+using handle_ptr = std::shared_ptr<handle>;
 
 /*! \enum metadata_flags
 \brief Bitflags for availability of metadata from `struct stat_t`
@@ -982,7 +984,7 @@ class BOOST_AFIO_DECL directory_entry
     path::string_type leafname;
     stat_t stat;
     metadata_flags have_metadata;
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void _int_fetch(metadata_flags wanted, std::shared_ptr<async_io_handle> dirh);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void _int_fetch(metadata_flags wanted, handle_ptr dirh);
 public:
     //! \constr
     directory_entry() : stat(nullptr), have_metadata(metadata_flags::None) { }
@@ -1015,7 +1017,7 @@ public:
     \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
     \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
     */
-    metadata_flags fetch_metadata(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted)
+    metadata_flags fetch_metadata(handle_ptr dirh, metadata_flags wanted)
     {
         metadata_flags tofetch;
         wanted=wanted&metadata_supported();
@@ -1029,7 +1031,7 @@ public:
     \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
     \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
     */
-    stat_t fetch_lstat(std::shared_ptr<async_io_handle> dirh, metadata_flags wanted=directory_entry::metadata_fastpath())
+    stat_t fetch_lstat(handle_ptr dirh, metadata_flags wanted=directory_entry::metadata_fastpath())
     {
         fetch_metadata(dirh, wanted);
         return stat;
@@ -1037,10 +1039,10 @@ public:
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 #define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
 decltype(stat_t().st_##field) st_##field() const { if(!(have_metadata&metadata_flags::field)) { BOOST_AFIO_THROW(std::runtime_error("Field st_" #field " not present.")); } return stat.st_##field; } \
-decltype(stat_t().st_##field) st_##field(std::shared_ptr<async_io_handle> dirh) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
+decltype(stat_t().st_##field) st_##field(handle_ptr dirh) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #else
 #define BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(field) \
-fieldtype st_##field(std::shared_ptr<async_io_handle> dirh=std::shared_ptr<async_io_handle>()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
+fieldtype st_##field(handle_ptr dirh=handle_ptr()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #endif
 #ifndef WIN32
     //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
@@ -1118,13 +1120,13 @@ public:
 /*! \brief The abstract base class encapsulating a platform-specific file handle
 
 Note that failure to explicitly schedule closing a file handle in the dispatcher means it will be synchronously closed on last reference count
-by async_io_handle. This can consume considerable time, especially if SyncOnClose is enabled.
+by handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 \qbk{
 [include generated/group_async_io_handle__ops.qbk]
 }
 */
-class async_io_handle : public std::enable_shared_from_this<async_io_handle>
+class handle : public std::enable_shared_from_this<handle>
 {
     friend class async_file_io_dispatcher_base;
     friend struct detail::async_io_handle_posix;
@@ -1138,17 +1140,17 @@ class async_io_handle : public std::enable_shared_from_this<async_io_handle>
     chrono::system_clock::time_point _opened;
     file_flags _flags;
 protected:
-    std::shared_ptr<async_io_handle> dirh;
+    handle_ptr dirh;
     atomic<off_t> bytesread, byteswritten, byteswrittenatlastfsync;
-    async_io_handle(async_file_io_dispatcher_base *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
+    handle(async_file_io_dispatcher_base *parent, file_flags flags) : _parent(parent), _opened(chrono::system_clock::now()), _flags(flags), bytesread(0), byteswritten(0), byteswrittenatlastfsync(0) { }
     //! Calling this directly can cause misoperation. Best to avoid unless you have inspected the source code for the consequences.
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 public:
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~async_io_handle() { }
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle() { }
     //! Returns the parent of this io handle
     async_file_io_dispatcher_base *parent() const { return _parent; }
     //! Returns a handle to the directory containing this handle. Only works if `file_flags::hold_parent_open` was specified when this handle was opened.
-    std::shared_ptr<async_io_handle> container() const { return dirh; }
+    handle_ptr container() const { return dirh; }
     //! In which way this handle is opened or not
     enum class open_states
     {
@@ -1213,7 +1215,7 @@ public:
     stat_t lstat(metadata_flags wanted=directory_entry::metadata_fastpath())
     {
         directory_entry de(direntry(wanted));
-        return de.fetch_lstat(std::shared_ptr<async_io_handle>() /* actually unneeded */, wanted);
+        return de.fetch_lstat(handle_ptr() /* actually unneeded */, wanted);
     }
     /*! \brief Returns the target path of this handle if it is a symbolic link.
 
@@ -1327,7 +1329,7 @@ public:
     struct change_listener : public std::enable_shared_from_this<change_listener>
     {
       virtual ~change_listener() { }
-      virtual void operator()(async_io_handle *h, change_flags changed, void *additional)=0;
+      virtual void operator()(handle *h, change_flags changed, void *additional)=0;
     };
     // Undocumented deliberately
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void listen(const std::vector<std::pair<change_flags>, std::shared_ptr<change_listener>> &listeners) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
@@ -1369,8 +1371,8 @@ public:
 namespace detail
 {
   struct barrier_count_completed_state;
-  template<bool rethrow, class Iterator> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all_ops(Iterator first, Iterator last);
-  template<bool rethrow, class Iterator> inline stl_future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last);
+  template<bool rethrow, class Iterator> inline stl_future<std::vector<handle_ptr>> when_all_ops(Iterator first, Iterator last);
+  template<bool rethrow, class Iterator> inline stl_future<handle_ptr> when_any_ops(Iterator first, Iterator last);
 }
 
 /*! \ref future
@@ -1379,12 +1381,12 @@ template<> class future<void>
 {
     // Temporary friends until lightweight future promise comes in
     friend struct detail::barrier_count_completed_state;
-    template<bool rethrow, class Iterator> friend inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> detail::when_all_ops(Iterator first, Iterator last);
-    template<bool rethrow, class Iterator> friend inline stl_future<std::shared_ptr<async_io_handle>> detail::when_any_ops(Iterator first, Iterator last);
+    template<bool rethrow, class Iterator> friend inline stl_future<std::vector<handle_ptr>> detail::when_all_ops(Iterator first, Iterator last);
+    template<bool rethrow, class Iterator> friend inline stl_future<handle_ptr> detail::when_any_ops(Iterator first, Iterator last);
 
     async_file_io_dispatcher_base *_parent;              //!< The parent dispatcher
     size_t _id;                                          //!< A unique id for this operation
-    shared_future<std::shared_ptr<async_io_handle>> _h;  //!< A stl_future handle to the item being operated upon
+    shared_future<handle_ptr> _h;  //!< A stl_future handle to the item being operated upon
 public:
     future(future<void> &&o, stl_future<void> &&result) : future<void>(std::move(o)) { }
     // NOTE TO SELF: MAKE THE CONSTRUCTORS AND MEMBER FUNCTIONS constexpr WHEN I MERGE LIGHTWEIGHT FUTURE-PROMISES
@@ -1409,13 +1411,13 @@ public:
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    future(async_file_io_dispatcher_base *parent, size_t id, shared_future<std::shared_ptr<async_io_handle>> handle, bool check_handle=true, bool validate=true) : _parent(parent), _id(id), _h(std::move(handle)) { if(validate) _validate(check_handle); }
+    future(async_file_io_dispatcher_base *parent, size_t id, shared_future<handle_ptr> handle, bool check_handle=true, bool validate=true) : _parent(parent), _id(id), _h(std::move(handle)) { if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param _handle A shared_ptr to shared state between all instances of this reference.
     \param check_handle Whether to have validation additionally check if a handle is not null
     \param validate Whether to check the inputs and shared state for valid (and not errored) values
     */
-    future(std::shared_ptr<async_io_handle> _handle, bool check_handle=true, bool validate=true) : _parent(_handle->parent()), _id((size_t)-1) { promise<std::shared_ptr<async_io_handle>> p; p.set_value(std::move(_handle)); _h=p.get_future(); if(validate) _validate(check_handle); }
+    future(handle_ptr _handle, bool check_handle=true, bool validate=true) : _parent(_handle->parent()), _id((size_t)-1) { promise<handle_ptr> p; p.set_value(std::move(_handle)); _h=p.get_future(); if(validate) _validate(check_handle); }
     /*! Constructs an instance.
     \param parent The dispatcher this op belongs to.
     \param id The unique non-zero id of this op.
@@ -1432,32 +1434,32 @@ public:
     //! \deprecate{Expected to be removed in the v1.5 engine}
     size_t id() const noexcept { return _id; }
     //! Retrieves the handle or exception from the shared state, rethrowing any exception. Returns a null shared pointer if this future is invalid.
-    std::shared_ptr<async_io_handle> get_handle(bool return_null_if_errored=false) const
+    handle_ptr get_handle(bool return_null_if_errored=false) const
     {
         if(!_parent && !_id)
-            return std::shared_ptr<async_io_handle>();
+            return handle_ptr();
         // std::shared_future in older libstdc++ does not have a const get().
         if(!return_null_if_errored)
             return const_cast<future *>(this)->_h.get();
         auto e=get_exception_ptr(_h);
-        return e ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->_h.get();
+        return e ? handle_ptr() : const_cast<future *>(this)->_h.get();
     }
     //! Retrieves the handle or exception from the shared state, rethrowing any exception but setting _ec if there is an error. Returns a null shared pointer if this future is invalid.
-    std::shared_ptr<async_io_handle> get_handle(error_type &ec) const
+    handle_ptr get_handle(error_type &ec) const
     {
       if (!_parent && !_id)
-        return std::shared_ptr<async_io_handle>();
+        return handle_ptr();
       ec = get_error();
-      return ec ? std::shared_ptr<async_io_handle>() : const_cast<future *>(this)->_h.get();
+      return ec ? handle_ptr() : const_cast<future *>(this)->_h.get();
     }
     //! Dereferences the handle from the shared state. Same as *h.get_handle().
-    const async_io_handle &operator *() const { return *get_handle(); }
+    const handle &operator *() const { return *get_handle(); }
     //! Dereferences the handle from the shared state. Same as *h.get_handle().
-    async_io_handle &operator *() { return *get_handle(); }
+    handle &operator *() { return *get_handle(); }
     //! Dereferences the handle from the shared state. Same as h.get_handle()->get().
-    const async_io_handle *operator->() const { return get_handle().get(); }
+    const handle *operator->() const { return get_handle().get(); }
     //! Dereferences the handle from the shared state. Same as h.get_handle()->get().
-    async_io_handle *operator->() { return get_handle().get(); }
+    handle *operator->() { return get_handle().get(); }
     //! Waits for the future to become ready, rethrowing any exception found. Throws a `future_errc::no_state` if this future is invalid.
     void get()
     {
@@ -1529,7 +1531,7 @@ public:
         if(_h.valid() && is_ready(_h))
         {
             if(check_handle)
-                if(!const_cast<shared_future<std::shared_ptr<async_io_handle>> &>(_h).get().get())
+                if(!const_cast<shared_future<handle_ptr> &>(_h).get().get())
                     return false;
         }
         return true;
@@ -1551,7 +1553,7 @@ As of v1.4 of the AFIO engine, the legacy `async_io_op` struct has been replaced
 based on the lightweight future-promise factory toolkit in forthcoming Boost.Monad. This custom future type
 consists of two pieces of future data each with different semantics:
 
-1. A `std::shared_ptr<async_io_handle>` retrieved using `get_handle()`, `operator*` and `operator->` - this is
+1. A `handle_ptr` retrieved using `get_handle()`, `operator*` and `operator->` - this is
 the shared i/o handle returned by the asynchronous operation. This has non-consuming semantics i.e. you can call
 `get_handle()` as many times as you like. Note that for legacy compatibility reasons, calling `get_handle()` on
 an invalid instance returns a null shared pointer instead of an exception throw.
@@ -1589,7 +1591,7 @@ public:
   \param check_handle Whether to have validation additionally check if a handle is not null
   \param validate Whether to check the inputs and shared state for valid (and not errored) values
   */
-  future(async_file_io_dispatcher_base *parent, size_t id, shared_future<std::shared_ptr<async_io_handle>> handle, stl_future<T> result, bool check_handle = true, bool validate = true) : future<void>(parent, id, std::move(handle), check_handle, validate), _result(std::move(result)) { }
+  future(async_file_io_dispatcher_base *parent, size_t id, shared_future<handle_ptr> handle, stl_future<T> result, bool check_handle = true, bool validate = true) : future<void>(parent, id, std::move(handle), check_handle, validate), _result(std::move(result)) { }
   /*! Constructs an instance from an existing future<void>
   \param o The future<void>
   \param result The future<T> to add
@@ -1648,7 +1650,7 @@ namespace detail
     // Disable C being a const std::vector<std::function<R()>> &callables
     template<class T, class... Args> struct vs2013_variadic_overload_resolution_workaround<std::vector<T>, Args...>;
 #endif
-    template<class Impl, class Handle> std::shared_ptr<async_io_handle> decode_relative_path(async_path_op_req &req, bool force_absolute=false);
+    template<class Impl, class Handle> handle_ptr decode_relative_path(async_path_op_req &req, bool force_absolute=false);
 }
 
 /*! \class async_file_io_dispatcher_base
@@ -1674,7 +1676,7 @@ Construct an instance using the `boost::afio::make_async_file_io_dispatcher()` f
 class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_from_this<async_file_io_dispatcher_base>
 {
     //friend BOOST_AFIO_DECL std::shared_ptr<async_file_io_dispatcher_base> async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
-    template<class Impl, class Handle> friend std::shared_ptr<async_io_handle> detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
+    template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
     friend class detail::async_file_io_dispatcher_compat;
@@ -1683,14 +1685,14 @@ class BOOST_AFIO_DECL async_file_io_dispatcher_base : public std::enable_shared_
     friend class detail::async_file_io_dispatcher_qnx;
 
     detail::async_file_io_dispatcher_base_p *p;
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, std::shared_ptr<async_io_handle> h);
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, std::shared_ptr<async_io_handle> h);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_directory_cached_handle_path_changed(path oldpath, path newpath, handle_ptr h);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_add_io_handle(void *key, handle_ptr h);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void int_del_io_handle(void *key);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> int_op_from_scheduled_id(size_t id) const;
 
 protected:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base(std::shared_ptr<thread_source> threadpool, file_flags flagsforce, file_flags flagsmask);
-    std::pair<bool, std::shared_ptr<async_io_handle>> doadopt(size_t, future<>, std::shared_ptr<async_io_handle> h)
+    std::pair<bool, handle_ptr> doadopt(size_t, future<>, handle_ptr h)
     {
         return std::make_pair(true, h);
     }
@@ -1719,7 +1721,7 @@ public:
     // The type of an op filter callback handler \ingroup async_file_io_dispatcher_base__filter
     typedef void filter_t(detail::OpType, future<> &);
     // The type of a readwrite filter callback handler \ingroup async_file_io_dispatcher_base__filter
-    typedef void filter_readwrite_t(detail::OpType, async_io_handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
+    typedef void filter_readwrite_t(detail::OpType, handle *, const detail::async_data_op_req_impl<true> &, off_t, size_t, size_t, const asio::error_code &, size_t);
     /* \brief Clears the post op and readwrite filters. Not threadsafe.
 
     \ingroup async_file_io_dispatcher_base__filter
@@ -1762,7 +1764,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void post_readwrite_filter(std::vector<std::pair<detail::OpType, std::function<async_file_io_dispatcher_base::filter_readwrite_t>>> filters);
 
     // The type returned by a completion handler \ingroup async_file_io_dispatcher_base__completion
-    typedef std::pair<bool, std::shared_ptr<async_io_handle>> completion_returntype;
+    typedef std::pair<bool, handle_ptr> completion_returntype;
     // The type of a completion handler \ingroup async_file_io_dispatcher_base__completion
     typedef completion_returntype completion_t(size_t, future<>);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -1894,7 +1896,7 @@ public:
     \exceptionmodelstd
     \qexample{adopt_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> adopt(const std::vector<std::shared_ptr<async_io_handle>> &hs);
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<>> adopt(const std::vector<handle_ptr> &hs);
 #endif
     /*! \brief Schedule a batch of asynchronous directory creations and opens after optional preconditions.
 
@@ -2166,7 +2168,7 @@ public:
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<statfs_t>> statfs(const std::vector<future<>> &ops, const std::vector<fs_metadata_flags> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    inline future<> adopt(std::shared_ptr<async_io_handle> h);
+    inline future<> adopt(handle_ptr h);
     inline future<> dir(const async_path_op_req &req);
     inline future<> rmdir(const async_path_op_req &req);
     inline future<> file(const async_path_op_req &req);
@@ -2229,7 +2231,7 @@ public:
     \complexity{O(N) where N is the number of completions dependent on this op.}
     \exceptionmodel{Should not throw any exception except for out of memory.}
     */
-    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, std::shared_ptr<async_io_handle> h, exception_ptr e=exception_ptr());
+    BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void complete_async_op(size_t id, handle_ptr h, exception_ptr e=exception_ptr());
     /*! \brief Completes an operation with an error, usually used when an operation was previously deferred.
 
     \ingroup async_file_io_dispatcher_base__misc
@@ -2237,9 +2239,9 @@ public:
     \complexity{O(N) where N is the number of completions dependent on this op.}
     \exceptionmodel{Should not throw any exception except for out of memory.}
     */
-    void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, std::shared_ptr<async_io_handle>(), e); }
+    void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, handle_ptr(), e); }
 protected:
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, completion_returntype(F::*dofile)(size_t, future<>, async_path_op_req));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle_ptr int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, completion_returntype(F::*dofile)(size_t, future<>, async_path_op_req));
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, future<> h, completion_t *callback);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, future<> h, std::function<completion_t> callback);
 
@@ -2251,7 +2253,7 @@ protected:
     template<class R, class F, class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::vector<future<R>> chain_async_ops(int optype, const std::vector<T> &container, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, T, std::shared_ptr<promise<R>>));
 
     template<class T> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC async_file_io_dispatcher_base::completion_returntype dobarrier(size_t id, future<> h, T);
-    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC std::shared_ptr<async_io_handle> invoke_async_op_completions(size_t id, future<> h, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
+    template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle_ptr invoke_async_op_completions(size_t id, future<> h, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
     template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> chain_async_op(detail::immediate_async_ops &immediates, int optype, const future<> &precondition, async_op_flags flags, completion_returntype(F::*f)(size_t, future<>, Args...), Args... args);
 };
 /*! \brief Instatiates the best available async_file_io_dispatcher implementation for this system.
@@ -2276,8 +2278,8 @@ namespace detail
 {
     struct when_all_state : std::enable_shared_from_this<when_all_state>
     {
-        promise<std::vector<std::shared_ptr<async_io_handle>>> out;
-        std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
+        promise<std::vector<handle_ptr>> out;
+        std::vector<shared_future<handle_ptr>> in;
     };
     template<bool rethrow> inline void when_all_ops_do(std::shared_ptr<when_all_state> state)
     {
@@ -2285,7 +2287,7 @@ namespace detail
 #if BOOST_AFIO_USE_BOOST_THREAD
         boost::wait_for_all(state->in.begin(), state->in.end());
 #endif
-        std::vector<std::shared_ptr<async_io_handle>> ret;
+        std::vector<handle_ptr> ret;
         ret.reserve(state->in.size());
         for(auto &i: state->in)
         {
@@ -2297,14 +2299,14 @@ namespace detail
                     state->out.set_exception(e);
                     return;
                 }
-                ret.push_back(std::shared_ptr<async_io_handle>());
+                ret.push_back(handle_ptr());
             }
             else
                 ret.push_back(i.get());
         }
         state->out.set_value(ret);
     }
-    template<bool rethrow, class Iterator> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all_ops(Iterator first, Iterator last)
+    template<bool rethrow, class Iterator> inline stl_future<std::vector<handle_ptr>> when_all_ops(Iterator first, Iterator last)
     {
         auto state=std::make_shared<when_all_state>();
         state->in.reserve(std::distance(first, last));
@@ -2317,8 +2319,8 @@ namespace detail
     struct when_any_state : std::enable_shared_from_this<when_any_state>
     {
         atomic<size_t> count;
-        promise<std::shared_ptr<async_io_handle>> out;
-        std::vector<shared_future<std::shared_ptr<async_io_handle>>> in;
+        promise<handle_ptr> out;
+        std::vector<shared_future<handle_ptr>> in;
         when_any_state() : count(0) { }
     };
 #if BOOST_AFIO_USE_BOOST_THREAD
@@ -2334,12 +2336,12 @@ namespace detail
                 state->out.set_exception(e);
                 return;
             }
-            state->out.set_value(std::shared_ptr<async_io_handle>());
+            state->out.set_value(handle_ptr());
         }
         else
             state->out.set_value(i.get());
     }
-    template<bool rethrow, class Iterator> inline stl_future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
+    template<bool rethrow, class Iterator> inline stl_future<handle_ptr> when_any_ops(Iterator first, Iterator last)
     {
         auto state=std::make_shared<when_any_state>();
         state->in.reserve(std::distance(first, last));
@@ -2351,7 +2353,7 @@ namespace detail
     }
 #else
     // Without wait_for_any, schedule a completion onto every op and the first to fire wins
-    template<bool rethrow> inline std::pair<bool, std::shared_ptr<async_io_handle>> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, future<> h)
+    template<bool rethrow> inline std::pair<bool, handle_ptr> when_any_ops_do(std::shared_ptr<when_any_state> state, size_t idx, size_t id, future<> h)
     {
         auto &i=state->in[idx];
         if(0==state->count.fetch_add(1, memory_order_relaxed))  // Will be zero exactly once
@@ -2362,16 +2364,16 @@ namespace detail
                 if(rethrow)
                 {
                     state->out.set_exception(e);
-                    return std::make_pair(true, std::shared_ptr<async_io_handle>());
+                    return std::make_pair(true, handle_ptr());
                 }
-                state->out.set_value(std::shared_ptr<async_io_handle>());
+                state->out.set_value(handle_ptr());
             }
             else
                 state->out.set_value(i.get());
         }
-        return std::make_pair(true, std::shared_ptr<async_io_handle>());
+        return std::make_pair(true, handle_ptr());
     }
-    template<bool rethrow, class Iterator> inline stl_future<std::shared_ptr<async_io_handle>> when_any_ops(Iterator first, Iterator last)
+    template<bool rethrow, class Iterator> inline stl_future<handle_ptr> when_any_ops(Iterator first, Iterator last)
     {
         auto state=std::make_shared<when_any_state>();
         auto dispatcher=first->parent();
@@ -2391,11 +2393,11 @@ namespace detail
 #endif
     template<bool is_all> struct select_when_ops_return_type
     {
-        typedef stl_future<std::vector<std::shared_ptr<async_io_handle>>> type; // when_all()
+        typedef stl_future<std::vector<handle_ptr>> type; // when_all()
     };
     template<> struct select_when_ops_return_type<false>
     {
-        typedef stl_future<std::shared_ptr<async_io_handle>> type; // when_any()
+        typedef stl_future<handle_ptr> type; // when_any()
     };
     template<bool is_all, class T> struct enable_if_async_op
     {
@@ -2410,7 +2412,7 @@ namespace detail
 /*! \brief Returns a result when all the supplied ops complete. Does not propagate exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \tparam "class Iterator" An iterator type.
 \param _ An instance of std::nothrow_t.
 \param first An iterator pointing to the first future<> to wait upon.
@@ -2423,13 +2425,13 @@ namespace detail
 template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(std::nothrow_t _, Iterator first, Iterator last)
 {
     if(first==last)
-        return stl_future<std::vector<std::shared_ptr<async_io_handle>>>();
+        return stl_future<std::vector<handle_ptr>>();
     return detail::when_all_ops<false>(first, last);
 }
 /*! \brief Returns a result when any the supplied ops complete. Does not propagate exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \tparam "class Iterator" An iterator type.
 \param _ An instance of std::nothrow_t.
 \param first An iterator pointing to the first future<> to wait upon.
@@ -2442,13 +2444,13 @@ template<class Iterator> inline typename detail::enable_if_async_op<true, typena
 template<class Iterator> inline typename detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(std::nothrow_t _, Iterator first, Iterator last)
 {
     if(first==last)
-        return stl_future<std::shared_ptr<async_io_handle>>();
+        return stl_future<handle_ptr>();
     return detail::when_any_ops<false>(first, last);
 }
 /*! \brief Returns a result when all the supplied ops complete. Does not propagate exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \param _ An instance of std::nothrow_t.
 \param ops A vector of the async_io_ops to wait upon.
 \ingroup when_all_ops
@@ -2456,16 +2458,16 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, std::vector<future<T>> ops)
+template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::nothrow_t _, std::vector<future<T>> ops)
 {
     if(ops.empty())
-        return stl_future<std::vector<std::shared_ptr<async_io_handle>>>();
+        return stl_future<std::vector<handle_ptr>>();
     return detail::when_all_ops<false>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when any the supplied ops complete. Does not propagate exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \param _ An instance of std::nothrow_t.
 \param ops A vector of the async_io_ops to wait upon.
 \ingroup when_all_ops
@@ -2473,16 +2475,16 @@ template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-template<class T> inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::nothrow_t _, std::vector<future<T>> ops)
+template<class T> inline stl_future<handle_ptr> when_any(std::nothrow_t _, std::vector<future<T>> ops)
 {
     if(ops.empty())
-        return stl_future<std::shared_ptr<async_io_handle>>();
+        return stl_future<handle_ptr>();
     return detail::when_any_ops<false>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when all the supplied ops complete. Propagates exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \tparam "class Iterator" An iterator type.
 \param first An iterator pointing to the first future<> to wait upon.
 \param last An iterator pointing after the last future<> to wait upon.
@@ -2494,13 +2496,13 @@ template<class T> inline stl_future<std::shared_ptr<async_io_handle>> when_any(s
 template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(Iterator first, Iterator last)
 {
     if(first==last)
-        return stl_future<std::vector<std::shared_ptr<async_io_handle>>>();
+        return stl_future<std::vector<handle_ptr>>();
     return detail::when_all_ops<true>(first, last);
 }
 /*! \brief Returns a result when any the supplied ops complete. Propagates exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \tparam "class Iterator" An iterator type.
 \param first An iterator pointing to the first future<> to wait upon.
 \param last An iterator pointing after the last future<> to wait upon.
@@ -2512,45 +2514,45 @@ template<class Iterator> inline typename detail::enable_if_async_op<true, typena
 template<class Iterator> inline typename detail::enable_if_async_op<false, typename Iterator::value_type>::type when_any(Iterator first, Iterator last)
 {
     if(first==last)
-        return stl_future<std::shared_ptr<async_io_handle>>();
+        return stl_future<handle_ptr>();
     return detail::when_any_ops<true>(first, last);
 }
 /*! \brief Returns a result when all the supplied ops complete. Propagates exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \param ops A vector of the async_io_ops to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, vector batch of ops exception propagating}
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::vector<future<T>> ops)
+template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::vector<future<T>> ops)
 {
     if(ops.empty())
-        return stl_future<std::vector<std::shared_ptr<async_io_handle>>>();
+        return stl_future<std::vector<handle_ptr>>();
     return detail::when_all_ops<true>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when any the supplied ops complete. Propagates exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \param ops A vector of the async_io_ops to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, vector batch of ops exception propagating}
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template<class T> inline stl_future<std::shared_ptr<async_io_handle>> when_any(std::vector<future<T>> ops)
+template<class T> inline stl_future<handle_ptr> when_any(std::vector<future<T>> ops)
 {
     if(ops.empty())
-        return stl_future<std::shared_ptr<async_io_handle>>();
+        return stl_future<handle_ptr>();
     return detail::when_any_ops<true>(ops.begin(), ops.end());
 }
 /*! \brief Returns a result when the supplied op completes. Does not propagate exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \param _ An instance of std::nothrow_t.
 \param op An future<> to wait upon.
 \ingroup when_all_ops
@@ -2558,7 +2560,7 @@ template<class T> inline stl_future<std::shared_ptr<async_io_handle>> when_any(s
 \complexity{O(1).}
 \exceptionmodel{Non propagating}
 */
-template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(std::nothrow_t _, future<T> op)
+template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::nothrow_t _, future<T> op)
 {
     std::vector<future<T>> ops(1, op);
     return when_all(_, ops);
@@ -2566,14 +2568,14 @@ template<class T> inline stl_future<std::vector<std::shared_ptr<async_io_handle>
 /*! \brief Returns a result when the supplied op completes. Propagates exception states.
 
 \deprecate{This will be replaced with the latest Concurrency TS specification (which has changed since AFIO was first designed).}
-\return A stl_future vector of shared_ptr's to async_io_handle.
+\return A stl_future vector of shared_ptr's to handle.
 \param ops A sequence of future<> to wait upon.
 \ingroup when_all_ops
 \qbk{distinguish, convenience multiple op exception propagating}
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template<class... Types> inline stl_future<std::vector<std::shared_ptr<async_io_handle>>> when_all(future<Types> &... ops)
+template<class... Types> inline stl_future<std::vector<handle_ptr>> when_all(future<Types> &... ops)
 {
     std::vector<future<>> _ops = { std::forward<future<Types> &>(ops)... };
     return when_all(_ops);
@@ -3399,7 +3401,7 @@ inline future<> async_file_io_dispatcher_base::completion(const future<> &req, c
     return std::move(completion(r, i).front());
 }
 namespace detail {
-    template<class tasktype> std::pair<bool, std::shared_ptr<async_io_handle>> doCall(size_t, future<> _, std::shared_ptr<tasktype> c)
+    template<class tasktype> std::pair<bool, handle_ptr> doCall(size_t, future<> _, std::shared_ptr<tasktype> c)
     {
         (*c)();
         return std::make_pair(true, _.get_handle(true));
@@ -3446,9 +3448,9 @@ template<class C, class... Args> inline future<typename std::result_of<C(Args...
     return call(req, std::function<rettype()>(std::bind<rettype>(callback, args...)));
 }
 
-inline future<> async_file_io_dispatcher_base::adopt(std::shared_ptr<async_io_handle> h)
+inline future<> async_file_io_dispatcher_base::adopt(handle_ptr h)
 {
-    std::vector<std::shared_ptr<async_io_handle>> i;
+    std::vector<handle_ptr> i;
     i.reserve(1);
     i.push_back(std::move(h));
     return std::move(adopt(i).front());
@@ -3794,7 +3796,7 @@ namespace detail
   };
   template<class T> struct _is_not_handle : public std::true_type { };
   template<class T> struct _is_not_handle<future<T>> : public std::false_type { };
-  template<> struct _is_not_handle<std::shared_ptr<async_io_handle>> : public std::false_type { };
+  template<> struct _is_not_handle<handle_ptr> : public std::false_type { };
   template<class T> struct is_not_handle : public _is_not_handle<typename std::decay<T>::type> { };
 }
 
@@ -3862,7 +3864,7 @@ template<class T, typename=typename std::enable_if<detail::is_not_handle<T>::val
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> dir(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr dir(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_dir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
@@ -3884,7 +3886,7 @@ template<class T> inline std::shared_ptr<async_io_handle> dir(future<> _precondi
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> dir(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr dir(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_dir<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
@@ -3908,7 +3910,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> dir(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr dir(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_dir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -3931,7 +3933,7 @@ template<class T> inline std::shared_ptr<async_io_handle> dir(asio::error_code &
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> dir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr dir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_dir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4004,7 +4006,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline std::shared_ptr<async_io_handle> rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
@@ -4026,7 +4028,7 @@ template<class T=path> inline std::shared_ptr<async_io_handle> rmdir(future<> _p
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> rmdir(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
@@ -4052,7 +4054,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline std::shared_ptr<async_io_handle> rmdir(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmdir(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4074,7 +4076,7 @@ template<class T=path> inline std::shared_ptr<async_io_handle> rmdir(asio::error
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> rmdir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4145,7 +4147,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> file(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr file(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
@@ -4167,7 +4169,7 @@ template<class T> inline std::shared_ptr<async_io_handle> file(future<> _precond
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> file(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr file(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
@@ -4192,7 +4194,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> file(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr file(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4215,7 +4217,7 @@ template<class T> inline std::shared_ptr<async_io_handle> file(asio::error_code 
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> file(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr file(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_file<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4288,7 +4290,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline std::shared_ptr<async_io_handle> rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
@@ -4310,7 +4312,7 @@ template<class T=path> inline std::shared_ptr<async_io_handle> rmfile(future<> _
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> rmfile(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
@@ -4336,7 +4338,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline std::shared_ptr<async_io_handle> rmfile(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmfile(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4359,7 +4361,7 @@ template<class T=path> inline std::shared_ptr<async_io_handle> rmfile(asio::erro
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> rmfile(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4431,7 +4433,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> symlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr symlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_symlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
@@ -4453,7 +4455,7 @@ template<class T> inline std::shared_ptr<async_io_handle> symlink(future<> _prec
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> symlink(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_symlink<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
@@ -4478,7 +4480,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> symlink(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr symlink(asio::error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_symlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4501,7 +4503,7 @@ template<class T> inline std::shared_ptr<async_io_handle> symlink(asio::error_co
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> symlink(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_symlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4574,7 +4576,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline std::shared_ptr<async_io_handle> rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
@@ -4596,7 +4598,7 @@ template<class T=path> inline std::shared_ptr<async_io_handle> rmsymlink(future<
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> rmsymlink(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
@@ -4622,7 +4624,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline std::shared_ptr<async_io_handle> rmsymlink(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline handle_ptr rmsymlink(asio::error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4645,7 +4647,7 @@ template<class T=path> inline std::shared_ptr<async_io_handle> rmsymlink(asio::e
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline std::shared_ptr<async_io_handle> rmsymlink(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(asio::error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
@@ -4678,7 +4680,7 @@ inline future<> async_sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline std::shared_ptr<async_io_handle> sync(future<> _precondition)
+inline handle_ptr sync(future<> _precondition)
 {
   return detail::async_sync()(std::move(_precondition)).get_handle();
 }
@@ -4694,7 +4696,7 @@ inline std::shared_ptr<async_io_handle> sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline std::shared_ptr<async_io_handle> sync(asio::error_code &_ec, future<> _precondition)
+inline handle_ptr sync(asio::error_code &_ec, future<> _precondition)
 {
   return detail::async_sync()(std::move(_precondition)).get_handle(_ec);
 }
@@ -4729,7 +4731,7 @@ inline future<> async_zero(future<> _precondition, std::vector<std::pair<off_t, 
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline std::shared_ptr<async_io_handle> zero(future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline handle_ptr zero(future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
   return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle();
 }
@@ -4747,7 +4749,7 @@ inline std::shared_ptr<async_io_handle> zero(future<> _precondition, std::vector
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline std::shared_ptr<async_io_handle> zero(asio::error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline handle_ptr zero(asio::error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
   return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle(_ec);
 }
@@ -4780,7 +4782,7 @@ inline future<> async_close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline std::shared_ptr<async_io_handle> close(future<> _precondition)
+inline handle_ptr close(future<> _precondition)
 {
   return detail::async_close()(std::move(_precondition)).get_handle();
 }
@@ -4797,7 +4799,7 @@ inline std::shared_ptr<async_io_handle> close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline std::shared_ptr<async_io_handle> close(asio::error_code &_ec, future<> _precondition)
+inline handle_ptr close(asio::error_code &_ec, future<> _precondition)
 {
   return detail::async_close()(std::move(_precondition)).get_handle(_ec);
 }
@@ -4860,7 +4862,7 @@ template<class T> inline future<> async_read(future<> _precondition, T &&v, size
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> read(future<> _precondition, T &&v, off_t _where)
+template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _where)
 {
   return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
 }
@@ -4881,7 +4883,7 @@ template<class T> inline std::shared_ptr<async_io_handle> read(future<> _precond
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> read(future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _length, off_t _where)
 {
   return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
 }
@@ -4902,7 +4904,7 @@ template<class T> inline std::shared_ptr<async_io_handle> read(future<> _precond
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> read(asio::error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline handle_ptr read(asio::error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
   return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4924,7 +4926,7 @@ template<class T> inline std::shared_ptr<async_io_handle> read(asio::error_code 
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> read(asio::error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline handle_ptr read(asio::error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
   return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -4987,7 +4989,7 @@ template<class T> inline future<> async_write(future<> _precondition, T &&v, siz
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> write(future<> _precondition, T &&v, off_t _where)
+template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _where)
 {
   return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
 }
@@ -5008,7 +5010,7 @@ template<class T> inline std::shared_ptr<async_io_handle> write(future<> _precon
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> write(future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t _length, off_t _where)
 {
   return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
 }
@@ -5029,7 +5031,7 @@ template<class T> inline std::shared_ptr<async_io_handle> write(future<> _precon
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> write(asio::error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline handle_ptr write(asio::error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
   return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -5051,7 +5053,7 @@ template<class T> inline std::shared_ptr<async_io_handle> write(asio::error_code
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline std::shared_ptr<async_io_handle> write(asio::error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline handle_ptr write(asio::error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
   return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
@@ -5086,7 +5088,7 @@ inline future<> async_truncate(future<> _precondition, off_t newsize)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline std::shared_ptr<async_io_handle> truncate(future<> _precondition, off_t newsize)
+inline handle_ptr truncate(future<> _precondition, off_t newsize)
 {
   return detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
 }
@@ -5104,7 +5106,7 @@ inline std::shared_ptr<async_io_handle> truncate(future<> _precondition, off_t n
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline std::shared_ptr<async_io_handle> truncate(asio::error_code &_ec, future<> _precondition, off_t newsize)
+inline handle_ptr truncate(asio::error_code &_ec, future<> _precondition, off_t newsize)
 {
   return detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
 }

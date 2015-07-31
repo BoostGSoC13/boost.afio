@@ -280,7 +280,7 @@ static void raninit(ranctx *x, u4 seed) {
 }
 
 static void dofilter(atomic<size_t> *callcount, detail::OpType, future<> &) { ++*callcount; }
-static void checkwrite(detail::OpType, async_io_handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const asio::error_code &, size_t transferred)
+static void checkwrite(detail::OpType, handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const asio::error_code &, size_t transferred)
 {
     size_t amount=0;
     for(auto &i: req.buffers)
@@ -570,7 +570,7 @@ static void evil_random_io(std::shared_ptr<async_file_io_dispatcher_base> dispat
 
     spinlock<size_t> failureslock;
     std::deque<std::pair<const Op *, size_t>> failures;
-    auto checkHash=[&failureslock, &failures](Op &op, char *base, size_t, future<> _h) -> std::pair<bool, std::shared_ptr<async_io_handle>> {
+    auto checkHash=[&failureslock, &failures](Op &op, char *base, size_t, future<> _h) -> std::pair<bool, handle_ptr> {
             const char *data=(const char *)(((size_t) base+(size_t) op.req.where));
             size_t idxoffset=0;
 
@@ -759,7 +759,7 @@ static std::ostream &operator<<(std::ostream &s, const chrono::system_clock::tim
     return s;
 }
 
-static stat_t print_stat(std::shared_ptr<async_io_handle> h)
+static stat_t print_stat(handle_ptr h)
 {
     using namespace boost::afio;
     auto entry=h->lstat(metadata_flags::All);
@@ -843,7 +843,7 @@ static stat_t print_stat(std::shared_ptr<async_io_handle> h)
     return entry;
 }
 
-static void print_stat(std::shared_ptr<async_io_handle> dirh, directory_entry direntry)
+static void print_stat(handle_ptr dirh, directory_entry direntry)
 {
     using namespace boost::afio;
     std::cout << "Entry " << direntry.name() << " is a ";
