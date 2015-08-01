@@ -8,9 +8,9 @@ BOOST_AFIO_AUTO_TEST_CASE(op_container_deduced_compilation, "Tests that all the 
     if(false)
     {
         auto dispatcher=make_dispatcher().get();
-        // Test that async_path_op_req constructs from path
+        // Test that path_req constructs from path
         auto file1(dispatcher->file(filesystem::path("foo")));
-        // Test that async_path_op_req constructs from literal
+        // Test that path_req constructs from literal
         auto file2(dispatcher->file("foo"));
         // Test that detail::io_req_impl<false> constructs from ?
         // Test that detail::io_req_impl<true> constructs from ?

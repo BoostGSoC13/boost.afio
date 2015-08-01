@@ -33,15 +33,15 @@ int main(int argc, const char *argv[])
       writers=totalwriters=atoi(argv[1]);
     {
       auto dispatcher = make_dispatcher().get();
-      auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
-      auto mkdir1(dispatcher->dir(async_path_op_req::relative(mkdir, "1", file_flags::create)));
-      auto mkdir2(dispatcher->dir(async_path_op_req::relative(mkdir, "2", file_flags::create)));
-      auto mkdir3(dispatcher->dir(async_path_op_req::relative(mkdir, "3", file_flags::create)));
-      auto mkdir4(dispatcher->dir(async_path_op_req::relative(mkdir, "4", file_flags::create)));
-      auto mkdir5(dispatcher->dir(async_path_op_req::relative(mkdir, "5", file_flags::create)));
-      auto mkdir6(dispatcher->dir(async_path_op_req::relative(mkdir, "6", file_flags::create)));
-      auto mkdir7(dispatcher->dir(async_path_op_req::relative(mkdir, "7", file_flags::create)));
-      auto mkdir8(dispatcher->dir(async_path_op_req::relative(mkdir, "8", file_flags::create)));
+      auto mkdir(dispatcher->dir(path_req("testdir", file_flags::create)));
+      auto mkdir1(dispatcher->dir(path_req::relative(mkdir, "1", file_flags::create)));
+      auto mkdir2(dispatcher->dir(path_req::relative(mkdir, "2", file_flags::create)));
+      auto mkdir3(dispatcher->dir(path_req::relative(mkdir, "3", file_flags::create)));
+      auto mkdir4(dispatcher->dir(path_req::relative(mkdir, "4", file_flags::create)));
+      auto mkdir5(dispatcher->dir(path_req::relative(mkdir, "5", file_flags::create)));
+      auto mkdir6(dispatcher->dir(path_req::relative(mkdir, "6", file_flags::create)));
+      auto mkdir7(dispatcher->dir(path_req::relative(mkdir, "7", file_flags::create)));
+      auto mkdir8(dispatcher->dir(path_req::relative(mkdir, "8", file_flags::create)));
       auto statfs_(dispatcher->statfs(mkdir, fs_metadata_flags::All));
       auto statfs(statfs_.get());
       std::cout << "The filing system holding our test directory is " << statfs.f_fstypename << " and has features:" << std::endl;
@@ -79,7 +79,7 @@ int main(int argc, const char *argv[])
             // Create a dispatcher
             auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
-            auto logfile(dispatcher->file(async_path_op_req("testdir/log",
+            auto logfile(dispatcher->file(path_req("testdir/log",
                 file_flags::create | file_flags::read_write)));
             // Retrieve any errors which occurred
             logfile.get();
@@ -89,7 +89,7 @@ int main(int argc, const char *argv[])
             {
               // Traditional file locks are very simple: try to exclusively create the lock file.
               // If you succeed, you have the lock.
-              auto lockfile(dispatcher->file(async_path_op_req("testdir/log.lock",
+              auto lockfile(dispatcher->file(path_req("testdir/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close)));
               attempts.fetch_add(1, memory_order_relaxed);
               // v1.4 of the AFIO engine will return error_code instead of exceptions for this
@@ -139,7 +139,7 @@ int main(int argc, const char *argv[])
             // Create a dispatcher
             auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
-            auto logfile(dispatcher->file(async_path_op_req("testdir/log",
+            auto logfile(dispatcher->file(path_req("testdir/log",
                 file_flags::create | file_flags::read_write)));
             // Retrieve any errors which occurred
             logfile.get();
@@ -148,22 +148,22 @@ int main(int argc, const char *argv[])
             while(!done)
             {
               // Parallel try to exclusively create all eight lock files
-              std::vector<async_path_op_req> lockfiles; lockfiles.reserve(8);
-              lockfiles.push_back(async_path_op_req("testdir/1/log.lock",
+              std::vector<path_req> lockfiles; lockfiles.reserve(8);
+              lockfiles.push_back(path_req("testdir/1/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/2/log.lock",
+              lockfiles.push_back(path_req("testdir/2/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/3/log.lock",
+              lockfiles.push_back(path_req("testdir/3/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/4/log.lock",
+              lockfiles.push_back(path_req("testdir/4/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/5/log.lock",
+              lockfiles.push_back(path_req("testdir/5/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/6/log.lock",
+              lockfiles.push_back(path_req("testdir/6/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/7/log.lock",
+              lockfiles.push_back(path_req("testdir/7/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
-              lockfiles.push_back(async_path_op_req("testdir/8/log.lock",
+              lockfiles.push_back(path_req("testdir/8/log.lock",
                 file_flags::create_only_if_not_exist | file_flags::write | file_flags::temporary_file | file_flags::delete_on_close));
               auto lockfile(dispatcher->file(lockfiles));
               attempts.fetch_add(1, memory_order_relaxed);
@@ -233,7 +233,7 @@ int main(int argc, const char *argv[])
             // Create a dispatcher
             auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
-            auto logfile(dispatcher->file(async_path_op_req("testdir/log",
+            auto logfile(dispatcher->file(path_req("testdir/log",
                 file_flags::create | file_flags::read_write | file_flags::os_lockable)));
             // Retrieve any errors which occurred
             logfile.get();
@@ -289,13 +289,13 @@ int main(int argc, const char *argv[])
             // Create a dispatcher
             auto dispatcher = make_dispatcher().get();
             // Schedule opening the log file for writing log entries
-            auto logfile(dispatcher->file(async_path_op_req("testdir/log",
+            auto logfile(dispatcher->file(path_req("testdir/log",
                 file_flags::create | file_flags::read_write)));
             // Schedule opening the lock file for scanning and hole punching
-            auto lockfilez(dispatcher->file(async_path_op_req("testdir/log.lock",
+            auto lockfilez(dispatcher->file(path_req("testdir/log.lock",
                 file_flags::create | file_flags::read_write)));
             // Schedule opening the lock file for atomic appending
-            auto lockfilea(dispatcher->file(async_path_op_req("testdir/log.lock",
+            auto lockfilea(dispatcher->file(path_req("testdir/log.lock",
                 file_flags::create | file_flags::write | file_flags::append)));
             // Retrieve any errors which occurred
             lockfilea.get(); lockfilez.get(); logfile.get();

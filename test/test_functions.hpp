@@ -294,7 +294,7 @@ static int donothing(atomic<size_t> *callcount, int i) { ++*callcount; return i;
 static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t bytes)
 {
         typedef chrono::duration<double, ratio<1, 1>> secs_type;
-        auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
+        auto mkdir(dispatcher->dir(path_req("testdir", file_flags::create)));
         std::vector<char, detail::aligned_allocator<char, 4096>> towrite(bytes, 'N');
         assert(!(((size_t) &towrite.front()) & 4095));
 
@@ -316,10 +316,10 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
         
         // Start opening 1000 files
         begin=chrono::high_resolution_clock::now();
-        std::vector<async_path_op_req> manyfilereqs;
+        std::vector<path_req> manyfilereqs;
         manyfilereqs.reserve(1000);
         for(size_t n=0; n<1000; n++)
-                manyfilereqs.push_back(async_path_op_req::relative(mkdir, to_string(n), file_flags::create|file_flags::write));
+                manyfilereqs.push_back(path_req::relative(mkdir, to_string(n), file_flags::create|file_flags::write));
         auto manyopenfiles(dispatcher->file(manyfilereqs));
 
         // Write to each of those 1000 files as they are opened
@@ -367,7 +367,7 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
         when_all(manycallbacks.begin(), manycallbacks.end()).get();
 
         auto end=deletedsync;
-        auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));
+        auto rmdir(dispatcher->rmdir(path_req("testdir")));
 
         auto diff=chrono::duration_cast<secs_type>(end-begin);
         std::cout << "It took " << diff.count() << " secs to do all operations" << std::endl;
@@ -548,17 +548,17 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
     for(size_t n=0; n<no; n++)
             memset(towriteptrs[n], 0, towritesizes[n]);
 
-    auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
+    auto mkdir(dispatcher->dir(path_req("testdir", file_flags::create)));
     // Wait for three seconds to let filing system recover and prime SpeedStep
     //begin=chrono::high_resolution_clock::now();
     //while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
 
     // Open our test files
     begin=chrono::high_resolution_clock::now();
-    std::vector<async_path_op_req> manyfilereqs;
+    std::vector<path_req> manyfilereqs;
     manyfilereqs.reserve(no);
     for(size_t n=0; n<no; n++)
-            manyfilereqs.push_back(async_path_op_req::relative(mkdir, to_string(n), file_flags::create|file_flags::read_write));
+            manyfilereqs.push_back(path_req::relative(mkdir, to_string(n), file_flags::create|file_flags::read_write));
     auto manyopenfiles(dispatcher->file(manyfilereqs));
     std::vector<off_t> sizes(no, bytes);
     auto manywrittenfiles(dispatcher->truncate(manyopenfiles, sizes));
@@ -717,7 +717,7 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
     // Wait for all files to delete
     when_all(manydeletedfiles.begin(), manydeletedfiles.end()).get();
-    auto rmdir(dispatcher->rmdir(async_path_op_req("testdir")));
+    auto rmdir(dispatcher->rmdir(path_req("testdir")));
     // Fetch any outstanding error
     when_all(rmdir).get();
 }

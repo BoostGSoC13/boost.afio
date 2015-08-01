@@ -26,8 +26,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
         int hasErrorDirectly, hasErrorFromBarrier;
         auto dispatcher = make_dispatcher().get();
         dispatcher->testing_flags(detail::unit_testing_flags::no_symbol_lookup);
-        auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
-        std::vector<async_path_op_req> filereqs;
+        auto mkdir(dispatcher->dir(path_req("testdir", file_flags::create)));
+        std::vector<path_req> filereqs;
 
         /* There was once a rare race condition in barrier() which took many, many days
          * to discover and solve, some of which involved much painful refactoring (which
@@ -51,8 +51,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
             do
             {
                 filereqs.clear();
-                filereqs.push_back(async_path_op_req::relative(mkdir, "a", file_flags::create_only_if_not_exist));
-                filereqs.push_back(async_path_op_req::relative(mkdir, "a", file_flags::create_only_if_not_exist));
+                filereqs.push_back(path_req::relative(mkdir, "a", file_flags::create_only_if_not_exist));
+                filereqs.push_back(path_req::relative(mkdir, "a", file_flags::create_only_if_not_exist));
                 // Windows won't let you delete a file still open
                 while(dispatcher->fd_count()>1)
                     this_thread::sleep_for(chrono::milliseconds(1));

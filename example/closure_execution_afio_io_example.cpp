@@ -23,7 +23,7 @@ int main()
     int ary[ary_size];
 
     //schedule the file open
-    auto opened_file = dispatcher->file(boost::afio::async_path_op_req("somefile.dat", 
+    auto opened_file = dispatcher->file(boost::afio::path_req("somefile.dat", 
         boost::afio::file_flags::read));
 
     //set up vectors for the individual read operations, and the work on each integer

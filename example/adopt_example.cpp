@@ -39,13 +39,13 @@ struct test_handle : boost::afio::handle
     {
         return nullptr;
     }
-    virtual void link(const boost::afio::async_path_op_req &req) override final
+    virtual void link(const boost::afio::path_req &req) override final
     {
     }
     virtual void unlink() override final
     {
     }
-    virtual void atomic_relink(const boost::afio::async_path_op_req &req) override final
+    virtual void atomic_relink(const boost::afio::path_req &req) override final
     {
     }
 };

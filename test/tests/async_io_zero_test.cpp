@@ -13,9 +13,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
     std::cout << "\n\nTesting async range content zeroing of sparse and compressed files:\n";
     {
       // Create a 1Mb file
-      auto mkdir(dispatcher->dir(async_path_op_req("testdir", file_flags::create)));
-      auto mkfilesp(dispatcher->file(async_path_op_req::relative(mkdir, "sparse", file_flags::create | file_flags::read_write)));
-      auto mkfilec(dispatcher->file(async_path_op_req::relative(mkdir, "compressed", file_flags::create | file_flags::create_compressed | file_flags::read_write)));
+      auto mkdir(dispatcher->dir(path_req("testdir", file_flags::create)));
+      auto mkfilesp(dispatcher->file(path_req::relative(mkdir, "sparse", file_flags::create | file_flags::read_write)));
+      auto mkfilec(dispatcher->file(path_req::relative(mkdir, "compressed", file_flags::create | file_flags::create_compressed | file_flags::read_write)));
       auto resizefilesp(dispatcher->truncate(mkfilesp, buffer.size()));
       auto resizefilec(dispatcher->truncate(mkfilec, buffer.size()));
       auto writefilesp(dispatcher->write(make_io_req(resizefilesp, buffer, 0)));

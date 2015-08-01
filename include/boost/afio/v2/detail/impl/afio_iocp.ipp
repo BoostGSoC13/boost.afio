@@ -565,11 +565,11 @@ namespace detail
             }
             return mapaddr;
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &_req) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const path_req &_req) override final
         {
             if(!myid)
               BOOST_AFIO_THROW(std::invalid_argument("Currently cannot hard link a closed file by handle."));
-            async_path_op_req req(_req);
+            path_req req(_req);
             auto newdirh=decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req);
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
@@ -664,11 +664,11 @@ namespace detail
             BOOST_AFIO_ERRHNTFN(NtSetInformationFile(myid, &isb, &fdi, sizeof(fdi), FileDispositionInformation), [this]{return path();});
 #endif
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &_req) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const path_req &_req) override final
         {
             if(!myid)
               BOOST_AFIO_THROW(std::invalid_argument("Currently cannot relink a closed file by handle."));
-            async_path_op_req req(_req);
+            path_req req(_req);
             auto newdirh=decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req);
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
@@ -694,25 +694,25 @@ namespace detail
 
     class async_file_io_dispatcher_windows : public dispatcher
     {
-        template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
+        template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(path_req &req, bool force_absolute);
         friend class dispatcher;
         friend class directory_entry;
         friend void directory_entry::_int_fetch(metadata_flags wanted, handle_ptr dirh);
         friend struct async_io_handle_windows;
         size_t pagesize;
-        handle_ptr decode_relative_path(async_path_op_req &req, bool force_absolute=false)
+        handle_ptr decode_relative_path(path_req &req, bool force_absolute=false)
         {
           return detail::decode_relative_path<async_file_io_dispatcher_windows, async_io_handle_windows>(req, force_absolute);
         }
 
         // Called in unknown thread
-        completion_returntype dodir(size_t id, future<> op, async_path_op_req req)
+        completion_returntype dodir(size_t id, future<> op, path_req req)
         {
             req.flags=fileflags(req.flags)|file_flags::int_opening_dir|file_flags::read;
             // TODO FIXME: Currently file_flags::create may duplicate handles in the dirhcache
             if(!(req.flags & file_flags::unique_directory_handle) && !!(req.flags & file_flags::read) && !(req.flags & file_flags::write) && !(req.flags & (file_flags::create|file_flags::create_only_if_not_exist)))
             {
-              async_path_op_req req2(req);
+              path_req req2(req);
               // Return a copy of the one in the dir cache if available as a fast path
               decode_relative_path(req2, true);
               try
@@ -728,7 +728,7 @@ namespace detail
             return dofile(id, op, req);
         }
         // Called in unknown thread
-        completion_returntype dounlink(bool is_dir, size_t id, future<> op, async_path_op_req req)
+        completion_returntype dounlink(bool is_dir, size_t id, future<> op, path_req req)
         {
             req.flags=fileflags(req.flags);
             // Deleting the input op?
@@ -787,7 +787,7 @@ namespace detail
             return std::make_pair(true, op.get_handle());
         }
         // Called in unknown thread
-        completion_returntype dormdir(size_t id, future<> op, async_path_op_req req)
+        completion_returntype dormdir(size_t id, future<> op, path_req req)
         {
           req.flags=fileflags(req.flags)|file_flags::int_opening_dir;
           return dounlink(true, id, std::move(op), std::move(req));
@@ -795,7 +795,7 @@ namespace detail
       public:
       private:
         // Called in unknown thread
-        completion_returntype dofile(size_t id, future<> op, async_path_op_req req)
+        completion_returntype dofile(size_t id, future<> op, path_req req)
         {
             NTSTATUS status=0;
             HANDLE h=nullptr;
@@ -838,7 +838,7 @@ namespace detail
             return std::make_pair(true, ret);
         }
         // Called in unknown thread
-        completion_returntype dormfile(size_t id, future<> op, async_path_op_req req)
+        completion_returntype dormfile(size_t id, future<> op, path_req req)
         {
           return dounlink(true, id, std::move(op), std::move(req));
         }
@@ -865,7 +865,7 @@ namespace detail
             }
         }
         // Called in unknown thread
-        completion_returntype dosymlink(size_t id, future<> op, async_path_op_req req)
+        completion_returntype dosymlink(size_t id, future<> op, path_req req)
         {
             handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
@@ -940,7 +940,7 @@ namespace detail
             return std::make_pair(false, h);
         }
         // Called in unknown thread
-        completion_returntype dormsymlink(size_t id, future<> op, async_path_op_req req)
+        completion_returntype dormsymlink(size_t id, future<> op, path_req req)
         {
           req.flags=fileflags(req.flags)|file_flags::int_opening_link;
           return dounlink(true, id, std::move(op), std::move(req));
@@ -1633,7 +1633,7 @@ namespace detail
         {
         }
 
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> dir(const std::vector<async_path_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> dir(const std::vector<path_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1644,7 +1644,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::dir, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dodir);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmdir(const std::vector<async_path_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmdir(const std::vector<path_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1655,7 +1655,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::rmdir, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dormdir);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> file(const std::vector<async_path_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> file(const std::vector<path_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1666,7 +1666,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::file, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dofile);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmfile(const std::vector<async_path_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmfile(const std::vector<path_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1677,7 +1677,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::rmfile, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dormfile);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<async_path_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<path_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1688,7 +1688,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::symlink, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dosymlink);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmsymlink(const std::vector<async_path_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmsymlink(const std::vector<path_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1820,7 +1820,7 @@ namespace detail
         handle_ptr dirh(container());
         if(!dirh)
         {
-          async_path_op_req req(path(true));
+          path_req req(path(true));
           dirh=parent()->int_get_handle_to_containing_dir(static_cast<async_file_io_dispatcher_windows *>(parent()), 0, req, &async_file_io_dispatcher_windows::dofile);
         }
         return dirh;

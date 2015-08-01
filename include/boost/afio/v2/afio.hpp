@@ -358,7 +358,7 @@ BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::shared_ptr<std_thread_pool> process_threa
 class dispatcher;
 using dispatcher_ptr = std::shared_ptr<dispatcher>;
 template<class T=void> class future;
-struct async_path_op_req;
+struct path_req;
 template<class T> struct io_req;
 struct enumerate_req;
 struct async_lock_op_req;
@@ -1250,7 +1250,7 @@ public:
     [raceguarantee OS X..No guarantees.]
     }
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const path_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Unlinks the file from its present location as determined by path(true), which could be any hard link on
     those operating systems with an unstable path(true). Other links may remain to the same file.
     
@@ -1306,7 +1306,7 @@ public:
     [raceguarantee Windows..Race free for source if handle open, else up to the containing directory. Race free up to the target directory.]
     }
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const async_path_op_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void atomic_relink(const path_req &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
 #if 0
     // Undocumented deliberately
@@ -1651,7 +1651,7 @@ namespace detail
     // Disable C being a const std::vector<std::function<R()>> &callables
     template<class T, class... Args> struct vs2013_variadic_overload_resolution_workaround<std::vector<T>, Args...>;
 #endif
-    template<class Impl, class Handle> handle_ptr decode_relative_path(async_path_op_req &req, bool force_absolute=false);
+    template<class Impl, class Handle> handle_ptr decode_relative_path(path_req &req, bool force_absolute=false);
 }
 
 /*! \class dispatcher
@@ -1677,7 +1677,7 @@ Construct an instance using the `boost::afio::make_dispatcher()` function.
 class BOOST_AFIO_DECL dispatcher : public std::enable_shared_from_this<dispatcher>
 {
     //friend BOOST_AFIO_DECL dispatcher_ptr async_file_io_dispatcher(thread_source &threadpool=process_threadpool(), file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none);
-    template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(async_path_op_req &req, bool force_absolute);
+    template<class Impl, class Handle> friend handle_ptr detail::decode_relative_path(path_req &req, bool force_absolute);
     friend struct detail::async_io_handle_posix;
     friend struct detail::async_io_handle_windows;
     friend class detail::async_file_io_dispatcher_compat;
@@ -1905,7 +1905,7 @@ public:
     \ntkernelnamespacenote
 
     \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
+    \param reqs A batch of `path_req` structures.
     \ingroup dir
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -1916,14 +1916,14 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> dir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> dir(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous directory deletions after optional preconditions.
 
     \docs_rmdir
     \ntkernelnamespacenote
     
     \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
+    \param reqs A batch of `path_req` structures.
     \ingroup rmdir
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -1935,14 +1935,14 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmdir(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmdir(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous file creations and opens after optional preconditions.
     
     \docs_file
     \ntkernelnamespacenote
     
     \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
+    \param reqs A batch of `path_req` structures.
     \ingroup file
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -1953,14 +1953,14 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> file(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> file(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous file deletions after optional preconditions.
     
     \docs_rmfile
     \ntkernelnamespacenote
 
     \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
+    \param reqs A batch of `path_req` structures.
     \ingroup rmfile
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -1972,14 +1972,14 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmfile(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmfile(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous symlink creations and opens after a precondition.
 
     \docs_symlink
     \ntkernelnamespacenote
 
     \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
+    \param reqs A batch of `path_req` structures.
     \ingroup symlink
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -1990,12 +1990,12 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
     
     \docs_rmsymlink
     \return A batch of op handles.
-    \param reqs A batch of `async_path_op_req` structures.
+    \param reqs A batch of `path_req` structures.
     \ingroup rmsymlink
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -2007,7 +2007,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmsymlink(const std::vector<async_path_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmsymlink(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous content synchronisations with physical storage after preceding operations.
    
     \docs_sync
@@ -2170,12 +2170,12 @@ public:
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
     inline future<> adopt(handle_ptr h);
-    inline future<> dir(const async_path_op_req &req);
-    inline future<> rmdir(const async_path_op_req &req);
-    inline future<> file(const async_path_op_req &req);
-    inline future<> rmfile(const async_path_op_req &req);
-    inline future<> symlink(const async_path_op_req &req);
-    inline future<> rmsymlink(const async_path_op_req &req);
+    inline future<> dir(const path_req &req);
+    inline future<> rmdir(const path_req &req);
+    inline future<> file(const path_req &req);
+    inline future<> rmfile(const path_req &req);
+    inline future<> symlink(const path_req &req);
+    inline future<> rmsymlink(const path_req &req);
     inline future<> sync(const future<> &req);
     inline future<> zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges);
     inline future<> close(const future<> &req);
@@ -2242,7 +2242,7 @@ public:
     */
     void complete_async_op(size_t id, exception_ptr e) { complete_async_op(id, handle_ptr(), e); }
 protected:
-    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle_ptr int_get_handle_to_containing_dir(F *parent, size_t id, async_path_op_req req, completion_returntype(F::*dofile)(size_t, future<>, async_path_op_req));
+    template<class F> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle_ptr int_get_handle_to_containing_dir(F *parent, size_t id, path_req req, completion_returntype(F::*dofile)(size_t, future<>, path_req));
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_fast(size_t id, future<> h, completion_t *callback);
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC completion_returntype invoke_user_completion_slow(size_t id, future<> h, std::function<completion_t> callback);
 
@@ -2590,16 +2590,16 @@ template<class... Types> inline stl_future<std::vector<handle_ptr>> when_all(fut
     return when_all(_ops);
 }
 
-/*! \struct async_path_op_req
+/*! \struct path_req
 \brief A convenience bundle of path and flags, with optional precondition. Paths may be a path fragment (relative to the precondition) or absolute, in which case
 if necessary they are made canonical and absolute in the constructor according to the current working directory.
 
 \qbk{
-[include generated/struct_async_path_op_req_1_1absolute.qbk]
-[include generated/struct_async_path_op_req_1_1relative.qbk]
+[include generated/struct_path_req_1_1absolute.qbk]
+[include generated/struct_path_req_1_1relative.qbk]
 }
 */
-struct async_path_op_req
+struct path_req
 {
     bool is_relative;           //!< Whether the precondition is also where this path begins
     BOOST_AFIO_V2_NAMESPACE::path path;            //!< The filing system path to be used for this operation
@@ -2610,15 +2610,15 @@ struct async_path_op_req
     //! \brief Tags the path as being relative
     struct relative;
     //! \constr
-    async_path_op_req() : is_relative(false), flags(file_flags::none) { }
+    path_req() : is_relative(false), flags(file_flags::none) { }
     //! \cconstr
-    async_path_op_req(const async_path_op_req &o) = default;
+    path_req(const path_req &o) = default;
     //! \mconstr
-    async_path_op_req(async_path_op_req &&o) noexcept : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+    path_req(path_req &&o) noexcept : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
     //! \mconstr
-    inline async_path_op_req(absolute &&o);
+    inline path_req(absolute &&o);
     //! \mconstr
-    inline async_path_op_req(relative &&o);
+    inline path_req(relative &&o);
     /*! \brief Constructs an instance.
     
     \tparam "class T" The type of path to be used.
@@ -2626,7 +2626,7 @@ struct async_path_op_req
     \param _flags The flags to be used.
     */
 
-    template<class T, typename=typename std::enable_if<!std::is_constructible<async_path_op_req, T>::value && !std::is_constructible<future<>, T>::value>::type> async_path_op_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
+    template<class T, typename=typename std::enable_if<!std::is_constructible<path_req, T>::value && !std::is_constructible<future<>, T>::value>::type> path_req(T &&_path, file_flags _flags=file_flags::none) : is_relative(false), path(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path))), flags(_flags) { }
     /*! \brief Constructs an instance.
     
     \tparam "class T" The type of path to be used.
@@ -2635,15 +2635,15 @@ struct async_path_op_req
     \param _path The filing system path to be used.
     \param _flags The flags to be used.
     */
-    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V2_NAMESPACE::path, T>::value>::type> async_path_op_req(bool _is_relative, future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V2_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V2_NAMESPACE::path(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    template<class T, typename=typename std::enable_if<!std::is_convertible<BOOST_AFIO_V2_NAMESPACE::path, T>::value>::type> path_req(bool _is_relative, future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(_is_relative ? BOOST_AFIO_V2_NAMESPACE::path(std::forward<T>(_path)) : BOOST_AFIO_V2_NAMESPACE::path(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path)))), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! \overload
-    async_path_op_req(bool _is_relative, future<> _precondition, BOOST_AFIO_V2_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    path_req(bool _is_relative, future<> _precondition, BOOST_AFIO_V2_NAMESPACE::path _path, file_flags _flags=file_flags::none) : is_relative(_is_relative), path(std::move(_path)), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation (used as the path).
     \param _flags The flags to be used.
     */
-    async_path_op_req(future<> _precondition, file_flags _flags=file_flags::none) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
+    path_req(future<> _precondition, file_flags _flags=file_flags::none) : is_relative(true), flags(_flags), precondition(std::move(_precondition)) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -2659,8 +2659,8 @@ protected:
 #endif
     }
 };
-//! Convenience tag type constructing a relative path async_path_op_req
-struct async_path_op_req::relative : async_path_op_req
+//! Convenience tag type constructing a relative path path_req
+struct path_req::relative : path_req
 {
   /*! \brief Constructs an instance.
   
@@ -2669,16 +2669,16 @@ struct async_path_op_req::relative : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> relative(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
+  template<class T> relative(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : path_req(true, std::move(_precondition), std::forward<T>(_path), _flags) { _validate(); }
   /*! \brief Constructs an instance.
   
   \param _precondition The precondition for this operation.
   \param _flags The flags to be used.
   */
-  relative(future<> _precondition, file_flags _flags=file_flags::none) : async_path_op_req(std::move(_precondition), _flags) { _validate(); }
+  relative(future<> _precondition, file_flags _flags=file_flags::none) : path_req(std::move(_precondition), _flags) { _validate(); }
 };
-//! Convenience tag type constructing an absolute path async_path_op_req
-struct async_path_op_req::absolute : async_path_op_req
+//! Convenience tag type constructing an absolute path path_req
+struct path_req::absolute : path_req
 {
   /*! \brief Constructs an instance.
   
@@ -2687,10 +2687,10 @@ struct async_path_op_req::absolute : async_path_op_req
   \param _path The filing system path to be used.
   \param _flags The flags to be used.
   */
-  template<class T> absolute(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : async_path_op_req(false, std::move(_precondition), std::move(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
+  template<class T> absolute(future<> _precondition, T &&_path, file_flags _flags=file_flags::none) : path_req(false, std::move(_precondition), std::move(BOOST_AFIO_V2_NAMESPACE::path::make_absolute(std::forward<T>(_path))), _flags) { _validate(); }
 };
-inline async_path_op_req::async_path_op_req(async_path_op_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
-inline async_path_op_req::async_path_op_req(async_path_op_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+inline path_req::path_req(path_req::absolute &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
+inline path_req::path_req(path_req::relative &&o) : is_relative(o.is_relative), path(std::move(o.path)), flags(std::move(o.flags)), precondition(std::move(o.precondition)) { }
 
 /*! \defgroup to_asio_buffers Overloadable free functions converting the types passed to io_req<> into an asio buffer sequence for read() and write().
 
@@ -3464,44 +3464,44 @@ inline future<> dispatcher::adopt(handle_ptr h)
     i.push_back(std::move(h));
     return std::move(adopt(i).front());
 }
-inline future<> dispatcher::dir(const async_path_op_req &req)
+inline future<> dispatcher::dir(const path_req &req)
 {
-    std::vector<async_path_op_req> i;
+    std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(dir(i).front());
 }
-inline future<> dispatcher::rmdir(const async_path_op_req &req)
+inline future<> dispatcher::rmdir(const path_req &req)
 {
-    std::vector<async_path_op_req> i;
+    std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmdir(i).front());
 }
-inline future<> dispatcher::file(const async_path_op_req &req)
+inline future<> dispatcher::file(const path_req &req)
 {
-    std::vector<async_path_op_req> i;
+    std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(file(i).front());
 }
-inline future<> dispatcher::rmfile(const async_path_op_req &req)
+inline future<> dispatcher::rmfile(const path_req &req)
 {
-    std::vector<async_path_op_req> i;
+    std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmfile(i).front());
 }
-inline future<> dispatcher::symlink(const async_path_op_req &req)
+inline future<> dispatcher::symlink(const path_req &req)
 {
-    std::vector<async_path_op_req> i;
+    std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(symlink(i).front());
 }
-inline future<> dispatcher::rmsymlink(const async_path_op_req &req)
+inline future<> dispatcher::rmsymlink(const path_req &req)
 {
-    std::vector<async_path_op_req> i;
+    std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(rmsymlink(i).front());
@@ -3610,11 +3610,11 @@ namespace detail
     future<> operator()(future<> f=future<>())
     {
       dispatcher *dispatcher = f.parent();
-      async_path_op_req req(!dispatcher ? (
+      path_req req(!dispatcher ? (
         dispatcher = current_dispatcher().get(),
-        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
-        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->dir(std::vector<async_path_op_req>(1, std::move(req))).front());
+        path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->dir(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_rmdir
@@ -3625,11 +3625,11 @@ namespace detail
     future<> operator()(future<> f = future<>())
     {
       dispatcher *dispatcher = f.parent();
-      async_path_op_req req(!dispatcher ? (
+      path_req req(!dispatcher ? (
         dispatcher = current_dispatcher().get(),
-        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
-        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
+        path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_file
@@ -3640,11 +3640,11 @@ namespace detail
     future<> operator()(future<> f = future<>())
     {
       dispatcher *dispatcher = f.parent();
-      async_path_op_req req(!dispatcher ? (
+      path_req req(!dispatcher ? (
         dispatcher = current_dispatcher().get(),
-        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
-        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->file(std::vector<async_path_op_req>(1, std::move(req))).front());
+        path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->file(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_rmfile
@@ -3655,11 +3655,11 @@ namespace detail
     future<> operator()(future<> f = future<>())
     {
       dispatcher *dispatcher = f.parent();
-      async_path_op_req req(!dispatcher ? (
+      path_req req(!dispatcher ? (
         dispatcher = current_dispatcher().get(),
-        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
-        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->rmdir(std::vector<async_path_op_req>(1, std::move(req))).front());
+        path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_symlink
@@ -3670,11 +3670,11 @@ namespace detail
     future<> operator()(future<> f = future<>())
     {
       dispatcher *dispatcher = f.parent();
-      async_path_op_req req(!dispatcher ? (
+      path_req req(!dispatcher ? (
         dispatcher = current_dispatcher().get(),
-        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
-        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->symlink(std::vector<async_path_op_req>(1, std::move(req))).front());
+        path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->symlink(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_rmsymlink
@@ -3685,11 +3685,11 @@ namespace detail
     future<> operator()(future<> f = future<>())
     {
       dispatcher *dispatcher = f.parent();
-      async_path_op_req req(!dispatcher ? (
+      path_req req(!dispatcher ? (
         dispatcher = current_dispatcher().get(),
-        async_path_op_req(async_path_op_req::absolute(std::move(f), std::move(path), std::move(flags)))
-        ) : async_path_op_req(async_path_op_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->rmsymlink(std::vector<async_path_op_req>(1, std::move(req))).front());
+        path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
+        ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+      return std::move(dispatcher->rmsymlink(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   struct async_sync

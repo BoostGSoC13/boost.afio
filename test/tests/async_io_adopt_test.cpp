@@ -40,13 +40,13 @@ struct test_handle : handle
     {
         return nullptr;
     }
-    virtual void link(const async_path_op_req &req) override final
+    virtual void link(const path_req &req) override final
     {
     }
     virtual void unlink() override final
     {
     }
-    virtual void atomic_relink(const async_path_op_req &req) override final
+    virtual void atomic_relink(const path_req &req) override final
     {
     }
 };

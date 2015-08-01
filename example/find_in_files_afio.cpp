@@ -139,12 +139,12 @@ public:
 #if 0
         // Algorithm 1
         {
-            std::vector<async_path_op_req> dir_reqs; dir_reqs.reserve(entries.size());
+            std::vector<path_req> dir_reqs; dir_reqs.reserve(entries.size());
             for(auto &entry : entries)
             {
                 if((entry.st_type()&S_IFDIR)==S_IFDIR)
                 {
-                    dir_reqs.push_back(async_path_op_req(thisop, h->path()/entry.name()));
+                    dir_reqs.push_back(path_req(thisop, h->path()/entry.name()));
                 }
             }
             if(!dir_reqs.empty())
@@ -174,7 +174,7 @@ public:
                   boost::afio::filesystem::file_type::directory)
 #endif
                 {
-                    auto dir_open=dispatcher->dir(async_path_op_req::absolute(lastdir, h->path()/entry.name()));
+                    auto dir_open=dispatcher->dir(path_req::absolute(lastdir, h->path()/entry.name()));
                     auto dir_opened=dispatcher->completion(dir_open, dir_openedf);
                     doscheduled({ dir_open, dir_opened });
                     lastdir=dir_opened;
@@ -187,7 +187,7 @@ public:
 #if 0
         // Algorithm 1
         {
-            std::vector<async_path_op_req> file_reqs; file_reqs.reserve(entries.size());
+            std::vector<path_req> file_reqs; file_reqs.reserve(entries.size());
             std::vector<std::pair<async_op_flags, std::function<dispatcher::completion_t>>> file_openedfs; file_openedfs.reserve(entries.size());
             for(auto &entry : entries)
             {
@@ -200,7 +200,7 @@ public:
 #ifdef USE_MMAPS
                         if(length>16384) flags=flags|file_flags::os_mmap;
 #endif
-                        file_reqs.push_back(async_path_op_req(lastdir, h->path()/entry.name(), flags));
+                        file_reqs.push_back(path_req(lastdir, h->path()/entry.name(), flags));
                         file_openedfs.push_back(std::make_pair(async_op_flags::None, std::bind(&find_in_files::file_opened, this, std::placeholders::_1, std::placeholders::_2, length)));
                     }
                 }
@@ -229,7 +229,7 @@ public:
 #ifdef USE_MMAPS
                         if(length>16384) flags=flags|file_flags::os_mmap;
 #endif
-                        auto file_open=dispatcher->file(async_path_op_req::absolute(lastdir, h->path()/entry.name(), flags));
+                        auto file_open=dispatcher->file(path_req::absolute(lastdir, h->path()/entry.name(), flags));
                         auto file_opened=dispatcher->completion(file_open, 
                             std::make_pair(async_op_flags::none, 
                                 std::function<dispatcher::completion_t>(
@@ -305,7 +305,7 @@ public:
 
         // Schedule the recursive enumeration of the current directory
         std::cout << "\n\nStarting directory enumerations ..." << std::endl;
-        auto cur_dir=dispatcher->dir(async_path_op_req(""));
+        auto cur_dir=dispatcher->dir(path_req(""));
         auto cur_dir_opened=dispatcher->completion(cur_dir, std::make_pair(async_op_flags::none, 
             std::function<dispatcher::completion_t>(
                 std::bind(&find_in_files::dir_opened, this, 

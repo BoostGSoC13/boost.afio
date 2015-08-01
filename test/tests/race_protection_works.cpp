@@ -39,16 +39,16 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
     {
       // HoldParentOpen is actually ineffectual as renames zap the parent container, but it tests more code.
       auto dispatcher = make_dispatcher("file:///", file_flags::hold_parent_open).get();
-      auto testdir = dispatcher->dir(async_path_op_req("testdir", file_flags::create));
+      auto testdir = dispatcher->dir(path_req("testdir", file_flags::create));
       future<> dirh;
 
       try
       {
         // We can only reliably track directory renames on all platforms, so let's create 100 directories
         // which will be constantly renamed to something different by a worker thread
-        std::vector<async_path_op_req> dirreqs;
+        std::vector<path_req> dirreqs;
         for(size_t n=0; n<ITEMS; n++)
-          dirreqs.push_back(async_path_op_req::relative(testdir, to_string(n), file_flags::create|file_flags::read_write));
+          dirreqs.push_back(path_req::relative(testdir, to_string(n), file_flags::create|file_flags::read_write));
         // Windows needs write access to the directory to enable relinking, but opening a handle
         // with write access causes any renames into that directory to fail. So mark the first
         // directory which is always the destination for renames as non-writable
@@ -70,7 +70,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
               for(size_t n=0; n<ITEMS; n++)
 #endif
               {
-                async_path_op_req::relative req(testdir, to_string(number)+"_"+to_string(n));
+                path_req::relative req(testdir, to_string(number)+"_"+to_string(n));
                 //std::cout << "Renaming " << dirs[n].get()->path(true) << " ..." << std::endl;
                 try
                 {
@@ -115,7 +115,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
             {
               // Relink previous new file into first directory
               //std::cout << "Renaming " << newfiles[n].get()->path() << std::endl;
-              newfiles[n]->atomic_relink(async_path_op_req::relative(dirh, to_string(n)+"_"+to_string(i)));
+              newfiles[n]->atomic_relink(path_req::relative(dirh, to_string(n)+"_"+to_string(i)));
               // Note that on FreeBSD if this is a file its path would be now be incorrect and moreover lost due to lack of
               // path enumeration support for files. As we throw away the handle, this doesn't show up here.
 
@@ -125,7 +125,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
             dirreqs[n].path=to_string(i);
           }
           // Split into two
-          std::vector<async_path_op_req> front(dirreqs.begin(), dirreqs.begin()+ITEMS/2), back(dirreqs.begin()+ITEMS/2, dirreqs.end());
+          std::vector<path_req> front(dirreqs.begin(), dirreqs.begin()+ITEMS/2), back(dirreqs.begin()+ITEMS/2, dirreqs.end());
           std::cout << "Iteration " << i << ": Creating " << ITEMS << " files and directories inside the " << ITEMS << " constantly changing directories ..." << std::endl;
 #ifdef __FreeBSD__  // FreeBSD can only track directories not files when their parent directories change
           newfiles=dispatcher->dir(front);

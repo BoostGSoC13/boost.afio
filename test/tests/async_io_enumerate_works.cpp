@@ -6,8 +6,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
     auto dispatcher=make_dispatcher().get();
     std::cout << "Opening root directory for enumeration" << std::endl;
-    auto rootdir(dispatcher->dir(async_path_op_req("/", file_flags::read)));
-    auto rootdir2(dispatcher->dir(async_path_op_req("/", file_flags::read)));
+    auto rootdir(dispatcher->dir(path_req("/", file_flags::read)));
+    auto rootdir2(dispatcher->dir(path_req("/", file_flags::read)));
     when_all(rootdir).wait();
     when_all(rootdir2).wait();
     // Make sure directory cache is working

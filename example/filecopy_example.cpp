@@ -34,9 +34,9 @@ namespace {
         // Schedule the opening of the output file for writing
         auto oh = async_file(dest, file_flags::create | file_flags::write)();
         // Schedule the opening of all the input files for reading as a batch
-        std::vector<async_path_op_req> ihs_reqs; ihs_reqs.reserve(sources.size());
+        std::vector<path_req> ihs_reqs; ihs_reqs.reserve(sources.size());
         for(auto &&source : sources)
-            ihs_reqs.push_back(async_path_op_req(source, file_flags::read
+            ihs_reqs.push_back(path_req(source, file_flags::read
             |file_flags::will_be_sequentially_accessed));
         auto ihs=dispatcher->file(ihs_reqs);
         // Retrieve any error from opening the output
