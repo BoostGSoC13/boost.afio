@@ -194,10 +194,6 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 * Added optional additional target parameter to symlink().
 
 Todo:
-
-* ADD collect(...) WHICHS RETHROWS ANY ERROR IN INPUTS TO LIGHTWEIGHT FUTURE WITH EMULATION IN AFIO
-
-
 * ADD LINKS TO CHEAT SHEET
 * ADD get_monad() TO FUTURE.
 * Linux: UPDATE TABLE IN COMPILATION DOCS.

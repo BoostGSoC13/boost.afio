@@ -23,7 +23,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       // Need to fsync to work around lazy or delayed allocation
       auto syncfilesp1(dispatcher->sync(writefilesp));
       auto syncfilec1(dispatcher->sync(writefilec));
-      BOOST_REQUIRE_NO_THROW(when_all(mkdir, mkfilesp, mkfilec, resizefilesp, resizefilec, writefilesp, writefilec, syncfilesp1, syncfilec1).get());
+      BOOST_REQUIRE_NO_THROW(when_all_p(mkdir, mkfilesp, mkfilec, resizefilesp, resizefilec, writefilesp, writefilec, syncfilesp1, syncfilec1).get());
       
       // Verify they really does consume 1Mb of disc space
       stat_t beforezerostatsp=mkfilesp->lstat(metadata_flags::All);
@@ -50,7 +50,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       auto punchholesp(dispatcher->zero(writefilesp, {{0, buffer2.size()}, {buffer.size()/2, buffer2.size()}}));
       auto syncfilesp2(dispatcher->sync(punchholesp));
       auto readfilesp1(dispatcher->read(make_io_req(syncfilesp2, buffer2, 0)));
-      BOOST_CHECK_NO_THROW(when_all(punchholesp, syncfilesp2, readfilesp1).get());
+      BOOST_CHECK_NO_THROW(when_all_p(punchholesp, syncfilesp2, readfilesp1).get());
       bool allzero=true;
       for(auto &i : buffer2)
         if(i) { allzero=false; break; }
@@ -58,7 +58,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       auto punchholec(dispatcher->zero(writefilec, {{0, buffer2.size()}, {buffer.size()/2, buffer2.size()}}));
       auto syncfilec2(dispatcher->sync(punchholec));
       auto readfilec1(dispatcher->read(make_io_req(syncfilec2, buffer2, 0)));
-      BOOST_CHECK_NO_THROW(when_all(punchholec, syncfilec2, readfilec1).get());
+      BOOST_CHECK_NO_THROW(when_all_p(punchholec, syncfilec2, readfilec1).get());
       allzero = true;
       for(auto &i : buffer2)
         if(i) { allzero = false; break; }
@@ -108,8 +108,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       auto delfilec(dispatcher->rmfile(readfilec1));
       auto closefilesp=dispatcher->close(delfilesp);
       auto closefilec=dispatcher->close(delfilec);
-      BOOST_CHECK_NO_THROW(when_all(closefilesp, closefilec, delfilesp, delfilec).get());
+      BOOST_CHECK_NO_THROW(when_all_p(closefilesp, closefilec, delfilesp, delfilec).get());
       auto deldir(dispatcher->rmdir(mkdir));
-      BOOST_CHECK_NO_THROW(when_all(deldir).wait());  // virus checkers sometimes make this spuriously fail
+      BOOST_CHECK_NO_THROW(when_all_p(deldir).wait());  // virus checkers sometimes make this spuriously fail
     }
 }

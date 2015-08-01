@@ -55,7 +55,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
         dirreqs.front().flags=file_flags::create;
         std::cout << "Creating " << ITEMS << " directories ..." << std::endl;
         auto dirs=dispatcher->dir(dirreqs);
-        when_all(dirs).get();
+        when_all_p(dirs).get();
         dirh=dirs.front();
         atomic<bool> done(false);
         std::cout << "Creating worker thread to constantly rename those " << ITEMS << " directories ..." << std::endl;
@@ -136,7 +136,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
           newfiles.insert(newfiles.end(), std::make_move_iterator(newfiles2.begin()), std::make_move_iterator(newfiles2.end()));
           
           // Pace the scheduling, else we slow things down a ton. Also retrieve and throw any errors.
-          when_all(newfiles).get();
+          when_all_p(newfiles).get();
         }
         // Wait around for all that to process
         do

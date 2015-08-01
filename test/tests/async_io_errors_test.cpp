@@ -46,8 +46,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
         {
             // The following is a fundamentally unstable unit test - if manyfilecreates completes before
             // sync1, sync1 will throw on the spot
-            // Similarly, if either manyfilecreates or sync1 completes before the first when_all(),
-            // the nothrow_t when_all() will throw on the spot :)
+            // Similarly, if either manyfilecreates or sync1 completes before the first when_all_p(),
+            // the nothrow_t when_all_p() will throw on the spot :)
             do
             {
                 filereqs.clear();
@@ -77,10 +77,10 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_errors, "Tests that the async i/o error handl
                 {
                     auto manyfilecreates = dispatcher->file(filereqs); // One or both of these will error
                     auto sync1 = dispatcher->barrier(manyfilecreates); // If barrier() doesn't throw due to errored input, barrier() will replicate errors for you
-                    auto future1 = when_all(std::nothrow_t(), sync1.begin(), sync1.end());
-                    auto future1e = when_all(sync1.begin(), sync1.end());
-                    auto future2 = when_all(std::nothrow_t(), sync1.begin(), sync1.end());
-                    auto future2e = when_all(sync1.begin(), sync1.end());
+                    auto future1 = when_all_p(std::nothrow_t(), sync1.begin(), sync1.end());
+                    auto future1e = when_all_p(sync1.begin(), sync1.end());
+                    auto future2 = when_all_p(std::nothrow_t(), sync1.begin(), sync1.end());
+                    auto future2e = when_all_p(sync1.begin(), sync1.end());
                     // If any of the above threw due to context switches, they'll repeat
 
                     BOOST_AFIO_CHECK_NO_THROW(future1.get()); // nothrow variant must never throw

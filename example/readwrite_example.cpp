@@ -60,7 +60,7 @@ int main(void)
         afio::future<> deletedfile(read.then(afio::async_close()).then(afio::async_rmfile()));
         
         // Wait until the buffer has been filled, checking all steps for errors
-        afio::when_all(openfile, resizedfile, written, written2, stored, read).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/
+        afio::when_all_p(openfile, resizedfile, written, written2, stored, read).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/
         
         // There is actually a io_req<std::string> specialisation you
         // can use to skip this bit by reading directly into a string ...

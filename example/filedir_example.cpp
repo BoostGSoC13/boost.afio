@@ -31,7 +31,7 @@ int main(void)
     // Schedule deleting the directory only after the barrier completes
     auto rmdir(dispatcher->depends(barrier.front(), mkdir).then(async_rmdir()));
     // Check ops for errors
-    boost::afio::when_all(mkdir, mkfile, mklink, rmlink, rmfile, rmdir).wait();
+    boost::afio::when_all_p(mkdir, mkfile, mklink, rmlink, rmfile, rmdir).wait();
   }
   catch (...)
   {
@@ -65,7 +65,7 @@ int main(void)
       // Schedule deleting the directory only after the barrier completes
       auto rmdir(dispatcher->rmdir(std::vector<path_req>(1, dispatcher->depends(barrier.front(), mkdir))).front());
       // Check ops for errors
-      boost::afio::when_all(mkdir, mkfile, mklink, rmlink, rmfile, rmdir).wait();
+      boost::afio::when_all_p(mkdir, mkfile, mklink, rmlink, rmfile, rmdir).wait();
   }
   catch(...)
   {

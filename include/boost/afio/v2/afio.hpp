@@ -2192,7 +2192,7 @@ public:
 
     
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
-    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls when_all() on the futures.}
+    \deprecate{This function will be eliminated after lightweight future-promises are merged as one simply calls when_all_p() on the futures.}
     If you perform many asynchronous operations of unequal duration but wish to schedule one of more operations
     to occur only after \b all of those operations have completed, this is the correct function to use. The returned
     batch of ops exactly match the input batch of ops (including their exception states), but they will only
@@ -2403,7 +2403,7 @@ namespace detail
 #endif
     template<bool is_all> struct select_when_ops_return_type
     {
-        typedef stl_future<std::vector<handle_ptr>> type; // when_all()
+        typedef stl_future<std::vector<handle_ptr>> type; // when_all_p()
     };
     template<> struct select_when_ops_return_type<false>
     {
@@ -2432,7 +2432,7 @@ namespace detail
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(std::nothrow_t _, Iterator first, Iterator last)
+template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all_p(std::nothrow_t _, Iterator first, Iterator last)
 {
     if(first==last)
         return stl_future<std::vector<handle_ptr>>();
@@ -2468,7 +2468,7 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Non propagating}
 */
-template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::nothrow_t _, std::vector<future<T>> ops)
+template<class T> inline stl_future<std::vector<handle_ptr>> when_all_p(std::nothrow_t _, std::vector<future<T>> ops)
 {
     if(ops.empty())
         return stl_future<std::vector<handle_ptr>>();
@@ -2503,7 +2503,7 @@ template<class T> inline stl_future<handle_ptr> when_any(std::nothrow_t _, std::
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all(Iterator first, Iterator last)
+template<class Iterator> inline typename detail::enable_if_async_op<true, typename Iterator::value_type>::type when_all_p(Iterator first, Iterator last)
 {
     if(first==last)
         return stl_future<std::vector<handle_ptr>>();
@@ -2537,7 +2537,7 @@ template<class Iterator> inline typename detail::enable_if_async_op<false, typen
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::vector<future<T>> ops)
+template<class T> inline stl_future<std::vector<handle_ptr>> when_all_p(std::vector<future<T>> ops)
 {
     if(ops.empty())
         return stl_future<std::vector<handle_ptr>>();
@@ -2570,10 +2570,10 @@ template<class T> inline stl_future<handle_ptr> when_any(std::vector<future<T>> 
 \complexity{O(1).}
 \exceptionmodel{Non propagating}
 */
-template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::nothrow_t _, future<T> op)
+template<class T> inline stl_future<std::vector<handle_ptr>> when_all_p(std::nothrow_t _, future<T> op)
 {
     std::vector<future<T>> ops(1, op);
-    return when_all(_, ops);
+    return when_all_p(_, ops);
 }
 /*! \brief Returns a result when the supplied op completes. Propagates exception states.
 
@@ -2585,10 +2585,10 @@ template<class T> inline stl_future<std::vector<handle_ptr>> when_all(std::nothr
 \complexity{O(N).}
 \exceptionmodel{Propagating}
 */
-template<class... Types> inline stl_future<std::vector<handle_ptr>> when_all(future<Types> &... ops)
+template<class... Types> inline stl_future<std::vector<handle_ptr>> when_all_p(future<Types> &... ops)
 {
     std::vector<future<>> _ops = { std::forward<future<Types> &>(ops)... };
-    return when_all(_ops);
+    return when_all_p(_ops);
 }
 
 /*! \struct path_req

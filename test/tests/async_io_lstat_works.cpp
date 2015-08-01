@@ -26,9 +26,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
       auto mkfile(dispatcher->file(path_req::relative(mkdir, "file", file_flags::create|file_flags::write)));
       auto mklink(dispatcher->symlink(path_req::absolute(mkdir, "testdir/linktodir", file_flags::create|file_flags::write)));
 
-      auto mkdirstat=print_stat(when_all(mkdir).get().front());
-      auto mkfilestat=print_stat(when_all(mkfile).get().front());
-      auto mklinkstat=print_stat(when_all(mklink).get().front());
+      auto mkdirstat=print_stat(when_all_p(mkdir).get().front());
+      auto mkfilestat=print_stat(when_all_p(mkfile).get().front());
+      auto mklinkstat=print_stat(when_all_p(mklink).get().front());
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
       BOOST_CHECK(mkdirstat.st_type==filesystem::file_type::directory_file);
       BOOST_CHECK(mkfilestat.st_type==filesystem::file_type::regular_file);
@@ -74,7 +74,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_lstat_works, "Tests that async i/o lstat() wo
       auto rmlink(dispatcher->close(dispatcher->rmsymlink(mklink)));
       auto rmfile(dispatcher->close(dispatcher->rmfile(dispatcher->depends(rmlink, mkfile))));
       auto rmdir(dispatcher->close(dispatcher->rmdir(dispatcher->depends(rmfile, mkdir))));
-      when_all(rmlink, rmfile, rmdir).get();
+      when_all_p(rmlink, rmfile, rmdir).get();
     }
     // For the laugh, do it synchronously
     test->unlink();

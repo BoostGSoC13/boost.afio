@@ -40,7 +40,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_thread_pool_works, "Tests that the async i/o 
         std::pair<size_t, int> allresults2=boost::when_any(results2.begin(), results2.end()).get();
         BOOST_CHECK(allresults2.first<2);
         BOOST_CHECK(allresults2.second==78);
-        std::vector<int> allresults=boost::when_all(results.begin(), results.end()).get();
+        std::vector<int> allresults=boost::when_all_p(results.begin(), results.end()).get();
 #else
         std::vector<int> allresults;
         for(auto &i : results)

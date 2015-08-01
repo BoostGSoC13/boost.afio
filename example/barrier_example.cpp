@@ -62,6 +62,6 @@ int main(void)
         next = verify;
     }
     // next was the last op scheduled, so waiting on it waits on everything
-    when_all(next).wait();
+    when_all_p(next).wait();
     //]
 }

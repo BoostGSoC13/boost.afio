@@ -10,7 +10,7 @@
 \defgroup macros Macros
 \defgroup process_threadpool Process Thread pool
 \defgroup normalise_path Normalise path
-\defgroup when_all_futures when_all()
+\defgroup when_all_futures when_all_p()
 \defgroup file_flags file_flags
 \defgroup metadata_flags metadata_flags
 \defgroup async_op_flags async_op_flags

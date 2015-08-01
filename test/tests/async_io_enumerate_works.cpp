@@ -8,8 +8,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     std::cout << "Opening root directory for enumeration" << std::endl;
     auto rootdir(dispatcher->dir(path_req("/", file_flags::read)));
     auto rootdir2(dispatcher->dir(path_req("/", file_flags::read)));
-    when_all(rootdir).wait();
-    when_all(rootdir2).wait();
+    when_all_p(rootdir).wait();
+    when_all_p(rootdir2).wait();
     // Make sure directory cache is working
     BOOST_CHECK(rootdir.get_handle()->native_handle()==rootdir2.get_handle()->native_handle());
 

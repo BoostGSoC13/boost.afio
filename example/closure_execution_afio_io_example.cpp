@@ -44,7 +44,7 @@ int main()
     auto closed_file = dispatcher->close(dispatcher->barrier(read_ops).front());
     
     // make sure work has completed before trying to print data from the array
-    boost::afio::when_all(work.begin(), work.end()).wait();
+    boost::afio::when_all_p(work.begin(), work.end()).wait();
     
     //verify the out put is as expected: "0, 2, 4, 6, 8, 10, 12, 14, 16, 18"
      for (int i = 0; i < ary_size; ++i)

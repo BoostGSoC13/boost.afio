@@ -289,7 +289,7 @@ public:
             // Retrieve any exceptions
             std::cout << "Processed " << batch.size() << " ops for exception state." << std::endl;
             if(!batch.empty())
-                when_all(batch.begin(), batch.end()).wait();
+                when_all_p(batch.begin(), batch.end()).wait();
         } while(status==std::future_status::timeout);
 #else
         finished_waiter.wait();

@@ -43,7 +43,7 @@ namespace {
         oh.get();
         // Wait for the input file handles to open so we can get their sizes
         // (plus any failures to open)
-        when_all(ihs).get();
+        when_all_p(ihs).get();
 
         // Need to figure out the sizes of the sources so we can resize output
         // correctly. We also need to allocate scratch buffers for each source.
@@ -64,7 +64,7 @@ namespace {
         // Schedule resizing output to correct size, retrieving errors
         totalbytes=offset;
         auto ohresize=oh.then(async_truncate(offset));
-        when_all(ohresize).get();
+        when_all_p(ohresize).get();
 
         // Schedule the parallel processing of all input files, sequential per file,
         // but only after the output file has been resized
@@ -101,7 +101,7 @@ namespace {
         }
         // Having scheduled all the reads and write, return a stl_future which returns when
         // they're done
-        return when_all(lasts);
+        return when_all_p(lasts);
     }
 }
 

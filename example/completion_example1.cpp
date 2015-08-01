@@ -48,9 +48,9 @@ int main(void)
         dispatcher->completion(boost::afio::future<>() /* no precondition */,
             std::make_pair(boost::afio::async_op_flags::none, boundf));
         
-    // Create a boost::stl_future<> representing the ops passed to when_all()
+    // Create a boost::stl_future<> representing the ops passed to when_all_p()
     boost::afio::stl_future<std::vector<std::shared_ptr<boost::afio::handle>>> stl_future
-        =boost::afio::when_all(helloworld);
+        =boost::afio::when_all_p(helloworld);
     // ... and wait for it to complete
     stl_future.wait();
     //]

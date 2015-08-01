@@ -352,19 +352,19 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
         std::cout << "There are now " << std::dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << std::endl;
 
         // Wait for all files to open
-        when_all(manyopenfiles.begin(), manyopenfiles.end()).get();
+        when_all_p(manyopenfiles.begin(), manyopenfiles.end()).get();
         auto openedsync=chrono::high_resolution_clock::now();
         // Wait for all files to write
-        when_all(manywrittenfiles.begin(), manywrittenfiles.end()).get();
+        when_all_p(manywrittenfiles.begin(), manywrittenfiles.end()).get();
         auto writtensync=chrono::high_resolution_clock::now();
         // Wait for all files to close
-        when_all(manyclosedfiles.begin(), manyclosedfiles.end()).get();
+        when_all_p(manyclosedfiles.begin(), manyclosedfiles.end()).get();
         auto closedsync=chrono::high_resolution_clock::now();
         // Wait for all files to delete
-        when_all(manydeletedfiles.begin(), manydeletedfiles.end()).get();
+        when_all_p(manydeletedfiles.begin(), manydeletedfiles.end()).get();
         auto deletedsync=chrono::high_resolution_clock::now();
         // Wait for all callbacks
-        when_all(manycallbacks.begin(), manycallbacks.end()).get();
+        when_all_p(manycallbacks.begin(), manycallbacks.end()).get();
 
         auto end=deletedsync;
         auto rmdir(dispatcher->rmdir(path_req("testdir")));
@@ -386,7 +386,7 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
         std::cout << "It took " << diff.count() << " secs to do " << manyfilereqs.size()/diff.count() << " file deletions per sec" << std::endl;
 
         // Fetch any outstanding error
-        when_all(rmdir).wait();
+        when_all_p(rmdir).wait();
         BOOST_CHECK((callcount==1000U));
         BOOST_CHECK((filtercount==1000U));
 }
@@ -564,7 +564,7 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
     auto manywrittenfiles(dispatcher->truncate(manyopenfiles, sizes));
 #if defined(_DEBUG) && 0
     for(size_t n=0; n<manywrittenfiles.size(); n++)
-            std::cout << n << ": " << manywrittenfiles[n].id << " (" << when_all(manywrittenfiles[n]).get().front()->path() << ") " << std::endl;
+            std::cout << n << ": " << manywrittenfiles[n].id << " (" << when_all_p(manywrittenfiles[n]).get().front()->path() << ") " << std::endl;
 #endif
     // Schedule a replay of our in-RAM simulation
 
@@ -622,13 +622,13 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
     std::cout << "There are now " << std::dec << dispatcher->fd_count() << " handles open with a queue depth of " << dispatcher->wait_queue_depth() << std::endl;
 
     // Wait for all files to open
-    when_all(manyopenfiles.begin(), manyopenfiles.end()).get();
+    when_all_p(manyopenfiles.begin(), manyopenfiles.end()).get();
     auto openedsync=chrono::high_resolution_clock::now();
     // Wait for all files to write
-    when_all(manywrittenfiles.begin(), manywrittenfiles.end()).get();
+    when_all_p(manywrittenfiles.begin(), manywrittenfiles.end()).get();
     auto writtensync=chrono::high_resolution_clock::now();
     // Wait for all files to close
-    when_all(manyclosedfiles.begin(), manyclosedfiles.end()).get();
+    when_all_p(manyclosedfiles.begin(), manyclosedfiles.end()).get();
     auto closedsync=chrono::high_resolution_clock::now();
     end=closedsync;
 
@@ -643,8 +643,8 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
     diff=chrono::duration_cast<secs_type>(end-begin);
     for(auto &i: manyclosedfiles)
     {
-            readed+=when_all(i).get().front()->read_count();
-            written+=when_all(i).get().front()->write_count();
+            readed+=when_all_p(i).get().front()->read_count();
+            written+=when_all_p(i).get().front()->write_count();
     }
     for(ptrdiff_t n=0; n<(ptrdiff_t) no; n++)
             ops+=todo[n].size();
@@ -716,10 +716,10 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
             i.precondition=dispatcher->depends(*it++, mkdir);
     auto manydeletedfiles(dispatcher->rmfile(manyfilereqs));
     // Wait for all files to delete
-    when_all(manydeletedfiles.begin(), manydeletedfiles.end()).get();
+    when_all_p(manydeletedfiles.begin(), manydeletedfiles.end()).get();
     auto rmdir(dispatcher->rmdir(path_req("testdir")));
     // Fetch any outstanding error
-    when_all(rmdir).get();
+    when_all_p(rmdir).get();
 }
 
 

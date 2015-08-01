@@ -10,9 +10,9 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_statfs, "Tests statfs", 20)
     auto statfs_(dispatcher->statfs(mkfile, fs_metadata_flags::All));
     auto delfile(dispatcher->rmfile(statfs_));
     auto closefile=dispatcher->close(delfile);
-    BOOST_CHECK_NO_THROW(when_all(mkdir, mkfile, statfs_, closefile, delfile).get());
+    BOOST_CHECK_NO_THROW(when_all_p(mkdir, mkfile, statfs_, closefile, delfile).get());
     auto deldir(dispatcher->rmdir(mkdir));
-    BOOST_CHECK_NO_THROW(when_all(deldir).wait());  // virus checkers sometimes make this spuriously fail
+    BOOST_CHECK_NO_THROW(when_all_p(deldir).wait());  // virus checkers sometimes make this spuriously fail
 
     auto statfs(statfs_.get());
 #define PRINT_FIELD(field, ...) \

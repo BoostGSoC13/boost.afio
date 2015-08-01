@@ -19,15 +19,15 @@ void test_inline_linkage1()
       auto readfile(dispatcher->read(make_io_req(openfile, b, 0)));
       auto delfile(dispatcher->close(dispatcher->rmfile(readfile)));
       auto deldir(dispatcher->close(dispatcher->rmdir(delfile)));
-      when_all(mkdir).wait();
-      when_all(mkfile).wait();
-      when_all(writefile1).wait();
-      when_all(sync1).wait();
-      when_all(writefile2).wait();
-      when_all(closefile1).wait();
-      when_all(openfile).wait();
-      when_all(readfile).wait();
-      when_all(delfile).wait();
-      when_all(deldir).wait();
+      when_all_p(mkdir).wait();
+      when_all_p(mkfile).wait();
+      when_all_p(writefile1).wait();
+      when_all_p(sync1).wait();
+      when_all_p(writefile2).wait();
+      when_all_p(closefile1).wait();
+      when_all_p(openfile).wait();
+      when_all_p(readfile).wait();
+      when_all_p(delfile).wait();
+      when_all_p(deldir).wait();
     }
 }

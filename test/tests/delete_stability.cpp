@@ -54,9 +54,9 @@ BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and direc
             reqs2.push_back(make_io_req(i, buffer, 0));
           auto written=dispatcher->write(reqs2);
           dirh.get();
-          when_all(files.begin(), files.end()).get();
-          when_all(resized.begin(), resized.end()).get();
-          when_all(written.begin(), written.end()).get();
+          when_all_p(files.begin(), files.end()).get();
+          when_all_p(resized.begin(), resized.end()).get();
+          when_all_p(written.begin(), written.end()).get();
         }
       }
       BOOST_CHECK(true);
