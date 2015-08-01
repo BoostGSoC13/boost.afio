@@ -1618,7 +1618,7 @@ namespace detail
           }
         }
         // Called in unknown thread
-        completion_returntype dolock(size_t id, future<> op, async_lock_op_req req)
+        completion_returntype dolock(size_t id, future<> op, lock_req req)
         {
           handle_ptr h(op.get_handle());
           async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
@@ -1809,7 +1809,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::statfs, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dostatfs);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<async_lock_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<lock_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1895,7 +1895,7 @@ namespace detail
         }
         BOOST_AFIO_ERRHWIN(CloseHandle(h));
       }
-      dispatcher::completion_returntype lock(size_t id, future<> op, async_lock_op_req req, void *_thislockfile) override final
+      dispatcher::completion_returntype lock(size_t id, future<> op, lock_req req, void *_thislockfile) override final
       {
         windows_nt_kernel::init();
         using namespace windows_nt_kernel;
@@ -1933,7 +1933,7 @@ namespace detail
         NTSTATUS ntstat=0;
         LARGE_INTEGER offset; offset.QuadPart=req.offset;
         LARGE_INTEGER length; length.QuadPart=req.length;
-        if(req.type==async_lock_op_req::Type::unlock)
+        if(req.type==lock_req::Type::unlock)
         {
           ntstat=NtUnlockFile(h, (PIO_STATUS_BLOCK) &ol, &offset, &length, 0);
           //printf("UL %u ntstat=%u\n", id, ntstat);
@@ -1941,7 +1941,7 @@ namespace detail
         else
         {
           ntstat=NtLockFile(h, thislockfile->ev.native_handle(), nullptr, nullptr, (PIO_STATUS_BLOCK) &ol, &offset, &length, 0,
-            false, req.type==async_lock_op_req::Type::write_lock);
+            false, req.type==lock_req::Type::write_lock);
           //printf("L %u ntstat=%u\n", id, ntstat);
         }
         if(STATUS_PENDING!=ntstat)

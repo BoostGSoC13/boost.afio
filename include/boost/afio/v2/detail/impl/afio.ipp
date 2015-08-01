@@ -588,7 +588,7 @@ namespace detail {
       lock_guard<process_lockfile_registry_lock_t> g(process_lockfile_registry_lock);
       process_lockfile_registry_ptr->path_to_lockfile.erase(path);
     }
-    virtual dispatcher::completion_returntype lock(size_t id, future<> op, async_lock_op_req req, void *)=0;
+    virtual dispatcher::completion_returntype lock(size_t id, future<> op, lock_req req, void *)=0;
   };
   struct posix_actual_lock_file : public actual_lock_file
   {
@@ -596,7 +596,7 @@ namespace detail {
 #ifndef WIN32
     std::vector<struct flock> local_locks;
 #endif
-    std::vector<async_lock_op_req> locks;
+    std::vector<lock_req> locks;
     posix_actual_lock_file(BOOST_AFIO_V2_NAMESPACE::path p) : actual_lock_file(std::move(p)), h(0)
     {
 #ifndef WIN32
@@ -641,19 +641,19 @@ namespace detail {
       process_lockfile_registry_ptr->path_to_lockfile.erase(path);
 #endif
     }
-    virtual dispatcher::completion_returntype lock(size_t id, future<> op, async_lock_op_req req, void *) override final
+    virtual dispatcher::completion_returntype lock(size_t id, future<> op, lock_req req, void *) override final
     {
 #ifndef WIN32
       struct flock l;
       switch(req.type)
       {
-        case async_lock_op_req::Type::read_lock:
+        case lock_req::Type::read_lock:
           l.l_type=F_RDLCK;
           break;
-        case async_lock_op_req::Type::write_lock:
+        case lock_req::Type::write_lock:
           l.l_type=F_WRLCK;
           break;
-        case async_lock_op_req::Type::unlock:
+        case lock_req::Type::unlock:
           l.l_type=F_UNLCK;
           break;
         default:
@@ -679,7 +679,7 @@ namespace detail {
   {
     friend struct process_lockfile_registry;
     handle *h;
-    std::vector<async_lock_op_req> locks;
+    std::vector<lock_req> locks;
     std::shared_ptr<actual_lock_file> actual;
     lock_file(handle *_h=nullptr) : h(_h)
     {
@@ -698,7 +698,7 @@ namespace detail {
         }
       }
     }
-    dispatcher::completion_returntype lock(size_t id, future<> op, async_lock_op_req req)
+    dispatcher::completion_returntype lock(size_t id, future<> op, lock_req req)
     {
       return actual->lock(id, std::move(op), std::move(req), this);
     }
@@ -3098,7 +3098,7 @@ namespace detail {
           }
         }
         // Called in unknown thread
-        completion_returntype dolock(size_t id, future<> op, async_lock_op_req req)
+        completion_returntype dolock(size_t id, future<> op, lock_req req)
         {
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
             handle_ptr h(op.get_handle());
@@ -3289,7 +3289,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::statfs, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::dostatfs);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<async_lock_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<lock_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)

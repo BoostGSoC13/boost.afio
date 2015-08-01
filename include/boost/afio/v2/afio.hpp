@@ -361,7 +361,7 @@ template<class T=void> class future;
 struct path_req;
 template<class T> struct io_req;
 struct enumerate_req;
-struct async_lock_op_req;
+struct lock_req;
 namespace detail {
     struct async_io_handle_posix;
     struct async_io_handle_windows;
@@ -2188,7 +2188,7 @@ public:
     inline future<statfs_t> statfs(const future<> &op, const fs_metadata_flags &req);
 
     // Undocumented deliberately
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<async_lock_op_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> lock(const std::vector<lock_req> &req) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
 
     
     /*! \brief Schedule an asynchronous synchronisation of preceding operations.
@@ -3346,17 +3346,17 @@ private:
 };
 
 // Undocumented deliberately
-struct async_lock_op_req
+struct lock_req
 {
   future<> precondition;
   enum class Type { unknown, read_lock, write_lock, unlock } type;
   off_t offset, length;
   //chrono::time_point<chrono::steady_clock> deadline;
-  async_lock_op_req() : type(Type::unknown), offset(0), length(0) { }
-  async_lock_op_req(future<> _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
-  async_lock_op_req(future<> _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t)-1) { _validate(); }
-  async_lock_op_req(future<> _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
-  async_lock_op_req(future<> _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  lock_req() : type(Type::unknown), offset(0), length(0) { }
+  lock_req(future<> _precondition, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(0), length((off_t)-1) { _validate(); }
+  lock_req(future<> _precondition, std::nullptr_t) : precondition(_precondition), type(Type::unlock), offset(0), length((off_t)-1) { _validate(); }
+  lock_req(future<> _precondition, Type _type, off_t _offset, off_t _length) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
+  lock_req(future<> _precondition, off_t _offset, off_t _length, Type _type=Type::write_lock) : precondition(_precondition), type(_type), offset(_offset), length(_length) { _validate(); }
   //! Validates contents
   bool validate() const
   {
