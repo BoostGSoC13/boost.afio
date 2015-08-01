@@ -52,7 +52,6 @@
 [def __afio_op__ [link afio.reference.classes.future `class future<T>`]]
 [def __afio_handle__ [link afio.reference.classes.handle `class handle`]]
 [def __afio_path__ [link afio.reference.classes.path `class path`]]
-[def __afio_path_op_req__ [link afio.reference.structs.async_data_op_req.async_data_op_req `struct async_data_op_req`]]
 [/ def __afio_when_all__ [link afio.reference.functions.when_all_ops `when_all()`]]
 [def __afio_when_all__ FIXME]
 

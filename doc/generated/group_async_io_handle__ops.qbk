@@ -130,13 +130,13 @@ On Windows, the destination directory cannot have any handle opened to it with d
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage. 
 
 [heading Synopsis]
-``virtual void handle::link(const async_path_op_req & req)``
+``virtual void handle::link(const path_req & req)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_path_op_req &] [] [req] [The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.]]
+[[const path_req &] [] [req] [The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.]]
 ]
 
 
@@ -203,13 +203,13 @@ On Windows, the destination directory cannot have any handle opened to it with d
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage. 
 
 [heading Synopsis]
-``virtual void handle::atomic_relink(const async_path_op_req & req)``
+``virtual void handle::atomic_relink(const path_req & req)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const async_path_op_req &] [] [req] [The absolute or relative (in which case precondition specifies a directory) path to relink to.]]
+[[const path_req &] [] [req] [The absolute or relative (in which case precondition specifies a directory) path to relink to.]]
 ]
 
 

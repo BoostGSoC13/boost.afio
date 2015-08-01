@@ -121,13 +121,13 @@ Synchronous content synchronisation with physical storage after a preceding oper
 It goes without saying that this call can take very significant amounts of time to complete! 
 
 [heading Synopsis]
-``handle_ptr sync(asio::error_code & _ec, future<> _precondition)``
+``handle_ptr sync(error_code & _ec, future<> _precondition)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use.]]
 ]
 

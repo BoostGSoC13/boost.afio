@@ -19,13 +19,13 @@ Schedule a batch of asynchronous file creations and opens after optional precond
 Be aware that any files created are by default sparse if supported on the local filing system. On Windows opening any file for writing converts it to sparse. Use file\u005fflags::no\u005fsparse to prevent this on those filing systems which permit it. Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``future dispatcher::file(const std::vector< async_path_op_req > & reqs)``
+``future dispatcher::file(const std::vector< path_req > & reqs)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_path_op_req > &] [] [reqs] [A batch of [^`async_path_op_req`] structures.]]
+[[const std::vector< path_req > &] [] [reqs] [A batch of [^`path_req`] structures.]]
 ]
 
 
@@ -224,7 +224,7 @@ Be aware that any files created are by default sparse if supported on the local 
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr file(asio::error_code & _ec, future<> _precondition, T _path,
+handle_ptr file(error_code & _ec, future<> _precondition, T _path,
                 file_flags _flags = file_flags::none)``
 
 [heading Parameters]
@@ -232,7 +232,7 @@ handle_ptr file(asio::error_code & _ec, future<> _precondition, T _path,
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to use. ] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[T] [] [_path] [The filing system path to use. ]]
 [[file_flags] [] [_flags] [The flags to use.]]
@@ -268,7 +268,7 @@ Be aware that any files created are by default sparse if supported on the local 
 
 [heading Synopsis]
 ``template<class T, typename>
-handle_ptr file(asio::error_code & _ec, T _path, file_flags _flags = file_flags::none)``
+handle_ptr file(error_code & _ec, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -276,7 +276,7 @@ handle_ptr file(asio::error_code & _ec, T _path, file_flags _flags = file_flags:
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to use. ] [ - ] [Must be specified]]
 [[] [] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[T] [] [_path] [The filing system path to use. ]]
 [[file_flags] [] [_flags] [The flags to use.]]
 ]

@@ -20,14 +20,14 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-virtual std::vector<future<> > dispatcher::write(const std::vector< async_data_op_req< const T >> & ops)``
+virtual std::vector<future<> > dispatcher::write(const std::vector< io_req< const T >> & ops)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [Any type. ] [ - ] [Must be specified]]
-[[const std::vector< async_data_op_req< const T >> &] [] [ops] [A batch of async_data_op_req<const T> structures.]]
+[[const std::vector< io_req< const T >> &] [] [ops] [A batch of io_req<const T> structures.]]
 ]
 
 
@@ -212,7 +212,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr write(asio::error_code & _ec, future<> _precondition, T && v,
+handle_ptr write(error_code & _ec, future<> _precondition, T && v,
                  off_t _where)``
 
 [heading Parameters]
@@ -220,7 +220,7 @@ handle_ptr write(asio::error_code & _ec, future<> _precondition, T && v,
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [Any type. ] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[T &&] [] [v] [Some item understood by [^`to_asio_buffers()`]]]
 [[off_t] [] [_where] [The file offset to do the i/o]]
@@ -252,7 +252,7 @@ Note that on Windows this call issues a separate async file operation for each b
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr write(asio::error_code & _ec, future<> _precondition, T && v,
+handle_ptr write(error_code & _ec, future<> _precondition, T && v,
                  size_t _length, off_t _where)``
 
 [heading Parameters]
@@ -260,7 +260,7 @@ handle_ptr write(asio::error_code & _ec, future<> _precondition, T && v,
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [Any type. ] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[T &&] [] [v] [Some item understood by [^`to_asio_buffers()`]]]
 [[size_t] [] [_length] [The length of the item ]]

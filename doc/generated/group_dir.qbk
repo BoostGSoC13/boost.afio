@@ -19,13 +19,13 @@ Schedule a batch of asynchronous directory creations and opens after optional pr
 Note that if there is already a handle open to the directory requested, that will be returned instead of a new handle unless file\u005fflags::unique\u005fdirectory\u005fhandle is specified. For such handles where available\u005fto\u005fdirectory\u005fcache() is true, they cannot be explicitly closed either, you must let the reference count reach zero for that to happen. Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``future dispatcher::dir(const std::vector< async_path_op_req > & reqs)``
+``future dispatcher::dir(const std::vector< path_req > & reqs)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_path_op_req > &] [] [reqs] [A batch of [^`async_path_op_req`] structures.]]
+[[const std::vector< path_req > &] [] [reqs] [A batch of [^`path_req`] structures.]]
 ]
 
 
@@ -222,7 +222,7 @@ Note that if there is already a handle open to the directory requested, that wil
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr dir(asio::error_code & _ec, future<> _precondition, T _path,
+handle_ptr dir(error_code & _ec, future<> _precondition, T _path,
                file_flags _flags = file_flags::none)``
 
 [heading Parameters]
@@ -230,7 +230,7 @@ handle_ptr dir(asio::error_code & _ec, future<> _precondition, T _path,
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to use. ] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[T] [] [_path] [The filing system path to use. ]]
 [[file_flags] [] [_flags] [The flags to use.]]
@@ -265,7 +265,7 @@ Note that if there is already a handle open to the directory requested, that wil
 
 [heading Synopsis]
 ``template<class T, typename>
-handle_ptr dir(asio::error_code & _ec, T _path, file_flags _flags = file_flags::none)``
+handle_ptr dir(error_code & _ec, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -273,7 +273,7 @@ handle_ptr dir(asio::error_code & _ec, T _path, file_flags _flags = file_flags::
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to use. ] [ - ] [Must be specified]]
 [[] [] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[T] [] [_path] [The filing system path to use. ]]
 [[file_flags] [] [_flags] [The flags to use.]]
 ]

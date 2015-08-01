@@ -51,15 +51,15 @@ ALIASES                = qbk{1}="\xmlonly <qbk>\1</qbk> \endxmlonly" \
 			mconstr="Move constructor." \
 			cassign="Copy assignment." \
 			massign="Move assignment." \
-      async_data_op_req1="\brief Constructs an instance. \
+      io_req1="\brief Constructs an instance. \
 	\param _precondition An optional precondition for this operation \
 	\param v A pointer to memory or reference to object into which to read or write \
 	\param _where The offset at which to transfer" \
-      async_data_op_req2="\brief Constructs an instance. \
+      io_req2="\brief Constructs an instance. \
 	\param _precondition An optional precondition for this operation \
 	\param _buffers A sequence of mutable/const Boost.ASIO buffers to read into/write from \
 	\param _where The offset at which to transfer" \
-      async_data_op_req3="\brief Constructs an instance. \
+      io_req3="\brief Constructs an instance. \
 	\param _precondition An optional precondition for this operation \
 	\param _buffer A mutable/const Boost.ASIO buffer to read into/write from \
 	\param _where The offset at which to transfer" \

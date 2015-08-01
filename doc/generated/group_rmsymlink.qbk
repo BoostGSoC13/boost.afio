@@ -19,13 +19,13 @@ Schedule a batch of asynchronous symlink deletions after optional preconditions.
 Make sure you read the docs for [^`async_io_handle::unlink()`] for important caveats. Note that on operating systems with an unstable [^`async_io_handle::path(true)`] you need to be cautious of deleting files by handle as any hard link to that file may be deleted instead of the one you intended. To work around this, portable code should delete by directory handle as the precondition and known leafname. 
 
 [heading Synopsis]
-``future dispatcher::rmsymlink(const std::vector< async_path_op_req > & reqs)``
+``future dispatcher::rmsymlink(const std::vector< path_req > & reqs)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_path_op_req > &] [] [reqs] [A batch of [^`async_path_op_req`] structures.]]
+[[const std::vector< path_req > &] [] [reqs] [A batch of [^`path_req`] structures.]]
 ]
 
 
@@ -227,7 +227,7 @@ Make sure you read the docs for [^`async_io_handle::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr rmsymlink(asio::error_code & _ec, future<> _precondition, T _path = path(),
+handle_ptr rmsymlink(error_code & _ec, future<> _precondition, T _path = path(),
                      file_flags _flags = file_flags::none)``
 
 [heading Parameters]
@@ -235,7 +235,7 @@ handle_ptr rmsymlink(asio::error_code & _ec, future<> _precondition, T _path = p
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to be used. ] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[T] [] [_path] [The filing system path to be used. ]]
 [[file_flags] [] [_flags] [The flags to be used.]]
@@ -272,7 +272,7 @@ Make sure you read the docs for [^`async_io_handle::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T, typename>
-handle_ptr rmsymlink(asio::error_code & _ec, T _path, file_flags _flags = file_flags::none)``
+handle_ptr rmsymlink(error_code & _ec, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -280,7 +280,7 @@ handle_ptr rmsymlink(asio::error_code & _ec, T _path, file_flags _flags = file_f
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to be used. ] [ - ] [Must be specified]]
 [[] [] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[T] [] [_path] [The filing system path to be used. ]]
 [[file_flags] [] [_flags] [The flags to be used.]]
 ]

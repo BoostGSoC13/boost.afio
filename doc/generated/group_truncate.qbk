@@ -112,13 +112,13 @@ A handle with outcome.
 Synchronous file length truncation after a preceding operation. 
 
 [heading Synopsis]
-``handle_ptr truncate(asio::error_code & _ec, future<> _precondition, off_t newsize)``
+``handle_ptr truncate(error_code & _ec, future<> _precondition, off_t newsize)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[off_t] [] [newsize] [The new size for the file.]]
 ]

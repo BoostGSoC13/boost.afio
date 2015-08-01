@@ -19,13 +19,13 @@ Schedule a batch of asynchronous directory enumerations after preceding operatio
 By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return the exact same handle, and therefore enumerating not all of the entries at once is a race condition. The solution is to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single shot, or to open a separate directory handle using the file\u005fflags::unique\u005fdirectory\u005fhandle flag. Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 [heading Synopsis]
-``future< std::pair< std::vector< directory_entry >, bool > > dispatcher::enumerate(const std::vector< async_enumerate_op_req > & reqs)``
+``future< std::pair< std::vector< directory_entry >, bool > > dispatcher::enumerate(const std::vector< enumerate_req > & reqs)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_enumerate_op_req > &] [] [reqs] [A batch of enumeration requests.]]
+[[const std::vector< enumerate_req > &] [] [reqs] [A batch of enumeration requests.]]
 ]
 
 
@@ -61,7 +61,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 
 [heading Synopsis]
 ``future<std::pair<std::vector<directory_entry>, bool> > async_enumerate(future<> _precondition, size_t _maxitems = 2, bool _restart = true,
-                                                                            path _glob = path(), metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                                            path _glob = path(), metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
@@ -72,7 +72,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[path] [] [_glob] [An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -108,7 +108,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 
 [heading Synopsis]
 ``std::pair<std::vector<directory_entry>, bool> enumerate(future<> _precondition, size_t _maxitems = 2, bool _restart = true,
-                                                            path _glob = path(), metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                            path _glob = path(), metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
@@ -119,7 +119,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[path] [] [_glob] [An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -154,21 +154,21 @@ Synchronous directory enumeration after a preceding operation.
 By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return the exact same handle, and therefore enumerating not all of the entries at once is a race condition. The solution is to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single shot, or to open a separate directory handle using the file\u005fflags::unique\u005fdirectory\u005fhandle flag. Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 [heading Synopsis]
-``std::pair<std::vector<directory_entry>, bool> enumerate(asio::error_code & _ec, future<> _precondition, size_t _maxitems = 2,
+``std::pair<std::vector<directory_entry>, bool> enumerate(error_code & _ec, future<> _precondition, size_t _maxitems = 2,
                                                             bool _restart = true, path _glob = path(), metadata_flags _metadata = metadata_flags::None,
-                                                            async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                            enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[path] [] [_glob] [An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -204,7 +204,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 
 [heading Synopsis]
 ``future<std::pair<std::vector<directory_entry>, bool> > async_enumerate(future<> _precondition, path _glob, size_t _maxitems = 2,
-                                                                            bool _restart = true, metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                                            bool _restart = true, metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
@@ -215,7 +215,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -251,7 +251,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 
 [heading Synopsis]
 ``std::pair<std::vector<directory_entry>, bool> enumerate(future<> _precondition, path _glob, size_t _maxitems = 2,
-                                                            bool _restart = true, metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                            bool _restart = true, metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
@@ -262,7 +262,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -297,21 +297,21 @@ Synchronous directory enumeration after a preceding operation.
 By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return the exact same handle, and therefore enumerating not all of the entries at once is a race condition. The solution is to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single shot, or to open a separate directory handle using the file\u005fflags::unique\u005fdirectory\u005fhandle flag. Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 [heading Synopsis]
-``std::pair<std::vector<directory_entry>, bool> enumerate(asio::error_code & _ec, future<> _precondition, path _glob,
+``std::pair<std::vector<directory_entry>, bool> enumerate(error_code & _ec, future<> _precondition, path _glob,
                                                             size_t _maxitems = 2, bool _restart = true, metadata_flags _metadata = metadata_flags::None,
-                                                            async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                            enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[path] [] [_glob] [A shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -347,7 +347,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 
 [heading Synopsis]
 ``future<std::pair<std::vector<directory_entry>, bool> > async_enumerate(future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
-                                                                            bool _restart = true, path _glob = path(), async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                                            bool _restart = true, path _glob = path(), enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
@@ -358,7 +358,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[path] [] [_glob] [An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -394,7 +394,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 
 [heading Synopsis]
 ``std::pair<std::vector<directory_entry>, bool> enumerate(future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
-                                                            bool _restart = true, path _glob = path(), async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                            bool _restart = true, path _glob = path(), enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
@@ -405,7 +405,7 @@ By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[path] [] [_glob] [An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 
@@ -440,21 +440,21 @@ Synchronous directory enumeration after a preceding operation.
 By default dir() returns shared handles i.e. dir( foo) and dir( foo) will return the exact same handle, and therefore enumerating not all of the entries at once is a race condition. The solution is to either set maxitems to a value large enough to guarantee a directory will be enumerated in a single shot, or to open a separate directory handle using the file\u005fflags::unique\u005fdirectory\u005fhandle flag. Note that setting maxitems=1 will often cause a buffer space exhaustion, causing a second syscall with an enlarged buffer. This is because AFIO cannot know if the allocated buffer can hold all of the filename being retrieved, so it may have to retry. Put another way, setting maxitems=1 will give you the worst performance possible, whereas maxitems=2 will probably only return one item most of the time.
 
 [heading Synopsis]
-``std::pair<std::vector<directory_entry>, bool> enumerate(asio::error_code & _ec, future<> _precondition, metadata_flags _metadata,
+``std::pair<std::vector<directory_entry>, bool> enumerate(error_code & _ec, future<> _precondition, metadata_flags _metadata,
                                                             size_t _maxitems = 2, bool _restart = true, path _glob = path(),
-                                                            async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)``
+                                                            enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[metadata_flags] [] [_metadata] [The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. ]]
 [[size_t] [] [_maxitems] [The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. ]]
 [[bool] [] [_restart] [Restarts the enumeration for this open directory handle. ]]
 [[path] [] [_glob] [An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. ]]
-[[async_enumerate_op_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
+[[enumerate_req::filter] [] [_filtering] [Any filtering you want AFIO to do for you.]]
 ]
 
 

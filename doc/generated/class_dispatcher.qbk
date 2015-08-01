@@ -83,20 +83,9 @@ This is a reference counted instance with platform-specific implementation in ob
 
 ]
 ]
-[[``std::vector< future<> > dir(const std::vector< async_path_op_req > & reqs)``
+[[``std::vector< future<> > dir(const std::vector< path_req > & reqs)``
 
-] [Schedule a batch of asynchronous directory creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
-
-
-
-][
-A batch of op handles. 
-
-]
-]
-[[``std::vector< future<> > rmdir(const std::vector< async_path_op_req > & reqs)``
-
-] [Schedule a batch of asynchronous directory deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
+] [Schedule a batch of asynchronous directory creations and opens after optional preconditions. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
 
 
 
@@ -105,20 +94,9 @@ A batch of op handles.
 
 ]
 ]
-[[``std::vector< future<> > file(const std::vector< async_path_op_req > & reqs)``
+[[``std::vector< future<> > rmdir(const std::vector< path_req > & reqs)``
 
-] [Schedule a batch of asynchronous file creations and opens after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
-
-
-
-][
-A batch of op handles. 
-
-]
-]
-[[``std::vector< future<> > rmfile(const std::vector< async_path_op_req > & reqs)``
-
-] [Schedule a batch of asynchronous file deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
+] [Schedule a batch of asynchronous directory deletions after optional preconditions. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
 
 
 
@@ -127,9 +105,9 @@ A batch of op handles.
 
 ]
 ]
-[[``std::vector< future<> > symlink(const std::vector< async_path_op_req > & reqs)``
+[[``std::vector< future<> > file(const std::vector< path_req > & reqs)``
 
-] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
+] [Schedule a batch of asynchronous file creations and opens after optional preconditions. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
 
 
 
@@ -138,9 +116,31 @@ A batch of op handles.
 
 ]
 ]
-[[``std::vector< future<> > rmsymlink(const std::vector< async_path_op_req > & reqs)``
+[[``std::vector< future<> > rmfile(const std::vector< path_req > & reqs)``
 
-] [Schedule a batch of asynchronous symlink deletions after optional preconditions. ] [[* const std::vector< async_path_op_req > &]: ['reqs]:  A batch of [^`async_path_op_req`] structures.
+] [Schedule a batch of asynchronous file deletions after optional preconditions. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
+
+
+
+][
+A batch of op handles. 
+
+]
+]
+[[``std::vector< future<> > symlink(const std::vector< path_req > & reqs)``
+
+] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
+
+
+
+][
+A batch of op handles. 
+
+]
+]
+[[``std::vector< future<> > rmsymlink(const std::vector< path_req > & reqs)``
+
+] [Schedule a batch of asynchronous symlink deletions after optional preconditions. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
 
 
 
@@ -185,9 +185,9 @@ A batch of op handles.
 ]
 ]
 [[``template<class T>
-std::vector< future<> > read(const std::vector< async_data_op_req< T >> & ops)``
+std::vector< future<> > read(const std::vector< io_req< T >> & ops)``
 
-] [Schedule a batch of asynchronous data reads after preceding operations, where offset and total data read must not exceed the present file size. ] [[* const std::vector< async_data_op_req< T >> &]: ['ops]:  A batch of async_data_op_req<T> structures.
+] [Schedule a batch of asynchronous data reads after preceding operations, where offset and total data read must not exceed the present file size. ] [[* const std::vector< io_req< T >> &]: ['ops]:  A batch of io_req<T> structures.
 
 
 
@@ -197,9 +197,9 @@ A batch of op handles.
 ]
 ]
 [[``template<class T>
-std::vector< future<> > write(const std::vector< async_data_op_req< const T >> & ops)``
+std::vector< future<> > write(const std::vector< io_req< const T >> & ops)``
 
-] [Schedule a batch of asynchronous data writes after preceding operations, where offset and total data written must not exceed the present file size. ] [[* const std::vector< async_data_op_req< const T >> &]: ['ops]:  A batch of async_data_op_req<const T> structures.
+] [Schedule a batch of asynchronous data writes after preceding operations, where offset and total data written must not exceed the present file size. ] [[* const std::vector< io_req< const T >> &]: ['ops]:  A batch of io_req<const T> structures.
 
 
 
@@ -221,9 +221,9 @@ A batch of op handles.
 
 ]
 ]
-[[``std::vector< future< std::pair< std::vector< directory_entry >, bool > > > enumerate(const std::vector< async_enumerate_op_req > & reqs)``
+[[``std::vector< future< std::pair< std::vector< directory_entry >, bool > > > enumerate(const std::vector< enumerate_req > & reqs)``
 
-] [Schedule a batch of asynchronous directory enumerations after preceding operations. ] [[* const std::vector< async_enumerate_op_req > &]: ['reqs]:  A batch of enumeration requests.
+] [Schedule a batch of asynchronous directory enumerations after preceding operations. ] [[* const std::vector< enumerate_req > &]: ['reqs]:  A batch of enumeration requests.
 
 
 
@@ -296,9 +296,9 @@ The op handle op.
 ]
 ]
 [[``template<class T>
-std::vector< future<> > read(const std::vector< async_data_op_req< T >> & ops)``
+std::vector< future<> > read(const std::vector< io_req< T >> & ops)``
 
-] [] [[* const std::vector< async_data_op_req< T >> &]: ['ops]:  
+] [] [[* const std::vector< io_req< T >> &]: ['ops]:  
 
 
 
@@ -307,9 +307,9 @@ std::vector< future<> > read(const std::vector< async_data_op_req< T >> & ops)``
 ]
 ]
 [[``template<class T>
-std::vector< future<> > write(const std::vector< async_data_op_req< T >> & ops)``
+std::vector< future<> > write(const std::vector< io_req< T >> & ops)``
 
-] [] [[* const std::vector< async_data_op_req< T >> &]: ['ops]:  
+] [] [[* const std::vector< io_req< T >> &]: ['ops]:  
 
 
 

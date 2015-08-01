@@ -72,7 +72,7 @@ for i in glob.glob("doxy/doxygen_output/xml/group__*.xml"):
         os.system(cmd % (i, "group_"+path2identifier("doxy/doxygen_output/xml/group__", i)));
     
 # Patch broken index term generation
-for i in glob.glob("generated/struct_async_data_op_req_3_01*.qbk"):
+for i in glob.glob("generated/struct_io_req_3_01*.qbk"):
     with open(i, "r+b") as ih:
         t=ih.read();
         # Fix erroneous expansions of nested types
@@ -85,9 +85,9 @@ for i in glob.glob("generated/struct_async_data_op_req_3_01*.qbk"):
         indexterm=indexterm.replace(">", "&gt;")
         t=t[:it1]+indexterm+t[it2:]
         # Fix failure to collapse section ids
-        si1=t.find("[section:async_data_op_req<")
+        si1=t.find("[section:io_req<")
         if si1!=-1:
-            si1+=26;
+            si1+=15;
             si2=si1+1
             count=1
             while count>0:

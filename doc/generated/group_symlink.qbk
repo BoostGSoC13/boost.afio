@@ -19,13 +19,13 @@ Schedule a batch of asynchronous symlink creations and opens after a preconditio
 Note that if creating, the target for the symlink is the precondition. On Windows directories are symlinked using a reparse point instead of a symlink due to the default lack of the [^`SeCreateSymbolicLinkPrivilege`] for non-Administrative users. On Windows you can open symlinks as a file and so a valid handle is output, whereas on POSIX except for Linux you cannot do this and an invalid handle is output. Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
 [heading Synopsis]
-``future dispatcher::symlink(const std::vector< async_path_op_req > & reqs)``
+``future dispatcher::symlink(const std::vector< path_req > & reqs)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[const std::vector< async_path_op_req > &] [] [reqs] [A batch of [^`async_path_op_req`] structures.]]
+[[const std::vector< path_req > &] [] [reqs] [A batch of [^`path_req`] structures.]]
 ]
 
 
@@ -224,7 +224,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr symlink(asio::error_code & _ec, future<> _precondition, T _path,
+handle_ptr symlink(error_code & _ec, future<> _precondition, T _path,
                    file_flags _flags = file_flags::none)``
 
 [heading Parameters]
@@ -232,7 +232,7 @@ handle_ptr symlink(asio::error_code & _ec, future<> _precondition, T _path,
 [table
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to use. ] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[T] [] [_path] [The filing system path to use. ]]
 [[file_flags] [] [_flags] [The flags to use.]]
@@ -268,7 +268,7 @@ Note that if creating, the target for the symlink is the precondition. On Window
 
 [heading Synopsis]
 ``template<class T, typename>
-handle_ptr symlink(asio::error_code & _ec, T _path, file_flags _flags = file_flags::none)``
+handle_ptr symlink(error_code & _ec, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -276,7 +276,7 @@ handle_ptr symlink(asio::error_code & _ec, T _path, file_flags _flags = file_fla
 [[Type] [Concept] [Name] [Description] ]
 [[class T] [The type of path to use. ] [ - ] [Must be specified]]
 [[] [] [ - ] [Must be specified]]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[T] [] [_path] [The filing system path to use. ]]
 [[file_flags] [] [_flags] [The flags to use.]]
 ]

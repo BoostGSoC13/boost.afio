@@ -121,13 +121,13 @@ Synchronous file or directory handle close after a preceding operation.
 Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``handle_ptr close(asio::error_code & _ec, future<> _precondition)``
+``handle_ptr close(error_code & _ec, future<> _precondition)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use.]]
 ]
 

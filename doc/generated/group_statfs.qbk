@@ -133,13 +133,13 @@ is fetched separately.]
 Synchronous volume enumeration after a preceding operation. 
 
 [heading Synopsis]
-``statfs_t statfs(asio::error_code & _ec, future<> _precondition, fs_metadata_flags req)``
+``statfs_t statfs(error_code & _ec, future<> _precondition, fs_metadata_flags req)``
 
 [heading Parameters]
 
 [table
 [[Type] [Concept] [Name] [Description] ]
-[[asio::error_code &] [] [_ec] [Error code to set. ]]
+[[error_code &] [] [_ec] [Error code to set. ]]
 [[future<>] [] [_precondition] [The precondition to use. ]]
 [[fs_metadata_flags] [] [req] [A metadata request.]]
 ]
