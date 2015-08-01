@@ -2752,7 +2752,7 @@ namespace detail {
         static int int_getdents_emulation(int fd, char *buf, unsigned count) { off_t foo; return syscall(SYS_getdirentries64, fd, buf, count, &foo); }
 #endif
         // Called in unknown thread
-        completion_returntype doenumerate(size_t id, future<> op, async_enumerate_op_req req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret)
+        completion_returntype doenumerate(size_t id, future<> op, enumerate_req req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret)
         {
             handle_ptr h(op.get_handle());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
@@ -3247,7 +3247,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::truncate, ops, sizes, async_op_flags::none, &async_file_io_dispatcher_compat::dotruncate);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<std::pair<std::vector<directory_entry>, bool>>> enumerate(const std::vector<async_enumerate_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<std::pair<std::vector<directory_entry>, bool>>> enumerate(const std::vector<enumerate_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)

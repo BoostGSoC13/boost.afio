@@ -21,7 +21,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     bool first=true;
     do
     {
-        auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, directory_entry::compatibility_maximum(), first, path(), directory_entry::metadata_fastpath())));
+        auto enumeration(dispatcher->enumerate(enumerate_req(rootdir, directory_entry::compatibility_maximum(), first, path(), directory_entry::metadata_fastpath())));
         first=false;
         list=enumeration.get();
         if(!list.first.empty()) BOOST_CHECK((list.first.front().metadata_ready()&directory_entry::metadata_fastpath())== directory_entry::metadata_fastpath());
@@ -36,7 +36,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     first=true;
     do
     {
-        auto enumeration(dispatcher->enumerate(async_enumerate_op_req(rootdir, 1, first, path(), directory_entry::metadata_fastpath())));
+        auto enumeration(dispatcher->enumerate(enumerate_req(rootdir, 1, first, path(), directory_entry::metadata_fastpath())));
         first=false;
         std::cout << ".";
         list=enumeration.get();
@@ -50,11 +50,11 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_enumerate, "Tests that async i/o enumerate() 
     BOOST_CHECK(rootdircontents2.size()==rootdircontents2a.size());
     
     // Make sure unwildcarded single glob works (it has a fastpath on POSIX)
-    auto enumeration1(dispatcher->enumerate(async_enumerate_op_req(rootdir)));
+    auto enumeration1(dispatcher->enumerate(enumerate_req(rootdir)));
     auto &&direntries1=enumeration1.get().first;
     BOOST_REQUIRE(direntries1.size()>0);
     auto direntry1(direntries1.front());
-    auto enumeration2(dispatcher->enumerate(async_enumerate_op_req(rootdir, path(direntry1.name()))));
+    auto enumeration2(dispatcher->enumerate(enumerate_req(rootdir, path(direntry1.name()))));
     auto &&direntries2=enumeration2.get().first;
     BOOST_REQUIRE(direntries2.size()>0);
     auto direntry2(direntries2.front());

@@ -187,6 +187,7 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * async_data_op_req is now io_req, similarly for make_async_data_op_req.
 
+* async_enumerate_op_req is now enumerate_req.
 
 
 Todo:

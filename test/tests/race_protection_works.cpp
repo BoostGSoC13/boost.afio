@@ -150,7 +150,7 @@ BOOST_AFIO_AUTO_TEST_CASE(race_protection_works, "Tests that the race protection
       catch(...) { std::cerr << "ERROR: test exits via unknown exception" << std::endl; BOOST_REQUIRE(false); }
 
       // Check that everything is as it ought to be
-      auto _contents = dispatcher->enumerate(async_enumerate_op_req(dirh, metadata_flags::All, 10*ITEMS*ITERATIONS)).get().first;
+      auto _contents = dispatcher->enumerate(enumerate_req(dirh, metadata_flags::All, 10*ITEMS*ITERATIONS)).get().first;
       testdir=future<>();  // Kick out AFIO now so NTFS has itself cleaned up by the end of the checks
       dirh=future<>();
       dispatcher.reset();

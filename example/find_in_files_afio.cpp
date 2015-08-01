@@ -252,7 +252,7 @@ public:
         handle_ptr h(op.get_handle());
         //std::cout << "D " << h->path() << std::endl;
         // Now we have an open directory handle, schedule an enumeration
-        auto enumeration=dispatcher->enumerate(async_enumerate_op_req(
+        auto enumeration=dispatcher->enumerate(enumerate_req(
             dispatcher->op_from_scheduled_id(id), metadata_flags::size, 1000));
         auto listing=std::make_shared<future<std::pair<std::vector<directory_entry>, 
             bool>>>(std::move(enumeration));

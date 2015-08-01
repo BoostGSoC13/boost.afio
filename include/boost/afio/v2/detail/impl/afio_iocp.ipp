@@ -1260,9 +1260,9 @@ namespace detail
             future<> op;
             std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret;
             std::unique_ptr<windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION[]> buffer;
-            async_enumerate_op_req req;
+            enumerate_req req;
             enumerate_state(size_t _id, future<> _op, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> _ret,
-              async_enumerate_op_req _req) : id(_id), op(std::move(_op)), ret(std::move(_ret)), req(std::move(_req)) { reallocate_buffer(); }
+              enumerate_req _req) : id(_id), op(std::move(_op)), ret(std::move(_ret)), req(std::move(_req)) { reallocate_buffer(); }
             void reallocate_buffer()
             {
               using windows_nt_kernel::FILE_ID_FULL_DIR_INFORMATION;
@@ -1277,7 +1277,7 @@ namespace detail
             handle_ptr h(state->op.get_handle());
             std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> &ret=state->ret;
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
-            async_enumerate_op_req &req=state->req;
+            enumerate_req &req=state->req;
             if(ec && ERROR_MORE_DATA==ec.value() && bytes_transferred<(sizeof(FILE_ID_FULL_DIR_INFORMATION)+buffer.get()->FileNameLength))
             {
                 // Bump maxitems by one and reschedule.
@@ -1328,7 +1328,7 @@ namespace detail
                         if(1==length || '.'==ffdi->FileName[1])
                             continue;
                     path::string_type leafname(ffdi->FileName, length);
-                    if(req.filtering==async_enumerate_op_req::filter::fastdeleted && isDeletedFile(leafname))
+                    if(req.filtering==enumerate_req::filter::fastdeleted && isDeletedFile(leafname))
                       continue;
                     item.leafname=std::move(leafname);
                     item.stat.st_ino=ffdi->FileId.QuadPart;
@@ -1366,7 +1366,7 @@ namespace detail
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
             using namespace windows_nt_kernel;
             std::unique_ptr<FILE_ID_FULL_DIR_INFORMATION[]> &buffer=state->buffer;
-            async_enumerate_op_req &req=state->req;
+            enumerate_req &req=state->req;
             NTSTATUS ntstat;
             UNICODE_STRING _glob={ 0 };
             if(!req.glob.empty())
@@ -1418,7 +1418,7 @@ namespace detail
                 ol.release();
         }
         // Called in unknown thread
-        completion_returntype doenumerate(size_t id, future<> op, async_enumerate_op_req req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret)
+        completion_returntype doenumerate(size_t id, future<> op, enumerate_req req, std::shared_ptr<promise<std::pair<std::vector<directory_entry>, bool>>> ret)
         {
             windows_nt_kernel::init();
             using namespace windows_nt_kernel;
@@ -1767,7 +1767,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::truncate, ops, sizes, async_op_flags::none, &async_file_io_dispatcher_windows::dotruncate);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<std::pair<std::vector<directory_entry>, bool>>> enumerate(const std::vector<async_enumerate_op_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<std::pair<std::vector<directory_entry>, bool>>> enumerate(const std::vector<enumerate_req> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)

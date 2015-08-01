@@ -360,7 +360,7 @@ using dispatcher_ptr = std::shared_ptr<dispatcher>;
 template<class T=void> class future;
 struct async_path_op_req;
 template<class T> struct io_req;
-struct async_enumerate_op_req;
+struct enumerate_req;
 struct async_lock_op_req;
 namespace detail {
     struct async_io_handle_posix;
@@ -2126,7 +2126,7 @@ public:
     \exceptionmodelstd
     \qexample{enumerate_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<std::pair<std::vector<directory_entry>, bool>>> enumerate(const std::vector<async_enumerate_op_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<std::pair<std::vector<directory_entry>, bool>>> enumerate(const std::vector<enumerate_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous extent enumerations after preceding operations.
 
     \docs_extents
@@ -2182,7 +2182,7 @@ public:
     inline future<> read(const detail::io_req_impl<false> &req);
     inline future<> write(const detail::io_req_impl<true> &req);
     inline future<> truncate(const future<> &op, off_t newsize);
-    inline future<std::pair<std::vector<directory_entry>, bool>> enumerate(const async_enumerate_op_req &req);
+    inline future<std::pair<std::vector<directory_entry>, bool>> enumerate(const enumerate_req &req);
     inline future<std::vector<std::pair<off_t, off_t>>> extents(const future<> &op);
     inline future<statfs_t> statfs(const future<> &op, const fs_metadata_flags &req);
 
@@ -3269,7 +3269,7 @@ template<class T> inline auto make_io_req(future<> _precondition, T &&v, size_t 
 }
 
 
-/*! \struct async_enumerate_op_req
+/*! \struct enumerate_req
 \brief A convenience bundle of precondition, number of items to enumerate, item pattern match and metadata to prefetch.
 
 You should note that shell globs must use a restricted form for portability:
@@ -3282,7 +3282,7 @@ wildcard escape character.
 * POSIX further extends NT's wildcards with \\[seq\\] which is a subset of characters and \\[!seq\\] which is not any subset of
 characters. Here a \\ is the wildcard escape character.
 */
-struct async_enumerate_op_req
+struct enumerate_req
 {
     future<> precondition;    //!< A precondition for this operation.
     size_t maxitems;             //!< The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls.
@@ -3297,7 +3297,7 @@ struct async_enumerate_op_req
     };
     filter filtering;            //!< Any filtering you want AFIO to do for you.
     //! \constr
-    async_enumerate_op_req() : maxitems(0), restart(false), metadata(metadata_flags::None), filtering(filter::fastdeleted) { }
+    enumerate_req() : maxitems(0), restart(false), metadata(metadata_flags::None), filtering(filter::fastdeleted) { }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3307,7 +3307,7 @@ struct async_enumerate_op_req
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(future<> _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
+    enumerate_req(future<> _precondition, size_t _maxitems=2, bool _restart=true, path _glob=path(), metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3317,7 +3317,7 @@ struct async_enumerate_op_req
     \param _metadata The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free.
     \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(future<> _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
+    enumerate_req(future<> _precondition, path _glob, size_t _maxitems=2, bool _restart=true, metadata_flags _metadata=metadata_flags::None, filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     /*! \brief Constructs an instance.
     
     \param _precondition The precondition for this operation.
@@ -3327,7 +3327,7 @@ struct async_enumerate_op_req
     \param _glob An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX.
     \param _filtering Any filtering you want AFIO to do for you.
     */
-    async_enumerate_op_req(future<> _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path(), filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
+    enumerate_req(future<> _precondition, metadata_flags _metadata, size_t _maxitems=2, bool _restart=true, path _glob=path(), filter _filtering=filter::fastdeleted) : precondition(std::move(_precondition)), maxitems(_maxitems), restart(_restart), glob(std::move(_glob)), metadata(_metadata), filtering(_filtering) { _validate(); }
     //! Validates contents
     bool validate() const
     {
@@ -3564,9 +3564,9 @@ inline future<> dispatcher::truncate(const future<> &op, off_t newsize)
     i.push_back(newsize);
     return std::move(truncate(o, i).front());
 }
-inline future<std::pair<std::vector<directory_entry>, bool>> dispatcher::enumerate(const async_enumerate_op_req &req)
+inline future<std::pair<std::vector<directory_entry>, bool>> dispatcher::enumerate(const enumerate_req &req)
 {
-    std::vector<async_enumerate_op_req> i;
+    std::vector<enumerate_req> i;
     i.reserve(1);
     i.push_back(req);
     return std::move(enumerate(i).front());
@@ -3758,15 +3758,15 @@ namespace detail
     bool restart;
     path glob;
     metadata_flags metadata;
-    async_enumerate_op_req::filter filtering;
-    async_enumerate(size_t _maxitems, bool _restart, path _glob, metadata_flags _metadata, async_enumerate_op_req::filter _filtering) : maxitems(_maxitems), restart(_restart), glob(_glob), metadata(_metadata), filtering(_filtering) { }
+    enumerate_req::filter filtering;
+    async_enumerate(size_t _maxitems, bool _restart, path _glob, metadata_flags _metadata, enumerate_req::filter _filtering) : maxitems(_maxitems), restart(_restart), glob(_glob), metadata(_metadata), filtering(_filtering) { }
     future<std::pair<std::vector<directory_entry>, bool>> operator()(future<> f = future<>())
     {
-      async_enumerate_op_req req(std::move(f), maxitems, restart, std::move(glob), metadata, filtering);
+      enumerate_req req(std::move(f), maxitems, restart, std::move(glob), metadata, filtering);
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->enumerate(std::vector<async_enumerate_op_req>(1, std::move(req))).front());
+      return std::move(dispatcher->enumerate(std::vector<enumerate_req>(1, std::move(req))).front());
     }
   };
   struct async_zero
@@ -5146,7 +5146,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline future<std::pair<std::vector<directory_entry>, bool>> async_enumerate(future<> _precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(),
-  metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   return detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
 }
@@ -5175,7 +5175,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline std::pair<std::vector<directory_entry>, bool> enumerate(future<> _precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(),
-  metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   return detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition)).get();
 }
@@ -5205,7 +5205,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline std::pair<std::vector<directory_entry>, bool> enumerate(error_code &_ec, future<> _precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(),
-  metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   auto ret= detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
   if(!(_ec=ret.get_error()))
@@ -5237,7 +5237,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline future<std::pair<std::vector<directory_entry>, bool>> async_enumerate(future<> _precondition, path _glob, size_t _maxitems = 2, bool _restart = true,
-  metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   return detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
 }
@@ -5266,7 +5266,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline std::pair<std::vector<directory_entry>, bool> enumerate(future<> _precondition, path _glob, size_t _maxitems = 2, bool _restart = true,
-  metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   return detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition)).get();
 }
@@ -5296,7 +5296,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline std::pair<std::vector<directory_entry>, bool> enumerate(error_code &_ec, future<> _precondition, path _glob, size_t _maxitems = 2, bool _restart = true,
-  metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  metadata_flags _metadata = metadata_flags::None, enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   auto ret = detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
   if (!(_ec = ret.get_error()))
@@ -5328,7 +5328,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline future<std::pair<std::vector<directory_entry>, bool>> async_enumerate(future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2, bool _restart = true,
-  path _glob = path(), async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  path _glob = path(), enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   return detail::async_enumerate(_maxitems, _restart, _glob, _metadata, _filtering)(std::move(_precondition));
 }
@@ -5357,7 +5357,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline std::pair<std::vector<directory_entry>, bool> enumerate(future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
-  bool _restart = true, path _glob = path(), async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  bool _restart = true, path _glob = path(), enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   return detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition)).get();
 }
@@ -5387,7 +5387,7 @@ birthtim, sparse, compressed.]
 \qexample{enumerate_example}
 */
 inline std::pair<std::vector<directory_entry>, bool> enumerate(error_code &_ec, future<> _precondition, metadata_flags _metadata, size_t _maxitems = 2,
-  bool _restart = true, path _glob = path(), async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)
+  bool _restart = true, path _glob = path(), enumerate_req::filter _filtering = enumerate_req::filter::fastdeleted)
 {
   auto ret = detail::async_enumerate(_maxitems, _restart, std::move(_glob), _metadata, _filtering)(std::move(_precondition));
   if (!(_ec = ret.get_error()))
