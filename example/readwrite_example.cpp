@@ -62,7 +62,7 @@ int main(void)
         // Wait until the buffer has been filled, checking all steps for errors
         afio::when_all(openfile, resizedfile, written, written2, stored, read).get(); /*< waits for file open, resize, write, sync and read to complete, throwing any exceptions encountered >*/
         
-        // There is actually a async_data_op_req<std::string> specialisation you
+        // There is actually a io_req<std::string> specialisation you
         // can use to skip this bit by reading directly into a string ...
         std::string contents(buffer.begin(), buffer.end());
         std::cout << "Contents of file is '" << contents << "'" << std::endl;

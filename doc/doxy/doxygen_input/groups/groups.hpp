@@ -26,8 +26,8 @@
 \defgroup dispatcher__misc x
 \defgroup dispatcher__depends x
 \defgroup async_file_io_dispatcher dispatcher
-\defgroup async_data_op_req async_data_op_req
-\defgroup make_async_data_op_req make_async_data_op_req
+\defgroup io_req io_req
+\defgroup make_io_req make_io_req
 \defgroup utils Utilities
 \defgroup async_io_handle__ops Handle Ops
 \defgroup dir Opening/Creating Directories

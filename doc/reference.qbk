@@ -10,7 +10,6 @@
 
 [section:macros_flags Macros and Flags]
 [include generated/group_macros.qbk]
-[include generated/group_async_op_flags.qbk]
 [include generated/group_file_flags.qbk]
 [include generated/group_fs_metadata_flags.qbk]
 [include generated/group_metadata_flags.qbk]

@@ -2612,7 +2612,7 @@ namespace detail {
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        completion_returntype doread(size_t id, future<> op, detail::async_data_op_req_impl<false> req)
+        completion_returntype doread(size_t id, future<> op, detail::io_req_impl<false> req)
         {
             handle_ptr h(op.get_handle());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
@@ -2678,7 +2678,7 @@ namespace detail {
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        completion_returntype dowrite(size_t id, future<> op, detail::async_data_op_req_impl<true> req)
+        completion_returntype dowrite(size_t id, future<> op, detail::io_req_impl<true> req)
         {
             handle_ptr h(op.get_handle());
             async_io_handle_posix *p=static_cast<async_io_handle_posix *>(h.get());
@@ -3214,7 +3214,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::close, ops, async_op_flags::none, &async_file_io_dispatcher_compat::doclose);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> read(const std::vector<detail::async_data_op_req_impl<false>> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> read(const std::vector<detail::io_req_impl<false>> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -3225,7 +3225,7 @@ namespace detail {
 #endif
             return chain_async_ops((int) detail::OpType::read, reqs, async_op_flags::none, &async_file_io_dispatcher_compat::doread);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> write(const std::vector<detail::async_data_op_req_impl<true>> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> write(const std::vector<detail::io_req_impl<true>> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)

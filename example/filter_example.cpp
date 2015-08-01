@@ -11,7 +11,7 @@ static void open_file_filter(detail::OpType, future<> &op) noexcept
 
 // This function will be called for every read and write performed
 static void readwrite_filter(detail::OpType optype, handle *h,
-    const detail::async_data_op_req_impl<true> &req, boost::afio::off_t offset, size_t buffer_idx,
+    const detail::io_req_impl<true> &req, boost::afio::off_t offset, size_t buffer_idx,
     size_t buffers, const boost::system::error_code &ec, size_t bytes_transferred)
 {
     std::cout << "File handle " << h->native_handle() << (detail::OpType::read==optype ?

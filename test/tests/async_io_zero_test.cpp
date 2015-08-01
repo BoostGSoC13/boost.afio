@@ -18,8 +18,8 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       auto mkfilec(dispatcher->file(async_path_op_req::relative(mkdir, "compressed", file_flags::create | file_flags::create_compressed | file_flags::read_write)));
       auto resizefilesp(dispatcher->truncate(mkfilesp, buffer.size()));
       auto resizefilec(dispatcher->truncate(mkfilec, buffer.size()));
-      auto writefilesp(dispatcher->write(make_async_data_op_req(resizefilesp, buffer, 0)));
-      auto writefilec(dispatcher->write(make_async_data_op_req(resizefilec, buffer, 0)));
+      auto writefilesp(dispatcher->write(make_io_req(resizefilesp, buffer, 0)));
+      auto writefilec(dispatcher->write(make_io_req(resizefilec, buffer, 0)));
       // Need to fsync to work around lazy or delayed allocation
       auto syncfilesp1(dispatcher->sync(writefilesp));
       auto syncfilec1(dispatcher->sync(writefilec));
@@ -49,7 +49,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       std::vector<char> buffer2(buffer.size()/4, 'n');
       auto punchholesp(dispatcher->zero(writefilesp, {{0, buffer2.size()}, {buffer.size()/2, buffer2.size()}}));
       auto syncfilesp2(dispatcher->sync(punchholesp));
-      auto readfilesp1(dispatcher->read(make_async_data_op_req(syncfilesp2, buffer2, 0)));
+      auto readfilesp1(dispatcher->read(make_io_req(syncfilesp2, buffer2, 0)));
       BOOST_CHECK_NO_THROW(when_all(punchholesp, syncfilesp2, readfilesp1).get());
       bool allzero=true;
       for(auto &i : buffer2)
@@ -57,7 +57,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       BOOST_CHECK(allzero);
       auto punchholec(dispatcher->zero(writefilec, {{0, buffer2.size()}, {buffer.size()/2, buffer2.size()}}));
       auto syncfilec2(dispatcher->sync(punchholec));
-      auto readfilec1(dispatcher->read(make_async_data_op_req(syncfilec2, buffer2, 0)));
+      auto readfilec1(dispatcher->read(make_io_req(syncfilec2, buffer2, 0)));
       BOOST_CHECK_NO_THROW(when_all(punchholec, syncfilec2, readfilec1).get());
       allzero = true;
       for(auto &i : buffer2)

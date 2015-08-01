@@ -280,7 +280,7 @@ static void raninit(ranctx *x, u4 seed) {
 }
 
 static void dofilter(atomic<size_t> *callcount, detail::OpType, future<> &) { ++*callcount; }
-static void checkwrite(detail::OpType, handle *h, const detail::async_data_op_req_impl<true> &req, off_t offset, size_t idx, size_t no, const error_code &, size_t transferred)
+static void checkwrite(detail::OpType, handle *h, const detail::io_req_impl<true> &req, off_t offset, size_t idx, size_t no, const error_code &, size_t transferred)
 {
     size_t amount=0;
     for(auto &i: req.buffers)
@@ -323,11 +323,11 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
         auto manyopenfiles(dispatcher->file(manyfilereqs));
 
         // Write to each of those 1000 files as they are opened
-        std::vector<async_data_op_req<const char>> manyfilewrites;
+        std::vector<io_req<const char>> manyfilewrites;
         manyfilewrites.reserve(manyfilereqs.size());
         auto openit=manyopenfiles.begin();
         for(size_t n=0; n<manyfilereqs.size(); n++)
-                manyfilewrites.push_back(async_data_op_req<const char>(*openit++, &towrite.front(), towrite.size(), 0));
+                manyfilewrites.push_back(io_req<const char>(*openit++, &towrite.front(), towrite.size(), 0));
         auto manywrittenfiles(dispatcher->write(manyfilewrites));
 
         // Close each of those 1000 files once one byte has been written
@@ -396,7 +396,7 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
     {
             bool write;
             std::vector<char *> data;
-            async_data_op_req<char> req;
+            io_req<char> req;
     };
 #else
     struct Op
@@ -404,7 +404,7 @@ static void _1000_open_write_close_deletes(dispatcher_ptr dispatcher, size_t byt
             Hash256 hash; // Only used for reading
             bool write;
             ranctx seed;
-            async_data_op_req<char> req;
+            io_req<char> req;
     };
 #endif
 
@@ -613,7 +613,7 @@ static void evil_random_io(dispatcher_ptr dispatcher, size_t no, size_t bytes, s
                         manywrittenfiles[n]=dispatcher->completion(dispatcher->read(op.req), std::pair<async_op_flags, std::function<dispatcher::completion_t>>(async_op_flags::none, std::bind(checkHash, std::ref(op), towriteptrs[n], std::placeholders::_1, std::placeholders::_2)));
             }
             // After replay, read the entire file into memory
-            manywrittenfiles[n]=dispatcher->read(async_data_op_req<char>(manywrittenfiles[n], towriteptrs[n], towritesizes[n], 0));
+            manywrittenfiles[n]=dispatcher->read(io_req<char>(manywrittenfiles[n], towriteptrs[n], towritesizes[n], 0));
     }
    
     // Close each of those files

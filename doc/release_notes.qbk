@@ -185,6 +185,10 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * Fixed issue #83 Fix failure to handle Dedup reparse point types.
 
+* async_data_op_req is now io_req, similarly for make_async_data_op_req.
+
+
+
 Todo:
 
 * FIX symlink() CANNOT DO RACE-FREE

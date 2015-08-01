@@ -49,9 +49,9 @@ BOOST_AFIO_AUTO_TEST_CASE(delete_stability, "Tests that deleting files and direc
           std::vector<async_path_op_req> reqs={async_path_op_req::relative(dirh, "a", file_flags::create|file_flags::read_write), async_path_op_req::relative(dirh, "b", file_flags::create|file_flags::read_write), async_path_op_req::relative(dirh, "c", file_flags::create|file_flags::read_write)};
           auto files=dispatcher->file(reqs);
           auto resized=dispatcher->truncate(files, { sizeof(buffer), sizeof(buffer), sizeof(buffer)});
-          std::vector<async_data_op_req<char>> reqs2;
+          std::vector<io_req<char>> reqs2;
           for(auto &i : resized)
-            reqs2.push_back(make_async_data_op_req(i, buffer, 0));
+            reqs2.push_back(make_io_req(i, buffer, 0));
           auto written=dispatcher->write(reqs2);
           dirh.get();
           when_all(files.begin(), files.end()).get();

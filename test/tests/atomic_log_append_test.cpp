@@ -50,7 +50,7 @@ BOOST_AFIO_AUTO_TEST_CASE(atomic_log_append, "Tests that atomic append to a shar
               SpookyHash::Hash128(buffer.bytes, 16, &buffer.h1, &buffer.h2);
               // Atomically append the log entry to the log file and wait for it
               // to complete, then fetch the new size of the log file.
-              stat_t s=dispatcher->write(make_async_data_op_req(logfilea,
+              stat_t s=dispatcher->write(make_io_req(logfilea,
                 buffer.bytes, 32, 0))->lstat();
               if(s.st_allocated>8192 || s.st_size>8192)
               {

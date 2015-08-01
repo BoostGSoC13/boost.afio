@@ -510,7 +510,7 @@ namespace detail
                 DWORD written=0;
                 REPARSE_DATA_BUFFER *rpd=(REPARSE_DATA_BUFFER *) buffer;
                 memset(rpd, 0, sizeof(*rpd));
-                BOOST_AFIO_ERRHWINFN(DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, NULL, 0, rpd, sizeof(buffer), &written, NULL));
+                BOOST_AFIO_ERRHWINFN(DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, NULL, 0, rpd, sizeof(buffer), &written, NULL), [this]{return path();});
                 ReparsePointTag=rpd->ReparseTag;
               }
               stat.st_type=windows_nt_kernel::to_st_type(fai.BasicInformation.FileAttributes, ReparsePointTag);
@@ -1045,7 +1045,7 @@ namespace detail
             return std::make_pair(true, h);
         }
         // Called in unknown thread
-        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, handle_ptr h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const error_code &ec, size_t bytes_transferred)
+        void boost_asio_readwrite_completion_handler(bool is_write, size_t id, handle_ptr h, std::shared_ptr<std::tuple<atomic<bool>, atomic<size_t>, detail::io_req_impl<true>>> bytes_to_transfer, std::tuple<off_t, size_t, size_t, size_t> pars, const error_code &ec, size_t bytes_transferred)
         {
             if(!this->p->filters_buffers.empty())
             {
@@ -1091,7 +1091,7 @@ namespace detail
             }
             //std::cout << "id=" << id << " total=" << bytes_to_transfer->second << " this=" << bytes_transferred << std::endl;
         }
-        template<bool iswrite> void doreadwrite(size_t id, handle_ptr h, detail::async_data_op_req_impl<iswrite> req, async_io_handle_windows *p)
+        template<bool iswrite> void doreadwrite(size_t id, handle_ptr h, detail::io_req_impl<iswrite> req, async_io_handle_windows *p)
         {
             // asio::async_read_at() seems to have a bug and only transfers 64Kb per buffer
             // asio::windows::random_access_handle::async_read_some_at() clearly bothers
@@ -1103,7 +1103,7 @@ namespace detail
             {
                 amount+=asio::buffer_size(b);
             }
-            auto bytes_to_transfer=std::make_shared<std::tuple<atomic<bool>, atomic<size_t>, detail::async_data_op_req_impl<true>>>();
+            auto bytes_to_transfer=std::make_shared<std::tuple<atomic<bool>, atomic<size_t>, detail::io_req_impl<true>>>();
             //mingw choked on atomic<T>::operator=, thought amount was atomic&, so changed to store to avoid issue
             std::get<1>(*bytes_to_transfer).store(amount);
             std::get<2>(*bytes_to_transfer)=req;
@@ -1180,7 +1180,7 @@ namespace detail
             }
         }
         // Called in unknown thread
-        completion_returntype doread(size_t id, future<> op, detail::async_data_op_req_impl<false> req)
+        completion_returntype doread(size_t id, future<> op, detail::io_req_impl<false> req)
         {
             handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
@@ -1216,7 +1216,7 @@ namespace detail
             }
         }
         // Called in unknown thread
-        completion_returntype dowrite(size_t id, future<> op, detail::async_data_op_req_impl<true> req)
+        completion_returntype dowrite(size_t id, future<> op, detail::io_req_impl<true> req)
         {
             handle_ptr h(op.get_handle());
             async_io_handle_windows *p=static_cast<async_io_handle_windows *>(h.get());
@@ -1732,7 +1732,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::close, ops, async_op_flags::none, &async_file_io_dispatcher_windows::doclose);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> read(const std::vector<detail::async_data_op_req_impl<false>> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> read(const std::vector<detail::io_req_impl<false>> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1743,7 +1743,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::read, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::doread);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> write(const std::vector<detail::async_data_op_req_impl<true>> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> write(const std::vector<detail::io_req_impl<true>> &reqs) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)

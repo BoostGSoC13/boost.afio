@@ -100,7 +100,7 @@ int main(int argc, const char *argv[])
               // Schedule extending the log file
               auto extendlog(dispatcher->truncate(logfile, where+entrysize));
               // Schedule writing the new entry
-              auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
+              auto writetolog(dispatcher->write(make_io_req(extendlog, {logentry, mythreadid, logentryend}, where)));
               writetolog.get();
               extendlog.get();
               successes.fetch_add(1, memory_order_relaxed);
@@ -193,7 +193,7 @@ int main(int argc, const char *argv[])
               // Schedule extending the log file
               auto extendlog(dispatcher->truncate(logfile, where+entrysize));
               // Schedule writing the new entry
-              auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
+              auto writetolog(dispatcher->write(make_io_req(extendlog, {logentry, mythreadid, logentryend}, where)));
               // Fetch errors from the last operation first to avoid sleep-wake cycling
               writetolog.get();
               extendlog.get();
@@ -250,7 +250,7 @@ int main(int argc, const char *argv[])
               // Schedule extending the log file
               auto extendlog(dispatcher->truncate(logfile, where+entrysize));
               // Schedule writing the new entry
-              auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
+              auto writetolog(dispatcher->write(make_io_req(extendlog, {logentry, mythreadid, logentryend}, where)));
               writetolog.get();
               extendlog.get();
               successes.fetch_add(1, memory_order_relaxed);
@@ -336,7 +336,7 @@ int main(int argc, const char *argv[])
               temp.code=message_code_t::interest;
               temp.timestamp=nowtimestamp;
               temp.uniqueid=thread; // TODO FIXME: Needs to be a VERY random number to prevent collision.
-              dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
+              dispatcher->write(make_io_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
 
               // Step 2: Wait until my interest message appears, also figure out what interests precede
               //         mine and where my start of interest begins, and if someone currently has the lock
@@ -355,7 +355,7 @@ int main(int argc, const char *argv[])
                   size_t amount=(size_t)(lockfilesize-buffersoffset);
                   if(amount>sizeof(buffers))
                     amount=sizeof(buffers);
-                  dispatcher->read(make_async_data_op_req(lockfilez, (void *) buffers, amount, buffersoffset)).get();
+                  dispatcher->read(make_io_req(lockfilez, (void *) buffers, amount, buffersoffset)).get();
                   for(size_t n=amount/sizeof(buffers[0])-1; !validPrecedingCount && n<amount/sizeof(buffers[0]); n--)
                   {
                     // Early exit if messages have become stale
@@ -440,7 +440,7 @@ int main(int argc, const char *argv[])
                   if(preceding.empty())
                   {
                     temp.code=message_code_t::havelock;
-                    dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
+                    dispatcher->write(make_io_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
                     // Zero the range between startofinterest and myuniqueid
                     if(startofinterest<myuniqueid)
                     {
@@ -460,7 +460,7 @@ int main(int argc, const char *argv[])
                     if(temp.timestamp-nowtimestamp>=10)
                     {
                       temp.code=message_code_t::nominate;
-                      dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
+                      dispatcher->write(make_io_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
                       nowtimestamp=temp.timestamp;
                     }
                     //c.wait_for(l, chrono::milliseconds(1), [&fileChanged]{ return fileChanged==true; });
@@ -480,7 +480,7 @@ int main(int argc, const char *argv[])
               // Schedule extending the log file
               auto extendlog(dispatcher->truncate(logfile, where+entrysize));
               // Schedule writing the new entry
-              auto writetolog(dispatcher->write(make_async_data_op_req(extendlog, {logentry, mythreadid, logentryend}, where)));
+              auto writetolog(dispatcher->write(make_io_req(extendlog, {logentry, mythreadid, logentryend}, where)));
               // Fetch errors from the last operation first to avoid sleep-wake cycling
               writetolog.get();
               extendlog.get();
@@ -493,7 +493,7 @@ int main(int argc, const char *argv[])
               temp.timestamp=gettime();
               temp.uniqueid=myuniqueid;
 //              std::cout << thread << ": lock released for myuniqueid=" << myuniqueid << std::endl;
-              dispatcher->write(make_async_data_op_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
+              dispatcher->write(make_io_req(lockfilea, temp.bytes, sizeof(temp), 0)).get();
             }
           }
           catch(const system_error &e) { std::cerr << "ERROR: test exits via system_error code " << e.code().value() << "(" << e.what() << ")" << std::endl; abort(); }

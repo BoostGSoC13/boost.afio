@@ -31,7 +31,7 @@ int main()
     std::vector<std::function<void()>> vec_func(ary_size);
     for (int i = 0; i < ary_size; ++i)
     {
-         read_ops[i] = dispatcher->read(boost::afio::async_data_op_req<int>(opened_file, 
+         read_ops[i] = dispatcher->read(boost::afio::io_req<int>(opened_file, 
             &ary[i], sizeof(int), i*sizeof(int)));
         
          vec_func[i] = std::bind([](int* a){ *a *= 2 ; }, &ary[i]);

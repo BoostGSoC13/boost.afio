@@ -113,7 +113,7 @@ public:
             auto buffer=std::make_shared<std::vector<char, 
                 detail::aligned_allocator<char, 4096, false>>>(_length+1);
             // Schedule a read of the file
-            auto read=dispatcher->read(make_async_data_op_req(
+            auto read=dispatcher->read(make_io_req(
                 dispatcher->op_from_scheduled_id(id), buffer->data(), _length, 0));
             auto read_done=dispatcher->completion(read, 
                 std::make_pair(async_op_flags::none/*regex search might be slow*/, 
