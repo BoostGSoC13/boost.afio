@@ -127,9 +127,11 @@ A batch of op handles.
 
 ]
 ]
-[[``std::vector< future<> > symlink(const std::vector< path_req > & reqs)``
+[[``std::vector< future<> > symlink(const std::vector< path_req > & reqs, const std::vector< future<>> & targets = std::vector< future<>>())``
 
-] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures.
+] [Schedule a batch of asynchronous symlink creations and opens after a precondition. ] [[* const std::vector< path_req > &]: ['reqs]:  A batch of [^`path_req`] structures. 
+
+[* const std::vector< future<>> &]: ['targets]:  An optional batch of targets if creating symlinks.
 
 
 

@@ -1980,6 +1980,7 @@ public:
 
     \return A batch of op handles.
     \param reqs A batch of `path_req` structures.
+    \param targets An optional batch of targets if creating symlinks.
     \ingroup symlink
     \qbk{distinguish, batch}
     \raceguarantees{
@@ -1990,7 +1991,7 @@ public:
     \exceptionmodelstd
     \qexample{filedir_example}
     */
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<path_req> &reqs) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<path_req> &reqs, const std::vector<future<>> &targets=std::vector<future<>>()) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
     /*! \brief Schedule a batch of asynchronous symlink deletions after optional preconditions.
     
     \docs_rmsymlink
@@ -2174,7 +2175,7 @@ public:
     inline future<> rmdir(const path_req &req);
     inline future<> file(const path_req &req);
     inline future<> rmfile(const path_req &req);
-    inline future<> symlink(const path_req &req);
+    inline future<> symlink(const path_req &req, const future<> &target=future<>());
     inline future<> rmsymlink(const path_req &req);
     inline future<> sync(const future<> &req);
     inline future<> zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges);
@@ -3492,12 +3493,11 @@ inline future<> dispatcher::rmfile(const path_req &req)
     i.push_back(req);
     return std::move(rmfile(i).front());
 }
-inline future<> dispatcher::symlink(const path_req &req)
+inline future<> dispatcher::symlink(const path_req &req, const future<> &target)
 {
-    std::vector<path_req> i;
-    i.reserve(1);
-    i.push_back(req);
-    return std::move(symlink(i).front());
+    std::vector<path_req> i(1, req);
+    std::vector<future<>> t(1, target);
+    return std::move(symlink(i, t).front());
 }
 inline future<> dispatcher::rmsymlink(const path_req &req)
 {
@@ -3666,7 +3666,8 @@ namespace detail
   {
     T path;
     file_flags flags;
-    async_symlink(T _path, file_flags _flags) : path(std::move(_path)), flags(_flags) { }
+    future<> target;
+    async_symlink(T _path, file_flags _flags, future<> _target) : path(std::move(_path)), flags(_flags), target(std::move(_target)) { }
     future<> operator()(future<> f = future<>())
     {
       dispatcher *dispatcher = f.parent();
@@ -3674,7 +3675,7 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
-      return std::move(dispatcher->symlink(std::vector<path_req>(1, std::move(req))).front());
+      return std::move(dispatcher->symlink(std::vector<path_req>(1, std::move(req)), std::vector<future<>>(1, std::move(target))).front());
     }
   };
   template<class T> struct async_rmsymlink
@@ -4385,6 +4386,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \return A future<void>
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
+\param _target The item to link to if creating.
 \param _flags The flags to use.
 \ingroup symlink
 \qbk{distinguish, relative}
@@ -4396,9 +4398,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline future<> async_symlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline future<> async_symlink(future<> _precondition, T _path, future<> _target=future<>(), file_flags _flags = file_flags::none)
 {
-  return detail::async_symlink<T>(std::move(_path), _flags)(std::move(_precondition));
+  return detail::async_symlink<T>(std::move(_path), _flags, std::move(_target))(std::move(_precondition));
 }
 /*! \brief Asynchronous symlink creation and open after a precondition.
 
@@ -4408,6 +4410,7 @@ template<class T> inline future<> async_symlink(future<> _precondition, T _path,
 \tparam "class T" The type of path to use.
 \return A future<void>
 \param _path The filing system path to use.
+\param _target The item to link to if creating.
 \param _flags The flags to use.
 \ingroup symlink
 \qbk{distinguish, absolute}
@@ -4418,9 +4421,9 @@ template<class T> inline future<> async_symlink(future<> _precondition, T _path,
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline future<> async_symlink(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline future<> async_symlink(T _path, future<> _target=future<>(), file_flags _flags = file_flags::none)
 {
-  return detail::async_symlink<T>(std::move(_path), _flags)(future<>());
+  return detail::async_symlink<T>(std::move(_path), _flags, std::move(_target))(future<>());
 }
 /*! \brief Synchronous symlink creation and open after a precondition..
 
@@ -4431,6 +4434,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \return A handle to the symlink.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
+\param _target The item to link to if creating.
 \param _flags The flags to use.
 \ingroup symlink
 \qbk{distinguish, relative throwing}
@@ -4442,9 +4446,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline handle_ptr symlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr symlink(future<> _precondition, T _path, future<> _target = future<>(), file_flags _flags = file_flags::none)
 {
-  return detail::async_symlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  return detail::async_symlink<T>(std::move(_path), _flags, std::move(_target))(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous symlink creation and open after a precondition.
 
@@ -4454,6 +4458,7 @@ template<class T> inline handle_ptr symlink(future<> _precondition, T _path, fil
 \tparam "class T" The type of path to use.
 \return A handle to the symlink.
 \param _path The filing system path to use.
+\param _target The item to link to if creating.
 \param _flags The flags to use.
 \ingroup symlink
 \qbk{distinguish, absolute throwing}
@@ -4464,9 +4469,9 @@ template<class T> inline handle_ptr symlink(future<> _precondition, T _path, fil
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(T _path, future<> _target = future<>(), file_flags _flags = file_flags::none)
 {
-  return detail::async_symlink<T>(std::move(_path), _flags)(future<>()).get_handle();
+  return detail::async_symlink<T>(std::move(_path), _flags, std::move(_target))(future<>()).get_handle();
 }
 /*! \brief Synchronous symlink creation and open after a precondition.
 
@@ -4478,6 +4483,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
+\param _target The item to link to if creating.
 \param _flags The flags to use.
 \ingroup symlink
 \qbk{distinguish, relative non throwing}
@@ -4489,9 +4495,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline handle_ptr symlink(error_code &_ec, future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T> inline handle_ptr symlink(error_code &_ec, future<> _precondition, T _path, future<> _target = future<>(), file_flags _flags = file_flags::none)
 {
-  return detail::async_symlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  return detail::async_symlink<T>(std::move(_path), _flags, std::move(_target))(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous symlink creation and open after a precondition.
 
@@ -4502,6 +4508,7 @@ template<class T> inline handle_ptr symlink(error_code &_ec, future<> _precondit
 \return A handle to the symlink.
 \param _ec Error code to set.
 \param _path The filing system path to use.
+\param _target The item to link to if creating.
 \param _flags The flags to use.
 \ingroup symlink
 \qbk{distinguish, absolute non throwing}
@@ -4512,9 +4519,9 @@ template<class T> inline handle_ptr symlink(error_code &_ec, future<> _precondit
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr symlink(error_code &_ec, T _path, future<> _target = future<>(), file_flags _flags = file_flags::none)
 {
-  return detail::async_symlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  return detail::async_symlink<T>(std::move(_path), _flags, std::move(_target))(future<>()).get_handle(_ec);
 }
 
 /*! \brief Asynchronous symlink deletion after an optional precondition.

@@ -1677,7 +1677,7 @@ namespace detail
 #endif
             return chain_async_ops((int) detail::OpType::rmfile, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dormfile);
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<path_req> &reqs) override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> symlink(const std::vector<path_req> &reqs, const std::vector<future<>> &targets) override final
         {
 #if BOOST_AFIO_VALIDATE_INPUTS
             for(auto &i: reqs)
@@ -1686,7 +1686,14 @@ namespace detail
                     BOOST_AFIO_THROW(std::runtime_error("Inputs are invalid."));
             }
 #endif
-            return chain_async_ops((int) detail::OpType::symlink, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dosymlink);
+            std::vector<future<>> ops(targets);
+            ops.resize(reqs.size());
+            for(size_t n=0; n<reqs.size(); n++)
+            {
+              if(!ops[n].valid())
+                ops[n]=reqs[n].precondition;
+            }
+            return chain_async_ops((int) detail::OpType::symlink, ops, reqs, async_op_flags::none, &async_file_io_dispatcher_windows::dosymlink);
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::vector<future<>> rmsymlink(const std::vector<path_req> &reqs) override final
         {
