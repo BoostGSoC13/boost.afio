@@ -86,7 +86,7 @@
 
 '''<?dbhtml-include href="disqus_identifiers/introduction.html"?>'''
 
-__boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file
+__boost_afio__ is a C++ library which lets you schedule an ordered dependency graph of file and filesystem
 input/output operations to be executed asynchronously to the maximum capacity of your hardware. If you want
 to do portable asynchronous filesystem and file i/o in C++, especially if you need to easily order issues of reads and writes,
 this is the correct library to be looking at.
@@ -142,7 +142,7 @@ As a quick check list, if you have ever experienced any of these problems, then 
 performance], if anything there is a performance penalty in naive use of AFIO as a direct replacement for
 naive synchronous file i/o. What AFIO gives you is a large amount of ['control] with easy to twiddle knobs
 for benchmarking optimal filesystem strategies under various use cases. In other words, using AFIO lets you
-more easily write and test code that never performs really badly in corner cases.]
+more easily write and test code that ['never performs really badly] in corner cases.]
   
 __boost_afio__ is a __boost_bindlib__ based Boost library, and therefore is capable of any combination of
 the following build configurations:
@@ -167,18 +167,15 @@ making use of host OS asynchronous file i/o facilities are provided for:
 
 __boost_afio__ is regularly compiled and per-commit unit tested on these platforms:
 
-* Android (libc++ STL toolchain only).
-* Apple Mac OS X 10.9 (should still work on 10.5).
-* FreeBSD 10.1 (should also work on 10.0).
-* Linux kernels 2.6.32 to 3.13.
-* Microsoft Windows 8.1 (should still work on XP using mingw-w64).
+* Android with ext4 (libc++ STL toolchain only).
+* Apple Mac OS X 10.9 with HFS+ (should still work on 10.5).
+* FreeBSD 10.1 with ZFS (should also work on 10.0).
+* Linux kernels 2.6.32 to 3.13 with ext4.
+* Microsoft Windows 8.1 with NTFS (should still work on XP).
 
-__boost_afio__ extends __boost_asio__ and provides an alternative way of programming with ASIO.
-Implementation of this first version has been kept as simple as possible (~ 1000 active
-LOC) at the cost of some performance, though with a good modern compiler [link
-afio.FAQ.closure_performance you can expect 50-90% of the
-throughput of using raw Boost.ASIO] at a latency of [link
-afio.FAQ.closure_latency about 60,000 +/- 600 CPU cycles to get notified
+__boost_afio__ extends __boost_asio__ and is therefore dependent on ASIO (Boost or standalone).
+With a good modern compiler [link afio.FAQ.closure_performance you can expect 50-90% of the
+throughput of using raw Boost.ASIO] at a latency of [link afio.FAQ.closure_latency about 60,000 +/- 600 CPU cycles to get notified
 of the completion of an operation]. This library was brought to __boost__ as part of Google
 Summer of Code 2013.
 
@@ -197,7 +194,8 @@ Some popular compilers known to be minimally sufficient thanks to [@https://ci.n
 * clang v3.3, released in 2013. v1.0-v1.3 supported clang v3.2. clang v3.1 is known to produce segfaulting binaries.
 
 The Jenkins CI bot runs a full suite of static analysis tools (currently clang and MSVC static analysers and
-clang-tidy, [@http://ispras.linuxbase.org/index.php/ABI_compliance_checker the ABI stability compliance checker] is planned), runtime analysis tools (currently the clang undefined behaviour
+clang-tidy, [@http://ispras.linuxbase.org/index.php/ABI_compliance_checker the ABI stability compliance checker] is planned),
+runtime analysis tools (currently the clang undefined behaviour
 and thread sanitisers plus valgrind memcheck) plus a full set of unit tests for all supported compilers
 on all supported platforms for every single commit to master branch and every single pull request. Additionally,
 the Travis CI bot runs a full set of code coverage for the unit tests which is pushed to coveralls.io.

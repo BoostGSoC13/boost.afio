@@ -4,54 +4,59 @@
     http://www.boost.org/LICENSE_1_0.txt)
 ===============================================================================/]
 
-[section:overview AFIO single page cheat sheet]
+[section:overview AFIO single page cheat sheet for the very impatient]
 
 '''<?dbhtml-include href="disqus_identifiers/overview.html"?>'''
 
-AFIO models file descriptors/handles as a reference counted `std::shared_ptr<async_io_handle>` where `async_io_handle` is an
-opaque abstract base class. `async_io_handle` may, or may not, refer to a currently open file descriptor/handle
-i.e. it is possible to close it before the reference count reaches zero.
+AFIO models file descriptors/handles as a reference counted `std::shared_ptr<afio::handle>` (`afio::handle_ptr`) where `handle` is an
+opaque abstract base class. `handle` may, or may not, refer to a currently open file descriptor/handle
+i.e. it is possible to close it before the reference count reaches zero. You can create your own custom
+implementations of `handle`.
 
-__boost_afio__ version 1.4 provides a new free function tag dispatched continuations API in addition to the
-traditional batch API previously supported. The supported operations are as follows:
+AFIO models a filesystem as a reference counted `std::shared_ptr<afio::dispatcher>` (`afio::dispatcher_ptr`) where `dispatcher` is also
+an opaque abstract base class. When constructed using __make_dispatcher__ you specify a URI such as __fileurl__ which specifies what
+namespace the dispatcher will dispatch onto. You can create your own custom `dispatcher` implementations for some URI regex pattern too.
+
+AFIO provides its own custom future type `afio::future<T = void>` which [*always] represents a future `handle_ptr` plus an optional `T`
+which is usually `void` (hence defaulting `T` to `void`). This custom future type is implemented using __boost_monad__'s lightweight
+monadic future factory toolkit, and therefore provides all the C++ 1z Concurrency TS and __boost_thread__ extensions including
+continuations and wait composure. Note that lightweight futures can carry an `error_code` as well as an `exception_ptr`, and therefore
+much of the need for non-throwing `error_code` taking overloads is not needed.
+
+__boost_afio__ version 1.4 provides the following operations:
 
 [table:supported_operations
-[[Operation][Asynchronous Single][Synchronous Single][Asynchronous Batch]]
-[[Adopt a foreign fd/handle]                  [`future< > async_adopt(std::shared_ptr< async_io_handle > h)`][`std::shared_ptr< async_io_handle > adopt(future<> precondition, std::shared_ptr< async_io_handle > h)`][`std::vector< future<> > async_io_dispatcher_base::adopt(const std::vector< std::shared_ptr< async_io_handle >> & hs)`]]
-[[Open/create a directory]                    [`future< > async_dir(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > dir(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::dir(const std::vector< async_path_op_req > & reqs)`]]
-[[Delete a directory]                         [`future< > async_rmdir(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > rmdir(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::rmdir(const std::vector< async_path_op_req > & reqs)`]]
-[[Open/create a file]                         [`future< > async_file(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > file(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::file(const std::vector< async_path_op_req > & reqs)`]]
-[[Delete a file]                              [`future< > async_rmfile(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > rmfile(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::rmfile(const std::vector< async_path_op_req > & reqs)`]]
-[[Open/create a symlink]                      [`future< > async_symlink(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > symlink(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::symlink(const std::vector< async_path_op_req > & reqs)`]]
-[[Delete a symlink]                           [`future< > async_rmsymlink(T _path=path(), file_flags _flags = file_flags::none)`][`std::shared_ptr< async_io_handle > rmsymlink(future<> precondition, T _path=path(), file_flags _flags = file_flags::none)`][`std::vector< future<> > async_io_dispatcher_base::rmsymlink(const std::vector< async_path_op_req > & reqs)`]]
-[[Synchronise changes to non-volatile storage][`future< > async_sync()`][`std::shared_ptr< async_io_handle > sync(future<> precondition)`][`std::vector< future<> > async_io_dispatcher_base::sync(const std::vector< future<>> & ops)`]]
-[[Deallocate physical storage]                [`future< > async_zero(std::vector< std::pair< off_t, off_t >> ranges)`][`std::shared_ptr< async_io_handle > zero(future<> precondition, std::vector< std::pair< off_t, off_t >> ranges)`][`std::vector< future<> > async_io_dispatcher_base::zero(const std::vector< future<>> & ops, const std::vector< std::vector< std::pair< off_t, off_t >>> & ranges)`]]
-[[Close a fd/handle]                          [`future< > async_close()`][`std::shared_ptr< async_io_handle > close(future<> precondition)`][`std::vector< future<> > async_io_dispatcher_base::close(const std::vector< future<>> & ops)`]]
-[[Scatter read]                               [`future< > async_read(T && v, off_t _where)`][`std::shared_ptr< async_io_handle > read(future<> precondition, T && v, off_t _where)`][`template<class T> std::vector< future<> > async_io_dispatcher_base::read(const std::vector< async_data_op_req< T >> & ops)`]]
-[[Gather write]                               [`future< > async_write(T && v, off_t _where)`][`std::shared_ptr< async_io_handle > write(future<> precondition, T && v, off_t _where)`][`template<class T> std::vector< future<> > async_io_dispatcher_base::write(const std::vector< async_data_op_req< const T >> & ops)`]]
-[[Resize file]                                [`future< > async_truncate(off_t newsize)`][`std::shared_ptr< async_io_handle > truncate(future<> precondition, off_t newsize)`][`std::vector< future<> > async_io_dispatcher_base::truncate(const std::vector< future<>> & ops, const std::vector< off_t > & sizes)`]]
-[[Enumerate directory contents]               [`future< std::pair<std::vector<directory_entry>, bool> > async_enumerate(size_t _maxitems = 2, bool _restart = true, path _glob = path(), metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)`][`std::pair<std::vector<directory_entry>, bool> enumerate(future<> precondition, size_t _maxitems = 2, bool _restart = true, path _glob = path(), metadata_flags _metadata = metadata_flags::None, async_enumerate_op_req::filter _filtering = async_enumerate_op_req::filter::fastdeleted)`][`future< std::pair< std::vector< directory_entry >, bool > > async_io_dispatcher_base::enumerate(const async_enumerate_op_req & req)`]]
-[[Enumerate file storage extents]             [`future< std::vector<std::pair<off_t, off_t> > > async_extents()`][`std::vector<std::pair<off_t, off_t> > extents(future<> precondition)`][`std::vector< future< std::vector< std::pair< off_t, off_t > > > > async_io_dispatcher_base::extents(const std::vector< future<>> & ops)`]]
-[[Examine mounted volume]                     [`future< statfs_t > async_statfs(fs_metadata_flags req)`][`statfs_t statfs(future<> precondition, fs_metadata_flags req)`][`std::vector< future< statfs_t > > async_io_dispatcher_base::statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)`]]
+[[Operation]                                 [Asynchronous Batch][Asynchronous free function][Synchronous free function]]
+[[Open/create a directory]                   [__tick__]          []                          []]
+[[Delete a directory]                        [__tick__]          []                          []]
+[[Open/create a file]                        [__tick__]          []                          []]
+[[Delete a file]                             [__tick__]          []                          []]
+[[Open/create a symlink]                     [__tick__]          []                          []]
+[[Delete a symlink]                          [__tick__]          []                          []]
+[[Synchronise changes to physical storage]   [__tick__]          []                          []]
+[[Deallocate/zero physical storage]          [__tick__]          []                          []]
+[[Close a fd/handle]                         [__tick__]          []                          []]
+[[Scatter read file contents]                [__tick__]          []                          []]
+[[Gather write file contents]                [__tick__]          []                          []]
+[[Set maximum file extent]                   [__tick__]          []                          []]
+[[Enumerate directory contents/
+fetch file metadata]                         [__tick__]          []                          []]
+[[Enumerate file physical storage extents]   [__tick__]          []                          []]
+[[Examine mounted storage volume]            [__tick__]          []                          []]
 
-[[Get current path of an open fd/handle even if other processes are renaming it (Linux, Windows, FreeBSD directories only, not OS X)][N/A][path async_io_handle::path(bool refresh = false)][N/A]]
-[[Get open fd/handle metadata][N/A][path async_io_handle::direntry(metadata_flags wanted = directory_entry::metadata_fastpath())][N/A]]
-[[][N/A][stat_t async_io_handle::lstat(metadata_flags wanted = directory_entry::metadata_fastpath())][N/A]]
-[[Get target path of a symlink][N/A][path async_io_handle::target()][N/A]]
-[[Map a read-only file into memory][N/A][void * async_io_handle::try_mapfile()][N/A]]
-[[Hard link an open fd/handle to a new path][N/A][void async_io_handle::link(const async_path_op_req & req)][N/A]]
-[[Unlink an open fd/handle from its existing path (caution!)][N/A][void async_io_handle::unlink()][N/A]]
-[[Strong atomically relink an open fd/handle from its existing path to a different path][N/A][void async_io_handle::atomic_relink(const async_path_op_req & req)][N/A]]
-]
-
-The new free function tag dispatch API should make programming AFIO much easier on the programmer
-compared to writing single issues of the batch API as it was before.
-
-Here is how you would open a file and read some data using each style of API:
-
-[table:api_style_examples
-[[Asynchronous Single][Synchronous Single][Asynchronous Batch]]
-[[todo][todo][todo]]
+[[Get current path of an open fd/handle
+even if other processes are renaming it
+(Linux, Windows; FreeBSD directories only;
+not OS X)]                                   [__cross__]         []                          []]
+[[Get open fd/handle metadata]               [__cross__]         []                          []]
+[[Get target path of a symlink]              [__cross__]         []                          []]
+[[Map a read-only file into memory]          [__cross__]         []                          []]
+[[Hard link an open fd/handle to a new path] [__cross__]         []                          []]
+[[Unlink an open fd/handle from its existing
+path (caution!)]                             [__cross__]         []                          []]
+[[['Strong atomically] relink an open
+fd/handle from its existing path to a
+different path]                              [__cross__]         []                          []]
 ]
 
 Some other things you ought to be aware of:
