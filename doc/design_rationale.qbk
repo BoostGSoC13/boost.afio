@@ -8,103 +8,27 @@
 
 '''<?dbhtml-include href="disqus_identifiers/overview.html"?>'''
 
-AFIO models file descriptors/handles as a reference counted `std::shared_ptr<afio::handle>` (`afio::handle_ptr`) where `handle` is an
+* AFIO models file descriptors/handles as a reference counted `std::shared_ptr<__afio_handle__>` (aliased as `afio::handle_ptr`) where `handle` is an
 opaque abstract base class. `handle` may, or may not, refer to a currently open file descriptor/handle
 i.e. it is possible to close it before the reference count reaches zero. You can create your own custom
 implementations of `handle`.
 
-AFIO models a filesystem as a reference counted `std::shared_ptr<afio::dispatcher>` (`afio::dispatcher_ptr`) where `dispatcher` is also
-an opaque abstract base class. When constructed using __make_dispatcher__ you specify a URI such as __fileurl__ which specifies what
+* AFIO models a filesystem as a reference counted `std::shared_ptr<__afio_dispatcher__>` (aliased as `afio::dispatcher_ptr`) where `dispatcher` is also
+an opaque abstract base class. When constructed using __afio_make_dispatcher__ you specify a URI such as [*`__fileurl__`] which specifies what
 namespace the dispatcher will dispatch onto. You can create your own custom `dispatcher` implementations for some URI regex pattern too.
 
-AFIO provides its own custom future type `afio::future<T = void>` which [*always] represents a future `handle_ptr` plus an optional `T`
+* AFIO provides its own custom future type `afio::__afio_op__<T = void>` which [*always] represents a future `handle_ptr` plus an optional `T`
 which is usually `void` (hence defaulting `T` to `void`). This custom future type is implemented using __boost_monad__'s lightweight
 monadic future factory toolkit, and therefore provides all the C++ 1z Concurrency TS and __boost_thread__ extensions including
 continuations and wait composure. Note that lightweight futures can carry an `error_code` as well as an `exception_ptr`, and therefore
-much of the need for non-throwing `error_code` taking overloads is not needed.
+much of the need for non-throwing `error_code` taking API overloads is not needed (though any function not returning a future still
+uses that idiom).
 
-__boost_afio__ version 1.4 provides the following operations:
-
-[table:supported_operations
-[[Operation]                                 [Asynchronous Batch][Asynchronous free function][Synchronous free function]]
-[[Open/create a directory]                   [__tick__]          []                          []]
-[[Delete a directory]                        [__tick__]          []                          []]
-[[Open/create a file]                        [__tick__]          []                          []]
-[[Delete a file]                             [__tick__]          []                          []]
-[[Open/create a symlink]                     [__tick__]          []                          []]
-[[Delete a symlink]                          [__tick__]          []                          []]
-[[Synchronise changes to physical storage]   [__tick__]          []                          []]
-[[Deallocate/zero physical storage]          [__tick__]          []                          []]
-[[Close a fd/handle]                         [__tick__]          []                          []]
-[[Scatter read file contents]                [__tick__]          []                          []]
-[[Gather write file contents]                [__tick__]          []                          []]
-[[Set maximum file extent]                   [__tick__]          []                          []]
-[[Enumerate directory contents/
-fetch file metadata]                         [__tick__]          []                          []]
-[[Enumerate file physical storage extents]   [__tick__]          []                          []]
-[[Examine mounted storage volume]            [__tick__]          []                          []]
-
-[[Get current path of an open fd/handle
-even if other processes are renaming it
-(Linux, Windows; FreeBSD directories only;
-not OS X)]                                   [__cross__]         []                          []]
-[[Get open fd/handle metadata]               [__cross__]         []                          []]
-[[Get target path of a symlink]              [__cross__]         []                          []]
-[[Map a read-only file into memory]          [__cross__]         []                          []]
-[[Hard link an open fd/handle to a new path] [__cross__]         []                          []]
-[[Unlink an open fd/handle from its existing
-path (caution!)]                             [__cross__]         []                          []]
-[[['Strong atomically] relink an open
-fd/handle from its existing path to a
-different path]                              [__cross__]         []                          []]
-]
-
-Some other things you ought to be aware of:
-
-# ASIO, most Boost code and the STL 11 tend to follow the following API pattern:
-
- ``
- std::filesystem::create_directory("foo");      // throw exception if fails
- std::error_code ec;
- std::filesystem::create_directory("foo", ec);  // set ec to error code if fails 
- ``
-
- Thanks to lightweight futures, AFIO avoids the need for this pattern. As lightweight futures
-can return value/error/exception AFIO guarantees that expected errors always return an
-error code (`get_error()`) whilst unexpected errors always return an exception
-(`get_exception()`). For compatibility with STL futures, calling `get_exception()` or `get()`
-on a lightweight future with an error code state will convert that error code into a suitable
-exception, so if you wish to avoid the overhead of an exception throw simply test the future
-for an errored state before retrieving any value like this:
-
- ``
- afio::future<> &h;   // some outstanding scheduled AFIO operation
- // Block until operation completes, retrieving any error code which will be non-null if
- // there is an errored or excepted state
- if(h.get_error()) {
-   if(h.has_error())
-     // It's an expected error
-   else
-     // It's an unexpected error, use h.get_exception() to retrieve
- } else
-   // It's a value, use h.get() to retrieve
- ``
- 
- The above can be more tersely written using monadic operations (if those are enabled at
-compile time) instead:
- 
- ``
- afio::future<> &h;   // some outstanding scheduled AFIO operation
- h.get_monad()
-   >> [](std::error_code ec) { /* it's an expected error */ }
-   >> [](std::exception_ptr e) { /* it's an exception */ }
-   >> [](monad<std::shared_ptr<async_io_handle> value) { /* it's a value */ };
- ``
- 
-# On Microsoft Windows, AFIO [*always] uses NT kernel paths, never Win32 paths. By skipping the Win32
-translation layer one achieves significantly better performance and much closer to POSIX semantics
-including case sensitivity, plus there are no issues with path length limits.
-On Windows `afio::path` (NT kernel paths) will usually auto convert to and from `filesystem::path`
+* AFIO provides its own custom filesystem path type __afio_path__ which is a thin wrap of your STL/Boost
+Filesystem path. This is done because on Microsoft Windows, AFIO [*always] uses NT kernel paths,
+never Win32 paths. By skipping the Win32 translation layer one achieves significantly better
+performance and much closer to POSIX semantics including case sensitivity, plus there are no issues
+with path length limits. On Windows `afio::path` (NT kernel paths) will usually auto convert to and from `filesystem::path`
 (Win32 paths), however do note there is not always a one to one mapping from a NT kernel path to
 a Win32 path in which case the Win32 paths to send in will never be the Win32 paths you get out.
 See the documentation for __afio_path__.
@@ -113,27 +37,76 @@ See the documentation for __afio_path__.
 do directory enumerations from an x86 binary on a x64 Windows system. This is due to a bug in
 Microsoft's WOW64 syscall translation layer which Microsoft have decided is wontfix.]
 
-# Error reporting [*always] follows the ["earliest possible reporting] rule. As absolutely
-everything is asynchronous in AFIO, that also means that exception handling also occurs
+* Error reporting [*always] follows the ["earliest possible reporting] rule. As absolutely
+everything is asynchronous in AFIO, that also means that error and exception handling also occurs
 asynchronously. So if you try to use a future as an input and that future is
 errored at the point of use, the errored state is immediately rethrown. As futures may
 become errored asynchronously, that means you must always write code which assumes any
 API which consumes a future can throw (unless you know for a fact the future is ready and
 not errored).
 
-# Handles to directories may ignore requests to close them i.e. `std::shared_ptr<async_io_handle>.close()`
-is a no-op. This is due to a performance feature called ["directory handle caching] which shares
-read-only directory handles amongst all users unless specifically requested not to do so.
+ [note Gathering error states from many futures at once is made easier using the `when_all_p()`
+(when all propagating) extended wait composure function from __boost_monad__ __dash__ this
+propagates any error in any of the entry futures into the composed output future, thus saving
+you having to check the futures for errors by hand.]
 
-# As a general rule, AFIO spots when you try to delete a currently open file handle where
+* Handles to directories may ignore requests to close them i.e. `handle_ptr->close()`
+is a no-op. This is due to a performance feature called ["directory handle caching] which shares
+read-only directory handles amongst all users unless specifically requested not to do so. You
+can test for this using the `available_to_directory_cache()` member function of `handle`.
+
+* As a general rule, AFIO spots when you try to delete a currently open file handle where
 that is illegal on your platform (Microsoft Windows) and will instead rename the file to a
-cryptographically strong random name and ask the operating system to delete
-it later when the last handle is closed. This emulates POSIX semantics, albeit imperfectly.
+cryptographically strong random name of the form `<32 chars of random hex>.afiod` and ask the operating system to delete
+it later when the last handle is closed. Any enumerations of directories containing these
+randomised named files will omit those entries by default. This emulates POSIX semantics, albeit imperfectly.
 One caveat is it cannot always do this with directories,
 though it tries hard to try again later where it can. A future version of AFIO will add `tmpfs`
 support which will let us relocate troublesome directories into the temp directory where they can
 be deleted much later, thus more closely matching POSIX semantics still further.
  
+__boost_afio__ version 1.4 provides the following operations:
+
+[table:supported_operations
+[[Operation][Asynchronous batch `__afio_dispatcher__` functions][Synchronous `__afio_handle__` functions][Asynchronous free functions][Synchronous free functions]]
+[[[link afio.reference.functions.dir Open/create a directory: `dir()`]]                         [1] [] [2] [4]]
+[[[link afio.reference.functions.rmdir Delete a directory: `rmdir()`]]                          [1] [] [2] [4]]
+[[[link afio.reference.functions.file Open/create a file: `file()`]]                            [1] [] [2] [4]]
+[[[link afio.reference.functions.rmfile Delete a file: `rmfile()`]]                             [1] [] [2] [4]]
+[[[link afio.reference.functions.symlink Open/create a symlink: `symlink()`]]                   [1] [] [2] [4]]
+[[[link afio.reference.functions.rmsymlink Delete a symlink: `rmsymlink()`]]                    [1] [] [2] [4]]
+[[[link afio.reference.functions.sync Synchronise changes to physical storage: `sync()`]]       [1] [] [1] [2]]
+[[[link afio.reference.functions.zero Deallocate/zero physical storage: `zero()`]]              [1] [] [1] [2]]
+[[[link afio.reference.functions.close Close a fd/handle: `close()`]]                           [1] [] [1] [2]]
+[[[link afio.reference.functions.read Scatter read file contents: `read()`]]                    [1] [] [2] [4]]
+[[[link afio.reference.functions.write Gather write file contents: `write()`]]                  [1] [] [2] [4]]
+[[[link afio.reference.functions.truncate Set maximum file extent: `truncate()`]]               [1] [] [1] [2]]
+[[[link afio.reference.functions.enumerate Enumerate directory contents/
+fetch file metadata: `enumerate()`]]                                                            [1] [] [3] [6]]
+[[[link afio.reference.functions.extents Enumerate file physical storage extents: `extents()`]] [1] [] [1] [2]]
+[[[link afio.reference.functions.statfs Examine mounted storage volume: `statfs()`]]            [1] [] [1] [2]]
+
+[[[link afio.reference.classes.handle.path Get current path of an open fd/handle
+even if other processes are renaming it
+(Linux, Windows; FreeBSD directories only;
+not OS X): `path()`]]                                                                           [] [2] [] []]
+[[[link afio.reference.classes.handle.direntry Get open fd/handle metadata: `direntry()`, `lstat()`]][] [2] [] []]
+[[[link afio.reference.classes.handle.target Get target path of a symlink: `target()`]]         [] [1] [] []]
+[[[link afio.reference.classes.handle Map a read-only file into memory: `try_mapfile()`]]       [] [1] [] []]
+[[[link afio.reference.classes.handle.link Hard link an open fd/handle to a new path: `link()`]][] [1] [] []]
+[[[link afio.reference.classes.handle.unlink Unlink an open fd/handle from its existing
+path (caution!): `unlink()`]]                                                                   [] [1] [] []]
+[[[link afio.reference.classes.handle.atomic_relink ['Strong guaranteed atomically] relink an open
+fd/handle from its existing path to a different path: `atomic_relink()`]]                       [] [1] [] []]
+]
+
+Planned new operations coming next version of AFIO so you know what's coming next:
+
+* Mutual exclusion and locking which works across NFS and Samba:
+  * The ability to tag many `handle`'s with what locking to do per operation.
+  * Asynchronous exclusive lock files.
+  * Asynchronous multi-file byte range locking.
+  * Individual file change monitoring (needed to implement locking).
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 
