@@ -1441,6 +1441,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
         | metadata_flags::birthtim   // FILE_BASIC_INFORMATION, enumerated
         | metadata_flags::sparse     // FILE_BASIC_INFORMATION, enumerated
         | metadata_flags::compressed // FILE_BASIC_INFORMATION, enumerated
+        | metadata_flags::reparse_point // FILE_BASIC_INFORMATION, enumerated
         ;
 #elif defined(__linux__)
     ret=metadata_flags::None
@@ -1467,6 +1468,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
     // ext4 keeps birth time at offset 144 to 151 in the inode. If we ever got round to it, birthtime could be hacked.
         | metadata_flags::sparse
         //| metadata_flags::compressed
+        //| metadata_flags::reparse_point
         ;
 #else
     // Kinda assumes FreeBSD or OS X really ...
@@ -1491,6 +1493,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_su
         | metadata_flags::birthtim
         | metadata_flags::sparse
         //| metadata_flags::compressed
+        //| metadata_flags::reparse_point
         ;
 #endif
     return ret;
@@ -1521,6 +1524,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
         | metadata_flags::birthtim   // FILE_BASIC_INFORMATION, enumerated
         | metadata_flags::sparse     // FILE_BASIC_INFORMATION, enumerated
         | metadata_flags::compressed // FILE_BASIC_INFORMATION, enumerated
+        | metadata_flags::reparse_point // FILE_BASIC_INFORMATION, enumerated
         ;
 #elif defined(__linux__)
     ret=metadata_flags::None
@@ -1547,6 +1551,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
     // ext4 keeps birth time at offset 144 to 151 in the inode. If we ever got round to it, birthtime could be hacked.
         | metadata_flags::sparse
         //| metadata_flags::compressed
+        //| metadata_flags::reparse_point
         ;
 #else
     // Kinda assumes FreeBSD or OS X really ...
@@ -1571,6 +1576,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC metadata_flags directory_entry::metadata_fa
         | metadata_flags::birthtim
         | metadata_flags::sparse
         //| metadata_flags::compressed
+        //| metadata_flags::reparse_point
         ;
 #endif
     return ret;
@@ -3389,6 +3395,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(ffdi->CreationTime); }
             if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE); }
             if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
+            if(!!(wanted&metadata_flags::reparse_point)) { stat.st_reparse_point=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT); }
         }
         else
         {
@@ -3424,6 +3431,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
 #endif
             if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=direntry.stat.st_sparse; }
             if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=direntry.stat.st_compressed; }
+            if(!!(wanted&metadata_flags::reparse_point)) { stat.st_reparse_point=direntry.stat.st_reparse_point; }
         }
     }
     else

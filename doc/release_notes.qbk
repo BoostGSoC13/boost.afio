@@ -193,6 +193,8 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * Added optional additional target parameter to symlink().
 
+* Added reparse_point flag to stat_t.
+
 Todo:
 * GET BOOST BUILD WORKING AGAIN (Boost.Monad!)
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure

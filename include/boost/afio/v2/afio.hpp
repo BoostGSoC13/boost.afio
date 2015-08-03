@@ -796,6 +796,8 @@ using handle_ptr = std::shared_ptr<handle>;
 /*! \enum metadata_flags
 \brief Bitflags for availability of metadata from `struct stat_t`
 \ingroup metadata_flags
+
+See __afio_stat_t__ for explanation of meaning.
 */
 enum class metadata_flags : size_t
 {
@@ -820,6 +822,7 @@ enum class metadata_flags : size_t
     birthtim=1<<17,
     sparse=1<<24,
     compressed=1<<25,
+    reparse_point=1<<26,
     All=(size_t)-1       //!< Return the maximum possible metadata.
 };
 BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
@@ -828,19 +831,21 @@ BOOST_AFIO_DECLARE_CLASS_ENUM_AS_BITFIELD(metadata_flags)
 
 This structure looks somewhat like a `struct stat`, and indeed it was derived from BSD's `struct stat`.
 However there are a number of changes to better interoperate with modern practice, specifically:
-(i) inode value containers are forced to 64 bits.
-(ii) Timestamps use C++11's `std::chrono::system_clock::time_point` or Boost equivalent. The resolution
+
+- inode value containers are forced to 64 bits.
+- Timestamps use C++11's `std::chrono::system_clock::time_point` or Boost equivalent. The resolution
 of these may or may not equal what a `struct timespec` can do depending on your STL.
-(iii) The type of a file, which is available on Windows and on POSIX without needing an additional
+- The type of a file, which is available on Windows and on POSIX without needing an additional
 syscall, is provided by `st_type` which is one of the values from `filesystem::file_type`.
-(iv) As type is now separate from permissions, there is no longer a `st_mode`, instead being a
+- As type is now separate from permissions, there is no longer a `st_mode`, instead being a
 `st_perms` which is solely the permissions bits. If you want to test permission bits in `st_perms`
 but don't want to include platform specific headers, note that `filesystem::perms` contains
 definitions of the POSIX permissions flags.
-(v) The st_sparse and st_compressed flags indicate if your file is sparse and/or compressed, or if
+- The st_sparse and st_compressed flags indicate if your file is sparse and/or compressed, or if
 the directory will compress newly created files by default. Note that on POSIX, a file is sparse
 if and only if st_allocated < st_size which can include compressed files if that filing system is mounted
 with compression enabled (e.g. ZFS with ZLE compression which elides runs of zeros).
+- The st_reparse_point is a Windows only flag and is never set on POSIX, even on a NTFS volume.
 */
 struct stat_t
 {
@@ -875,6 +880,7 @@ struct stat_t
 
     unsigned        st_sparse : 1;                /*!< if this file is sparse, or this directory capable of sparse files (Windows, POSIX) */
     unsigned        st_compressed : 1;            /*!< if this file is compressed, or this directory capable of compressed files (Windows) */
+    unsigned        st_reparse_point : 1;         /*!< if this file or directory is a reparse point (Windows) */
     
     //! Constructs a UNINITIALIZED instance i.e. full of random garbage
     stat_t() { }
@@ -896,7 +902,7 @@ struct stat_t
 #ifndef WIN32
         st_uid(0), st_gid(0), st_rdev(0),
 #endif
-        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0), st_sparse(0), st_compressed(0) { }
+        st_size(0), st_allocated(0), st_blocks(0), st_blksize(0), st_flags(0), st_gen(0), st_sparse(0), st_compressed(0), st_reparse_point(0) { }
 };
 
 /*! \enum fs_metadata_flags
@@ -971,6 +977,8 @@ struct statfs_t
 Note that `directory_entry_hash` will hash one of these for you, and a `std::hash<directory_entry>` specialisation
 is defined for you so you ought to be able to use directory_entry directly in an `unordered_map<>`.
 
+See `__afio_stat_t__` for explanations of the fields.
+
 \qbk{
 [include generated/struct_directory_entry_hash.qbk]
 }
@@ -1015,7 +1023,7 @@ public:
     /*! \brief Fetches the specified metadata, returning that newly available. This is a blocking call if wanted metadata is not yet ready.
     Note that if the call blocks and the leafname no longer exists or the directory handle is null, an exception is thrown.
     \return The metadata now available in this directory entry.
-    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
+    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.get_handle().
     \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
     */
     metadata_flags fetch_metadata(handle_ptr dirh, metadata_flags wanted)
@@ -1029,7 +1037,7 @@ public:
     /*! \brief Returns a copy of the internal `stat_t` structure. This is a blocking call if wanted metadata is not yet ready.
     Note that if the call blocks and the leafname no longer exists or the directory handle is null, an exception is thrown.
     \return A copy of the internal `stat_t` structure.
-    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.h->get().
+    \param dirh An open handle to the entry's containing directory. You can get this from an op ref using dirop.get_handle().
     \param wanted A bitfield of the metadata to fetch. This does not replace existing metadata.
     */
     stat_t fetch_lstat(handle_ptr dirh, metadata_flags wanted=directory_entry::metadata_fastpath())
@@ -1046,46 +1054,46 @@ decltype(stat_t().st_##field) st_##field(handle_ptr dirh) { if(!(have_metadata&m
 fieldtype st_##field(handle_ptr dirh=handle_ptr()) { if(!(have_metadata&metadata_flags::field)) { _int_fetch(metadata_flags::field, dirh); } return stat.st_##field; }
 #endif
 #ifndef WIN32
-    //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_dev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(dev)
 #endif
-    //! Returns st_ino \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_ino \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ino)
-    //! Returns st_type \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_type \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(type)
 #ifndef WIN32
-    //! Returns st_perms \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_perms \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(perms)
 #endif
-    //! Returns st_nlink \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_nlink \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(nlink)
 #ifndef WIN32
-    //! Returns st_uid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_uid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(uid)
-    //! Returns st_gid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_gid \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gid)
-    //! Returns st_rdev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_rdev \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(rdev)
 #endif
-    //! Returns st_atim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_atim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(atim)
-    //! Returns st_mtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_mtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(mtim)
-    //! Returns st_ctim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_ctim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(ctim)
-    //! Returns st_size \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_size \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(size)
-    //! Returns st_allocated \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_allocated \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(allocated)
-    //! Returns st_blocks \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_blocks \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(blocks)
-    //! Returns st_blksize \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_blksize \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(blksize)
-    //! Returns st_flags \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_flags \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(flags)
-    //! Returns st_gen \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_gen \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(gen)
-    //! Returns st_birthtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.h->get().
+    //! Returns st_birthtim \param dirh An optional open handle to the entry's containing directory if fetching missing metadata is desired (an exception is thrown otherwise). You can get this from an op ref using dirop.get_handle().
     BOOST_AFIO_DIRECTORY_ENTRY_ACCESS_METHOD(birthtim)
 
     //! A bitfield of what metadata is available on this platform. This doesn't mean all is available for every filing system.
@@ -1201,6 +1209,7 @@ public:
     off_t write_count_since_fsync() const { return byteswritten-byteswrittenatlastfsync; }
     /*! \brief Returns a mostly filled directory_entry for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss.
 
+    Related types: `__afio_directory_entry__`, `__afio_stat_t__`
     \return A directory entry for this handle.
     \param wanted The metadata wanted.
     \ingroup async_io_handle__ops
@@ -1212,7 +1221,10 @@ public:
     }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC directory_entry direntry(metadata_flags wanted=directory_entry::metadata_fastpath()) BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    //! Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss. Calls direntry(), so same race guarantees as that call.
+    /*! \brief Returns a mostly filled stat_t structure for the file or directory referenced by this handle. Use `metadata_flags::All` if you want it as complete as your platform allows, even at the cost of severe performance loss. Calls direntry(), so same race guarantees as that call.
+
+    Related types: `__afio_directory_entry__`, `__afio_stat_t__`
+    */
     stat_t lstat(metadata_flags wanted=directory_entry::metadata_fastpath())
     {
         directory_entry de(direntry(wanted));
@@ -1242,6 +1254,9 @@ public:
     anywhere in the system. This is an operating system limitation.
  
     \ntkernelnamespacenote
+
+    Related types: `__afio_path_req__`
+
     \param req The absolute or relative (in which case precondition specifies a directory) path to create a hard link at.
     \ingroup async_io_handle__ops
     \raceguarantees{
@@ -1275,6 +1290,9 @@ public:
     before.
 
     \ntkernelnamespacenote
+
+    Related types: `__afio_path_req__`
+
     \ingroup async_io_handle__ops
     \raceguarantees{
     [raceguarantee FreeBSD, Linux..Race free up to the containing directory.]
@@ -1298,6 +1316,9 @@ public:
     anywhere in the system. This is an operating system limitation.
 
     \ntkernelnamespacenote
+
+    Related types: `__afio_path_req__`
+
     \param req The absolute or relative (in which case precondition specifies a directory) path to relink to.
     \ingroup async_io_handle__ops
     \raceguarantees{

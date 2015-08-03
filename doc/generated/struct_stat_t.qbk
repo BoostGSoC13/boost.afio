@@ -16,7 +16,16 @@
 Metadata about a directory entry. 
 
 [heading Description]
-This structure looks somewhat like a [^`struct stat`], and indeed it was derived from BSD's [^`struct stat`]. However there are a number of changes to better interoperate with modern practice, specifically: (i) inode value containers are forced to 64 bits. (ii) Timestamps use C++11's [^`std::chrono::system_clock::time_point`] or Boost equivalent. The resolution of these may or may not equal what a [^`struct timespec`] can do depending on your STL. (iii) The type of a file, which is available on Windows and on POSIX without needing an additional syscall, is provided by [^`st_type`] which is one of the values from [^`filesystem::file_type`]. (iv) As type is now separate from permissions, there is no longer a [^`st_mode`], instead being a [^`st_perms`] which is solely the permissions bits. If you want to test permission bits in [^`st_perms`] but don't want to include platform specific headers, note that [^`filesystem::perms`] contains definitions of the POSIX permissions flags. (v) The st\u005fsparse and st\u005fcompressed flags indicate if your file is sparse and/or compressed, or if the directory will compress newly created files by default. Note that on POSIX, a file is sparse if and only if st\u005fallocated < st\u005fsize which can include compressed files if that filing system is mounted with compression enabled (e.g. ZFS with ZLE compression which elides runs of zeros). 
+This structure looks somewhat like a [^`struct stat`], and indeed it was derived from BSD's [^`struct stat`]. However there are a number of changes to better interoperate with modern practice, specifically:
+
+* inode value containers are forced to 64 bits.
+* Timestamps use C++11's [^`std::chrono::system_clock::time_point`] or Boost equivalent. The resolution of these may or may not equal what a [^`struct timespec`] can do depending on your STL.
+* The type of a file, which is available on Windows and on POSIX without needing an additional syscall, is provided by [^`st_type`] which is one of the values from [^`filesystem::file_type`].
+* As type is now separate from permissions, there is no longer a [^`st_mode`], instead being a [^`st_perms`] which is solely the permissions bits. If you want to test permission bits in [^`st_perms`] but don't want to include platform specific headers, note that [^`filesystem::perms`] contains definitions of the POSIX permissions flags.
+* The st\u005fsparse and st\u005fcompressed flags indicate if your file is sparse and/or compressed, or if the directory will compress newly created files by default. Note that on POSIX, a file is sparse if and only if st\u005fallocated < st\u005fsize which can include compressed files if that filing system is mounted with compression enabled (e.g. ZFS with ZLE compression which elides runs of zeros).
+* The st\u005freparse\u005fpoint is a Windows only flag and is never set on POSIX, even on a NTFS volume. 
+
+
 
 [heading Synopsis]
 ``struct stat_t
@@ -41,6 +50,7 @@ This structure looks somewhat like a [^`struct stat`], and indeed it was derived
   chrono::system_clock::time_point st_birthtim;  // time of file creation (Windows, FreeBSD, OS X, zero otherwise) 
   unsigned st_sparse;                            // if this file is sparse, or this directory capable of sparse files (Windows, POSIX) 
   unsigned st_compressed;                        // if this file is compressed, or this directory capable of compressed files (Windows) 
+  unsigned st_reparse_point;                     // if this file or directory is a reparse point (Windows) 
 };
 ``
 

@@ -16,7 +16,7 @@
 Schedule a batch of asynchronous data writes after preceding operations, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>
@@ -52,7 +52,7 @@ A batch of op handles.
 Asynchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>
@@ -90,7 +90,7 @@ A future<void>
 Asynchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>
@@ -130,7 +130,7 @@ A future<void>
 Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>
@@ -168,7 +168,7 @@ A handle with outcome.
 Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>
@@ -208,7 +208,7 @@ A handle with outcome.
 Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>
@@ -248,7 +248,7 @@ A handle with outcome.
 Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size. 
 
 [heading Description]
-Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
+Related types: [^`__afio_io_req__`] Note that on Windows this call issues a separate async file operation for each buffer supplied, thus making scatter/gather i/o no more efficient than making separate calls. The big exception to this is when doing unbuffered page aligned i/o for which Windows provides special scatter/gather i/o functions. You should therefore assume that only each buffer is atomically read or written rather than the full sequence of buffers at once (this also applies to POSIX systems without the preadv()/pwritev() operations).
 
 [heading Synopsis]
 ``template<class T>

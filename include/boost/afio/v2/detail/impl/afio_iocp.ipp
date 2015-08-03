@@ -450,7 +450,7 @@ namespace detail
             FILE_ALL_INFORMATION &fai=*(FILE_ALL_INFORMATION *)buffer;
             FILE_FS_SECTOR_SIZE_INFORMATION ffssi={0};
             bool needInternal=!!(wanted&metadata_flags::ino);
-            bool needBasic=(!!(wanted&metadata_flags::type) || !!(wanted&metadata_flags::atim) || !!(wanted&metadata_flags::mtim) || !!(wanted&metadata_flags::ctim) || !!(wanted&metadata_flags::birthtim) || !!(wanted&metadata_flags::sparse) || !!(wanted&metadata_flags::compressed));
+            bool needBasic=(!!(wanted&metadata_flags::type) || !!(wanted&metadata_flags::atim) || !!(wanted&metadata_flags::mtim) || !!(wanted&metadata_flags::ctim) || !!(wanted&metadata_flags::birthtim) || !!(wanted&metadata_flags::sparse) || !!(wanted&metadata_flags::compressed) || !!(wanted&metadata_flags::reparse_point));
             bool needStandard=(!!(wanted&metadata_flags::nlink) || !!(wanted&metadata_flags::size) || !!(wanted&metadata_flags::allocated) || !!(wanted&metadata_flags::blocks));
             // It's not widely known that the NT kernel supplies a stat() equivalent i.e. get me everything in a single syscall
             // However fetching FileAlignmentInformation which comes with FILE_ALL_INFORMATION is slow as it touches the device driver,
@@ -526,6 +526,7 @@ namespace detail
             if(!!(wanted&metadata_flags::birthtim)) { stat.st_birthtim=to_timepoint(fai.BasicInformation.CreationTime); }
             if(!!(wanted&metadata_flags::sparse)) { stat.st_sparse=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE); }
             if(!!(wanted&metadata_flags::compressed)) { stat.st_compressed=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_COMPRESSED); }
+            if(!!(wanted&metadata_flags::reparse_point)) { stat.st_reparse_point=!!(fai.BasicInformation.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT); }
             return directory_entry(const_cast<async_io_handle_windows *>(this)->path(true).filename().native(), stat, wanted);
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path target() override final
@@ -1341,6 +1342,7 @@ namespace detail
                     item.stat.st_birthtim=to_timepoint(ffdi->CreationTime);
                     item.stat.st_sparse=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE);
                     item.stat.st_compressed=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_COMPRESSED);
+                    item.stat.st_reparse_point=!!(ffdi->FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
                     _ret.push_back(std::move(item));
                 }
                 if(needmoremetadata)

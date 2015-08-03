@@ -15,6 +15,9 @@
 '''<indexterm><primary>statfs</primary></indexterm>'''
 Schedule a batch of asynchronous volume enumerations after preceding operations. 
 
+[heading Description]
+Related types: [^`__afio_statfs_t__`]
+
 [heading Synopsis]
 ``future< statfs_t > dispatcher::statfs(const std::vector< future<>> & ops, const std::vector< fs_metadata_flags > & reqs)``
 
@@ -53,6 +56,9 @@ is fetched separately.]
 
 '''<indexterm><primary>async_statfs</primary></indexterm>'''
 Asynchronous volume enumeration after a preceding operation. 
+
+[heading Description]
+Related types: [^`__afio_statfs_t__`]
 
 [heading Synopsis]
 ``future<statfs_t> async_statfs(future<> _precondition, fs_metadata_flags req)``
@@ -93,6 +99,9 @@ is fetched separately.]
 '''<indexterm><primary>statfs</primary></indexterm>'''
 Synchronous volume enumeration after a preceding operation. 
 
+[heading Description]
+Related types: [^`__afio_statfs_t__`]
+
 [heading Synopsis]
 ``statfs_t statfs(future<> _precondition, fs_metadata_flags req)``
 
@@ -131,6 +140,9 @@ is fetched separately.]
 
 '''<indexterm><primary>statfs</primary></indexterm>'''
 Synchronous volume enumeration after a preceding operation. 
+
+[heading Description]
+Related types: [^`__afio_statfs_t__`]
 
 [heading Synopsis]
 ``statfs_t statfs(error_code & _ec, future<> _precondition, fs_metadata_flags req)``

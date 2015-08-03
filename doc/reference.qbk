@@ -16,7 +16,6 @@
 [endsect]
 
 [section:structs Structures]
-[include generated/struct_directory_entry_hash.qbk]
 [include generated/struct_enumerate_req.qbk]
 [section:io_req io_req]
 [include generated/struct_io_req.qbk]

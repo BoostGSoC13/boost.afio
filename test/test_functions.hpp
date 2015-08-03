@@ -839,6 +839,7 @@ static stat_t print_stat(handle_ptr h)
     PRINT_FIELD(birthtim);
     PRINT_FIELD(sparse);
     PRINT_FIELD(compressed);
+    PRINT_FIELD(reparse_point);
 #undef PRINT_FIELD
     return entry;
 }
@@ -908,6 +909,7 @@ static void print_stat(handle_ptr dirh, directory_entry direntry)
     PRINT_FIELD(birthtim);
     PRINT_FIELD(sparse);
     PRINT_FIELD(compressed);
+    PRINT_FIELD(reparse_point);
 #undef PRINT_FIELD
 }
 

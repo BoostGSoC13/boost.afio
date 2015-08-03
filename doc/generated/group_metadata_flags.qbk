@@ -34,11 +34,12 @@
 '''<indexterm><primary>birthtim</primary></indexterm>'''
 '''<indexterm><primary>sparse</primary></indexterm>'''
 '''<indexterm><primary>compressed</primary></indexterm>'''
+'''<indexterm><primary>reparse_point</primary></indexterm>'''
 '''<indexterm><primary>All</primary></indexterm>'''
-Bitflags for availability of metadata from [^`struct ``stat_t`]
+Bitflags for availability of metadata from [^`struct ``stat_t`]See [*afio_stat_t] for explanation of meaning. 
 
 [heading Synopsis]
-``enum metadata_flags {None = 0, dev = 1<<0, ino = 1<<1, type = 1<<2, perms = 1<<3, nlink = 1<<4, uid = 1<<5, gid = 1<<6, rdev = 1<<7, atim = 1<<8, mtim = 1<<9, ctim = 1<<10, size = 1<<11, allocated = 1<<12, blocks = 1<<13, blksize = 1<<14, flags = 1<<15, gen = 1<<16, birthtim = 1<<17, sparse = 1<<24, compressed = 1<<25, All = (size_t)-1};``
+``enum metadata_flags {None = 0, dev = 1<<0, ino = 1<<1, type = 1<<2, perms = 1<<3, nlink = 1<<4, uid = 1<<5, gid = 1<<6, rdev = 1<<7, atim = 1<<8, mtim = 1<<9, ctim = 1<<10, size = 1<<11, allocated = 1<<12, blocks = 1<<13, blksize = 1<<14, flags = 1<<15, gen = 1<<16, birthtim = 1<<17, sparse = 1<<24, compressed = 1<<25, reparse_point = 1<<26, All = (size_t)-1};``
 
 [heading Values]
 
@@ -65,6 +66,7 @@ Bitflags for availability of metadata from [^`struct ``stat_t`]
 [[birthtim] []]
 [[sparse] []]
 [[compressed] []]
+[[reparse_point] []]
 [[All] [Return the maximum possible metadata. ]]
 ]
 

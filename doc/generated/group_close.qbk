@@ -16,7 +16,7 @@
 Schedule a batch of asynchronous file or directory handle closes after preceding operations. 
 
 [heading Description]
-Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
+Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by [^`__afio_handle__`]. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
 ``future dispatcher::close(const std::vector< future<>> & ops)``
@@ -50,7 +50,7 @@ A batch of op handles.
 Asynchronous file or directory handle close after a preceding operation. 
 
 [heading Description]
-Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
+Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by [^`__afio_handle__`]. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
 ``future async_close(future<> _precondition)``
@@ -84,7 +84,7 @@ A future<void>
 Synchronous file or directory handle close after a preceding operation. 
 
 [heading Description]
-Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
+Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by [^`__afio_handle__`]. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
 ``handle_ptr close(future<> _precondition)``
@@ -118,7 +118,7 @@ A handle with outcome.
 Synchronous file or directory handle close after a preceding operation. 
 
 [heading Description]
-Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by async\u005fio\u005fhandle. This can consume considerable time, especially if SyncOnClose is enabled.
+Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by [^`__afio_handle__`]. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
 ``handle_ptr close(error_code & _ec, future<> _precondition)``

@@ -53,6 +53,9 @@ The path of this i/o handle right now.
 '''<indexterm><primary>direntry</primary></indexterm>'''
 Returns a mostly filled directory\u005fentry for the file or directory referenced by this handle. Use [^`metadata_flags::All`] if you want it as complete as your platform allows, even at the cost of severe performance loss. 
 
+[heading Description]
+Related types: [^`__afio_directory_entry__`], [^`__afio_stat_t__`]
+
 [heading Synopsis]
 ``virtual directory_entry handle::direntry(metadata_flags wanted = directory_entry::metadata_fastpath())``
 
@@ -127,7 +130,9 @@ If you wish to make a temporary file whose contents are ready appear at a locati
 
 On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges ([^`file_flags::write`]) anywhere in the system. This is an operating system limitation.
 
-Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage. 
+Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
+
+Related types: [^`__afio_path_req__`]
 
 [heading Synopsis]
 ``virtual void handle::link(const path_req & req)``
@@ -166,6 +171,8 @@ The reason for such complexity is that this algorithm, if it renames successfull
 
 Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
 
+Related types: [^`__afio_path_req__`]
+
 [heading Synopsis]
 ``virtual void handle::unlink()``
 
@@ -200,7 +207,9 @@ Note that not all filing systems guarantee the atomicity of the relink itself (i
 
 On Windows, the destination directory cannot have any handle opened to it with delete/rename privileges ([^`file_flags::write`]) anywhere in the system. This is an operating system limitation.
 
-Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage. 
+Be aware that on Windows AFIO operates exclusively in the NT kernel namespace, NOT the Win32 namespace, and therefore paths you supply are converted by [^`afio::path`] in NT kernel namespace paths. [^`normalise_path()`] can convert an afio path back to a Filesystem TS path for you, but note that this may not be the path that was supplied originally. NT kernel namespace paths have a 32,767 character limit and an almost POSIX like lack of restrictions on naming or historical behaviour quirks, but as a result AFIO does not support DOS short names or any of the other historical Win32 filing system baggage.
+
+Related types: [^`__afio_path_req__`]
 
 [heading Synopsis]
 ``virtual void handle::atomic_relink(const path_req & req)``
