@@ -375,13 +375,13 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
   template<class T> using spinlockbase = BOOST_MONAD_V1_NAMESPACE::spinlockbase<T>;
   template<class T> using lockable_ptr = BOOST_MONAD_V1_NAMESPACE::lockable_ptr<T>;
   template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_MONAD_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
-  template<typename R> using monad = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::monad<R>;
-  template<typename R> using result = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::result<R>;
-  template<typename R> using option = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::option<R>;
-  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::empty;
-  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::make_option;
-  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::monad_errc;
-  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::monad_category;
+  template<typename R> using monad = BOOST_MONAD_V1_NAMESPACE::monad<R>;
+  template<typename R> using result = BOOST_MONAD_V1_NAMESPACE::result<R>;
+  template<typename R> using option = BOOST_MONAD_V1_NAMESPACE::option<R>;
+  using BOOST_MONAD_V1_NAMESPACE::empty;
+  using BOOST_MONAD_V1_NAMESPACE::make_option;
+  using BOOST_MONAD_V1_NAMESPACE::monad_errc;
+  using BOOST_MONAD_V1_NAMESPACE::monad_category;
 BOOST_AFIO_V2_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////
