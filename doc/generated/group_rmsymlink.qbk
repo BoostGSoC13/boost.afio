@@ -59,7 +59,7 @@ Make sure you read the docs for [^`__afio_handle__::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T>
-future async_rmsymlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)``
+future async_rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
