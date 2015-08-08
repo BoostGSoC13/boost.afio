@@ -134,8 +134,16 @@ DEALINGS IN THE SOFTWARE.
 // If building standalone, use a local asio, else Boost
 #ifndef BOOST_AFIO_V2_ASIO_IMPL
 # if ASIO_STANDALONE
+# if defined(BOOST_MONAD_USE_BOOST_ERROR_CODE) && BOOST_MONAD_USE_BOOST_ERROR_CODE != 0
+#  error You must configure Boost.Monad to use the STL error_code if using standalone ASIO
+# endif
+# define BOOST_MONAD_USE_BOOST_ERROR_CODE 0
 #  define BOOST_AFIO_V2_ASIO_IMPL asio
 # else
+# if defined(BOOST_MONAD_USE_BOOST_ERROR_CODE) && BOOST_MONAD_USE_BOOST_ERROR_CODE != 1
+#  error You must configure Boost.Monad to use the Boost error code if using Boost.ASIO
+# endif
+# define BOOST_MONAD_USE_BOOST_ERROR_CODE 1
 #  define BOOST_AFIO_V2_ASIO_IMPL boost
 # endif
 #endif
