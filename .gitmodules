@@ -2,9 +2,9 @@
 	path = include/boost/afio/bindlib
 	url = https://github.com/ned14/Boost.BindLib.git
         branch = master
-[submodule "include/boost/afio/spinlock"]
-	path = include/boost/afio/spinlock
-	url = https://github.com/ned14/boost.spinlock.git
+[submodule "include/boost/afio/monad"]
+	path = include/boost/afio/monad
+	url = https://github.com/ned14/boost.monad.git
         branch = master
 [submodule "include/boost/afio/v1/branch"]
 	path = include/boost/afio/v1/branch

@@ -69,7 +69,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef __cpp_noexcept
 # error Boost.AFIO needs noexcept support in the compiler
 #endif
-#if !defined(__cpp_constexpr) && _MSC_VER < 1900
+#ifndef __cpp_constexpr
 # error Boost.AFIO needs constexpr (C++ 11) support in the compiler
 #endif
 #ifndef __cpp_thread_local
@@ -94,6 +94,10 @@ DEALINGS IN THE SOFTWARE.
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
 #if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR))
+# if defined(BOOST_MONAD_USE_BOOST_THREAD) && BOOST_MONAD_USE_BOOST_THREAD != 0
+#  error You must configure Boost.Monad and Boost.AFIO to both use Boost.Thread together or both not at all.
+# endif
+# define BOOST_MONAD_USE_BOOST_THREAD 1
 # define BOOST_AFIO_V2_STL11_IMPL boost
 # define BOOST_SPINLOCK_V1_STL11_IMPL boost
 # ifndef BOOST_THREAD_VERSION
@@ -103,6 +107,10 @@ DEALINGS IN THE SOFTWARE.
 #  error Boost.AFIO requires that Boost.Thread be configured to v3 or later
 # endif
 #else
+# if defined(BOOST_MONAD_USE_BOOST_THREAD) && BOOST_MONAD_USE_BOOST_THREAD != 0
+#  error You must configure Boost.Monad and Boost.AFIO to both use Boost.Thread together or both not at all.
+# endif
+# define BOOST_MONAD_USE_BOOST_THREAD 0
 # define BOOST_AFIO_V2_STL11_IMPL std
 # ifndef BOOST_AFIO_USE_BOOST_THREAD
 #  define BOOST_AFIO_USE_BOOST_THREAD 0
@@ -194,6 +202,7 @@ DEALINGS IN THE SOFTWARE.
 #endif
 
 #ifdef BOOST_AFIO_NEED_DEFINE
+#undef BOOST_AFIO_AFIO_H
 
 #define BOOST_STL11_ATOMIC_MAP_NAMESPACE_BEGIN        BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V2, (stl11, inline))
 #define BOOST_STL11_ATOMIC_MAP_NAMESPACE_END          BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V2, (stl11, inline))
@@ -356,24 +365,24 @@ namespace boost { namespace asio {
 BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
-#include "../spinlock/include/boost/spinlock/monad.hpp"
+#include "../monad/include/boost/monad.hpp"
 BOOST_AFIO_V2_NAMESPACE_BEGIN
-  using BOOST_SPINLOCK_V1_NAMESPACE::is_lockable_locked;
-  using spins_to_sleep = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_sleep;
-  template<size_t _0> using spins_to_yield = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_yield<_0>;
-  template<size_t _0, bool _1=true> using spins_to_loop = BOOST_SPINLOCK_V1_NAMESPACE::spins_to_loop<_0, _1>;
-  using null_spin_policy = BOOST_SPINLOCK_V1_NAMESPACE::null_spin_policy;
-  template<class T> using spinlockbase = BOOST_SPINLOCK_V1_NAMESPACE::spinlockbase<T>;
-  template<class T> using lockable_ptr = BOOST_SPINLOCK_V1_NAMESPACE::lockable_ptr<T>;
-  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_SPINLOCK_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
-  template<typename R> using monad = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::monad<R>;
-  template<typename R> using result = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::result<R>;
-  template<typename R> using option = BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::option<R>;
-  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::empty;
-  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::make_option;
-  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::monad_errc;
-  using BOOST_SPINLOCK_V1_NAMESPACE::lightweight_futures::monad_category;
-  BOOST_AFIO_V2_NAMESPACE_END
+  using BOOST_MONAD_V1_NAMESPACE::is_lockable_locked;
+  using spins_to_sleep = BOOST_MONAD_V1_NAMESPACE::spins_to_sleep;
+  template<size_t _0> using spins_to_yield = BOOST_MONAD_V1_NAMESPACE::spins_to_yield<_0>;
+  template<size_t _0, bool _1=true> using spins_to_loop = BOOST_MONAD_V1_NAMESPACE::spins_to_loop<_0, _1>;
+  using null_spin_policy = BOOST_MONAD_V1_NAMESPACE::null_spin_policy;
+  template<class T> using spinlockbase = BOOST_MONAD_V1_NAMESPACE::spinlockbase<T>;
+  template<class T> using lockable_ptr = BOOST_MONAD_V1_NAMESPACE::lockable_ptr<T>;
+  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_MONAD_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
+  template<typename R> using monad = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::monad<R>;
+  template<typename R> using result = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::result<R>;
+  template<typename R> using option = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::option<R>;
+  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::empty;
+  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::make_option;
+  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::monad_errc;
+  using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::monad_category;
+BOOST_AFIO_V2_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Set up dll import/export options

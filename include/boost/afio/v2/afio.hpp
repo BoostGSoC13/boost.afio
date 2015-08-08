@@ -56,7 +56,8 @@ DEALINGS IN THE SOFTWARE.
 #endif
 // clang-format on
 
-#ifdef BOOST_AFIO_NEED_DEFINE
+#ifndef BOOST_AFIO_AFIO_H
+#define BOOST_AFIO_AFIO_H
 
 #include "detail/Undoer.hpp"
 #include "detail/ErrorHandling.hpp"
