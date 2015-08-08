@@ -13,23 +13,21 @@ int main(void)
   try
   {
     // Schedule creating a directory called testdir
-    auto mkdir(async_dir("testdir", boost::afio::file_flags::create)());
+    auto mkdir(async_dir("testdir", boost::afio::file_flags::create));
     // Schedule creating a file called testfile in testdir only when testdir has been created
-    auto mkfile(mkdir.then(async_file("testfile", boost::afio::file_flags::create)));
+    auto mkfile(async_file(mkdir, "testfile", boost::afio::file_flags::create));
     // Schedule creating a symbolic link called linktodir to the item referred to by the precondition
-    // i.e. testdir. Note that on Windows you can only symbolic link directories. Note that creating
-    // symlinks must *always* be as an absolute path, as that is how they are stored.
-    auto mklink(mkdir.then(async_symlink(path::make_absolute("testdir/linktodir"),
-      boost::afio::file_flags::create)));
+    // i.e. testdir. Note that on Windows you can only symbolic link directories.
+    auto mklink(async_symlink(mkdir, "linktodir", mkdir, boost::afio::file_flags::create));
 
     // Schedule deleting the symbolic link only after when it has been created
-    auto rmlink(mklink.then(async_rmsymlink()));
+    auto rmlink(async_rmsymlink(mklink));
     // Schedule deleting the file only after when it has been created
-    auto rmfile(mkfile.then(async_rmfile()).then(async_close()));
+    auto rmfile(async_close(async_rmfile(mkfile)));
     // Schedule waiting until both the preceding operations have finished
     auto barrier(dispatcher->barrier({ rmlink, rmfile }));
     // Schedule deleting the directory only after the barrier completes
-    auto rmdir(dispatcher->depends(barrier.front(), mkdir).then(async_rmdir()));
+    auto rmdir(async_rmdir(depends(barrier.front(), mkdir)));
     // Check ops for errors
     boost::afio::when_all_p(mkdir, mkfile, mklink, rmlink, rmfile, rmdir).wait();
   }

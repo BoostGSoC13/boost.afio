@@ -4567,7 +4567,7 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T> inline future<> async_rmsymlink(future<> _precondition, T _path, file_flags _flags = file_flags::none)
+template<class T=path> inline future<> async_rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
   return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition));
 }

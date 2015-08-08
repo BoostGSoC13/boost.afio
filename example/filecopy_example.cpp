@@ -32,7 +32,7 @@ namespace {
         size_t chunk_size=1024*1024 /* 1Mb */)
     {
         // Schedule the opening of the output file for writing
-        auto oh = async_file(dest, file_flags::create | file_flags::write)();
+        auto oh = async_file(dest, file_flags::create | file_flags::write);
         // Schedule the opening of all the input files for reading as a batch
         std::vector<path_req> ihs_reqs; ihs_reqs.reserve(sources.size());
         for(auto &&source : sources)
@@ -63,7 +63,7 @@ namespace {
         }
         // Schedule resizing output to correct size, retrieving errors
         totalbytes=offset;
-        auto ohresize=oh.then(async_truncate(offset));
+        auto ohresize=async_truncate(oh, offset);
         when_all_p(ohresize).get();
 
         // Schedule the parallel processing of all input files, sequential per file,
@@ -83,12 +83,11 @@ namespace {
               if(thischunk>chunk_size) thischunk=chunk_size;
               //std::cout << "Writing " << thischunk << " from offset " << o << " in  " << lasts[idx]->path() << std::endl;
               // Schedule a filling of buffer from offset o after last has completed
-              auto readchunk = lasts[idx].then(async_read(buffer->data(), (size_t)thischunk, o));
+              auto readchunk = async_read(lasts[idx], buffer->data(), (size_t)thischunk, o);
               // Schedule a writing of buffer to offset offset+o after readchunk is ready
               // Note the call to dispatcher->depends() to make sure the write only occurs
               // after the read completes
-              auto writechunk = dispatcher->depends(readchunk, ohresize)
-                .then(async_write(buffer->data(), (size_t)thischunk, offset + o));
+              auto writechunk = async_write(depends(readchunk, ohresize), buffer->data(), (size_t)thischunk, offset + o);
               // Schedule incrementing written after write has completed
               auto incwritten = writechunk.then([&written, thischunk](future<> f) {
                 written += thischunk;

@@ -56,8 +56,6 @@ int main(void)
   auto dispatcher = boost::afio::make_dispatcher().get();
   current_dispatcher_guard h(dispatcher);
   auto foreignh=std::make_shared<test_handle>(dispatcher.get());
-  auto adopted = async_adopt(foreignh)();
-  adopted.get();
   return 0;
 }
 //]

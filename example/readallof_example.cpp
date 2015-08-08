@@ -18,19 +18,19 @@ int main(void)
     //[readallof_example_many
     char input[1024];
     // Schedule enumerating the containing directory, but only for foo.txt
-    auto dir_opened = async_dir("")(); // "" means current directory in AFIO
-    auto file_enumed = dir_opened.then(async_enumerate(metadata_flags::size,
-      2, true, "foo.txt"));
+    auto dir_opened = async_dir("");  // "" means current directory in AFIO
+    auto file_enumed = async_enumerate(dir_opened, metadata_flags::size,
+      2, true, "foo.txt");
     // Schedule in parallel opening the file
-    auto file_opened = dir_opened.then(async_file("foo.txt"));
+    auto file_opened = async_file(dir_opened, "foo.txt");
     auto file_read = file_enumed.then(
       [&input](future<std::pair<std::vector<directory_entry>, bool>> &f) {
         // Get the directory_entry for the first result
         directory_entry &de = f.get().first.front();
         // Schedule a file read once we know the file size
-        return f.then(async_read((void *)input,
+        return async_read(f, (void *)input,
           (size_t)de.st_size(), // won't block
-          0));
+          0);
     });
     //]
 }

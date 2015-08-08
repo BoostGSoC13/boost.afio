@@ -548,7 +548,7 @@ namespace detail
             case IO_REPARSE_TAG_SYMLINK:
                 return BOOST_AFIO_V2_NAMESPACE::path(path::string_type(rpd->SymbolicLinkReparseBuffer.PathBuffer+rpd->SymbolicLinkReparseBuffer.SubstituteNameOffset/sizeof(BOOST_AFIO_V2_NAMESPACE::path::value_type), rpd->SymbolicLinkReparseBuffer.SubstituteNameLength/sizeof(BOOST_AFIO_V2_NAMESPACE::path::value_type)), BOOST_AFIO_V2_NAMESPACE::path::direct());
             }
-            BOOST_AFIO_THROW(std::system_error(EINVAL, generic_category()));
+            BOOST_AFIO_THROW(system_error(EINVAL, generic_category()));
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() override final
         {
