@@ -94,12 +94,11 @@ DEALINGS IN THE SOFTWARE.
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
 #if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR))
-# if defined(BOOST_MONAD_USE_BOOST_THREAD) && BOOST_MONAD_USE_BOOST_THREAD != 0
+# if defined(BOOST_MONAD_USE_BOOST_THREAD) && BOOST_MONAD_USE_BOOST_THREAD != 1
 #  error You must configure Boost.Monad and Boost.AFIO to both use Boost.Thread together or both not at all.
 # endif
 # define BOOST_MONAD_USE_BOOST_THREAD 1
 # define BOOST_AFIO_V2_STL11_IMPL boost
-# define BOOST_SPINLOCK_V1_STL11_IMPL boost
 # ifndef BOOST_THREAD_VERSION
 #  define BOOST_THREAD_VERSION 3
 # endif
