@@ -9,7 +9,7 @@ branches:
 skip_tags: true
  
 # Operating system (build VM template)
-os: Visual Studio 2015 CTP 6 
+os: Visual Studio 2015
 init:
   - git config --global core.longpaths true
 
