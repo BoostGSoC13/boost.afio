@@ -4,6 +4,7 @@ BOOST_AFIO_AUTO_TEST_CASE(free_functions_work, "Tests that the free functions wo
 {
   using namespace BOOST_AFIO_V2_NAMESPACE;
   namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
+  using BOOST_AFIO_V2_NAMESPACE::file;
   using BOOST_AFIO_V2_NAMESPACE::rmdir;
   current_dispatcher_guard h(make_dispatcher().get());
 

@@ -3470,11 +3470,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher_ptr current_dispatcher(option<dispatcher_ptr> new_dispatcher)
 {
-#ifdef __FreeBSD__
-    // FreeBSD hasn't implemented __cxa_thread_atexit in their libc yet, so fire and forget a workaround
+#if defined(__FreeBSD__) || defined(__APPLE__)
+    // FreeBSD and OS X haven't implemented __cxa_thread_atexit in their libc yet, so fire and forget a workaround
     static __thread dispatcher_ptr *current;
     if(!current)
+    {
       current=new dispatcher_ptr();
+      fprintf(stderr, "WARNING: Until FreeBSD and OS X fixes the lack of __cxa_thread_atexit, Boost.AFIO leaks %u bytes for this thread!\n", (unsigned) sizeof(dispatcher_ptr));
+    }
     dispatcher_ptr ret(*current);
     if(new_dispatcher)
       *current=new_dispatcher.get();

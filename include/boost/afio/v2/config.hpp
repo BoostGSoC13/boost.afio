@@ -90,7 +90,6 @@ DEALINGS IN THE SOFTWARE.
 #undef BOOST_AFIO_V2_NAMESPACE
 #undef BOOST_AFIO_V2_NAMESPACE_BEGIN
 #undef BOOST_AFIO_V2_NAMESPACE_END
-#undef BOOST_SPINLOCK_V1_STL11_IMPL
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
 #if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR))
