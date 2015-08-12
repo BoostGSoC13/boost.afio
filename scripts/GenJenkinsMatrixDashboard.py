@@ -8,7 +8,7 @@ inputs=[
   ((2, "Ubuntu Linux 12.04 LTS", "clang 3.3", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.3"], "label":"linux-gcc-clang"}),
   ((0, "Ubuntu Linux 12.04 LTS", "clang 3.4", "libstdc++ 4.8", "x86"), {"CPPSTD":["c++11"], "CXX":["clang++-3.4"], "label":"linux-gcc-clang"}),
 
-  ((8, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.5"], "label":"linux64-gcc-clang"}),
+  ((8, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "x64"), {"CPPSTD":["c++11"], "CXX":["clang++-3.5"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "clang 3.5", "libstdc++ 4.9", "ARMv7"), {"CPPSTD":["c++11"], "CXX":["clang++-3.5"], "label":"arm-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "clang 3.6", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.6"], "label":"linux64-gcc-clang"}),
   ((0, "Ubuntu Linux 14.04 LTS", "clang 3.7", "libstdc++ 4.9", "x64"), {"CXX":["clang++-3.7"], "label":"linux64-gcc-clang"}),
