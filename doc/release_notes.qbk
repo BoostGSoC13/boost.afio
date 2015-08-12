@@ -196,11 +196,12 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 * Added reparse_point flag to stat_t.
 
 Todo:
-* GET BOOST BUILD WORKING AGAIN (Boost.Monad!)
+
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure
 it's DLL unload safe).
-* ADD get_monad() TO FUTURE.
+
 * Linux: UPDATE TABLE IN COMPILATION DOCS.
+
 * TEST MULTIABI BUILD.
 
 [/=================]
