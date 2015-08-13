@@ -73,42 +73,192 @@ ways it is when your code needs to ["grow up] from assuming a never changing sta
 into a more realistic model is when you ought to reach AFIO which has hopefully abstracted away
 all those tedious platform specific and filing system specific quirks for you.
 
-Using __boost_afio__ is centred around the __afio_dispatcher__ abstract base class,
-whose underlying platform-specific implementation class is instantiated using the
-[link afio.reference.functions.make_dispatcher `make_dispatcher()`]
-factory function. Once you have a `dispatcher_ptr`,
-you simply call its member functions to have the dispatcher schedule asynchronous
-work items for you, each returning a __afio_op__. Note that dispatchers can be
-specialised with specific flags, so you could have one dispatcher which always
-fsyncs its files on close and another which does not. You can then schedule operations to
-the appropriate dispatcher. Currently you cannot chain operations across schedulers, this
-facility is expected to come with the coroutine support in v1.4.
+The quick start tutorial is broken into two sections:
 
-All AFIO scheduling functions, or the convenience structures they take in, will
-take as a (sometimes optional) first parameter their precondition op. Only when that
-precondition has finished executing will its dependencies become scheduled for
-execution. This makes expanding out multiple ops from a single precondition easy,
-but what about reducing multiple ops down to a single precondition? For that, use
-__afio_barrier__.
+# A step by step workshop in building an AFIO program which can concurrently read/write an indexed
+blobstore. This workshop was presented at CppCon 2015 and the slides and materials can be found
+at <TBD LINK>. Issues covered:
+ * Files being renamed, created or deleted by others when you are using them.
+ * Directories being renamed, created or deleted by others when you are using them.
+ * Windows only: how to correctly delete a directory tree on Windows, and why almost every
+implementation of directory tree deletion for Windows is unreliable.
+ * Techniques for avoiding filing system races:
+   * Inode checking
+   * Lock files
+   * Atomic renames
+   * Never use absolute paths
+   * Windows only: use GUID instead of path lookup.
+# Real world sample mini-programs written using AFIO which show various filing system algorithms
+and strategies in action.
+ * Hello world
+ * Concatenating files
+ * Atomicity on the filing system
+ * Races on the filing system
+ * Find regular expression in files in directory tree
 
-AFIO itself throws almost no exceptions apart from `std::invalid_argument`, though it
-can throw fatal exceptions when you're doing something unwise (and make sure to check
-the FAQ if you do see a fatal exception, it will explain what you're doing wrong). It
-does trap all operating system errors, reporting these as the appropriate `std::system_error`
-when code next gathers error state from that operation (usually using `when_all()` or `get()`). One
-can of course also receive exceptions thrown by anything AFIO calls (the STL, Boost etc).
-AFIO is thought to be exception safe, except when `std::bad_alloc` is thrown.
+[section:workshop Step by step workshop building an AFIO-based key-value store]
 
-Note that from v1.4, AFIO will only throw exceptions for extraordinary events, and will
-instead directly return error codes for most errors.
+[section:naive World's simplest named blob store in STL iostreams]
+
+Let us imagine your application needs to persist some state across executions, and that that state
+is merely a collection of key-value items e.g.
+
+* "dog" => "I am a dog"
+* "cat" => "I am a cat"
+* "horse" => "I am a horse"
+* ...
+
+Let us imagine that you write the following low level public interface for this key-value store:
+
+[workshop_naive_interface]
+
+The macros for the monad and afio namespaces are to enforce a ['hard] version dependency. By aliasing
+into the `BOOST_AFIO_V2_NAMESPACE`, you are creating a specific dependency on v2 of the AFIO ABI. AFIO
+ships some still supported previously used ABI versions of itself in every version, so by pinning yourself
+to v2 you mean v2 and nothing but v2. If you just wanted the current AFIO, simply alias into namespace
+`boost::afio` as with other libraries, this picks up whatever the current configuration and version of
+AFIO is.
+
+The `monad<>` comes from __boost_monad__ which is a dependency of __boost_afio__. It has an identical
+API to `std::future<>` or more rather `boost::future<>`, so simply treat it as an always ready future.
+`monad<>` here can return a shared pointer to the iostream, or empty (item not found), or an error, or
+an exception as you can see in this example use case:
+
+[workshop_use_naive]
+
+A perfectly straightforward and simple way of implementing `data_store` using pure C++ STL is this:
+
+[workshop_naive]
+
+Note that `monad<T>` implicitly consumes any `T`, `std::error_code`, `std::exception_ptr` or `empty`, hence
+the ability to return any of those directly.
+
+This very simple solution assumes that the key-value store is a directory in the current path called ["store] and
+that each key-value item is simply a file called the same name as the key name.
+
+This solution will perform pretty well and is perfectly fine under these conditions:
+
+# You don't care what happens under power loss.
+# You don't care what happens if your process unexpectedly exits during a modify.
+# Only one thread or process will ever interact with the key-value store at a time.
+# No third party thread or process will rename the location of the store during use.
+# The size of the values being read and written is small.
+
+[endsect] [/ naive]
+
+[section:naive_afio World's simplest named blob store in AFIO]
+
+Let's see the same thing as in the last section, but written using AFIO. First, the interface is identical
+to before, just with different private member variables:
+
+[workshop_naive_afio_interface]
+
+We now have a `dispatcher_ptr` and a `handle_ptr` to the store directory which is created/opened during
+construction of `data_store`. As the interface is identical, so is the use case from the previous page.
+The implementation is rather different however:
+
+[workshop_naive_afio1]
+
+This is a good bit longer and looks more complex, however there is already a big if not obvious gain: third party
+processes can happily rename and move around the store directory once it has been opened and this implementation
+will work perfectly. This is because we open a handle to the store directory in the `data_store` constructor,
+and thereafter use that open handle as a base location for all leaf path operations. Except on OS X which currently
+doesn't support the POSIX race free filesystem extensions, that makes all data store operations invariant to
+store path mutation.
+
+Another big gain is we are now using memory mapped files for the lookup which avoids any memory copying, and
+there is a hint we are also avoiding memory copies in the write too.
+
+You will also note that in the constructor, we specify a URI to `make_dispatcher()`. This lets you open
+different kinds of filesystem e.g. ZIP archives, HTTP sites etc. AFIO currently doesn't provide backends except
+for `file:///` i.e. the local filesystem, however future versions will. Note that a dispatcher can force on or off
+`file_flags` for all operations scheduled against that dispatcher __dash__ here we force mask out any attempt to
+open anything for writing if we are opening the store read-only.
+
+Finally, you may wonder why we only use `current_dispatcher_guard` once in the constructor. This is because
+if AFIO can deduce the dispatcher to use from any precondition you supply, you need not set the thread local
+dispatcher. As the opening of the store directory is done as an absolute path lookup and therefore takes no
+inputs specifying a dispatcher, you need to set the current dispatcher in that one situation alone.
+
+The remaining magic is in the custom iostreams implementations `idirectstream` and `odirectstream`:
+
+[workshop_naive_afio2]
+
+These are not hugely conforming iostreams implementations in order to keep them brief for the purposes of this
+tutorial. The read stream is very straightforward, we simply have `streambuf` directly use the memory map of
+the file.
+
+The write stream is a bit more complicated: we fill a 4Kb page and ['asynchronously] write it out
+using a page stealing friendly algorithm which in the usual case means the kernel simply takes possession of
+the 4Kb page as-is with no memory copying at all. At some future point it will be flushed onto storage. The
+reason this works is thanks to the special STL allocator `utils::file_buffer_allocator<>` which returns whole kernel
+page cache pages. Most kernels will mark whole pages scheduled for write with copy-on-write behaviour such that
+they can be safely DMAed by the kernel DMA engine, so because we never write to the page between the write
+request and freeing the page, most kernels simply transfer ownership of the page from the user space process
+to the file page cache with no further processing. Hence the asynchronous write of the page tends to complete very
+quickly indeed far faster than copying 4Kb of memory and often quicker than the time to fill another page, and hence we wait for any previous write to
+complete before scheduling the next write in order to report any errors which occurred during the write.
+
+This is the first use of asynchronous i/o in this tutorial. AFIO provides a custom `future<T>` type extending
+the lightweight monadic futures framework in __boost_monad__, so you get all the C++ 1z Concurrency TS extensions,
+C++ 1z coroutines support and Boost.Thread future extensions in the AFIO custom `future<>`. There are many
+additional extensions beyond what Boost.Thread or the Concurrency TS provides, and you can see one of those extensions in
+the Concurrency TS continuation in `sync()` which takes a const lvalue ref to the future to avoid consuming it.
+The continuation simply pins a shared pointer to the buffer to the completion of `async_write()`, thus ensuring
+the lifetime of the buffer extends past the write operation. 
+
+This solution will perform better than the iostreams implementation and is perfectly fine under these conditions:
+
+# You don't care what happens under power loss.
+# You don't care what happens if your process unexpectedly exits during a modify.
+# Only one thread or process will ever interact with the key-value store at a time.
+# The size of the values being read and written fits into your virtual address space (which is a lot on 64 bit).
+
+
+[endsect] [/ naive_afio]
+
+[section:naive_racy The problems with this naive solution]
+
+ACID
+
+Atomicity: Writes do not atomically appear fully completed to other readers.
+
+Consistency: If a writer process fatal exits during a write, the key value store is corrupted.
+
+Isolation: There is no concurrency ordering control apart from that provided by the operating system.
+
+Durability: Is the key value store always consistent even with random power loss?
+
+[endsect] [/naive_racy]
+
+[section:atomic_updates How to implement atomic value updates and therefore Atomicity, Consistency, Isolation]
+
+[endsect] [/atomic_updates]
+
+[section:durability Implementing Durability and garbage collection]
+
+[endsect] [/durability]
+
+[section:performance What's the performance of this naive key-value store?]
+
+[endsect] [/performance]
+
+
+[section:deduplication Adding deduplication of identical value storage]
+
+[endsect] [/deduplication]
+
+
+[endsect] [/ workshop]
+
+[section:mini_programs Example mini-programs written using AFIO]
 
 [section:hello_world Hello World, asynchronously!]
 
 '''<?dbhtml-include href="disqus_identifiers/hello_world.html"?>'''
 
 We might as well jump straight in: on the left is a traditional STL iostreams
-implementation with its equivalent in AFIO using single-shot functions (i.e. a batch
-of one) on the right.
+implementation with its equivalent in AFIO free functions on the right.
 
 [table:hello_world Traditional STL iostreams and AFIO side by side
   [[[readwrite_example_traditional]][[readwrite_example]]]
@@ -422,7 +572,7 @@ is stable on Windows. This is iterated for a substantial period of time to verif
 [endsect] [/filesystem_races]
 
 
-[section:so_what What benefit does asynchronous file i/o bring me? A demonstration of AFIO's power]
+[section:so_what What performance benefit does asynchronous file i/o bring me? A demonstration]
 
 '''<?dbhtml-include href="disqus_identifiers/so_what.html"?>'''
 
@@ -521,5 +671,7 @@ and the code will neither be as portable nor as maintainable.
 '''<?dbhtml-include href="disqus_comments.html"?>'''
 
 [endsect] [/so_what]
+
+[endsect] [/ mini_programs]
 
 [endsect] [/quickstart]
