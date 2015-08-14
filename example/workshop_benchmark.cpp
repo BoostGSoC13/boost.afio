@@ -68,7 +68,7 @@ template<class data_store> void benchmark(const char *filename, const char *desc
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<1);
     data_store store(data_store::writeable);
-    std::vector<data_store::write_result_type> ops(PARALLELISM);
+    std::vector<typename data_store::write_result_type> ops(PARALLELISM);
     begin=chrono::high_resolution_clock::now();
     for (size_t m = 0; m < n; m += PARALLELISM)
     {
@@ -97,7 +97,7 @@ template<class data_store> void benchmark(const char *filename, const char *desc
   {
     std::cout << "Benchmarking " << desc << " lookup of " << n << " records ... ";
     data_store store;
-    std::vector<data_store::lookup_result_type> ops(PARALLELISM);
+    std::vector<typename data_store::lookup_result_type> ops(PARALLELISM);
     auto begin = chrono::high_resolution_clock::now();
     for (size_t m = 0; m < n; m += PARALLELISM)
     {
