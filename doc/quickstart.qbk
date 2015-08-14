@@ -210,15 +210,12 @@ complete before scheduling the next write in order to report any errors which oc
 
 This is the first use of asynchronous i/o in this tutorial. AFIO provides a custom `future<T>` type extending
 the lightweight monadic futures framework in __boost_monad__, so you get all the
-[http://www.drdobbs.com/parallel/improving-futures-and-callbacks-in-c-to/240004255 C++ 1z Concurrency TS extensions],
-[http://blogs.msdn.com/b/vcblog/archive/2014/11/12/resumable-functions-in-c.aspx C++ 1z coroutines support] and
-[http://www.boost.org/doc/html/thread/synchronization.html#thread.synchronization.futures Boost.Thread future extensions] in the AFIO custom `future<>`. There are also many
-additional extensions beyond what Boost.Thread or the Concurrency TS provides including foreign future composable waits, and you can see one of those extensions in
-the Concurrency TS continuation (the `.then()`) in `sync()` which takes a const lvalue ref to the future to avoid consuming it.
-The continuation simply pins a shared pointer to the buffer to the completion of `async_write()`, thus ensuring
-the lifetime of the buffer extends past the write operation.
+[@http://www.drdobbs.com/parallel/improving-futures-and-callbacks-in-c-to/240004255 C++ 1z Concurrency TS extensions],
+[@http://blogs.msdn.com/b/vcblog/archive/2014/11/12/resumable-functions-in-c.aspx C++ 1z coroutines support] and
+[@http://www.boost.org/doc/html/thread/synchronization.html#thread.synchronization.futures Boost.Thread future extensions] in the AFIO custom `future<>`. There are also many
+additional extensions beyond what Boost.Thread or the Concurrency TS provides, including foreign future composable waits.
 
-[table:conditions This solution will perform as well as the iostreams implementation for small values and is fine under these conditions:
+[table:conditions This solution will perform reasonably well under these conditions:
 [[][Condition]]
 [[__tick__] [On Microsoft Windows you can place the store deep in a directory hierarchy and use long key names.]]
 [[__tick__] [Third party threads and processes can rename the location of the store during use.]]
@@ -232,17 +229,74 @@ the lifetime of the buffer extends past the write operation.
 
 [endsect] [/ naive_afio]
 
-[section:naive_racy The problems with this naive solution]
+[section:naive_racy The problems with this naive design]
 
-ACID
+You might be curious as to the performance of this naive key-value blob database. I was, so I performed the
+following benchmarks on Win8.1 NTFS and Linux ext4 both on SSD using the code above:
 
-Atomicity: Writes do not atomically appear fully completed to other readers.
+[role aligncenter [$../../../../../libs/afio/doc/src/images/workshop_naive_insertions.png] [$../../../../../libs/afio/doc/src/images/workshop_naive_lookups.png]]
 
-Consistency: If a writer process fatal exits during a write, the key value store is corrupted.
+I don't know about you, but I was more than quite surprised at how good the performance is considering its
+naive simplicity. As a reference comparison, with durability disabled these NoSQL key-value databases achieve
+the following performance ([@http://www.datastax.com/wp-content/themes/datastax-2014-08/files/NoSQL_Benchmarks_EndPoint.pdf source]):
 
-Isolation: There is no concurrency ordering control apart from that provided by the operating system.
+[table:nosql Performance for various NoSQL databases with fsync disabled on Linux ext4:
+[[][[*Our naive design]][Cassandra][Couchbase][HBase][MongoDB]]
+[[Insertion][[*25,576]][53,067][40,063][38,991][18,038]]
+[[Lookup][[*64,495]][38,235][14,503][3,955][2,752]]
+]
 
-Durability: Is the key value store always consistent even with random power loss?
+The naive results were calculated by excluding the highest value and averaging the next three highest values.
+Now this is not a fair comparison by any means __dash__ the NoSQL databases are running over a network stack
+(which particularly penalises read performance) whereas ours is direct to the OS API more or less,
+and our naive benchmark only writes 10 bytes of value per item which is small enough to pack into the inode
+on both NTFS and ext4, so the extent allocator is never getting invoked. Additionally, the lookup tests for
+the NoSQL database do a number of fsynced modifies. Still, one is used to thinking of
+the filesystem as incredibly slow and to be avoided with fancy database software __dash__ this simple test
+shows that ['recent] filesystems are competitive to fancy databases (and indeed even more so with a more
+sophisticated design than the one we used, as you will see later).
+
+As is fairly obvious from the results, AFIO lags far behind iostreams at about one half to one third the performance.
+This is because no platform provides asynchronous file open, and this test is pretty much entirely file opening.
+Furthermore, we are using AFIO's synchronous API for the most part, and that is
+simply a `get()` on the asynchronous API which introduces an unnecessary thread sleep. Still worse again, AFIO emulates asynchronicity by
+executing the file opens in a threadpool which is exactly what the iostreams does via OpenMP, however there
+isn't a copy of ASIO and AFIO and all the futures and completion handlers standing in between, so the iostreams
+implementation is far faster and will [*always] be faster than AFIO if you do a lot of file opens. 
+
+A design which makes better use of AFIO is one which is asynchronous throughout and which avoids file opens
+(['tip:] always avoid file opens period if you want fast filesystem performance, they are always very slow due
+to the security checking of every single item in the path), so here is the first problem:
+
+[*Problem 1 with naive design:] We are doing too many file opens.
+
+The next problems are summarised in database parlance as ACID which for this naive design:
+
+[*Problem 2 with naive design:] Atomicity
+
+Writes do not atomically appear fully completed to other readers, so if one thread/process reads a value
+currently being written by another thread/process, they will see a partially written value.
+
+[*Problem 3 with naive design:] Consistency
+
+If a writer process fatal exits during a write and therefore does not complete a write, the key value store
+is corrupted.
+
+[*Problem 4 with naive design:] Isolation
+
+There is no concurrency ordering control apart from that provided by the operating system. AFIO exposes
+the strong guarantees made by operating systems as to the atomicity of read and write visibility to other readers and writers (see each
+API reference documentation page for the guarantees per API per platform), however the STL iostreams wrapper
+around AFIO ruins those guarantees (this is why AFIO does not provide iostreams wrappers).
+
+[*Problem 5 with naive design:] Durability
+
+If power loss occurs during use of the key-value store, you are at the mercy of random chance as to
+what data in what order reached physical storage. On many filing systems you aren't even guaranteed
+that extent metadata matches contents, so your value may consist of portions of valid data intermixed with
+garbage.
+
+
 
 [endsect] [/naive_racy]
 
