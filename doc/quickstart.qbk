@@ -136,13 +136,17 @@ the ability to return any of those directly.
 This very simple solution assumes that the key-value store is a directory in the current path called ["store] and
 that each key-value item is simply a file called the same name as the key name.
 
-This solution will perform pretty well and is perfectly fine under these conditions:
-
-# You don't care what happens under power loss.
-# You don't care what happens if your process unexpectedly exits during a modify.
-# Only one thread or process will ever interact with the key-value store at a time.
-# No third party thread or process will rename the location of the store during use.
-# The size of the values being read and written is small.
+[table:conditions This solution will perform pretty well and is perfectly fine under these conditions:
+[[][Condition]]
+[[__cross__][On Microsoft Windows you don't place the store deep in a directory hierarchy and you use only short key names.]]
+[[__cross__][No third party thread or process will rename the location of the store during use.]]
+[[__cross__][The size of the values being read and written is small.]]
+[[__cross__][Only one thread or process will ever interact with the key-value store at a time.]]
+[[__cross__][You don't care what happens if your process unexpectedly exits during a modify.]]
+[[__cross__][Maximum performance isn't important to you.]]
+[[__cross__][You don't care what happens under power loss.]]
+[[__cross__][You don't need to update more than one key-value at once.]]
+]
 
 [endsect] [/ naive]
 
@@ -154,8 +158,13 @@ to before, just with different private member variables:
 [workshop_naive_afio_interface]
 
 We now have a `dispatcher_ptr` and a `handle_ptr` to the store directory which is created/opened during
-construction of `data_store`. As the interface is identical, so is the use case from the previous page.
-The implementation is rather different however:
+construction of `data_store`. Instead of constructing to a filesystem path, we now construct to an AFIO path.
+Note that AFIO paths are always either absolute or relative to some open file handle, and therefore in this
+situation at the point of construction the current working directory will be fetched and an absolute path
+constructed. This differs from filesystem which passes through relative paths and lets the OS resolve from
+the current working directory __dash__ AFIO does it this way as the current working directory setting at some
+later point of asynchronous execution is inherently unpredictable. As the `data_store` interface is identical,
+so is the use case from the previous page. The implementation is rather different however:
 
 [workshop_naive_afio1]
 
@@ -164,7 +173,7 @@ processes can happily rename and move around the store directory once it has bee
 will work perfectly. This is because we open a handle to the store directory in the `data_store` constructor,
 and thereafter use that open handle as a base location for all leaf path operations. Except on OS X which currently
 doesn't support the POSIX race free filesystem extensions, that makes all data store operations invariant to
-store path mutation.
+store path mutation on all supported platforms.
 
 Another big gain is we are now using memory mapped files for the lookup which avoids any memory copying, and
 there is a hint we are also avoiding memory copies in the write too.
@@ -193,27 +202,33 @@ using a page stealing friendly algorithm which in the usual case means the kerne
 the 4Kb page as-is with no memory copying at all. At some future point it will be flushed onto storage. The
 reason this works is thanks to the special STL allocator `utils::file_buffer_allocator<>` which returns whole kernel
 page cache pages. Most kernels will mark whole pages scheduled for write with copy-on-write behaviour such that
-they can be safely DMAed by the kernel DMA engine, so because we never write to the page between the write
+they can be safely DMAed by the kernel DMA engine as any subsequent write will cause a copy, so because we never write to the page between the write
 request and freeing the page, most kernels simply transfer ownership of the page from the user space process
 to the file page cache with no further processing. Hence the asynchronous write of the page tends to complete very
-quickly indeed far faster than copying 4Kb of memory and often quicker than the time to fill another page, and hence we wait for any previous write to
+quickly __dash__ indeed far faster than copying 4Kb of memory and often quicker than the time to fill another page, and hence we wait for any previous write to
 complete before scheduling the next write in order to report any errors which occurred during the write.
 
 This is the first use of asynchronous i/o in this tutorial. AFIO provides a custom `future<T>` type extending
-the lightweight monadic futures framework in __boost_monad__, so you get all the C++ 1z Concurrency TS extensions,
-C++ 1z coroutines support and Boost.Thread future extensions in the AFIO custom `future<>`. There are many
-additional extensions beyond what Boost.Thread or the Concurrency TS provides, and you can see one of those extensions in
-the Concurrency TS continuation in `sync()` which takes a const lvalue ref to the future to avoid consuming it.
+the lightweight monadic futures framework in __boost_monad__, so you get all the
+[http://www.drdobbs.com/parallel/improving-futures-and-callbacks-in-c-to/240004255 C++ 1z Concurrency TS extensions],
+[http://blogs.msdn.com/b/vcblog/archive/2014/11/12/resumable-functions-in-c.aspx C++ 1z coroutines support] and
+[http://www.boost.org/doc/html/thread/synchronization.html#thread.synchronization.futures Boost.Thread future extensions] in the AFIO custom `future<>`. There are also many
+additional extensions beyond what Boost.Thread or the Concurrency TS provides including foreign future composable waits, and you can see one of those extensions in
+the Concurrency TS continuation (the `.then()`) in `sync()` which takes a const lvalue ref to the future to avoid consuming it.
 The continuation simply pins a shared pointer to the buffer to the completion of `async_write()`, thus ensuring
-the lifetime of the buffer extends past the write operation. 
+the lifetime of the buffer extends past the write operation.
 
-This solution will perform better than the iostreams implementation and is perfectly fine under these conditions:
-
-# You don't care what happens under power loss.
-# You don't care what happens if your process unexpectedly exits during a modify.
-# Only one thread or process will ever interact with the key-value store at a time.
-# The size of the values being read and written fits into your virtual address space (which is a lot on 64 bit).
-
+[table:conditions This solution will perform as well as the iostreams implementation for small values and is fine under these conditions:
+[[][Condition]]
+[[__tick__] [On Microsoft Windows you can place the store deep in a directory hierarchy and use long key names.]]
+[[__tick__] [Third party threads and processes can rename the location of the store during use.]]
+[[__tick__] [The size of ['all] the values being read at any given time fits into your virtual address space (which is at least 2Gb on 32 bit, 8Tb on 64 bit).]]
+[[__cross__][Only one thread or process will ever interact with the key-value store at a time.]]
+[[__cross__][You don't care what happens if your process unexpectedly exits during a modify.]]
+[[__cross__][Maximum performance isn't important to you.]]
+[[__cross__][You don't care what happens under power loss.]]
+[[__cross__][You don't need to update more than one key-value at once.]]
+]
 
 [endsect] [/ naive_afio]
 

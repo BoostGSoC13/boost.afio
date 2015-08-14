@@ -3002,12 +3002,12 @@ namespace detail
         //! Validates contents for correctness \return True if contents are correct
         bool validate() const
         {
-            if(!precondition.validate()) return false;
+            //if(!precondition.validate()) return false;
             if(buffers.empty()) return false;
             for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
-                if(!!(precondition.parent()->fileflags(file_flags::none)&file_flags::os_direct))
+                if(precondition.parent() && !!(precondition.parent()->fileflags(file_flags::none)&file_flags::os_direct))
                 {
                     if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
@@ -3059,12 +3059,12 @@ namespace detail
         //! Validates contents for correctness \return True if contents are correct
         bool validate() const
         {
-            if(!precondition.validate()) return false;
+            //if(!precondition.validate()) return false;
             if(buffers.empty()) return false;
             for(auto &b: buffers)
             {
                 if(!asio::buffer_cast<const void *>(b) || !asio::buffer_size(b)) return false;
-                if(!!(precondition.parent()->fileflags(file_flags::none)&file_flags::os_direct))
+                if(precondition.parent() && !!(precondition.parent()->fileflags(file_flags::none)&file_flags::os_direct))
                 {
                     if(((size_t) asio::buffer_cast<const void *>(b) & 4095) || (asio::buffer_size(b) & 4095)) return false;
                 }
@@ -3636,6 +3636,10 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->dir(std::vector<path_req>(1, std::move(req))).front());
     }
   };
@@ -3651,6 +3655,10 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front());
     }
   };
@@ -3666,6 +3674,10 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->file(std::vector<path_req>(1, std::move(req))).front());
     }
   };
@@ -3681,6 +3693,10 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front());
     }
   };
@@ -3697,6 +3713,10 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->symlink(std::vector<path_req>(1, std::move(req)), std::vector<future<>>(1, std::move(target))).front());
     }
   };
@@ -3712,6 +3732,10 @@ namespace detail
         dispatcher = current_dispatcher().get(),
         path_req(path_req::absolute(std::move(f), std::move(path), std::move(flags)))
         ) : path_req(path_req::relative(std::move(f), std::move(path), std::move(flags))));
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->rmsymlink(std::vector<path_req>(1, std::move(req))).front());
     }
   };
@@ -3746,6 +3770,10 @@ namespace detail
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
       req.precondition = f;
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->read(std::vector<io_req_impl<false>>(1, std::move(req))).front());
     }
   };
@@ -3760,6 +3788,10 @@ namespace detail
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
       req.precondition = f;
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->write(std::vector<io_req_impl<true>>(1, std::move(req))).front());
     }
   };
@@ -3789,6 +3821,10 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
+#if BOOST_AFIO_VALIDATE_INPUTS
+      if (!req.validate())
+        BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
+#endif
       return std::move(dispatcher->enumerate(std::vector<enumerate_req>(1, std::move(req))).front());
     }
   };
@@ -6148,7 +6184,7 @@ namespace utils
       template <class U>
       struct rebind { typedef file_buffer_allocator<U> other; };
   };
-
+  template<class T, class U> inline bool operator==(const file_buffer_allocator<T> &, const file_buffer_allocator<U> &) noexcept { return true; }
 }
 
 

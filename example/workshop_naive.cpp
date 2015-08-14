@@ -13,9 +13,16 @@ public:
   using istream = std::shared_ptr<std::istream>;
   // Type used for write streams
   using ostream = std::shared_ptr<std::ostream>;
+  // Type used for lookup
+  using lookup_result_type = monad<istream>;
+  // Type used for write
+  using write_result_type = monad<ostream>;
+
+  // Disposition flags
+  static constexpr size_t writeable = (1<<0);
 
   // Open a data store at path
-  data_store(filesystem::path path = "store", bool writeable = false);
+  data_store(size_t flags = 0, filesystem::path path = "store");
   
   // Look up item named name for reading, returning a std::istream for the item if it exists
   monad<istream> lookup(std::string name) noexcept;
@@ -44,7 +51,7 @@ static std::shared_ptr<std::fstream> name_to_fstream(const filesystem::path &sto
   return std::make_shared<std::fstream>(to_lookup.native(), mode);
 }
 
-data_store::data_store(filesystem::path path, bool writeable) : _store_path(std::move(path)), _writeable(writeable)
+data_store::data_store(size_t flags, filesystem::path path) : _store_path(std::move(path)), _writeable(flags & writeable)
 {
 }
 
@@ -55,11 +62,8 @@ monad<data_store::istream> data_store::lookup(std::string name) noexcept
   try
   {
     istream ret(name_to_fstream(_store_path, std::move(name), std::ios::in | std::ios::binary));
-    if(*ret)
-    {
-      ret->exceptions(std::ios::eofbit);  // turn on exceptions
+    if(!ret->fail())
       return std::move(ret);
-    }
     return empty;
   }
   catch(...)
@@ -79,12 +83,7 @@ monad<data_store::ostream> data_store::write(std::string name) noexcept
     if (!filesystem::exists(_store_path))
       filesystem::create_directory(_store_path);
     ostream ret(name_to_fstream(_store_path, std::move(name), std::ios::out | std::ios::binary));
-    if(*ret)
-    {
-      ret->exceptions(std::ios::eofbit);  // turn on exceptions
-      return std::move(ret);
-    }
-    return empty;
+    return std::move(ret);
   }
   catch (...)
   {

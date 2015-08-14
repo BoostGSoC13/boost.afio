@@ -14,9 +14,16 @@ public:
   using istream = std::shared_ptr<std::istream>;
   // Type used for write streams
   using ostream = std::shared_ptr<std::ostream>;
+  // Type used for lookup
+  using lookup_result_type = monad<istream>;
+  // Type used for write
+  using write_result_type = monad<ostream>;
+
+  // Disposition flags
+  static constexpr size_t writeable = (1<<0);
 
   // Open a data store at path
-  data_store(afio::path path = "store", bool writeable = false);
+  data_store(size_t flags = 0, afio::path path = "store");
   
   // Look up item named name for reading, returning a std::istream for the item if it exists
   monad<istream> lookup(std::string name) noexcept;
@@ -69,7 +76,8 @@ struct odirectstream : public std::ostream
     afio::future<> lastwrite; // the last async write performed
     afio::off_t offset;       // offset of next write
     file_buffer_type buffer;  // a page size on this machine
-    directstreambuf(afio::handle_ptr _h) : lastwrite(std::move(_h)), buffer(afio::utils::page_sizes().front())
+    file_buffer_type lastbuffer;
+    directstreambuf(afio::handle_ptr _h) : lastwrite(std::move(_h)), offset(0), buffer(afio::utils::page_sizes().front())
     {
       // Set the put buffer this streambuf is to use
       setp(buffer.data(), buffer.data(), buffer.data() + buffer.size());
@@ -79,7 +87,10 @@ struct odirectstream : public std::ostream
       try
       {
         // Flush buffers and wait until last write completes
-        sync();
+        // Schedule an asynchronous write of the buffer to storage
+        size_t thisbuffer = pptr() - pbase();
+        if(thisbuffer)
+          lastwrite = afio::async_write(afio::async_truncate(lastwrite, offset+thisbuffer), buffer.data(), thisbuffer, offset);
         lastwrite.get();
       }
       catch(...)
@@ -106,15 +117,15 @@ struct odirectstream : public std::ostream
       size_t thisbuffer=pptr()-pbase();
       if(thisbuffer > 0)
       {
-        // Detach the current buffer and replace with a fresh one to allow DMA to steal the page
-        auto detached_buffer=std::make_shared<file_buffer_type>(std::move(buffer));
-        buffer.resize(detached_buffer->size());
+        // Detach the current buffer and replace with a fresh one to allow the kernel to steal the page
+        lastbuffer=std::move(buffer);
+        buffer.resize(lastbuffer.size());
         setp(buffer.data(), buffer.data(), buffer.data() + buffer.size());
+        // Schedule an extension of physical storage by an extra page
+        lastwrite = afio::async_truncate(lastwrite, offset + thisbuffer);
         // Schedule an asynchronous write of the buffer to storage
-        lastwrite=afio::async_write(lastwrite, *detached_buffer, offset);
+        lastwrite=afio::async_write(lastwrite, lastbuffer.data(), thisbuffer, offset);
         offset+=thisbuffer;
-        // Keep buffer around until the async write completes
-        lastwrite.then([detached_buffer](const afio::future<> &){});
       }
       return 0;
     }
@@ -146,10 +157,10 @@ static bool is_valid_name(const std::string &name) noexcept
   return name[0]!='.';
 }
 
-data_store::data_store(afio::path path, bool writeable)
+data_store::data_store(size_t flags, afio::path path)
 {
   // Make a dispatcher for the local filesystem URI, masking out write flags on all operations if not writeable
-  _dispatcher=afio::make_dispatcher("file:///", afio::file_flags::none, !writeable ? afio::file_flags::write : afio::file_flags::none).get();
+  _dispatcher=afio::make_dispatcher("file:///", afio::file_flags::none, !(flags & writeable) ? afio::file_flags::write : afio::file_flags::none).get();
   // Set the dispatcher for this thread, and open a handle to the store directory
   afio::current_dispatcher_guard h(_dispatcher);
   _store=afio::dir(std::move(path), afio::file_flags::create);  // throws if there was an error
