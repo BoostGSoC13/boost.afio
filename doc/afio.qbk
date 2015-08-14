@@ -67,8 +67,8 @@
 ]
 [template raceguarantee[os descr]'''<row><entry>'''[os]'''</entry><entry>'''[descr]'''</entry></row>''']
 
-[import ../example/workshop_naive.cpp]
-[import ../example/workshop_naive_afio.cpp]
+[import ../example/workshop_naive.ipp]
+[import ../example/workshop_naive_afio.ipp]
 
 [import ../example/adopt_example.cpp]
 [import ../example/barrier_example.cpp]

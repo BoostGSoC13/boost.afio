@@ -8,10 +8,10 @@
 #define PARALLELISM 256  // up to max fds on your platform
 
 namespace iostreams {
-#include "workshop_naive.cpp"
+#include "workshop_naive.ipp"
 }
 namespace afio {
-#include "workshop_naive_afio.cpp"
+#include "workshop_naive_afio.ipp"
 }
 
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
@@ -129,7 +129,7 @@ template<class data_store> void benchmark(const char *filename, const char *desc
   std::ofstream csvh(filename);
   csvh << "Items,Inserts/sec,Lookups/sec" << std::endl;
   for(auto &i : results)
-    csvh << std::get<0>(i) << "," << std::get<1>(i) << std::endl;
+    csvh << std::get<0>(i) << "," << std::get<1>(i) << "," << std::get<2>(i) << std::endl;
 }
 
 int main(void)
