@@ -32,6 +32,7 @@ int main(void)
           (size_t)de.st_size(), // won't block
           0);
     });
+    file_read.get();
     //]
 }
 

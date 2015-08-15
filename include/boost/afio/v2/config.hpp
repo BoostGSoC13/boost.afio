@@ -386,6 +386,9 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
   template<typename R> using monad = BOOST_MONAD_V1_NAMESPACE::monad<R>;
   template<typename R> using result = BOOST_MONAD_V1_NAMESPACE::result<R>;
   template<typename R> using option = BOOST_MONAD_V1_NAMESPACE::option<R>;
+  template<typename R> using lightweight_promise = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::promise<R>;
+  template<typename R> using lightweight_future = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::future<R>;
+  template<typename R> using is_lightweight_future = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::is_future<R>;
   using BOOST_MONAD_V1_NAMESPACE::empty;
   using BOOST_MONAD_V1_NAMESPACE::make_option;
   using BOOST_MONAD_V1_NAMESPACE::monad_errc;

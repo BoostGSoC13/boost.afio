@@ -1390,12 +1390,22 @@ public:
   void reset(dispatcher_ptr p) { _old=p; }
 };
 
+//! Trait for determining if a type is an afio::future<T>
+template<class T> struct is_future : std::false_type { };
+template<class T> struct is_future<future<T>> : std::true_type {};
+
 // Temporary friends for future<>
 namespace detail
 {
   struct barrier_count_completed_state;
   template<bool rethrow, class Iterator> inline stl_future<std::vector<handle_ptr>> when_all_ops(Iterator first, Iterator last);
   template<bool rethrow, class Iterator> inline stl_future<handle_ptr> when_any_ops(Iterator first, Iterator last);
+
+  // Shim code for lightweight future continuations
+  template<class R, bool return_is_lightweight_future=is_lightweight_future<R>::value, bool return_is_afio_future=is_future<R>::value> struct continuation_return_type { using future_type = future<R>; using promise_type = void; };
+  template<class R, bool _> struct continuation_return_type<R, true, _> { using future_type = R; using promise_type = typename future_type::promise_type; };
+  template<class R, bool _> struct continuation_return_type<R, _, true> { using future_type = R; using promise_type = void; };
+  template<class future_type, class promise_type> struct do_continuation;
 }
 
 /*! \ref future
@@ -1450,8 +1460,37 @@ public:
     future &operator=(const future &o) { _parent = o._parent; _id = o._id; _h = o._h; return *this; }
     //! \massign
     future &operator=(future &&o) noexcept { _parent = std::move(o._parent); _id = std::move(o._id); _h = std::move(o._h); return *this; }
+
     //! True if this future is valid
     bool valid() const noexcept { return _parent && _id; }
+    //! \brief Same as `true_(tribool(*this))`
+    explicit operator bool() const noexcept { return has_value(); }
+    //! \brief True if monad is not empty
+    bool is_ready() const noexcept
+    {
+      return valid() || _h.wait_for(chrono::seconds(0)) == future_status::ready;
+    }
+    //! \brief True if monad contains a value_type
+    bool has_value() const noexcept { return is_ready() && !has_exception(); }
+    //! \brief True if monad contains an error_type
+    bool has_error() const noexcept
+    {
+      if (!is_ready())
+        return false;
+      error_type ec = get_error();
+      return ec && ec.category() != monad_category();
+    }
+    /*! \brief True if monad contains an exception_type or error_type (any error_type is returned as an exception_ptr by get_exception()).
+    This needs to be true for both for compatibility with Boost.Thread's future. If you really want to test only for has exception only,
+    pass true as the argument.
+    */
+    bool has_exception(bool only_exception = false) const noexcept
+    {
+      if (!is_ready())
+        return false;
+      return !!get_exception();
+    }
+
     //! The parent dispatcher of this future
     dispatcher *parent() const noexcept { return _parent; }
     //! \deprecate{Expected to be removed in the v1.5 engine}
@@ -1542,16 +1581,18 @@ public:
       return _h.wait_until(deadline);
     }
     //! Schedules a callable to be invoked after this future becomes ready. If this future is null, use the current async file i/o dispatcher.
-    template<class U> auto then(U &&f) -> decltype(f(*this))
+    template<class U> auto then(U &&f) -> typename detail::continuation_return_type<decltype(f(*this))>::future_type
     {
-      return f(*this);
+      using future_type = typename detail::continuation_return_type<decltype(f(*this))>::future_type;
+      using promise_type = typename detail::continuation_return_type<decltype(f(*this))>::promise_type;
+      return detail::do_continuation<future_type, promise_type>()(parent(), this, std::forward<U>(f));
     }
     //! Validates contents
     bool validate(bool check_handle=true) const
     {
         if(!valid()) return false;
         // If h is valid and ready and contains an exception, throw it now
-        if(_h.valid() && is_ready(_h))
+        if(_h.valid() && BOOST_AFIO_V2_NAMESPACE::is_ready(_h))
         {
             if(check_handle)
                 if(!const_cast<shared_future<handle_ptr> &>(_h).get().get())
@@ -1628,14 +1669,60 @@ public:
     return _result.get();
   }
   //! Schedules a callable to be invoked after this future becomes ready. If this future is null, use the current async file i/o dispatcher.
-  template<class U> auto then(U &&f) -> decltype(f(*this))
+  template<class U> auto then(U &&f) -> typename detail::continuation_return_type<decltype(f(*this))>::future_type
   {
-    return f(*this);
+    using future_type = typename detail::continuation_return_type<decltype(f(*this))>::future_type;
+    using promise_type = typename detail::continuation_return_type<decltype(f(*this))>::promise_type;
+    return detail::do_continuation<future_type, promise_type>()(parent(), this, std::forward<U>(f));
   }
 };
-//! Trait for determining if a type is an afio::future<T>
-template<class T> struct is_future : std::false_type { };
-template<class T> struct is_future<future<T>> : std::true_type {};
+
+namespace detail
+{
+  // For continuations returning lightweight futures
+  template<class future_type, class promise_type> struct do_continuation
+  {
+    template<class D, class U> future_type operator()(D *d, future<> *src, U &&f)
+    {
+      if (!d) d = current_dispatcher().get();
+      auto p = std::make_shared<promise_type>();
+      d->completion(*src, std::make_pair(async_op_flags::immediate, [f, p](size_t id, future<> _f) -> std::pair<bool, handle_ptr> {
+        try
+        {
+          p->set_state(f(_f).get_state());
+        }
+        catch (...)
+        {
+          p->set_exception(current_exception());
+        }
+        return std::make_pair(true, _f.get_handle());
+      }));
+      return p->get_future();
+    }
+  };
+  // For continuations returning shim AFIO futures or some naked type
+  template<class R> struct do_continuation<future<R>, void>
+  {
+    template<class D, class T, class U> future<R> operator()(D *d, future<T> *src, U &&f)
+    {
+      if (!d) d = current_dispatcher().get();
+      // TEMPORARY: For continuations taking a future<T> where T is not void
+      // we have no way of passing the correct future to the continuation until
+      // the lightweight future promise refactor
+      //
+      // So simply call the continuation now. When it calls .get() it will block.
+      return f(*src);
+    }
+    template<class D, class U> future<> operator()(D *d, future<> *src, U &&f)
+    {
+      if (!d) d = current_dispatcher().get();
+      return d->completion(*src, std::make_pair(async_op_flags::immediate, [f](size_t id, future<> _f) -> std::pair<bool, handle_ptr> {
+        f(_f);
+        return std::make_pair(true, _f.get_handle());
+      }));
+    }
+  };
+}
 
 // This is a result_of filter to work around the weird mix of brittle decltype(), SFINAE incapable
 // std::result_of and variadic template overload resolution rules in VS2013. Works on other compilers
