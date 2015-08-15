@@ -57,6 +57,7 @@ struct idirectstream : public std::istream
       {
         buffer.resize(length);
         afio::read(ec, h, buffer.data(), length, 0);
+        p=buffer.data();
       }
       // Set the get buffer this streambuf is to use
       setg(p, p, p + length);

@@ -1,7 +1,7 @@
 #include "afio_pch.hpp"
 
 #ifdef _DEBUG
-#define ITEMS 512
+#define ITEMS 64
 #else
 #define ITEMS 65536
 #endif
