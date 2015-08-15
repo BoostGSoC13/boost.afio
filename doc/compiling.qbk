@@ -968,7 +968,7 @@ tarball] (same as git clone __boost_afio__ followed by a git submodules recursiv
 wish to use AFIO as part of the Boost libraries, AFIO is also a Boost module:
 
 # Download the latest version of the Boost Libraries from boost.org. 
-  At the time of writing the current version is Boost 1.58. 
+  At the time of writing the current version is Boost 1.60.
   Installing AFIO as a Boost module is not compatible with versions of Boost earlier than 1.56 as this was
   the first Boost version to become source code modularised.
 
@@ -980,33 +980,21 @@ wish to use AFIO as part of the Boost libraries, AFIO is also a Boost module:
   do a `git submodule update --init --recursive` to have git fill in the submodules.
 
 
-# POSIX: Assuming that your copy of Boost lives at /home/ned/boost and AFIO lives at
-  /home/ned/boost.afio, do:
+# Assuming that your copy of Boost lives at /home/ned/boost do:
 
   ``
     cd /home/ned/boost/libs
-    ln -s /home/ned/boost.afio afio
+    tar jxf afio-stable.tar.bz2 afio
     cd ..
     ./b2 headers
-    ./b2 libs/afio/build
-  ``
-  
-  
-# WINDOWS: Assuming that your copy of Boost lives at `C:\Users\ned\boost` and AFIO lives at
-  `C:\Users\ned\boost.afio`, do:
-
-  ``
-    cd \Users\ned\boost\libs
-    mklink /j afio C:\Users\ned\boost.afio
-    cd ..
-    b2 headers
-    b2 libs/afio/build
+    ./b2 libs/afio/build cxxflags=-std=c++11
   ``
 
+  On Microsoft Windows it's almost the same, just don't specify the `-std=c++11` if you are using VS2015.
 
 #  If you'd also like to execute the unit test suite, do:
   ``
-    ./b2 libs/afio/test
+    ./b2 libs/afio/test cxxflags=-std=c++11
   ``
 
 #  Similar if you'd like to build documentation, do:
@@ -1028,27 +1016,23 @@ be used in exactly the same way as if AFIO were already part of Boost.
 To run the unit tests as a standalone build, something like these will probably work for GCC and MSVC respectively:
 
 ``
-  #!/bin/sh
-  if [ ! -d asio ]; then
-    git clone https://github.com/chriskohlhoff/asio.git
-  fi
-  rm -rf test_all
-  g++ -o test_all -g -O3 -std=c++11 test/test_all.cpp detail/SpookyV2.cpp -Iinclude -Itest -DAFIO_STANDALONE=1 -DSPINLOCK_STANDALONE=1 -Iasio/asio/include -DASIO_STANDALONE=1 -DBOOST_AFIO_RUNNING_IN_CI=1 -lboost_filesystem -lboost_system -lpthread
+  ./standalone_alltests_gcc.sh
   ./test_all
 ``
 
-Note the dependency on __boost_filesystem__ as libstdc++ 4.9 (the last I tested) has insufficient Filesystem support. For VS2015:
+Note this has a dependency on __boost_filesystem__ as libstdc++ 4.9 (the last I tested) has insufficient Filesystem support. For VS2015:
 
 ``
-  if not exist asio git clone https://github.com/chriskohlhoff/asio.git
-  cl /Zi /EHs /O2 /MD /GF /GR /Gy /bigobj test\test_all.cpp detail\SpookyV2.cpp /DUNICODE=1 /DWIN32=1 /D_UNICODE=1 /D_WIN32=1 /Iinclude /Itest /DAFIO_STANDALONE=1 /DSPINLOCK_STANDALONE=1 /Iasio/asio/include /DASIO_STANDALONE=1 /DBOOST_AFIO_RUNNING_IN_CI=1
+  standalone_alltests_msvc
   test_all.exe
 ``
+
+VS2015 ships with Filesystem, so this is totally standalone.
 
 
 To run the unit tests under Boost with [*bjam], run from the boost top directory:
 ``
-  ./b2 libs/afio/test
+  ./b2 libs/afio/test cxxflags=-std=c++11
 ``
 This will run the entire suite of unit tests. Some useful command line arguments for Boost.Build:
 
@@ -1077,7 +1061,7 @@ This will run the entire suite of unit tests. Some useful command line arguments
 For example: 
 
     ``
-        b2 link=static toolset=gcc --test="first_test.cpp second_test.cpp" 
+        b2 link=static toolset=gcc-5 cxxflags=-std=c++1z --test="first_test.cpp second_test.cpp" 
     ``
 
 will only compile and run only the tests in `first_test.cpp` and `second_test.cpp`. All other unit tests will

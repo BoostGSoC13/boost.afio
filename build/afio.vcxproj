@@ -83,7 +83,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeOutput>afio.exe</NMakeOutput>
     <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
-    <NMakeBuildCommandLine>..\..\..\b2 link=static toolset=msvc-14.0 ../test --link-test -j 8</NMakeBuildCommandLine>
+    <NMakeBuildCommandLine>..\..\..\b2 link=static ../test --link-test -j 8</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>..\..\..\b2 -a</NMakeReBuildCommandLine>
     <IncludePath>C:\Users\Project Kyo\Documents\GitHub\boost;$(IncludePath)</IncludePath>
   </PropertyGroup>

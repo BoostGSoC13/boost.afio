@@ -250,8 +250,7 @@ The naive results were calculated by excluding the highest value and averaging t
 Now this is not a fair comparison by any means __dash__ the NoSQL databases are running over a network stack
 (which particularly penalises read performance) whereas ours is direct to the OS API more or less,
 and our naive benchmark only writes 10 bytes of value per item which is small enough to pack into the inode
-on both NTFS and ext4, so the extent allocator is never getting invoked. Additionally, the lookup tests for
-the NoSQL database do a number of fsynced modifies. Still, one is used to thinking of
+on both NTFS and ext4, so the extent allocator is never getting invoked. Still, one is used to thinking of
 the filesystem as incredibly slow and to be avoided with fancy database software __dash__ this simple test
 shows that ['recent] filesystems are competitive to fancy databases (and indeed even more so with a more
 sophisticated design than the one we used, as you will see later).
@@ -268,7 +267,7 @@ A design which makes better use of AFIO is one which is asynchronous throughout 
 (['tip:] always avoid file opens period if you want fast filesystem performance, they are always very slow due
 to the security checking of every single item in the path), so here is the first problem:
 
-[*Problem 1 with naive design:] We are doing too many file opens.
+[*Problem 1 with naive design:] We are doing too many file opens for really good performance.
 
 [*Problem 2 with naive design:] ['Atomicity]: Writes do not atomically appear fully completed to other readers, so if one thread/process reads a value
 currently being written by another thread/process, they will see a partially written value.
@@ -288,7 +287,7 @@ garbage.
 
 [*Problem 6 with naive design:] There is no way of atomically updating two or more key-value items in a transaction.
 
-Luckily, AFIO exposes exactly the right features to make four of those six problems go away.
+Luckily, AFIO exposes exactly the right features to make four of those six problems go away very easily.
 
 [endsect] [/naive_racy]
 
