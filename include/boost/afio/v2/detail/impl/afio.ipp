@@ -2152,7 +2152,7 @@ template<class F, class... Args> BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC future<> d
 #endif
         }
     });
-    BOOST_AFIO_DEBUG_PRINT("I %u (d=%d) < %u (%s)\n", (unsigned) thisid, done, (unsigned) precondition.id, detail::optypes[static_cast<int>(optype)]);
+    BOOST_AFIO_DEBUG_PRINT("I %u (d=%d) < %u (%s)\n", (unsigned) thisid, done, (unsigned) precondition.id(), detail::optypes[static_cast<int>(optype)]);
     if(!done)
     {
         // Bind input handle now and queue immediately to next available thread worker

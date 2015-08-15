@@ -1689,8 +1689,15 @@ namespace detail
       d->completion(*src, std::make_pair(async_op_flags::immediate, [f, p](size_t id, future<> _f) -> std::pair<bool, handle_ptr> {
         try
         {
-          auto s(f(_f).get_state());
-          p->set_state(std::move(s));
+          using result_type = decltype(f(_f));
+          f(_f).then([p](const result_type &_f) {
+            auto s(_f.get_state());
+            try
+            {
+              p->set_state(std::move(s));
+            }
+            catch (...) { /* Really should filter for no_state */ }
+          });
         }
         catch (...)
         {
