@@ -36,23 +36,34 @@ using BOOST_MONAD_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
+// A special allocator of highly efficient file i/o memory
+using file_buffer_type = std::vector<char, afio::utils::file_buffer_allocator<char>>;
+
 // An iostream which reads directly from a memory mapped AFIO file
 struct idirectstream : public std::istream
 {
   struct directstreambuf : public std::streambuf
   {
     afio::handle_ptr h;  // Holds the file open and therefore mapped
-    directstreambuf(afio::handle_ptr _h) : h(std::move(_h))
+    file_buffer_type buffer;
+    directstreambuf(error_code &ec, afio::handle_ptr _h) : h(std::move(_h))
     {
-      // Get the size of the file
+      // Get the size of the file. If greater than 128Kb mmap it
       size_t length=(size_t) h->lstat(afio::metadata_flags::size).st_size;
-      char *p = (char *) h->try_mapfile();
+      char *p=nullptr;
+      if(length>=128*1024)
+        p = (char *) h->try_mapfile();
+      if(!p)
+      {
+        buffer.resize(length);
+        afio::read(ec, h, buffer.data(), length, 0);
+      }
       // Set the get buffer this streambuf is to use
       setg(p, p, p + length);
     }
   };
   std::unique_ptr<directstreambuf> buf;
-  idirectstream(afio::handle_ptr h) : std::istream(new directstreambuf(std::move(h))), buf(static_cast<directstreambuf *>(rdbuf()))
+  idirectstream(error_code &ec, afio::handle_ptr h) : std::istream(new directstreambuf(ec, std::move(h))), buf(static_cast<directstreambuf *>(rdbuf()))
   {
   }
   virtual ~idirectstream() override
@@ -65,8 +76,6 @@ struct idirectstream : public std::istream
 // An iostream which writes to an AFIO file in 4Kb pages
 struct odirectstream : public std::ostream
 {
-  // A special allocator of highly efficient file i/o memory
-  using file_buffer_type = std::vector<char, afio::utils::file_buffer_allocator<char>>;
   struct directstreambuf : public std::streambuf
   {
     using int_type = std::streambuf::int_type;
@@ -182,13 +191,11 @@ monad<data_store::istream> data_store::lookup(std::string name) noexcept
         return empty;
       return ec;
     }
-    // Try to map the file into memory. This only works if the file was
-    // opened read-only and there is enough virtual address space.
-    void *addr=h->try_mapfile();
-    if(!addr)
-      return error_code(ENOMEM, generic_category());
     // Create an istream which directly uses the mapped file.
-    return monad<data_store::istream>(std::make_shared<idirectstream>(std::move(h)));
+    data_store::istream ret(std::make_shared<idirectstream>(ec, std::move(h)));
+    if(ec)
+      return ec;
+    return ret;
   }
   catch(...)
   {

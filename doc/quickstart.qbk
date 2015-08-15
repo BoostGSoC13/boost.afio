@@ -270,52 +270,74 @@ to the security checking of every single item in the path), so here is the first
 
 [*Problem 1 with naive design:] We are doing too many file opens.
 
-The next problems are summarised in database parlance as ACID which for this naive design:
-
-[*Problem 2 with naive design:] Atomicity
-
-Writes do not atomically appear fully completed to other readers, so if one thread/process reads a value
+[*Problem 2 with naive design:] ['Atomicity]: Writes do not atomically appear fully completed to other readers, so if one thread/process reads a value
 currently being written by another thread/process, they will see a partially written value.
 
-[*Problem 3 with naive design:] Consistency
-
-If a writer process fatal exits during a write and therefore does not complete a write, the key value store
+[*Problem 3 with naive design:] ['Consistency]: If a writer process fatal exits during a write and therefore does not complete a write, the key value store
 is corrupted.
 
-[*Problem 4 with naive design:] Isolation
-
-There is no concurrency ordering control apart from that provided by the operating system. AFIO exposes
+[*Problem 4 with naive design:] ['Isolation]: There is no concurrency ordering control apart from that provided by the operating system. AFIO exposes
 the strong guarantees made by operating systems as to the atomicity of read and write visibility to other readers and writers (see each
 API reference documentation page for the guarantees per API per platform), however the STL iostreams wrapper
 around AFIO ruins those guarantees (this is why AFIO does not provide iostreams wrappers).
 
-[*Problem 5 with naive design:] Durability
-
-If power loss occurs during use of the key-value store, you are at the mercy of random chance as to
+[*Problem 5 with naive design:] ['Durability]: If power loss occurs during use of the key-value store, you are at the mercy of random chance as to
 what data in what order reached physical storage. On many filing systems you aren't even guaranteed
 that extent metadata matches contents, so your value may consist of portions of valid data intermixed with
 garbage.
 
+[*Problem 6 with naive design:] There is no way of atomically updating two or more key-value items in a transaction.
 
+Luckily, AFIO exposes exactly the right features to make four of those six problems go away.
 
 [endsect] [/naive_racy]
 
-[section:atomic_updates How to implement atomic value updates and therefore Atomicity, Consistency, Isolation]
+[section:atomic_updates Second attempt at a key-value store: How to implement atomic value updates and therefore Atomicity, Consistency, Isolation and Durability]
 
 [endsect] [/atomic_updates]
 
-[section:durability Implementing Durability and garbage collection]
+[section:atomic_updates_problems The performance of and problems with this second generation design]
 
-[endsect] [/durability]
+[endsect] [/atomic_updates_problems]
 
-[section:performance What's the performance of this naive key-value store?]
+[section:extents Third attempt at a key-value store: Thinking like a filing system]
 
-[endsect] [/performance]
+Max file size on ext4: 16Tb (2^44)
+
+Max file size on Win8: 256Tb - 16Kb (nearly 2^48).
+
+16Tb is 2^44 bit range. What's the chance of a hash collision given 1Mb files? 2^44 / 2^20 = 1 in 16M. Non-trivial.
+
+Watch out for the 8Tb virtual address space per process!
 
 
-[section:deduplication Adding deduplication of identical value storage]
+Strategy:
 
-[endsect] [/deduplication]
+* There are two files, the store file and the index.
+
+* The index file has two parts:
+  * A hash table of names to store extent.
+  * A list of disposed store extents.
+
+* To write values, simply atomic append them with O_DIRECT to the store file and take note of the offsets you got.
+
+* Merge any invalidated value extents into the disposed store extents. Scan for any exceeding 256Kb, if so remove
+them and keep them in a separate list.
+
+* Write a copy of the modified index to a temp file.
+
+* Once the store write completes, grab the index lock, check inode and modified of index is what you began with, if so atomic relink, release lock.
+
+* If I succeeded, I always zero the >= 256Kb extents I identified earlier.
+
+* If index file had changed, check if the keys I am changing were partially changed. If so, error out with
+transaction conflict, else reload the index and retry.
+
+[endsect] [/extents]
+
+[section:extents_problems The performance of and problems with this third generation design]
+
+[endsect] [/extents_problems]
 
 
 [endsect] [/ workshop]
