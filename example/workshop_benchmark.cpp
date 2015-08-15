@@ -14,7 +14,7 @@ namespace naive {
 #include "workshop_naive_afio.ipp"
 }
 namespace atomic_updates {
-//#include "workshop_atomic_updates_afio.ipp"
+#include "workshop_atomic_updates_afio.ipp"
 }
 
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
@@ -88,7 +88,7 @@ template<class data_store> void benchmark(const char *filename, const char *desc
       // Some dumping of the writes should have happened by now
 #pragma omp parallel for
       for (int o = 0; o < todo; o++)
-        ops[o].clear();
+        ops[o]=typename data_store::write_result_type();
     }
     auto end=chrono::high_resolution_clock::now();
     auto diff=chrono::duration_cast<secs_type>(end-begin).count();
@@ -121,7 +121,7 @@ template<class data_store> void benchmark(const char *filename, const char *desc
         *ops[o].get() >> t;
         if (t != items[m+(size_t) o].second)
           std::cerr << "ERROR: Item " << m << " has incorrect contents!" << std::endl;
-        ops[o].clear();
+        ops[o]=typename data_store::lookup_result_type();
       }
     }
     auto end = chrono::high_resolution_clock::now();
@@ -141,8 +141,8 @@ int main(void)
   auto begin=chrono::high_resolution_clock::now();
   while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
   
-  benchmark<iostreams::data_store>("iostreams.csv", "STL iostreams");
-  benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
-  //benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update");
+  //benchmark<iostreams::data_store>("iostreams.csv", "STL iostreams");
+  //benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
+  benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update");
   return 0;
 }
