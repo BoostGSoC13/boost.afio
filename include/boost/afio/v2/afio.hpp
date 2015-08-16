@@ -1696,7 +1696,7 @@ namespace detail
             {
               p->set_state(std::move(s));
             }
-            catch (...) { /* Really should filter for no_state */ }
+            catch (...) { /* Really should filter for no_state but this is shim code */ }
           });
         }
         catch (...)

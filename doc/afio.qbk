@@ -69,6 +69,8 @@
 
 [import ../example/workshop_naive.ipp]
 [import ../example/workshop_naive_afio.ipp]
+[import ../example/workshop_naive_async_afio.ipp]
+[import ../example/workshop_atomic_updates_afio.ipp]
 
 [import ../example/adopt_example.cpp]
 [import ../example/barrier_example.cpp]

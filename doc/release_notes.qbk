@@ -13,23 +13,22 @@
 version to enter Boost if accepted]
 [/=================]
 
-This edition of AFIO v1.4 has been ["mocked up] with an API which should very closely
+This peer review edition of AFIO v1.4 has been ["mocked up] with an API which should very closely
 resemble the eventual API in the v1.4 engine which will be rewritten to use the just written
-lightweight future-promise factory toolkit in forthcoming Boost.Monad. It is, however,
+lightweight future-promise factory toolkit in forthcoming __boost_monad__. It is, however,
 still in fact the mature v1.3 engine with a faked wrapper API simulating the v1.4 engine.
 Known deviations from the eventual v1.4 release:
 
-* AFIO's when_all()/when_any() were implemented in 2012 back when the C++ 1z Concurrency
-TS looked very different - indeed, the Concurrency TS was adjusted at the time to more closely match
-AFIO's implementation after Microsoft studied AFIO's design. However, the TS has moved on
-considerably since again, and AFIO's continuations API has not kept up.
+* AFIO's `future` is a shim type standing in for the eventual custom Boost.Monad based future.
+Continuations work, but are horribly hacked together __dash__ if your continuation returns
+a Boost.Monad future, it shims in a one way conversion to lightweight futures. If your continuation
+returns anything else, including an AFIO future, it stays within AFIO < v1.4's fairly broken future
+semantics (AFIO was first written back in 2012 when the Concurrency TS looked very different
+indeed, and AFIO has not kept up).
 
- As a result, AFIO's non-standard when_all()/when_any() functions are going to be replaced with ones
-exactly matching N4399 - lightweight future-promise already has an implementation which
-accepts any combination of custom future types into the same wait composure, and after
-AFIO is using those lightweight futures it can dispense with its own (highly inefficient)
-wait composure implementation you see here with its incorrect function specification and
-semantics.
+[warning AFIO's future shim type can't do continuations on anything but `future<void>`. For
+any `future<T>` it actually executes the continuation immediately which will usually just
+happen to work through fortune as the continuation usually does a `get()`.]
 
 * Relatedly, because AFIO < v1.4 implemented future continuations atop STL and Boost futures
 using an internal hash table to look up the associated extra operation metadata per future,
@@ -149,7 +148,7 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 
 
 [/=================]
-[heading Boost 1.58 AFIO v1.40 alpha 20th July 2015 Boost peer review 1 edition]
+[heading Boost 1.59 AFIO v1.40 alpha 20th July 2015 Boost peer review 1 edition]
 [/=================]
 
 * Removed VS2013 support as lightweight future-promise will require VS2015:
@@ -195,10 +194,19 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * Added reparse_point flag to stat_t.
 
-Todo:
+* Verified as working with Boost 1.59 release.
+
+Still to do in this release:
 
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure
 it's DLL unload safe).
+
+* handle::try_mapfile() should allow writeable maps. Please disable the memcpy code in
+doreadwrite, it's not necessary. Add docs warnings about the pitfalls of mixing direct i/o
+with mmaps.
+
+* Add handle::map_section() which maps offset extents and returns a RAII object allowing
+range syncing, invalidation, tag random, tag sequential, preload, flush, discard.
 
 * Linux: UPDATE TABLE IN COMPILATION DOCS.
 

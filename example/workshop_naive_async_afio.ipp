@@ -1,4 +1,4 @@
-//[workshop_atomic_updates_afio_interface
+//[workshop_naive_async_afio_interface
 namespace afio = BOOST_AFIO_V2_NAMESPACE;
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
 using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::shared_future;
@@ -30,9 +30,8 @@ public:
 };
 //]
 
-//[workshop_atomic_updates_afio2]
+//[workshop_naive_async_afio3]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-using BOOST_MONAD_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
@@ -146,9 +145,7 @@ struct odirectstream : public std::ostream
 };
 //]
 
-//[workshop_atomic_updates_afio1]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-using BOOST_MONAD_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
@@ -170,6 +167,7 @@ data_store::data_store(size_t flags, afio::path path)
   _store=afio::dir(std::move(path), afio::file_flags::create);  // throws if there was an error
 }
 
+//[workshop_naive_async_afio2]
 shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
 {
   if(!is_valid_name(name))
@@ -219,10 +217,13 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
   }
   catch(...)
   {
+    // Boost.Monad futures are also monads, so this implies a make_ready_future()
     return std::current_exception();
   }
 }
+//]
 
+//[workshop_naive_async_afio1]
 shared_future<data_store::ostream> data_store::write(std::string name) noexcept
 {
   if(!is_valid_name(name))
@@ -248,6 +249,7 @@ shared_future<data_store::ostream> data_store::write(std::string name) noexcept
   }
   catch (...)
   {
+    // Boost.Monad futures are also monads, so this implies a make_ready_future()
     return std::current_exception();
   }
 }

@@ -150,7 +150,7 @@ that each key-value item is simply a file called the same name as the key name.
 
 [endsect] [/ naive]
 
-[section:naive_afio World's simplest named blob store in AFIO]
+[section:naive_afio World's simplest named blob store in AFIO (synchronous)]
 
 Let's see the same thing as in the last section, but written using AFIO. First, the interface is identical
 to before, just with different private member variables:
@@ -229,10 +229,55 @@ additional extensions beyond what Boost.Thread or the Concurrency TS provides, i
 
 [endsect] [/ naive_afio]
 
+[section:naive_afio_async World's simplest named blob store in AFIO (asynchronous)]
+
+Let's see the same exact thing as in the last section, but this time with a fully asynchronous public interface.
+Instead of returning `monad<>`, we now return `shared_future<>`:
+
+[workshop_naive_async_afio_interface]
+
+An extension to the Concurrency TS futures is that Boost.Monad futures are also monads, and therefore implicitly
+convert from their allowed monadic input types without you needing to write `make_ready_future(T)` as with the
+Concurrency TS.
+
+You may be interested to know that the benchmarking harness code is 100% identical for all three of these
+implementations. This is because `monad<>` is sufficiently API-identical to `future<>` that identical code can drive all
+three implementations.
+
+`write()` is now implemented by scheduling the file to be opened for write access and attaching a continuation
+which will propagate any error, and if no error returns via the shared future the shared pointer to the output stream.
+
+[workshop_naive_async_afio1]
+
+`lookup()` takes the chaining of continuations one sequence further. It schedules the file to be opened for reading
+and attaches a continuation which firstly propagates any error, and then if the file is big enough it memory maps
+the file and returns the input stream. If the file is small enough it schedules a read of the entire file, attaching
+a second continuation to return the input stream.
+
+The below pattern is 100% pure soon-to-be-standardised Concurrency TS future continuations which can be easily coroutinised
+automatically on a C++ 1z Coroutines supporting compiler (simply insert `await` before any AFIO `async_XXX` function). Apart from the fact that
+__boost_monad__ lightweight futures also provide an `error_code` transport, there is nothing below which wouldn't
+work with an upcoming standard C++ library (unless the TS changes substantially, which is very unlikely at this late
+stage).
+
+[note This peer review edition of AFIO v1.40 provides a shim future type standing in for an eventual lightweight future
+implementation. C++ 1z coroutine support is not implemented for the shim future type.]
+
+[workshop_naive_async_afio2]
+
+The input and output stream implementations are pretty similar to before, but here they are for reference
+
+[workshop_naive_async_afio3]
+
+
+[endsect] [/naive_afio_async]
+
 [section:naive_racy The problems with this naive design]
 
 You might be curious as to the performance of this naive key-value blob database. I was, so I performed the
-following benchmarks on Win8.1 NTFS and Linux ext4 both on SSD using the code above:
+following benchmarks on Win8.1 NTFS and Linux ext4 both on SSD using the code above. Note that the test
+uses OpenMP to parallelise the operations, so the below shows AFIO in a worst case light as will be explained
+shortly:
 
 [role aligncenter [$../../../../../libs/afio/doc/src/images/workshop_naive_insertions.png] [$../../../../../libs/afio/doc/src/images/workshop_naive_lookups.png]]
 
@@ -256,21 +301,26 @@ shows that ['recent] filesystems are competitive to fancy databases (and indeed 
 sophisticated design than the one we used, as you will see later).
 
 As is fairly obvious from the results, AFIO lags far behind iostreams at about one half to one third the performance.
-This is because no platform provides asynchronous file open, and this test is pretty much entirely file opening.
-Furthermore, we are using AFIO's synchronous API for the most part, and that is
-simply a `get()` on the asynchronous API which introduces an unnecessary thread sleep. Still worse again, AFIO emulates asynchronicity by
-executing the file opens in a threadpool which is exactly what the iostreams does via OpenMP, however there
+We are using AFIO's synchronous API for the most part, and that is simply a `get()` on the asynchronous API which
+introduces an unnecessary thread sleep (the fully asynchronous edition is about 0-5% faster). Much more importantly,
+because no platform provides asynchronous file open nor close, AFIO emulates asynchronicity by
+executing the file opens and closes in a threadpool which is exactly what the iostreams does via OpenMP, however there
 isn't a copy of ASIO and AFIO and all the futures and completion handlers standing in between, so the iostreams
-implementation is far faster and will [*always] be faster than AFIO if you do a lot of file opens. 
+implementation is far faster and will [*always] be faster than AFIO if you do a lot of file opens and closes which
+is pretty much this benchmark in a nutshell.
 
-A design which makes better use of AFIO is one which is asynchronous throughout and which avoids file opens
+[note This peer review edition of AFIO v1.40 uses a mocked up v1.40 API based on the v1.3 series engine. Performance
+of this mockup will be considerably below the final v1.40 engine written using __boost_monad__'s lightweight futures.]
+
+A design which makes better use of AFIO is one which is asynchronous throughout and which avoids file opens and closes
 (['tip:] always avoid file opens period if you want fast filesystem performance, they are always very slow due
-to the security checking of every single item in the path), so here is the first problem:
+to the security checking of every single item in the path. File closes are also particularly slow on Microsoft Windows
+and Apple OS X).
 
-[*Problem 1 with naive design:] We are doing too many file opens for really good performance.
+[*Problem 1 with naive design:] We are doing too many file opens and closes for really good performance.
 
 [*Problem 2 with naive design:] ['Atomicity]: Writes do not atomically appear fully completed to other readers, so if one thread/process reads a value
-currently being written by another thread/process, they will see a partially written value.
+currently being written by another thread/process, they will see a partially written value which is a filesystem race.
 
 [*Problem 3 with naive design:] ['Consistency]: If a writer process fatal exits during a write and therefore does not complete a write, the key value store
 is corrupted.
@@ -287,7 +337,8 @@ garbage.
 
 [*Problem 6 with naive design:] There is no way of atomically updating two or more key-value items in a transaction.
 
-Luckily, AFIO exposes exactly the right features to make four of those six problems go away very easily.
+Luckily, AFIO exposes exactly the right features to make four of those six problems go away with very few changes
+to the above code.
 
 [endsect] [/naive_racy]
 

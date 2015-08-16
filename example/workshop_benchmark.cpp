@@ -112,13 +112,9 @@ template<class data_store> void benchmark(const char *filename, const char *desc
 #pragma omp parallel for
       for (int o = 0; o < todo; o++)
       {
+        auto s(ops[o].get());
         unsigned t;
-        if (!ops[o])
-        {
-          std::cerr << "ERROR: Item " << m << " not found!" << std::endl;
-          continue;
-        }
-        *ops[o].get() >> t;
+        *s >> t;
         if (t != items[m+(size_t) o].second)
           std::cerr << "ERROR: Item " << m << " has incorrect contents!" << std::endl;
         ops[o]=typename data_store::lookup_result_type();
