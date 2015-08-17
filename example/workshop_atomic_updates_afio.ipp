@@ -102,6 +102,10 @@ struct odirectstream : public std::ostream
         auto dirh(lastwrite->container());
         // Atomically rename "tmpXXXXXXXXXXXXXXXX" to "0"
         lastwrite->atomic_relink(afio::path_req::relative(dirh, "0"));
+#ifdef __linux__
+        // Flush metadata on Linux only
+        async_sync(dirh);
+#endif
       }
       catch(...)
       {

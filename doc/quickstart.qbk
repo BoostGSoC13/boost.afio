@@ -348,7 +348,7 @@ what data in what order reached physical storage. On many filing systems you are
 that extent metadata matches contents, so your value may consist of portions of valid data intermixed with
 garbage.
 
-[*Problem 6 with naive design:] Insertion complexity may be as poor as `O(N)` on some filesystems.
+[*Problem 6 with naive design:] Insertion and update complexity may be as poor as `O(N)` on some filesystems.
 
 [*Problem 7 with naive design:] There is no way of atomically updating two or more key-value items in a transaction.
 
@@ -402,8 +402,8 @@ This function does as it says, and atomically makes visible at `store/key/0` our
 the key, unlinking any file previously there[footnote This operation is not possible on Microsoft
 Windows using the Win32 API __dash__ nowhere in the Win32 API is this operation made available.
 However the NT kernel API does provide this operation, hence AFIO can provide POSIX atomic relink
-guarantees on Windows.]. Never at any point is there not a complete and finished
-value file on physical storage at `store/key/0`[footnote This may not be true on older NFS mounts,
+guarantees on Windows.]. [*Never at any point is there not a complete and finished
+value file on physical storage at `store/key/0`][footnote This may not be true on older NFS mounts,
 or NFS mounts with the wrong configuration. See the NFS documentation. It is also possible to
 configure Samba in a way which breaks the atomicity of atomic renaming, see the Samba documentation.].
 On Linux only we then execute a sync on the directory handle
@@ -411,7 +411,7 @@ for `store/key` because Linux deviates from POSIX `O_SYNC` requirements by not f
 as it is supposed to, so without this flush a previous version of the value might appear after a
 sudden power loss (strictly speaking this step is optional given our design and the journalling
 in modern Linux filing systems, however comparative benchmarks are much more fair if we make
-Linux behave like normal POSIX implementations).
+Linux behave like the other operating systems).
 
 Not that we'll be implementing this here, but the deletion semantics would be:
 
@@ -422,7 +422,9 @@ containing an open file, so you may need to move all the contents of the directo
 into the directory you are trying to delete.
 
 # Recursively delete the dead directory. On Microsoft Windows, AFIO tags the items for later deletion when
-the last handle to them is closed.
+the last handle to them is closed. Remember that someone doing a lookup may still have a handle open to
+the just deleted version of the handle, but on both POSIX and Windows this is fine __dash__ the physical
+storage will be deallocated on last handle close, even (usually) under unexpected power loss.
 
 What these new semantics achieve:
 
@@ -464,6 +466,11 @@ destructor now simply atomically renames the temp file to "0" using the parent d
 as the base for the rename target in order to ensure race freedom.
 
 [workshop_atomic_updates_afio3]
+
+Obviously enough we don't have any garbage collection in here for failed or aborted writes. Thanks
+to the unique naming of those files, these are very easy to spot during a GC pass and if they had a
+last modified date several days ago they would ideal for purging. Implementing one of those is easy
+using __async_enumerate__, and is left as an exercise for the reader.
 
 [table:conditions This second generation solution will perform reasonably well under these conditions:
 [[][Condition]]
