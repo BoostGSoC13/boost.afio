@@ -198,6 +198,8 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 Still to do in this release:
 
+* Write multi-abi FAQ answer.
+
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure
 it's DLL unload safe).
 
@@ -771,5 +773,10 @@ on a long lived system. If you don't want this, open directories with write perm
 unique directory handle flag.
 
 [endsect] [/deleting_open_files]
+
+[section:multi_abi How do I reconfigure AFIO within the same translation unit to use a different ABI?]
+
+[endsect] [/multi_abi]
+
 
 [endsect] [/FAQ]

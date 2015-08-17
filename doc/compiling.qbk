@@ -48,14 +48,16 @@ If you do make use of __boost_filesystem__ in your AFIO build, note that
 Boost.Filesystem is dependant on Boost.System which will also need to be linked in.
 On some platforms (e.g. ARM) you may also need Boost.Atomic.
 
-After defining your build macros of choice, making AFIO available to your
+After defining your build macros of choice, making latest AFIO available to your
 code is as simple as:
 
-    #include "boost.afio/include/boost/afio.hpp"
+    #include "boost.afio/include/boost/afio.hpp"     // latest version
+    #include "boost.afio/include/boost/v1/afio.hpp"  // specific version
 
 if being used standalone or if being used as part of Boost:
 
-    #include "boost/afio.hpp"
+    #include "boost/afio.hpp"          // latest version
+    #include "boost/afio/v1/afio.hpp"  // specific version
 
 [heading:trunk_status Supported Compilers And Current Trunk Build And Unit Test State]
 [#unit_test_dashboard]
@@ -968,7 +970,7 @@ tarball] (same as git clone __boost_afio__ followed by a git submodules recursiv
 wish to use AFIO as part of the Boost libraries, AFIO is also a Boost module:
 
 # Download the latest version of the Boost Libraries from boost.org. 
-  At the time of writing the current version is Boost 1.60.
+  At the time of writing the current version is Boost 1.59.
   Installing AFIO as a Boost module is not compatible with versions of Boost earlier than 1.56 as this was
   the first Boost version to become source code modularised.
 
@@ -991,6 +993,8 @@ wish to use AFIO as part of the Boost libraries, AFIO is also a Boost module:
   ``
 
   On Microsoft Windows it's almost the same, just don't specify the `-std=c++11` if you are using VS2015.
+Note if you forget the `-std` currently you need to wipe the `bin.v2` directory to reset it as the result is cached
+by Boost.Build.
 
 #  If you'd also like to execute the unit test suite, do:
   ``
@@ -1023,7 +1027,7 @@ To run the unit tests as a standalone build, something like these will probably 
 Note this has a dependency on __boost_filesystem__ as libstdc++ 4.9 (the last I tested) has insufficient Filesystem support. For VS2015:
 
 ``
-  standalone_alltests_msvc
+  standalone_alltests_msvc.bat
   test_all.exe
 ``
 
