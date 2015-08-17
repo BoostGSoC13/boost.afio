@@ -369,7 +369,7 @@ The naive key-value store simply stored each key in a single flat directory, so:
 When inserting or updating an item, it simply opened the filename and wrote out the contents
 thus creating races for concurrent users and potentially writing out the entire directory inode
 if that filesystem rebalances its directory contents. So how do we implement ACID-ity of updates
-with constant time updayes?
+with constant time updates?
 
 It is actually surprisingly simple thanks to AFIO. Firstly, we are going to reorganise the
 store's structure with a directory per key name to become this instead:
@@ -385,15 +385,19 @@ We are going to change the lookup semantics to this instead:
 
 The insertion semantics becomes this:
 
-# For some key, open the file `store/key/tmpXXXXXXXXXXXXXXXX` for writing using `afio::file_flags::always_sync`,
+# For some key, open the file `store/key/tmpXXXXXXXXXXXXXXXX` for writing using `afio::file_flags::always_sync`
+(this causes the OS to not report write completion until the write reaches physical storage),
 creating any `store/key` directory as necessary, where `XXXXXXXXXXXXXXXX` is a cryptographically strong
 128-bit random number.
 
 # Write the new value using the output stream as normal, keeping the handle open. Because the handle
 was opened with `O_SYNC`, writes will not complete until the data has reached physical storage.
+POSIX requires `O_SYNC` to also ensure metadata to retrieve a write is also on physical storage,
+however this requirement is widely interpreted: Windows flushes metadata on handle close, Linux doesn't
+flush metadata at all unless specifically asked.
 
 # Atomically rename `store/key/tmpXXXXXXXXXXXXXXXX` to `store/key/0` using AFIO's special `atomic_relink()`
-function (which because it acts on an open file handle, is invariant to relocations of itself).
+function (which because it acts on an open file handle, is invariant to path relocations of itself).
 This function does as it says, and atomically makes visible at `store/key/0` our new value for
 the key, unlinking any file previously there[footnote This operation is not possible on Microsoft
 Windows using the Win32 API __dash__ nowhere in the Win32 API is this operation made available.
@@ -409,19 +413,57 @@ sudden power loss (strictly speaking this step is optional given our design and 
 in modern Linux filing systems, however comparative benchmarks are much more fair if we make
 Linux behave like normal POSIX implementations).
 
+Not that we'll be implementing this here, but the deletion semantics would be:
+
+# Atomically rename `store/key` to `store/deadXXXXXXXXXXXXXXXX` where the latter part is another 128-bit
+crypto strong random number. Note that Microsoft Windows does not permit you to rename a directory
+containing an open file, so you may need to move all the contents of the directory into a newly created
+`deadXXXXXXXXXXXXXXXX` directory instead, being careful of races caused by someone setting a new key-value
+into the directory you are trying to delete.
+
+# Recursively delete the dead directory. On Microsoft Windows, AFIO tags the items for later deletion when
+the last handle to them is closed.
+
 What these new semantics achieve:
 
 # [*Atomicity]: Values always appear to concurrent readers complete and finished.
 # [*Consistency]: If a writer fatal exits during a key update, the store is left in a consistent state.
 # [*Isolation]: The operating system provides strong ordering guarantees about atomic relinking,
-thus creating a sequentially consistent ordering of key-value visibility.
+thus creating a sequentially consistent ordering of key-value update visibility.
 # [*Durability]: If power loss suddenly occurs, the key-value store will always be internally
 consistent. It may not have all the key-values in an identical order to how they were written as
 this second generation design does not implement transactions, but there will always be a complete
 value for a key which at some point was stored to that key.
 # [*Much improved update complexity]: New key insertion may still be as poor as `O(N)` complexity, but
 updates of existing keys is now no worse than lookup complexity, which is a big improvement over
-the naive design.
+the naive design. If your filing system has `O(N)` insert complexity, you could use prefix directories to
+form a binary tree, thus reducing insert complexity to `O(log N)`.
+
+So let's look at the code: you will be surprised at how few changes there are compared to the earlier
+asynchronous AFIO implementation. Firstly, the interface is unchanged from before:
+
+[workshop_atomic_updates_afio_interface]
+
+`lookup()` is almost identical to before, now it simply opens `key/0` instead.
+
+[workshop_atomic_updates_afio1]
+
+`write()` is a bit different. We now open the key directory, and while that is happening asynchronously
+we generate a crypto strong random name which tends to be slow. We then schedule creating that temporary
+file with the extra flag `afio::file_flags::hold_parent_open` which can dramatically increase AFIO
+filesystem performance because a number of fast code paths can be taken e.g. fetching most metadata
+about a file on Windows will actually do a single glob directory enumeration on its parent directory when available
+which is about 20x faster. The reason it is not enabled by default is because of process file descriptor limits
+on POSIX, especially the severely low default limit on Apple OS X. In this particular case, we just want
+our temporary file to retain knowledge of its parent because we will fetch that parent later.
+
+[workshop_atomic_updates_afio2]
+
+Finally the input and output streams. The input stream is unchanged, whilst the output stream
+destructor now simply atomically renames the temp file to "0" using the parent directory handle
+as the base for the rename target in order to ensure race freedom.
+
+[workshop_atomic_updates_afio3]
 
 [table:conditions This second generation solution will perform reasonably well under these conditions:
 [[][Condition]]

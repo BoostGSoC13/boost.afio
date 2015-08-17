@@ -30,7 +30,7 @@ public:
 };
 //]
 
-//[workshop_atomic_updates_afio2]
+//[workshop_atomic_updates_afio3]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 using BOOST_MONAD_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
@@ -229,7 +229,9 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
     return std::current_exception();
   }
 }
+//]
 
+//[workshop_atomic_updates_afio2]
 shared_future<data_store::ostream> data_store::write(std::string name) noexcept
 {
   if(!is_valid_name(name))
