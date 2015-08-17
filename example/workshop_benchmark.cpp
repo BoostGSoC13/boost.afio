@@ -3,7 +3,7 @@
 #ifdef _DEBUG
 #define ITEMS 64
 #else
-#define ITEMS 65536
+#define ITEMS 16384
 #endif
 #define PARALLELISM 256  // up to max fds on your platform
 
@@ -75,7 +75,7 @@ template<class data_store> void benchmark(const char *filename, const char *desc
     begin=chrono::high_resolution_clock::now();
     for (size_t m = 0; m < n; m += PARALLELISM)
     {
-      int todo = n < PARALLELISM ? n : PARALLELISM;
+      int todo = (int)(n < PARALLELISM ? n : PARALLELISM);
 #pragma omp parallel for
       for (int o = 0; o < todo; o++)
         ops[o] = store.write(std::to_string(m + (size_t)o));
@@ -138,7 +138,7 @@ int main(void)
   while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
   
   //benchmark<iostreams::data_store>("iostreams.csv", "STL iostreams");
-  //benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
+  benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
   benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update");
   return 0;
 }

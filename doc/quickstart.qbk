@@ -265,7 +265,7 @@ implementation. C++ 1z coroutine support is not implemented for the shim future 
 
 [workshop_naive_async_afio2]
 
-The input and output stream implementations are pretty similar to before, but here they are for reference
+The input and output stream implementations are pretty similar to before, but here they are for reference:
 
 [workshop_naive_async_afio3]
 
@@ -300,6 +300,13 @@ the filesystem as incredibly slow and to be avoided with fancy database software
 shows that ['recent] filesystems are competitive to fancy databases (and indeed even more so with a more
 sophisticated design than the one we used, as you will see later).
 
+[note NTFS has such poor insertion performance because Microsoft Windows performs a sequentially consistent flush of the
+containing directory on file handle close, whereas Linux doesn't even flush the containing directory after
+you fsync a file and you must explicitly fsync the directory itself. You may find the
+`afio::file_flags::temporary_file` flag of use as this hints to Windows that the file is not important,
+and it may encourage Windows to not be so careful with sequentially flushing directory changes every single written
+file close.]
+
 As is fairly obvious from the results, AFIO lags far behind iostreams at about one half to one third the performance.
 We are using AFIO's synchronous API for the most part, and that is simply a `get()` on the asynchronous API which
 introduces an unnecessary thread sleep (the fully asynchronous edition is about 0-5% faster). Much more importantly,
@@ -316,6 +323,12 @@ A design which makes better use of AFIO is one which is asynchronous throughout 
 (['tip:] always avoid file opens period if you want fast filesystem performance, they are always very slow due
 to the security checking of every single item in the path. File closes are also particularly slow on Microsoft Windows
 and Apple OS X).
+
+Some might think that the flat store of all the keys in a single directory would scale poorly to item count.
+This certainly ['used] to be true for the previous generation of filing system, however modern filing
+systems usually have between `O(log N)` to `O(1)` lookup complexity and between `O(N)` and `O(1)` insertion
+complexity __dash__ this author found excellent lookup performance with 10M items on ext4 and NTFS,
+though insertion performance was not great for NTFS (which does a directory flush each file close).
 
 [*Problem 1 with naive design:] We are doing too many file opens and closes for really good performance.
 
@@ -335,14 +348,94 @@ what data in what order reached physical storage. On many filing systems you are
 that extent metadata matches contents, so your value may consist of portions of valid data intermixed with
 garbage.
 
-[*Problem 6 with naive design:] There is no way of atomically updating two or more key-value items in a transaction.
+[*Problem 6 with naive design:] Insertion complexity may be as poor as `O(N)` on some filesystems.
 
-Luckily, AFIO exposes exactly the right features to make four of those six problems go away with very few changes
+[*Problem 7 with naive design:] There is no way of atomically updating two or more key-value items in a transaction.
+
+Luckily, AFIO exposes exactly the right features to make five of those seven problems go away with very few changes
 to the above code.
 
 [endsect] [/naive_racy]
 
 [section:atomic_updates Second attempt at a key-value store: How to implement atomic value updates and therefore Atomicity, Consistency, Isolation and Durability]
+
+The naive key-value store simply stored each key in a single flat directory, so:
+
+* "dog" => `store/dog`
+* "cat" => `store/cat`
+* "horse" => `store/horse`
+* ...
+
+When inserting or updating an item, it simply opened the filename and wrote out the contents
+thus creating races for concurrent users and potentially writing out the entire directory inode
+if that filesystem rebalances its directory contents. So how do we implement ACID-ity of updates
+with constant time updayes?
+
+It is actually surprisingly simple thanks to AFIO. Firstly, we are going to reorganise the
+store's structure with a directory per key name to become this instead:
+
+* "dog" => `store/dog/0`
+* "cat" => `store/cat/0`
+* "horse" => `store/horse/0`
+* ...
+
+We are going to change the lookup semantics to this instead:
+
+# For some key, open the file `store/key/0` for reading.
+
+The insertion semantics becomes this:
+
+# For some key, open the file `store/key/tmpXXXXXXXXXXXXXXXX` for writing using `afio::file_flags::always_sync`,
+creating any `store/key` directory as necessary, where `XXXXXXXXXXXXXXXX` is a cryptographically strong
+128-bit random number.
+
+# Write the new value using the output stream as normal, keeping the handle open. Because the handle
+was opened with `O_SYNC`, writes will not complete until the data has reached physical storage.
+
+# Atomically rename `store/key/tmpXXXXXXXXXXXXXXXX` to `store/key/0` using AFIO's special `atomic_relink()`
+function (which because it acts on an open file handle, is invariant to relocations of itself).
+This function does as it says, and atomically makes visible at `store/key/0` our new value for
+the key, unlinking any file previously there[footnote This operation is not possible on Microsoft
+Windows using the Win32 API __dash__ nowhere in the Win32 API is this operation made available.
+However the NT kernel API does provide this operation, hence AFIO can provide POSIX atomic relink
+guarantees on Windows.]. Never at any point is there not a complete and finished
+value file on physical storage at `store/key/0`[footnote This may not be true on older NFS mounts,
+or NFS mounts with the wrong configuration. See the NFS documentation. It is also possible to
+configure Samba in a way which breaks the atomicity of atomic renaming, see the Samba documentation.].
+On Linux only we then execute a sync on the directory handle
+for `store/key` because Linux deviates from POSIX `O_SYNC` requirements by not flushing file metadata
+as it is supposed to, so without this flush a previous version of the value might appear after a
+sudden power loss (strictly speaking this step is optional given our design and the journalling
+in modern Linux filing systems, however comparative benchmarks are much more fair if we make
+Linux behave like normal POSIX implementations).
+
+What these new semantics achieve:
+
+# [*Atomicity]: Values always appear to concurrent readers complete and finished.
+# [*Consistency]: If a writer fatal exits during a key update, the store is left in a consistent state.
+# [*Isolation]: The operating system provides strong ordering guarantees about atomic relinking,
+thus creating a sequentially consistent ordering of key-value visibility.
+# [*Durability]: If power loss suddenly occurs, the key-value store will always be internally
+consistent. It may not have all the key-values in an identical order to how they were written as
+this second generation design does not implement transactions, but there will always be a complete
+value for a key which at some point was stored to that key.
+# [*Much improved update complexity]: New key insertion may still be as poor as `O(N)` complexity, but
+updates of existing keys is now no worse than lookup complexity, which is a big improvement over
+the naive design.
+
+[table:conditions This second generation solution will perform reasonably well under these conditions:
+[[][Condition]]
+[[__tick__] [On Microsoft Windows you can place the store deep in a directory hierarchy and use long key names.]]
+[[__tick__] [Third party threads and processes can rename the location of the store during use.]]
+[[__tick__] [The size of ['all] the values being read at any given time fits into your virtual address space (which is at least 2Gb on 32 bit, 8Tb on 64 bit).]]
+[[__tick__] [As many processes and threads may read and write to the store concurrently as you like,
+including any mix of CIFS and NFS clients.]]
+[[__tick__] [Processes may unexpectedly exit during modifies with no consequence on consistency.]]
+[[__cross__][Maximum performance isn't important to you.]]
+[[__tick__] [Sudden power loss may not maintain original write ordering across multiple key-value
+updates, however each key will have some complete value which it had at some point in history.]]
+[[__cross__][You don't need to update more than one key-value at once.]]
+]
 
 [endsect] [/atomic_updates]
 

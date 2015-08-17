@@ -96,6 +96,12 @@ struct odirectstream : public std::ostream
         if(thisbuffer)
           lastwrite = afio::async_write(afio::async_truncate(lastwrite, offset+thisbuffer), buffer.data(), thisbuffer, offset);
         lastwrite.get();
+        // TODO: On Windows do I need to close and reopen the file to flush metadata before
+        //       the rename or does the rename do it for me?
+        // Get handle to the parent directory
+        auto dirh(lastwrite->container());
+        // Atomically rename "tmpXXXXXXXXXXXXXXXX" to "0"
+        lastwrite->atomic_relink(afio::path_req::relative(dirh, "0"));
       }
       catch(...)
       {
@@ -176,6 +182,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
     return error_code(EINVAL, generic_category());
   try
   {
+    name.append("/0");
     // Schedule the opening of the file for reading
     afio::future<> h(afio::async_file(_store, name, afio::file_flags::read));
     // When it completes, call this continuation
@@ -229,8 +236,16 @@ shared_future<data_store::ostream> data_store::write(std::string name) noexcept
     return error_code(EINVAL, generic_category());
   try
   {
+    // Schedule the opening of the directory
+    afio::future<> dirh(afio::async_dir(_store, name, afio::file_flags::create));
+    // Make a crypto strong random file name
+    std::string randomname("tmp");
+    randomname.append(afio::utils::random_string(16));  // 128 bits
     // Schedule the opening of the file for writing
-    afio::future<> h(afio::async_file(_store, name, afio::file_flags::create | afio::file_flags::write));
+    afio::future<> h(afio::async_file(dirh, randomname, afio::file_flags::create | afio::file_flags::write
+      | afio::file_flags::hold_parent_open    // handle should keep a handle_ptr to its parent dir
+      /*| afio::file_flags::always_sync*/     // writes don't complete until upon physical storage
+      ));
     // When it completes, call this continuation
     return h.then([](const afio::future<> &h) -> shared_future<data_store::ostream> {
       // If file didn't open, propagate the error
