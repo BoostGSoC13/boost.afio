@@ -425,11 +425,13 @@ What these new semantics achieve:
 # [*Consistency]: If a writer fatal exits during a key update, the store is left in a consistent state.
 # [*Isolation]: The operating system provides strong ordering guarantees about atomic relinking,
 thus creating a sequentially consistent ordering of key-value update visibility.
-# [*Durability]: If power loss suddenly occurs, the key-value store will [*always] be internally
+# [*(Durability)]: If power loss suddenly occurs, the key-value store will [*always] be internally
 consistent, even if `afio::file_flags::always_sync` was not specified (see below for why). 
 It may not have all the key-values in an identical order to how they were written as
 this second generation design does not implement transactions, but there will always be a complete
-value for a key which at some point was stored to that key.
+value for a key which at some point was stored to that key. Strictly speaking, this means that
+durability is not fulfilled __dash__ durability means when you are told a write completes, it is
+durably stored, however for full durability simply add `afio::file_flags::always_sync`.
 # [*Much improved update complexity]: New key insertion may still be as poor as `O(N)` complexity, but
 updates of existing keys is now no worse than lookup complexity, which is a big improvement over
 the naive design. If your filing system has `O(N)` insert complexity, you could use prefix directories to
@@ -513,44 +515,60 @@ updates, however each key will have some complete value which it had at some poi
 
 [section:atomic_updates_problems The performance of and problems with this second generation design]
 
+Let's see how this second generation ACI(D) design benchmarks compared to the first AFIO implementation
+where the dotted lines are the previous generation design:
+
+[role aligncenter [$../../../../../libs/afio/doc/src/images/workshop_atomic_updates_insertions.png] [$../../../../../libs/afio/doc/src/images/workshop_atomic_updates_lookups.png]]
+
+Lookups are actually not better __dash__ we are comparing the synchronous naive design to an asynchronous
+design, so the asynchronous design pulls ahead a bit on Microsoft Windows. Note, though, that the extra
+directory indirection costs you a noticeable amount of performance on ext4 __dash__ perhaps as much as 15%
+once you include the 10% bump from the asynchronous API.
+
+Insertions are however diametrically slower: about four times slower on both NTFS and ext4. This is
+because atomic renames appear to not parallelise well __dash__ both filing systems are gating hard at about
+four parallel atomic renames (the number of cores on my test CPU), and if you throttle the parallelism
+by hand you'll find performance is really only half that of the first generation design which is logical
+as we are committing twice the new items to before. This is a good example of where Intel's Hyperthreading
+can really penalise overall performance sometimes: filing systems tend to parallelise linearly to real
+CPU core count only.
+
+This second generation design is actually quite solid, and assuming that the design rationale is correct
+about the sequential consistency of journalling file systems then this key-value store design is likely production code
+useful, especially if you are storing large blobs which you might like to individually memory map. What you don't have
+though is the ability to update key-values as a transaction, and insertion performance is already heading
+downwards towards less than 1000 items/second which bodes poorly for adding transaction support.
+
+Out of curiosity, how might we add transaction support to this design? One's first thought is a lock file
+of some sort, perhaps even a lock file for the entire store. AFIO v1.3 can push about 3000 exclusive lock files
+per second (see the mini-programs on atomicity following this section) so you might imagine holding a global lock
+file during reads and during a sequence of multiple atomic renames which make up committing a transaction.
+
+Unfortunately, while that strategy would work well most of the time, it falls down spectacularly in the
+situation of power loss. The problem you have is that you have no way at all of forcing the order of
+key-value updates to reach physical storage. You might think that calling `fsync()` or using `O_SYNC`
+and then writing each item sequentially might work, but imagine if power is lost in the middle of
+that sequence: how do you know if the store you are now looking at was in the middle of a transaction,
+and if so what needs to be rolled back?
+
+If you think this through, you realise that you need some form of write log from which an interrupted
+sequence of operations can be reconstituted and either completed or discarded to return a store to
+a consistent state. This write log is called a journal by journalling file systems, and is called
+various things by databases ([@https://www.sqlite.org/wal.html write ahead logging, rollback journal etc]).
+It has the special property that it is always moving forwards in time and what it records is the
+sequentially consistent history of the database.
+
 [endsect] [/atomic_updates_problems]
 
 [section:extents Third attempt at a key-value store: Thinking like a filing system]
 
-Max file size on ext4: 16Tb (2^44)
-
-Max file size on Win8: 256Tb - 16Kb (nearly 2^48).
-
-16Tb is 2^44 bit range. What's the chance of a hash collision given 1Mb files? 2^44 / 2^20 = 1 in 16M. Non-trivial.
-
-Watch out for the 8Tb virtual address space per process!
-
-
-Strategy:
-
-* There are two files, the store file and the index.
-
-* The index file has two parts:
-  * A hash table of names to store extent.
-  * A list of disposed store extents.
-
-* To write values, simply atomic append them with O_DIRECT to the store file and take note of the offsets you got.
-
-* Merge any invalidated value extents into the disposed store extents. Scan for any exceeding 256Kb, if so remove
-them and keep them in a separate list.
-
-* Write a copy of the modified index to a temp file.
-
-* Once the store write completes, grab the index lock, check inode and modified of index is what you began with, if so atomic relink, release lock.
-
-* If I succeeded, I always zero the >= 256Kb extents I identified earlier.
-
-* If index file had changed, check if the keys I am changing were partially changed. If so, error out with
-transaction conflict, else reload the index and retry.
+todo
 
 [endsect] [/extents]
 
 [section:extents_problems The performance of and problems with this third generation design]
+
+todo
 
 [endsect] [/extents_problems]
 

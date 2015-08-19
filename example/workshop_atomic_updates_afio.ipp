@@ -105,7 +105,7 @@ struct odirectstream : public std::ostream
 #ifdef __linux__
         // Journalled Linux filing systems don't need this, but if you enabled afio::file_flags::always_sync
         // you might want to issue this too.
-        //async_sync(dirh);
+        afio::sync(dirh);
 #endif
       }
       catch(...)
@@ -274,7 +274,7 @@ shared_future<data_store::ostream> data_store::write(std::string name) noexcept
     // above, and if we don't flush the new key directory it and its contents may not appear
     // in the store directory after a suddenly power loss, even if it and its contents are
     // all on physical storage.
-    async_sync(_store);
+    dirh.then([this](const afio::future<> &h) { async_sync(_store); });
 #endif
     // Make a crypto strong random file name
     std::string randomname("tmp");
