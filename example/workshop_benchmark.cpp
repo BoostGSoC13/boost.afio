@@ -16,6 +16,9 @@ namespace naive {
 namespace atomic_updates {
 #include "workshop_atomic_updates_afio.ipp"
 }
+namespace final {
+#include "workshop_final.ipp"
+}
 
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
 namespace chrono = BOOST_AFIO_V2_NAMESPACE::chrono;
@@ -138,7 +141,8 @@ int main(void)
   while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
   
   //benchmark<iostreams::data_store>("iostreams.csv", "STL iostreams");
-  benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
-  benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update");
+  //benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
+  //benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update");
+  //benchmark<final::data_store>("afio_final.csv", "AFIO single file");
   return 0;
 }
