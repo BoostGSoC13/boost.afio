@@ -178,14 +178,8 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
     afio::future<> h(afio::async_file(_store, name, afio::file_flags::read));
     // When it completes, call this continuation
     return h.then([](afio::future<> &_h) -> shared_future<data_store::istream> {
-      // If file didn't open, propagate the error
-      if(!_h)
-      {
-        if(_h.has_error())
-          return _h.get_error();
-        else
-          return _h.get_exception();
-      }
+      // If file didn't open, return the error or exception immediately
+      BOOST_MONAD_PROPAGATE(_h);
       size_t length=(size_t) _h->lstat(afio::metadata_flags::size).st_size;
       // Is a memory map more appropriate?
       if(length>=128*1024)
@@ -202,14 +196,8 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
       afio::future<> h(afio::async_read(_h, buffer->data(), length, 0));
       // When the read completes call this continuation
       return h.then([buffer, length](const afio::future<> &h) -> shared_future<data_store::istream> {
-        // If read failed, propagate the error
-        if(!h)
-        {
-          if(h.has_error())
-            return h.get_error();
-          else
-            return h.get_exception();
-        }
+        // If read failed, return the error or exception immediately
+        BOOST_MONAD_PROPAGATE(_h);
         data_store::istream ret(std::make_shared<idirectstream>(h.get_handle(), buffer, length));
         return ret;
       });
@@ -234,14 +222,8 @@ shared_future<data_store::ostream> data_store::write(std::string name) noexcept
     afio::future<> h(afio::async_file(_store, name, afio::file_flags::create | afio::file_flags::write));
     // When it completes, call this continuation
     return h.then([](const afio::future<> &h) -> shared_future<data_store::ostream> {
-      // If file didn't open, propagate the error
-      if(!h)
-      {
-        if(h.has_error())
-          return h.get_error();
-        else
-          return h.get_exception();
-      }
+      // If file didn't open, return the error or exception immediately
+      BOOST_MONAD_PROPAGATE(h);
       // Create an ostream which directly uses the file.
       data_store::ostream ret(std::make_shared<odirectstream>(h.get_handle()));
       return std::move(ret);

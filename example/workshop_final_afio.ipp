@@ -34,7 +34,6 @@ public:
 
 //[workshop_final3]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-using BOOST_MONAD_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
@@ -162,34 +161,34 @@ struct odirectstream : public std::ostream
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
+using BOOST_MONAD_V1_NAMESPACE::monad;
 
-// Serialisation helpers
+// Serialisation helper types
 #pragma pack(push, 1)
-struct header_type
+struct ondisk_file_header  // 12 bytes
 {
   afio::off_t index_offset_begin;  // Hint to the length of the store when the index was last written
   unsigned int version;            // "1" also used for endian detection
-};  // 12 bytes
-struct record_type
-{
-  afio::off_t kind : 1;     // 0 for blob, 1 for index
-  afio::off_t length : 63;  // Size of the object (including this preamble) (+8)
-  uint64 hash[2];           // 128-bit SpookyHash of the object (from below onwards) (+24)
-  // index_regions
+  // 20 bytes free till 32 byte boundary
 };
-struct index_regions
+struct ondisk_record_header  // 24 bytes - ALWAYS ALIGNED TO 32 BYTE FILE OFFSET
+{
+  afio::off_t kind : 2;     // 0 for zeroed space, 1 for blob, 2 for index
+  afio::off_t length : 62;  // Size of the object (including this preamble, regions, key values) (+8)
+  uint64 hash[2];           // 128-bit SpookyHash of the object (from below onwards) (+24)
+  // ondisk_index_regions
+  // ondisk_index_key_value (many until length)
+};
+struct ondisk_index_regions  // 4 + regions_size * 32
 {
   unsigned int regions_size;    // count of regions with their status (+28)
-  struct
+  struct ondisk_index_region
   {
-    uint64 hash[2];           // 128-bit hash (all bits zero if this region has been hole punched)
-    afio::off_t offset;       // offset to this free region
-    afio::off_t in_use : 1;   // 1 if this region is in use
-    afio::off_t length : 63;  // length of this free region
-  } regions[1];  // each record is 32 bytes
-  // Here comes many index_key_value's up to length
+    afio::off_t offset;       // offset to this region
+    ondisk_record_header r;   // copy of the header at the offset to avoid a disk seek
+  } regions[1];
 };
-struct index_key_value
+struct ondisk_index_key_value
 {
   unsigned int region_index;  // Index into regions
   unsigned int name_size;     // Length of key
@@ -199,28 +198,34 @@ struct index_key_value
 
 struct index
 {
-  afio::off_t previous_index;  // offset of previous index this one is based from
-  std::unique_ptr<char[]> previous_index_buffer;
   struct region
   {
-    bool in_use;
+    enum kind_type { zeroed=0, blob=1, index=2 } kind;
     afio::off_t offset, length;
     uint64 hash[2];
+    region(ondisk_index_regions::ondisk_index_region *r) : kind(static_cast<kind_type>(r->r.kind)), offset(r->offset), length(r->r.length) { memcpy(hash, r->r.hash, sizeof(hash)); }
     bool operator<(const region &o) const noexcept { return offset<o.offset; }
     bool operator==(const region &o) const noexcept { return offset==o.offset && length==o.length; }
   };
   std::vector<region> regions;
   std::unordered_map<std::string, size_t> key_to_region;
 
-  monad<void> read(afio::handle_ptr h) noexcept
+  struct last_good_ondisk_index_info
   {
+    afio::off_t offset;
+    std::unique_ptr<char[]> buffer;
+    size_t size;
+    last_good_ondisk_index_info() : offset(0), size(0) { }
+  };
+  // Finds the last good index in the store
+  monad<last_good_ondisk_index_info> find_last_good_ondisk_index(afio::handle_ptr h) noexcept
+  {
+    last_good_ondisk_index_info ret;
     error_code ec;
-    previous_index=0;
-    previous_index_buffer.reset();
     try
     {
-      // Read the first eight bytes at the front of the file to get the index offset hint
-      header_type header;
+      // Read the front of the store file to get the index offset hint
+      ondisk_file_header header;
       afio::read(h, &header, 0);
       afio::off_t offset=0;
       if(header.version=='1')
@@ -229,22 +234,23 @@ struct index
         return error_code(ENOEXEC, generic_category());
       else  // unknown version
         return error_code(ENOTSUP, generic_category());
-      // Iterate the records starting from offset hint, keeping track of last known good index
+      // Iterate the records starting from index offset hint, keeping track of last known good index
       bool done=true;
       do
       {
-        record_type record;
-        for(; offset<_h->lstat(afio::metadata_flags::size).st_size;)
+        ondisk_record_header record;
+        for(; offset<h->lstat(afio::metadata_flags::size).st_size;)
         {
           afio::read(ec, h, &record, offset);
           if(ec)
             break;
-          if(!record.kind)
+          if(record.kind==0 /*zeroed*/ || record.kind==1 /*blob*/)
           {
             offset+=record.length;
             continue;
           }
           std::unique_ptr<char[]> buffer;
+          // If record.length is corrupt, this will throw bad_alloc
           try
           {
             buffer.reset(new char[(size_t) record.length-sizeof(header)]);
@@ -261,31 +267,49 @@ struct index
           SpookyHash::Hash128(buffer.get(), (size_t) record.length-sizeof(header), hash, hash+1);
           if(!memcmp(hash, record.hash, sizeof(hash)))
           {
-            previous_index_buffer=std::move(buffer);
-            previous_index=offset;
+            ret.buffer=std::move(buffer);
+            ret.size=(size_t) record.length-sizeof(header);
+            ret.offset=offset;
           }
           offset+=record.length;
         }
-        if(previous_index_buffer)  // we have a valid most recent index
+        if(ret.offset)  // we have a valid most recent index so we're done
           done=true;
         else if(header.index_offset_begin>sizeof(header))
         {
           // Looks like the end of the store got trashed.
           // Reparse from the very beginning
-          offset=sizeof(header);
+          offset=32;
           header.index_offset_begin=0;
         }
         else
         {
           // No viable records at all, or empty store.
-          return {};
+          done=true;
         }
       } while(!done);
-      index_regions *r=(index_regions *) previous_index_buffer.get();
+      return ret;
+    }
+    catch(...)
+    {
+      return std::current_exception();
+    }
+  }
+
+  // Loads the index from the store
+  monad<void> load(afio::handle_ptr h) noexcept
+  {
+    // If find_last_good_ondisk_index() returns error or exception, return those, else
+    // initialise ondisk_index_info to monad.get()
+    BOOST_MONAD_AUTO(ondisk_index_info, find_last_good_ondisk_index(h));
+    error_code ec;
+    try
+    {
+      ondisk_index_regions *r=(ondisk_index_regions *) ondisk_index_info.buffer.get();
       regions.reserve(r->regions_size);
       for(size_t n=0; n<r->regions_size; n++)
         regions.push_back(region(r->regions+n));
-      index_key_value *k=(index_key_value *)(r+r->regions_size), *end=(index_key_value *)(previous_index_buffer.get()+previous_index_buffer_length);
+      ondisk_index_key_value *k=(ondisk_index_key_value *)(r+r->regions_size), *end=(ondisk_index_key_value *)(ondisk_index_info.buffer.get()+ondisk_index_info.size);
       while(k<end)
         key_to_region.insert(std::make_pair(std::string(k->name, k->name_size), k->region_index));
     }
@@ -302,8 +326,8 @@ data_store::data_store(size_t flags, afio::path path)
   _dispatcher=afio::make_dispatcher("file:///", afio::file_flags::none, !(flags & writeable) ? afio::file_flags::write : afio::file_flags::none).get();
   // Set the dispatcher for this thread, and open a handle to the store file
   afio::current_dispatcher_guard h(_dispatcher);
-  _store_write=afio::file(path, afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
-  _store_read=afio::file(path, afio::file_flags::read_write);     // throws if there was an error
+  _store_append=afio::file(path, afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
+  _store=afio::file(path, afio::file_flags::read_write);     // throws if there was an error
 }
 
 shared_future<data_store::istream> data_store::lookup(std::string name) noexcept

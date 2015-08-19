@@ -439,7 +439,7 @@ form a binary tree, thus reducing insert complexity to `O(log N)`.
 
 Many readers will be wondering why `afio::file_flags::always_sync` is not necessary for consistency
 even under power loss, and the answer is because of journalled filing systems combined with how we are
-modifying data. If you examine [design.acid_write_ordering.write_ordering_data.power_loss_safety the table of power loss
+modifying data. If you examine [link afio.design.acid_write_ordering.write_ordering_data.power_loss_safety the table of power loss
 safety guarantees in the design rationale], you will note that journalled file systems (with write barriers
 enabled) make strong guarantees about newly created file content but not about rewritten file content:
 if a newly created file appears in the filing system, it is guaranteed to have correct contents because
@@ -459,8 +459,10 @@ filing system on power restore therefore refers to a previously consistent filin
 was just before power was lost. This is why the store will be consistent even under power loss[footnote
 This is as yet untested by empirical testing, however AFIO does no magic tricks, it just thinly wraps
 the operating system APIs.], though without `afio::file_flags::always_sync` you may lose up to 5-35
-seconds of updates and there may be reordering of updates by up to 5-35 seconds (check the table in the
-design rationale for what your filing system guarantees).
+seconds of updates and there may be reordering of updates by up to 5-35 seconds. Here is the table
+from the design rationale once again, for your convenience:
+
+[include power_loss_safety_table.qbk]
 
 It goes, of course, without saying that if you are [*not] on a journalled filing system then you absolutely
 need `afio::file_flags::always_sync` and on Linux you had best sync the directories containing newly written
@@ -495,7 +497,7 @@ as the base for the rename target in order to ensure race freedom.
 Obviously enough we don't have any garbage collection in here for failed or aborted writes. Thanks
 to the unique naming of those files, these are very easy to spot during a GC pass and if they had a
 last modified date several days ago they would ideal for purging. Implementing one of those is easy
-using __async_enumerate__, and is left as an exercise for the reader.
+using __afio_enumerate__, and is left as an exercise for the reader.
 
 [table:conditions This second generation solution will perform reasonably well under these conditions:
 [[][Condition]]
@@ -558,11 +560,150 @@ various things by databases ([@https://www.sqlite.org/wal.html write ahead loggi
 It has the special property that it is always moving forwards in time and what it records is the
 sequentially consistent history of the database.
 
+You have probably guessed what the final part of this workshop tutorial does: and indeed it is
+implementing a transactional write log.
+
 [endsect] [/atomic_updates_problems]
 
-[section:extents Third attempt at a key-value store: Thinking like a filing system]
+[section:extents_theory Third attempt at a key-value store: Thinking like a filing system]
 
-todo
+You should prepare yourself to now think outside your normal comfort zone, and like a filing system engineer.
+
+Modern filing systems are ['extents] based, which means that instead of your file content being stored
+as the program sees it when reading it, physical storage allocation is [*lazy]. In other words, only when
+you write first into an extent is physical storage actually allocated, and if you never write into an
+extent then no physical storage is consumed, despite that that region of the file reads as all bits zero.
+
+You can test this for yourself by the following shell command on an extents-based filing system (e.g.
+ZFS, UFS, HFS+, ext4):
+
+```
+ned@kate:~$ truncate -s 2T sparse.img
+ned@kate:~$ ls -ls sparse.img
+0 -rw-rw-r-- 1 ned ned 2199023255552 Aug 19 16:13 sparse.img
+```
+
+The first zero shows the allocated size of the file, which is zero. The maximum allocation of the file,
+which is reported as the size, is 2Tb. Let's try writing a single byte onto the end of the file:
+
+```
+ned@kate:~$ echo '0' >> sparse.img
+ned@kate:~$ ls -ls sparse.img
+4 -rw-rw-r-- 1 ned ned 2199023255554 Aug 19 16:17 sparse.img
+```
+
+The maximum allocation has increased by two bytes as you would expect. However, the actual real
+allocation is now in fact four bytes! If you were not on an extents-based filing system the
+echo append command would take a very long time to execute and you would in fact get a 2Tb
+sized file almost entirely made of zeroes!
+
+Different filing systems have different granularities of extent. ext4, for example, usually
+has a 4Kb extent granularity unless it is a partial final extent. ZFS usually has a 128Kb
+granularity, while NTFS usually has a 64Kb granularity. The key thing to remember here is
+that the granularity is usually quite chunky, so storing a single byte every 256Kb offset
+is going to be extremely wasteful of physical storage. AFIO provides enumeration of the
+allocated extents of a file using __afio_extents__.
+
+Just as you can lazily allocate physical storage for file content using extents, so too
+can you deallocate extents by ["punching holes] in a file's content storage. This simply
+eliminates the physical storage for a region, and therefore subsequent reads from that
+region will now return all bits zero. AFIO's API for doing this deallocation is
+__afio_zero__, and just to remind you of which filing systems provide extents and APIs
+to manage them, here is that power loss safety table once again:
+
+[include power_loss_safety_table.qbk]
+
+The final piece of the puzzle is [*atomicity of writes]. Many people do not realise that POSIX operating
+systems are supposed to provide some strong POSIX-mandated guarantees about the visibility of file i/o to concurrent
+readers and writers, and these guarantees AFIO goes out of its way not to interfere with. These are:
+
+# The ['visibility] of a write to a file is to be atomic to all readers of the same file, including
+gather writes (note gather writes on Microsoft Windows are not atomic, but single buffer writes may be,
+see below). The POSIX-2008 wording is this:
+
+ [:['["If a `read()` of file data can be proven (by any means) to occur after a `write()` of the data, it
+must reflect that `write()`, even if the calls are made by different processes. A similar requirement
+applies to multiple write operations to the same file position. This is needed to guarantee the
+propagation of data from `write()` calls to subsequent `read()` calls.]] ([@http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html POSIX-2008])]
+
+ If you try to implement this wording, you quickly realise there is an implied mutex on each file in the
+kernel, and every read to and write from that file across the system involves holding that mutex during
+the read or write. Whether that is actually the case is unimportant, POSIX requires that it must appear
+to file i/o readers and writers that this is as if so.
+
+ In actual implementations however, the reality is somewhat different. The first obvious difficulty
+is with networked filing systems where performance would be awful if an implied mutex had to be claimed
+for every single read and write, so networked filing systems don't do that. The second big deviation
+is with memory mapped files as reading and writing raw memory does not synchronise on
+the implied per-file mutex and therefore you may see a partially written write during a read. All the
+major operating systems do just happen to synchronise i/o between memory maps and normal
+read/write so long as nobody is using `afio::file_flags::os_direct` i.e. `msync(MS_INVALIDATE)`
+is a noop on any recent major operating system, however memory map i/o still races on itself and
+on normal i/o operations. This, incidentally, is why AFIO does not provide much memory map support currently.
+
+ An additional problem beyond these is that Linux is simply non-conforming to POSIX-2008 here,
+and has unfortunately been so for a very long time. Linux does lock on a per-page granularity,
+so per 4Kb page it locks and nothing past that. This implies that if your read unfortunately
+straddles a 4Kb boundary, you have a race. XFS has implemented additional locking to solve this
+problem, but ext4 has not. You can see more detail
+[@http://jeffr-tech.livejournal.com/20707.html here] and [@http://permalink.gmane.org/gmane.comp.file-systems.ext4/27225 here].
+
+ Finally, Microsoft Windows makes no public guarantees about the atomic visibility of writes except
+that nothing is guaranteed past a sector size, and by that they are referring to the atomicity
+of a write reaching storage rather than anything about visibility to concurrent reader writers.
+From how the NT kernel IRP queue works whereby reads and writes both enter the same serialised queue,
+it seems to me that the POSIX visibility guarantees are met which would be expected as the NT kernel
+is explicitly designed to be POSIX compliant, however one should be cautious here. I note from a
+review of portable databases that none makes strong assumptions about read-write visibility ordering, and
+I assume that is for a reason.
+
+# By extension of the above, POSIX requires that the visibility of a write to a file opened for append-only access is also
+atomic to all readers and writers of the same file. Or put more succinctly, appending to
+an append-only file is atomic per syscall, so concurrent appenders are guaranteed each of
+their writes will appear to be appended in full before another appender's write. Here is
+the POSIX-2008 wording:
+
+ [:['["If the `O_APPEND` flag of the file status flags is set, the file offset shall be set to the end
+of the file prior to each write and no intervening file modification operation shall occur between
+changing the file offset and the write operation.]] ([@http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html POSIX-2008])]
+
+ You will be glad to know that this is a much better supported feature in implementations.
+The atomicity of file append even works on CIFS/Samba network shares in the usual configuration, albeit
+with a severe performance penalty (NFS network shares unfortunately do not preserve
+append atomicity because the protocol is incapable of expressing such an operation). Because
+memory maps are for a given file extent, file appends don't affect them, and because the requirement
+is merely for the atomicity of the increment of the file size, the atomicity of the visibility of the content
+appended is a separate problem to ['where] the content is appended whose increment is guaranteed
+to be atomic except on NFS.
+
+Why all this matters is because you need to understand all this to understand why the third generation
+key-value BLOB store presented next is designed exactly the way it is. Unintuitively, it is going to
+be a single always-growing atomically-appended sparse file. We take advantage of hole punching
+to deallocate the parts of the file no longer needed, but its apparent size grows forever
+and therefore the transactional write log described in the last section is both a replayable write
+log and the BLOB store ['and] the index to itself. Thanks to the 2^64 maximum file size
+on modern filing systems, such a single file store ought to run for a very extended period
+of time before it might overrun its maximum length.
+
+We do have to take some care however. As on Linux writes are not atomic with respect to reads across
+4Kb boundaries, we are going to need some mechanism of checking if some given append is valid or not, which usefully
+can be reused to check a store for validity after a sudden power loss (just because reads and
+writes may have sequential consistency of visibility to processes has no bearing whatsoever on what order writes are flushed
+to physical storage). Any writes we make within a 4Kb boundary is probably safe e.g. to the very front
+of the store file, so long as it does not exceed 4Kb.
+
+And just to be extra special careful, we will never do a ['rewrite] of existing content exceeding
+a sector size which we'll assume is 512 bytes on a 512 byte boundary as that is publicly documented
+as guaranteed for all the major operating systems.
+
+[endsect] [/extents_theory]
+
+[section:extents]
+
+ECC 1024 bytes = 14 bits
+ECC 2048 bytes = 15 bits
+ECC 4096 bytes = 16 bits
+
 
 [endsect] [/extents]
 
