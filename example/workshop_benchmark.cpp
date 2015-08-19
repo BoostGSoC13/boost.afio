@@ -3,7 +3,7 @@
 #ifdef _DEBUG
 #define ITEMS 64
 #else
-#define ITEMS 16384
+#define ITEMS 65536
 #endif
 #define PARALLELISM 256  // up to max fds on your platform
 
@@ -17,7 +17,7 @@ namespace atomic_updates {
 #include "workshop_atomic_updates_afio.ipp"
 }
 namespace final {
-#include "workshop_final.ipp"
+//#include "workshop_final_afio.ipp"
 }
 
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
@@ -61,7 +61,7 @@ void prepare()
   }
 }
 
-template<class data_store> void benchmark(const char *filename, const char *desc)
+template<class data_store> void benchmark(const char *filename, const char *desc, bool parallel_writes)
 {
   typedef chrono::duration<double, ratio<1, 1>> secs_type;
   std::vector<std::tuple<size_t, double, double>> results;
@@ -74,11 +74,12 @@ template<class data_store> void benchmark(const char *filename, const char *desc
     auto begin=chrono::high_resolution_clock::now();
     while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<1);
     data_store store(data_store::writeable);
-    std::vector<typename data_store::write_result_type> ops(PARALLELISM);
+    size_t write_parallelism = parallel_writes ? PARALLELISM : 1;
+    std::vector<typename data_store::write_result_type> ops(write_parallelism);
     begin=chrono::high_resolution_clock::now();
-    for (size_t m = 0; m < n; m += PARALLELISM)
+    for (size_t m = 0; m < n; m += write_parallelism)
     {
-      int todo = (int)(n < PARALLELISM ? n : PARALLELISM);
+      int todo = (int)(n < write_parallelism ? n : write_parallelism);
 #pragma omp parallel for
       for (int o = 0; o < todo; o++)
         ops[o] = store.write(std::to_string(m + (size_t)o));
@@ -140,9 +141,9 @@ int main(void)
   auto begin=chrono::high_resolution_clock::now();
   while(chrono::duration_cast<secs_type>(chrono::high_resolution_clock::now()-begin).count()<3);
   
-  //benchmark<iostreams::data_store>("iostreams.csv", "STL iostreams");
-  //benchmark<naive::data_store>("afio_naive.csv", "AFIO naive");
-  //benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update");
-  //benchmark<final::data_store>("afio_final.csv", "AFIO single file");
+  //benchmark<iostreams::data_store>("iostreams.csv", "STL iostreams", true);
+  //benchmark<naive::data_store>("afio_naive.csv", "AFIO naive", true);
+  benchmark<atomic_updates::data_store>("afio_atomic.csv", "AFIO atomic update", true);
+  //benchmark<final::data_store>("afio_final.csv", "AFIO single file", true);
   return 0;
 }

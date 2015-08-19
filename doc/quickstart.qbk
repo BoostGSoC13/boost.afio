@@ -385,16 +385,12 @@ We are going to change the lookup semantics to this instead:
 
 The insertion semantics becomes this:
 
-# For some key, open the file `store/key/tmpXXXXXXXXXXXXXXXX` for writing using `afio::file_flags::always_sync`
+# For some key, open the file `store/key/tmpXXXXXXXXXXXXXXXX` for writing ['optionally] using `afio::file_flags::always_sync`
 (this causes the OS to not report write completion until the write reaches physical storage),
 creating any `store/key` directory as necessary, where `XXXXXXXXXXXXXXXX` is a cryptographically strong
 128-bit random number.
 
-# Write the new value using the output stream as normal, keeping the handle open. Because the handle
-was opened with `O_SYNC`, writes will not complete until the data has reached physical storage.
-POSIX requires `O_SYNC` to also ensure metadata to retrieve a write is also on physical storage,
-however this requirement is widely interpreted: Windows flushes metadata on handle close, Linux doesn't
-flush metadata at all unless specifically asked.
+# Write the new value using the output stream as normal, keeping the handle open.
 
 # Atomically rename `store/key/tmpXXXXXXXXXXXXXXXX` to `store/key/0` using AFIO's special `atomic_relink()`
 function (which because it acts on an open file handle, is invariant to path relocations of itself).
@@ -406,12 +402,9 @@ guarantees on Windows.]. [*Never at any point is there not a complete and finish
 value file on physical storage at `store/key/0`][footnote This may not be true on older NFS mounts,
 or NFS mounts with the wrong configuration. See the NFS documentation. It is also possible to
 configure Samba in a way which breaks the atomicity of atomic renaming, see the Samba documentation.].
-On Linux only we then execute a sync on the directory handle
-for `store/key` because Linux deviates from POSIX `O_SYNC` requirements by not flushing file metadata
-as it is supposed to, so without this flush a previous version of the value might appear after a
-sudden power loss (strictly speaking this step is optional given our design and the journalling
-in modern Linux filing systems, however comparative benchmarks are much more fair if we make
-Linux behave like the other operating systems).
+On Linux only we then execute a sync on the directory handle for `store/key` because Linux is
+different from other operating systems in that you must explicitly request metadata updates to be sent
+to physical storage.
 
 Not that we'll be implementing this here, but the deletion semantics would be:
 
@@ -432,14 +425,44 @@ What these new semantics achieve:
 # [*Consistency]: If a writer fatal exits during a key update, the store is left in a consistent state.
 # [*Isolation]: The operating system provides strong ordering guarantees about atomic relinking,
 thus creating a sequentially consistent ordering of key-value update visibility.
-# [*Durability]: If power loss suddenly occurs, the key-value store will always be internally
-consistent. It may not have all the key-values in an identical order to how they were written as
+# [*Durability]: If power loss suddenly occurs, the key-value store will [*always] be internally
+consistent, even if `afio::file_flags::always_sync` was not specified (see below for why). 
+It may not have all the key-values in an identical order to how they were written as
 this second generation design does not implement transactions, but there will always be a complete
 value for a key which at some point was stored to that key.
 # [*Much improved update complexity]: New key insertion may still be as poor as `O(N)` complexity, but
 updates of existing keys is now no worse than lookup complexity, which is a big improvement over
 the naive design. If your filing system has `O(N)` insert complexity, you could use prefix directories to
 form a binary tree, thus reducing insert complexity to `O(log N)`.
+
+Many readers will be wondering why `afio::file_flags::always_sync` is not necessary for consistency
+even under power loss, and the answer is because of journalled filing systems combined with how we are
+modifying data. If you examine [design.acid_write_ordering.write_ordering_data.power_loss_safety the table of power loss
+safety guarantees in the design rationale], you will note that journalled file systems (with write barriers
+enabled) make strong guarantees about newly created file content but not about rewritten file content:
+if a newly created file appears in the filing system, it is guaranteed to have correct contents because
+['journalled filing systems do not write an updated directory pointing to the new file until the file
+contents are on physical storage]. Our naive design of creating a brand new file per key-value update
+exploits this guarantee, so the sequentially consistent ordering of writes to physical storage, even
+without `afio::file_flags::always_sync`, is this:
+
+# Allocate extents for new file content. Write journal.
+# Write new file content to physical storage. Write journal.
+# Write new copy of directory containing atomic rename of randomly named file with deallocation
+of extents of previous file. Write journal.
+
+If power is lost at any point, during journal replay on power restore a journalled filing system will
+throw away any extents allocated for content not referenced by a directory on physical storage. The
+filing system on power restore therefore refers to a previously consistent filing system i.e. how it
+was just before power was lost. This is why the store will be consistent even under power loss[footnote
+This is as yet untested by empirical testing, however AFIO does no magic tricks, it just thinly wraps
+the operating system APIs.], though without `afio::file_flags::always_sync` you may lose up to 5-35
+seconds of updates and there may be reordering of updates by up to 5-35 seconds (check the table in the
+design rationale for what your filing system guarantees).
+
+It goes, of course, without saying that if you are [*not] on a journalled filing system then you absolutely
+need `afio::file_flags::always_sync` and on Linux you had best sync the directories containing newly written
+files too.
 
 So let's look at the code: you will be surprised at how few changes there are compared to the earlier
 asynchronous AFIO implementation. Firstly, the interface is unchanged from before:
@@ -452,11 +475,11 @@ asynchronous AFIO implementation. Firstly, the interface is unchanged from befor
 
 `write()` is a bit different. We now open the key directory, and while that is happening asynchronously
 we generate a crypto strong random name which tends to be slow. We then schedule creating that temporary
-file with the extra flag `afio::file_flags::hold_parent_open` which can dramatically increase AFIO
+file with the extra flag `afio::file_flags::hold_parent_open` (which incidentally can dramatically increase AFIO
 filesystem performance because a number of fast code paths can be taken e.g. fetching most metadata
 about a file on Windows will actually do a single glob directory enumeration on its parent directory when available
 which is about 20x faster. The reason it is not enabled by default is because of process file descriptor limits
-on POSIX, especially the severely low default limit on Apple OS X. In this particular case, we just want
+on POSIX, especially the severely low default limit on Apple OS X). In this particular case, we just want
 our temporary file to retain knowledge of its parent because we will fetch that parent later.
 
 [workshop_atomic_updates_afio2]

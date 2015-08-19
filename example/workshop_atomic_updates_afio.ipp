@@ -103,8 +103,9 @@ struct odirectstream : public std::ostream
         // Atomically rename "tmpXXXXXXXXXXXXXXXX" to "0"
         lastwrite->atomic_relink(afio::path_req::relative(dirh, "0"));
 #ifdef __linux__
-        // Flush metadata on Linux only
-        async_sync(dirh);
+        // Journalled Linux filing systems don't need this, but if you enabled afio::file_flags::always_sync
+        // you might want to issue this too.
+        //async_sync(dirh);
 #endif
       }
       catch(...)
@@ -171,6 +172,28 @@ static bool is_valid_name(const std::string &name) noexcept
   return name[0]!='.';
 }
 
+// Keep a cache of crypto strong random names
+static std::string random_name()
+{
+  static struct random_names_type
+  {
+    std::vector<std::string> names;
+    size_t idx;
+    random_names_type(size_t count) : names(count), idx(0)
+    {
+      for(size_t n=0; n<count; n++)
+        names[n]=afio::utils::random_string(16);  // 128 bits
+    }
+    std::string get()
+    {
+      if(idx==names.size())
+        idx=0;
+      return names[idx++];
+    }
+  } random_names(10000);
+  return random_names.get();
+}
+
 data_store::data_store(size_t flags, afio::path path)
 {
   // Make a dispatcher for the local filesystem URI, masking out write flags on all operations if not writeable
@@ -178,6 +201,8 @@ data_store::data_store(size_t flags, afio::path path)
   // Set the dispatcher for this thread, and open a handle to the store directory
   afio::current_dispatcher_guard h(_dispatcher);
   _store=afio::dir(std::move(path), afio::file_flags::create);  // throws if there was an error
+  // Precalculate the cache of random names
+  random_name();
 }
 
 shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
@@ -244,9 +269,16 @@ shared_future<data_store::ostream> data_store::write(std::string name) noexcept
   {
     // Schedule the opening of the directory
     afio::future<> dirh(afio::async_dir(_store, name, afio::file_flags::create));
+#ifdef __linux__
+    // Flush metadata on Linux only. This will be a noop unless we created a new directory
+    // above, and if we don't flush the new key directory it and its contents may not appear
+    // in the store directory after a suddenly power loss, even if it and its contents are
+    // all on physical storage.
+    async_sync(_store);
+#endif
     // Make a crypto strong random file name
     std::string randomname("tmp");
-    randomname.append(afio::utils::random_string(16));  // 128 bits
+    randomname.append(random_name());
     // Schedule the opening of the file for writing
     afio::future<> h(afio::async_file(dirh, randomname, afio::file_flags::create | afio::file_flags::write
       | afio::file_flags::hold_parent_open    // handle should keep a handle_ptr to its parent dir

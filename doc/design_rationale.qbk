@@ -445,6 +445,9 @@ in the order they were issued after some timeout period, thus making sure that w
 some given timeout and in their order of issue __dash__ this can be used to emulate the ZFS wall clock based write order
 consistency guarantees.
 
+[note You may find the tutorial of interest which implements an ACID transactional key-value store
+using the theory in this section.]
+
 Sadly, most use of __triplegit__ and __boost_afio__ will be without the luxury of ZFS, so here
 is a quick table of power loss data safety. Once again, I reiterate that errors and omissions are my fault alone.
 [*Any help which can be supplied in filling in the unknowns in this table would be hugely appreciated].
