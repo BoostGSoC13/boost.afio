@@ -3455,7 +3455,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher_ptr current_dispatcher(option<dispatcher_ptr> new_dispatcher)
 {
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(BOOST_AFIO_USE_CXA_THREAD_ATEXIT_WORKAROUND)
     // FreeBSD and OS X haven't implemented __cxa_thread_atexit in their libc yet, so fire and forget a workaround
     static __thread dispatcher_ptr *current;
     if(!current)
