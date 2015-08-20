@@ -100,27 +100,31 @@ public:
     {
         handle_ptr h(op.get_handle());
         //std::cout << "F " << h->path() << std::endl;
+        if (length)
+        {
 #ifdef USE_MMAPS
-        if(!!(h->flags() & file_flags::os_mmap))
-        {
-            dosearch(h, (const char *) h->try_mapfile(), length);
-        }
-        else
+          auto map(h->map_file());
+          if (map)
+          {
+            dosearch(h, (const char *)map->addr, length);
+          }
+          else
 #endif
-        {
+          {
             // Allocate a sufficient 4Kb aligned buffer
-            size_t _length=(4095+length)&~4095;
-            auto buffer=std::make_shared<std::vector<char, 
-                detail::aligned_allocator<char, 4096, false>>>(_length+1);
+            size_t _length = (4095 + length)&~4095;
+            auto buffer = std::make_shared < std::vector<char,
+              detail::aligned_allocator<char, 4096, false >> >(_length + 1);
             // Schedule a read of the file
-            auto read=dispatcher->read(make_io_req(
-                dispatcher->op_from_scheduled_id(id), buffer->data(), _length, 0));
-            auto read_done=dispatcher->completion(read, 
-                std::make_pair(async_op_flags::none/*regex search might be slow*/, 
-                    std::function<dispatcher::completion_t>(
-                        std::bind(&find_in_files::file_read, this, std::placeholders::_1, 
-                            std::placeholders::_2, buffer, length))));
+            auto read = dispatcher->read(make_io_req(
+              dispatcher->op_from_scheduled_id(id), buffer->data(), _length, 0));
+            auto read_done = dispatcher->completion(read,
+              std::make_pair(async_op_flags::none/*regex search might be slow*/,
+                std::function<dispatcher::completion_t>(
+                  std::bind(&find_in_files::file_read, this, std::placeholders::_1,
+                    std::placeholders::_2, buffer, length))));
             doscheduled({ read, read_done });
+          }
         }
         docompleted(2);
         return std::make_pair(true, h);
@@ -226,9 +230,6 @@ public:
                     if(length)
                     {
                         file_flags flags=file_flags::read;
-#ifdef USE_MMAPS
-                        if(length>16384) flags=flags|file_flags::os_mmap;
-#endif
                         auto file_open=dispatcher->file(path_req::absolute(lastdir, h->path()/entry.name(), flags));
                         auto file_opened=dispatcher->completion(file_open, 
                             std::make_pair(async_op_flags::none, 

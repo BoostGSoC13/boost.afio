@@ -18,7 +18,9 @@ namespace atomic_updates {
 }
 namespace final {
 #include "workshop_final_afio.ipp"
+#include "../detail/SpookyV2.cpp"
 }
+
 
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
 namespace chrono = BOOST_AFIO_V2_NAMESPACE::chrono;

@@ -196,19 +196,15 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 
 * Verified as working with Boost 1.59 release.
 
+* `handle::try_mapfile()` is no more, we now have `handle::map_file()` which can also
+map writeable files now plus map offsets.
+
 Still to do in this release:
 
 * Write multi-abi FAQ answer.
 
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure
 it's DLL unload safe).
-
-* handle::try_mapfile() should allow writeable maps. Please disable the memcpy code in
-doreadwrite, it's not necessary. Add docs warnings about the pitfalls of mixing direct i/o
-with mmaps.
-
-* Add handle::map_section() which maps offset extents and returns a RAII object allowing
-range syncing, invalidation, tag random, tag sequential, preload, flush, discard.
 
 * Linux: UPDATE TABLE IN COMPILATION DOCS.
 
@@ -775,6 +771,8 @@ unique directory handle flag.
 [endsect] [/deleting_open_files]
 
 [section:multi_abi How do I reconfigure AFIO within the same translation unit to use a different ABI?]
+
+todo
 
 [endsect] [/multi_abi]
 

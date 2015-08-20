@@ -141,6 +141,48 @@ future
 
 ]
 ]
+[[`` operator bool()``
+
+] [Same as [^`true_(tribool(*this))`]] [
+
+][
+
+]
+]
+[[``bool is_ready()``
+
+] [True if monad is not empty. ] [
+
+][
+
+]
+]
+[[``bool has_value()``
+
+] [True if monad contains a value_type. ] [
+
+][
+
+]
+]
+[[``bool has_error()``
+
+] [True if monad contains an error_type. ] [
+
+][
+
+]
+]
+[[``bool has_exception(bool only_exception = false)``
+
+] [True if monad contains an exception_type or error_type (any error_type is returned as an exception_ptr by get_exception()). This needs to be true for both for compatibility with Boost.Thread's future. If you really want to test only for has exception only, pass true as the argument. ] [[* bool]: ['only_exception]:  
+
+
+
+][
+
+]
+]
 [[``dispatcher * parent()``
 
 ] [The parent dispatcher of this future. ] [

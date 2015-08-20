@@ -45,11 +45,12 @@ struct idirectstream : public std::istream
   {
     afio::handle_ptr h;  // Holds the file open
     std::shared_ptr<file_buffer_type> buffer;
+    afio::handle::mapped_file_ptr mfp;
     // From a mmap
-    directstreambuf(afio::handle_ptr _h, char *addr, size_t length) : h(std::move(_h))
+    directstreambuf(afio::handle_ptr _h, afio::handle::mapped_file_ptr _mfp, size_t length) : h(std::move(_h)), mfp(std::move(_mfp))
     {
       // Set the get buffer this streambuf is to use
-      setg(addr, addr, addr + length);
+      setg((char *) mfp->addr, (char *) mfp->addr, (char *) mfp->addr + length);
     }
     // From a malloc
     directstreambuf(afio::handle_ptr _h, std::shared_ptr<file_buffer_type> _buffer, size_t length) : h(std::move(_h)), buffer(std::move(_buffer))
@@ -184,10 +185,10 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
       // Is a memory map more appropriate?
       if(length>=128*1024)
       {
-        char *addr;
-        if((addr=(char *) _h->try_mapfile()))
+        afio::handle::mapped_file_ptr mfp;
+        if((mfp=_h->map_file()))
         {
-          data_store::istream ret(std::make_shared<idirectstream>(_h.get_handle(), addr, length));
+          data_store::istream ret(std::make_shared<idirectstream>(_h.get_handle(), std::move(mfp), length));
           return ret;
         }
       }
@@ -197,7 +198,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
       // When the read completes call this continuation
       return h.then([buffer, length](const afio::future<> &h) -> shared_future<data_store::istream> {
         // If read failed, return the error or exception immediately
-        BOOST_MONAD_PROPAGATE(_h);
+        BOOST_MONAD_PROPAGATE(h);
         data_store::istream ret(std::make_shared<idirectstream>(h.get_handle(), buffer, length));
         return ret;
       });

@@ -694,21 +694,20 @@ enum class file_flags : size_t
     create_only_if_not_exist=32, //!< Create and open only if doesn't exist
     create_compressed=64, //!< Create a compressed file, needs to be combined with one of the other create flags. Only succeeds if supported by the underlying filing system.
 
-    will_be_sequentially_accessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on OSDirect too.
-    will_be_randomly_accessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on OSDirect too.
+    will_be_sequentially_accessed=128, //!< Will be \em exclusively either read or written sequentially. If you're exclusively writing sequentially, \em strongly consider turning on `os_direct` too.
+    will_be_randomly_accessed=256, //!< Will be randomly accessed, so don't bother with read-ahead. If you're using this, \em strongly consider turning on `os_direct` too.
     no_sparse=512,      //!< Don't create sparse files. May be ignored by some filing systems (e.g. ext4).
 
     hold_parent_open=(1<<10),        //!< Hold a file handle open to the containing directory of each open file for fast directory enumeration and fast relative path ops.
     unique_directory_handle=(1<<11), //!< Return a unique directory handle rather than a shared directory handle
     no_race_protection=(1<<12),      //!< Skip taking steps to avoid destruction of data due to filing system races. Most of the performance benefit of enabling this goes away if you enable HoldParentOpen instead, so be especially careful when considering turning this on.
-    temporary_file=(1<<13),          //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with DeleteOnClose as this avoids an fsync of the containing directory on file close.
-    delete_on_close=(1<<14),         //!< Only when combined with CreateOnlyIfNotExist, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
+    temporary_file=(1<<13),          //!< On some systems causes dirty cache data to not be written to physical storage until file close. Useful for temporary files and lock files, especially on Windows when combined with `delete_on_close` as this avoids an fsync of the containing directory on file close.
+    delete_on_close=(1<<14),         //!< Only when combined with `create_only_if_not_exist`, deletes the file on close. This is especially useful on Windows with temporary and lock files where normally closing a file is an implicit fsync of its containing directory. Note on POSIX this unlinks the file on first close by AFIO, whereas on Windows the operating system unlinks the file on last close including sudden application exit. Note also that AFIO permits you to delete files which are currently open on Windows and the file entry disappears immediately just as on POSIX.
 
-    os_direct=(1<<16),      //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on)
-    os_mmap=(1<<17),        //!< Memory map files (for reads only).
-    os_lockable=(1<<18),    // Deliberately undocumented
+    os_direct=(1<<16),      //!< Bypass the OS file buffers (only really useful for writing large files, or a lot of random reads and writes. Note you must 4Kb align everything if this is on). Be VERY careful mixing this with memory mapped files.
+    os_lockable=(1<<17),    // Deliberately undocumented
 
-    always_sync=(1<<24),    //!< Ask the OS to not complete until the data is on the physical storage. Best used only with OSDirect, otherwise use SyncOnClose.
+    always_sync=(1<<24),    //!< Ask the OS to not complete until the data is on the physical storage. Some filing systems do much better with this than `sync_on_close`.
     sync_on_close=(1<<25),  //!< Automatically initiate an asynchronous flush just before file close, and fuse both operations so both must complete for close to complete.
 
     int_hold_parent_open_nested=(1<<27), //!< Internal use only. Don't use.
@@ -1133,6 +1132,7 @@ Note that failure to explicitly schedule closing a file handle in the dispatcher
 by handle. This can consume considerable time, especially if SyncOnClose is enabled.
 
 \qbk{
+[include generated/struct_handle_1_1mapped_file.qbk]
 [include generated/group_async_io_handle__ops.qbk]
 }
 */
@@ -1243,8 +1243,25 @@ public:
     }
     */
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path target() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
-    //! Tries to map the file into memory. Currently only works if handle is read-only.
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() BOOST_AFIO_HEADERS_ONLY_VIRTUAL_UNDEFINED_SPEC
+    //! A holder of a mapped file.
+    struct BOOST_AFIO_DECL mapped_file
+    {
+      friend class handle;
+      handle_ptr h;   //!< The file being mapped
+      void *addr;     //!< The address in memory of the map
+      size_t length;  //!< The length of the map
+      off_t offset;   //!< The offset of the map into the file
+      mapped_file(const mapped_file &) = delete;
+      mapped_file(mapped_file &&) = delete;
+      mapped_file &operator=(const mapped_file &) = delete;
+      mapped_file &operator=(mapped_file &&) = delete;
+      mapped_file(handle_ptr _h, void *_addr, size_t _length, off_t _offset) : h(std::move(_h)), addr(_addr), length(_length), offset(_offset) { }
+      ~mapped_file();
+    };
+    //! A type alias to a mapped file pointer
+    using mapped_file_ptr = std::unique_ptr<mapped_file>;
+    //! Maps the file into memory, returning a null pointer if couldn't map (e.g. address space exhaustion). Do NOT mix this with `file_flags::os_direct`!
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC mapped_file_ptr map_file(size_t length = (size_t)-1, off_t offset = 0, bool read_only = false) { return nullptr; }
     /*! \brief Hard links the file to a new location on the same volume.
 
     If you wish to make a temporary file whose contents are ready appear at a location and error out if

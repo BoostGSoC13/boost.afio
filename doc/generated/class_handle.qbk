@@ -221,9 +221,15 @@ The path the symbolic link points to. May not exist or even be valid.
 
 ]
 ]
-[[``void * try_mapfile()``
+[[``mapped_file_ptr map_file(size_t length = (size_t)-1, off_t offset = 0, bool read_only = false)``
 
-] [Tries to map the file into memory. Currently only works if handle is read-only. ] [
+] [Maps the file into memory, returning a null pointer if couldn't map (e.g. address space exhaustion). Do NOT mix this with [^`file_flags::os_direct`]! ] [[* size_t]: ['length]:  
+
+[* off_t]: ['offset]:  
+
+[* bool]: ['read_only]:  
+
+
 
 ][
 
@@ -262,6 +268,7 @@ The path the symbolic link points to. May not exist or even be valid.
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
 
+[include generated/struct_handle_1_1mapped_file.qbk]
 [include generated/group_async_io_handle__ops.qbk]
 
 '''<?dbhtml-include href="disqus_comments.html"?>'''

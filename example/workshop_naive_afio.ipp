@@ -46,13 +46,17 @@ struct idirectstream : public std::istream
   {
     afio::handle_ptr h;  // Holds the file open and therefore mapped
     file_buffer_type buffer;
+    afio::handle::mapped_file_ptr mfp;
     directstreambuf(error_code &ec, afio::handle_ptr _h) : h(std::move(_h))
     {
       // Get the size of the file. If greater than 128Kb mmap it
       size_t length=(size_t) h->lstat(afio::metadata_flags::size).st_size;
       char *p=nullptr;
       if(length>=128*1024)
-        p = (char *) h->try_mapfile();
+      {
+        if((mfp=h->map_file()))
+          p = (char *) mfp->addr;
+      }
       if(!p)
       {
         buffer.resize(length);

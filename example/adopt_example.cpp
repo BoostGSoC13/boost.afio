@@ -35,10 +35,6 @@ struct test_handle : boost::afio::handle
     {
         return boost::afio::path();
     }
-    virtual void *try_mapfile() override final
-    {
-        return nullptr;
-    }
     virtual void link(const boost::afio::path_req &req) override final
     {
     }

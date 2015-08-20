@@ -792,14 +792,13 @@ retry:
         bool has_been_added, DeleteOnClose, SyncOnClose, has_ever_been_fsynced;
         dev_t st_dev;  // Stored on first open. Used to detect races later.
         ino_t st_ino;
-        void *mapaddr; size_t mapsize;
         typedef spinlock<bool> pathlock_t;
         mutable pathlock_t pathlock; BOOST_AFIO_V2_NAMESPACE::path _path;
 #ifndef BOOST_AFIO_COMPILING_FOR_GCOV
         std::unique_ptr<posix_lock_file> lockfile;
 #endif
 
-        async_io_handle_posix(dispatcher *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : handle(_parent, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), st_dev(0), st_ino(0), mapaddr(nullptr), mapsize(0), _path(path)
+        async_io_handle_posix(dispatcher *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _DeleteOnClose, bool _SyncOnClose, int _fd) : handle(_parent, flags), fd(_fd), has_been_added(false), DeleteOnClose(_DeleteOnClose), SyncOnClose(_SyncOnClose), has_ever_been_fsynced(false), st_dev(0), st_ino(0), _path(path)
         {
             if(fd!=-999)
             {
@@ -832,11 +831,6 @@ retry:
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
-            if(mapaddr)
-            {
-                BOOST_AFIO_ERRHOSFN(BOOST_AFIO_POSIX_MUNMAP(mapaddr, mapsize), [this]{return path();});
-                mapaddr=nullptr;
-            }
             int _fd=fd;
             if(fd>=0)
             {
@@ -1087,29 +1081,31 @@ retry:
             return path::string_type(buffer, len);
 #endif
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::unique_ptr<mapped_file> map_file(size_t length, off_t offset, bool read_only) override final
         {
 #ifndef WIN32
-            if(!mapaddr)
+            BOOST_AFIO_POSIX_STAT_STRUCT s={0};
+            if(-1!=fstat(fd, &s))
             {
-                if(!(flags() & file_flags::write) && !(flags() & file_flags::append))
-                {
-                    BOOST_AFIO_POSIX_STAT_STRUCT s={0};
-                    if(-1!=fstat(fd, &s))
-                    {
-                        if((mapaddr=BOOST_AFIO_POSIX_MMAP(nullptr, s.st_size, PROT_READ, MAP_SHARED, fd, 0)))
-                        {
-                            mapsize=s.st_size;
-                            if(!!(flags() & file_flags::will_be_sequentially_accessed))
-                              madvise(mapaddr, mapsize, MADV_SEQUENTIAL);
-                            else if(!!(flags() & file_flags::will_be_randomly_accessed))
-                              madvise(mapaddr, mapsize, MADV_RANDOM);
-                        }
-                    }
-                }
+              if(length>s.st_size)
+                length=s.st_size;
+              if(offset+length>s.st_size)
+                length=s.st_size-offset;
+              void *mapaddr=nullptr;
+              int prot=PROT_READ;
+              if(!read_only && !!(flags() & file_flags::write))
+                prot|=PROT_WRITE;
+              if((mapaddr=BOOST_AFIO_POSIX_MMAP(nullptr, length, prot, MAP_SHARED, fd, offset)))
+              {
+                  if(!!(flags() & file_flags::will_be_sequentially_accessed))
+                    madvise(mapaddr, length, MADV_SEQUENTIAL);
+                  else if(!!(flags() & file_flags::will_be_randomly_accessed))
+                    madvise(mapaddr, length, MADV_RANDOM);
+                  return detail::make_unique<mapped_file>(shared_from_this(), mapaddr, length, offset);
+              }
             }
 #endif
-            return mapaddr;
+            return nullptr;
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const path_req &_req) override final
         {
@@ -2518,8 +2514,6 @@ namespace detail {
 #endif
 #endif
               }
-              if(!!(req.flags & file_flags::os_mmap))
-                ret->try_mapfile();
             }
             return std::make_pair(true, ret);
         }
@@ -2631,24 +2625,6 @@ namespace detail {
                 BOOST_AFIO_DEBUG_PRINT("  R %u: %p %u\n", (unsigned) id, asio::buffer_cast<const void *>(b), (unsigned) asio::buffer_size(b));
             }
 #endif
-            if(p->mapaddr)
-            {
-                void *addr=(void *)((char *)p->mapaddr + req.where);
-                for(auto &b: req.buffers)
-                {
-                    void *_b=asio::buffer_cast<void *>(b);
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 28313)  // SAL check
-#endif
-                    memcpy(_b, addr, asio::buffer_size(b));
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-                    addr=(void *)((char *)addr + asio::buffer_size(b));
-                }
-                return std::make_pair(true, h);
-            }
             std::vector<iovec> vecs;
             vecs.reserve(req.buffers.size());
             for(auto &b: req.buffers)
@@ -3448,6 +3424,15 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void directory_entry::_int_fetch(metadata_f
         fill_stat_t(stat, s, wanted);
     }
     have_metadata=have_metadata | wanted;
+}
+
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle::mapped_file::~mapped_file()
+{
+#ifdef WIN32
+  UnmapViewOfFile(addr);
+#else
+  ::munmap(addr, length);
+#endif
 }
 
 BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri, file_flags flagsforce, file_flags flagsmask, std::shared_ptr<thread_source> threadpool) noexcept

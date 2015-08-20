@@ -14,7 +14,7 @@ void test_inline_linkage1()
       auto sync1(dispatcher->sync(writefile1));
       auto writefile2(dispatcher->write(io_req < vector < char >>(sync1, buffer, 0)));
       auto closefile1(dispatcher->close(writefile2));
-      auto openfile(dispatcher->file(path_req::relative(closefile1, file_flags::read|file_flags::os_mmap)));
+      auto openfile(dispatcher->file(path_req::relative(closefile1, file_flags::read)));
       char b[64];
       auto readfile(dispatcher->read(make_io_req(openfile, b, 0)));
       auto delfile(dispatcher->close(dispatcher->rmfile(readfile)));

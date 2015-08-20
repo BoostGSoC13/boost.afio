@@ -14,7 +14,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_sync, "Tests async fsync", 5)
       auto sync1(dispatcher->sync(writefile1));
       auto writefile2(dispatcher->write(io_req < std::vector < char >> (sync1, buffer, 0)));
       auto closefile1(dispatcher->close(writefile2));
-      auto openfile(dispatcher->file(path_req::relative(closefile1, file_flags::read|file_flags::os_mmap)));
+      auto openfile(dispatcher->file(path_req::relative(closefile1, file_flags::read)));
       char b[64];
       auto readfile(dispatcher->read(make_io_req(openfile, b, 0)));
       auto closefile2=dispatcher->close(readfile);

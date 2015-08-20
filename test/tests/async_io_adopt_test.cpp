@@ -36,10 +36,6 @@ struct test_handle : handle
     {
         return afio::path();
     }
-    virtual void *try_mapfile() override final
-    {
-        return nullptr;
-    }
     virtual void link(const path_req &req) override final
     {
     }

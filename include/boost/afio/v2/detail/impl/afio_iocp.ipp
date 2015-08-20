@@ -305,7 +305,7 @@ namespace detail
         std::unique_ptr<asio::windows::random_access_handle> h;
         void *myid;
         bool has_been_added, SyncOnClose;
-        void *mapaddr;
+        HANDLE sectionh;
         typedef spinlock<bool> pathlock_t;
         mutable pathlock_t pathlock; BOOST_AFIO_V2_NAMESPACE::path _path;
         std::unique_ptr<win_lock_file> lockfile;
@@ -316,16 +316,16 @@ namespace detail
             return h;
         }
         async_io_handle_windows(dispatcher *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags) : handle(_parent, flags),
-          myid(nullptr), has_been_added(false), SyncOnClose(false), mapaddr(nullptr), _path(path) { }
+          myid(nullptr), has_been_added(false), SyncOnClose(false), sectionh(nullptr), _path(path) { }
         inline async_io_handle_windows(dispatcher *_parent, const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h);
         inline handle_ptr int_verifymyinode();
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void close() override final
         {
             BOOST_AFIO_DEBUG_PRINT("D %p\n", this);
-            if(mapaddr)
+            if(sectionh)
             {
-                BOOST_AFIO_ERRHWINFN(UnmapViewOfFile(mapaddr), [this]{return path();});
-                mapaddr=nullptr;
+                BOOST_AFIO_ERRHWINFN(CloseHandle(sectionh), [this]{return path();});
+                sectionh=nullptr;
             }
             if(h)
             {
@@ -550,21 +550,30 @@ namespace detail
             }
             BOOST_AFIO_THROW(system_error(EINVAL, generic_category()));
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *try_mapfile() override final
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC std::unique_ptr<mapped_file> map_file(size_t length, off_t offset, bool read_only) override final
         {
-            if(!mapaddr)
+            if(length==(size_t)-1)
+              length=0;
+            if(!sectionh)
             {
-                if(!(flags() & file_flags::write) && !(flags() & file_flags::append))
-                {
-                    HANDLE sectionh;
-                    if(INVALID_HANDLE_VALUE!=(sectionh=CreateFileMapping(myid, NULL, PAGE_READONLY, 0, 0, nullptr)))
-                    {
-                        auto unsectionh=detail::Undoer([&sectionh]{ CloseHandle(sectionh); });
-                        mapaddr=MapViewOfFile(sectionh, FILE_MAP_READ, 0, 0, 0);
-                    }
-                }
+              lock_guard<pathlock_t> g(pathlock);
+              if(!sectionh)
+              {
+                HANDLE h;
+                DWORD prot=!!(flags() & file_flags::write) ? PAGE_READWRITE : PAGE_READONLY;
+                if(INVALID_HANDLE_VALUE!=(h=CreateFileMapping(myid, NULL, prot, 0, 0, nullptr)))
+                  sectionh=h;
+              }
             }
-            return mapaddr;
+            DWORD prot=FILE_MAP_READ;
+            if(!read_only && !!(flags() & file_flags::write))
+              prot=FILE_MAP_WRITE;
+            void *mapaddr=nullptr;
+            if((mapaddr=MapViewOfFile(sectionh, prot, (DWORD)(offset>>32), (DWORD)(offset&0xffffffff), length)))
+            {
+              return detail::make_unique<mapped_file>(shared_from_this(), mapaddr, length, offset);
+            }
+            return nullptr;
         }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void link(const path_req &_req) override final
         {
@@ -687,7 +696,7 @@ namespace detail
       const BOOST_AFIO_V2_NAMESPACE::path &path, file_flags flags, bool _SyncOnClose, HANDLE _h)
       : handle(_parent, flags),
         h(new asio::windows::random_access_handle(_parent->p->pool->io_service(), int_checkHandle(_h, path))), myid(_h),
-        has_been_added(false), SyncOnClose(_SyncOnClose), mapaddr(nullptr), _path(path)
+        has_been_added(false), SyncOnClose(_SyncOnClose), sectionh(nullptr), _path(path)
     {
       if(!!(flags & file_flags::os_lockable))
         lockfile=process_lockfile_registry::open<win_lock_file>(this);
@@ -833,8 +842,6 @@ namespace detail
                 FILE_SET_SPARSE_BUFFER fssb={true};
                 DeviceIoControl(ret->native_handle(), FSCTL_SET_SPARSE, &fssb, sizeof(fssb), nullptr, 0, &bytesout, nullptr);
               }
-              if(!!(req.flags & file_flags::os_mmap))
-                ret->try_mapfile();
             }
             return std::make_pair(true, ret);
         }
@@ -1191,30 +1198,9 @@ namespace detail
             for(auto &b: req.buffers)
             {   BOOST_AFIO_DEBUG_PRINT("  R %u: %p %u\n", (unsigned) id, asio::buffer_cast<const void *>(b), (unsigned) asio::buffer_size(b)); }
 #endif
-            if(p->mapaddr)
-            {
-                void *addr=(void *)((char *) p->mapaddr + req.where);
-                for(auto &b: req.buffers)
-                {
-                    void *_b=asio::buffer_cast<void *>(b);
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 28313)  // SAL check
-#endif
-                    memcpy(_b, addr, asio::buffer_size(b));
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-                    addr=(void *)((char *) addr + asio::buffer_size(b));
-                }
-                return std::make_pair(true, h);
-            }
-            else
-            {
-                doreadwrite(id, h, req, p);
-                // Indicate we're not finished yet
-                return std::make_pair(false, h);
-            }
+            doreadwrite(id, h, req, p);
+            // Indicate we're not finished yet
+            return std::make_pair(false, h);
         }
         // Called in unknown thread
         completion_returntype dowrite(size_t id, future<> op, detail::io_req_impl<true> req)
