@@ -613,6 +613,8 @@ to manage them, here is that power loss safety table once again:
 
 [include power_loss_safety_table.qbk]
 
+[heading Visibility of concurrent writes to concurrent readers in file i/o]
+
 The final piece of the puzzle is [*atomicity of writes]. Many people do not realise that POSIX operating
 systems are supposed to provide some strong POSIX-mandated guarantees about the visibility of file i/o to concurrent
 readers and writers, and these guarantees AFIO goes out of its way not to interfere with. These are:
@@ -655,7 +657,16 @@ From how the NT kernel IRP queue works whereby reads and writes both enter the s
 it seems to me that the POSIX visibility guarantees are met which would be expected as the NT kernel
 is explicitly designed to be POSIX compliant, however one should be cautious here. I note from a
 review of portable databases that none makes strong assumptions about read-write visibility ordering, and
-I assume that is for a reason.
+I assume that is for a reason __dash__ though that reason could simply be ["Linux].
+
+ [*If] you are willing to restrict your end use cases to:
+ 
+ * Any of the BSDs (these conform to POSIX).
+ * Linux with XFS (XFS implements special workarounds to conform with POSIX).
+ * Microsoft Windows with NTFS (it is thought to conform to POSIX).
+ 
+ ... then you may be able to dispense with explicit locks. You may find the __afio_statfs__ API useful
+as it can return the name of the filing system providing an open file handle.
 
 # By extension of the above, POSIX requires that the visibility of a write to a file opened for append-only access is also
 atomic to all readers and writers of the same file. Or put more succinctly, appending to
@@ -676,14 +687,17 @@ is merely for the atomicity of the increment of the file size, the atomicity of 
 appended is a separate problem to ['where] the content is appended whose increment is guaranteed
 to be atomic except on NFS.
 
+[heading The relevance of all this filing system theory to the final key-value BLOB store]
+
 Why all this matters is because you need to understand all this to understand why the third generation
 key-value BLOB store presented next is designed exactly the way it is. Unintuitively, it is going to
 be a single always-growing atomically-appended sparse file. We take advantage of hole punching
-to deallocate the parts of the file no longer needed, but its apparent size grows forever
+to deallocate the parts of the file no longer needed so physically consumed storage does not grow
+past what is needed, but its apparent size grows forever
 and therefore the transactional write log described in the last section is both a replayable write
-log and the BLOB store ['and] the index to itself. Thanks to the 2^64 maximum file size
+log and the BLOB store [*AND] the index to itself. Thanks to the 2^64 maximum file size
 on modern filing systems, such a single file store ought to run for a very extended period
-of time before it might overrun its maximum length.
+of time before it might overrun its maximum length, and we can always defragment on restart.
 
 We do have to take some care however. As on Linux writes are not atomic with respect to reads across
 4Kb boundaries, we are going to need some mechanism of checking if some given append is valid or not, which usefully
@@ -698,7 +712,7 @@ as guaranteed for all the major operating systems.
 
 [endsect] [/extents_theory]
 
-[section:extents]
+[section:extents The final named blob store design]
 
 ECC 1024 bytes = 14 bits
 ECC 2048 bytes = 15 bits
