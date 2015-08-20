@@ -1087,10 +1087,10 @@ retry:
             BOOST_AFIO_POSIX_STAT_STRUCT s={0};
             if(-1!=fstat(fd, &s))
             {
-              if(length>s.st_size)
-                length=s.st_size;
-              if(offset+length>s.st_size)
-                length=s.st_size-offset;
+              if(length>(size_t) s.st_size)
+                length=(size_t) s.st_size;
+              if(offset+length>(size_t) s.st_size)
+                length=(size_t) s.st_size-offset;
               void *mapaddr=nullptr;
               int prot=PROT_READ;
               if(!read_only && !!(flags() & file_flags::write))
@@ -3461,7 +3461,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher_ptr current_dispatcher(option<di
     if(!current)
     {
       current=new dispatcher_ptr();
-      fprintf(stderr, "WARNING: Until FreeBSD and OS X fixes the lack of __cxa_thread_atexit, Boost.AFIO leaks %u bytes for this thread!\n", (unsigned) sizeof(dispatcher_ptr));
+      fprintf(stderr, "WARNING: Until libc++ fixes the lack of __cxa_thread_atexit, Boost.AFIO leaks %u bytes for this thread!\n", (unsigned) sizeof(dispatcher_ptr));
     }
     dispatcher_ptr ret(*current);
     if(new_dispatcher)
