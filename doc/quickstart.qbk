@@ -45,7 +45,7 @@ and strategies in action.
 
 [section:workshop Step by step workshop building an AFIO-based key-value store]
 
-[section:naive World's simplest named blob store in STL iostreams]
+[section:naive 1. World's simplest named blob store in STL iostreams]
 
 Let us imagine your application needs to persist some state across executions, and that that state
 is merely a collection of key-value items e.g.
@@ -97,7 +97,7 @@ that each key-value item is simply a file called the same name as the key name.
 
 [endsect] [/ naive]
 
-[section:naive_afio World's simplest named blob store in AFIO (synchronous)]
+[section:naive_afio 2. World's simplest named blob store in AFIO (synchronous)]
 
 Let's see the same thing as in the last section, but written using AFIO. First, the interface is identical
 to before, just with different private member variables:
@@ -176,7 +176,7 @@ additional extensions beyond what Boost.Thread or the Concurrency TS provides, i
 
 [endsect] [/ naive_afio]
 
-[section:naive_afio_async World's simplest named blob store in AFIO (asynchronous)]
+[section:naive_afio_async 3. World's simplest named blob store in AFIO (asynchronous)]
 
 Let's see the same exact thing as in the last section, but this time with a fully asynchronous public interface.
 Instead of returning `monad<>`, we now return `shared_future<>`:
@@ -216,8 +216,6 @@ The input and output stream implementations are pretty similar to before, but he
 
 [workshop_naive_async_afio3]
 
-
-[endsect] [/naive_afio_async]
 
 [section:naive_racy The problems with this naive design]
 
@@ -304,7 +302,9 @@ to the above code.
 
 [endsect] [/naive_racy]
 
-[section:atomic_updates Second attempt at a key-value store: How to implement atomic value updates and therefore Atomicity, Consistency, Isolation and Durability]
+[endsect] [/naive_afio_async]
+
+[section:atomic_updates 4. Second attempt at a key-value store: How to implement atomic value updates and therefore Atomicity, Consistency, Isolation and Durability]
 
 The naive key-value store simply stored each key in a single flat directory, so:
 
@@ -460,8 +460,6 @@ updates, however each key will have some complete value which it had at some poi
 [[__cross__][You don't need to update more than one key-value at once.]]
 ]
 
-[endsect] [/atomic_updates]
-
 [section:atomic_updates_problems The performance of and problems with this second generation design]
 
 Let's see how this second generation ACI(D) design benchmarks compared to the first AFIO implementation
@@ -512,7 +510,10 @@ implementing a transactional write log.
 
 [endsect] [/atomic_updates_problems]
 
-[section:extents_theory Third attempt at a key-value store: Thinking like a filing system]
+[endsect] [/atomic_updates]
+
+
+[section:extents_theory 5. Third attempt at a key-value store: Thinking like a filing system]
 
 You should prepare yourself to now think outside your normal comfort zone, and like a filing system engineer.
 
@@ -663,8 +664,6 @@ a sector size which we'll assume is 512 bytes on a 512 byte boundary as that is 
 as guaranteed for all the major operating systems. For that reason, as you will note in the implementation
 next section, everything is aligned to a 32 byte boundary and we never rewrite more than 32 bytes which
 guarantees we will never rewrite across a 512 byte boundary, and therefore risk atomicity.
-
-[endsect] [/extents_theory]
 
 [section:extents The final named blob store design]
 
@@ -831,6 +830,7 @@ it will be finished shortly.]
 
 [endsect] [/extents_problems]
 
+[endsect] [/extents_theory]
 
 [endsect] [/ workshop]
 

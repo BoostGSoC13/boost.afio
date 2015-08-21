@@ -59,8 +59,7 @@
 [def __afio_statfs__ [link afio.reference.functions.statfs `async_statfs()`]]
 [def __afio_truncate__ [link afio.reference.functions.truncate `async_truncate()`]]
 [def __afio_zero__ [link afio.reference.functions.zero `async_zero()`]]
-[/ def __afio_when_all__ [link afio.reference.functions.when_all_ops `when_all()`]]
-[def __afio_when_all__ FIXME]
+[def __afio_when_all__ `when_all_p()`]
 
 [/ Templates]
 [template raceguarantees[contents]

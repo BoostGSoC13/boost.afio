@@ -199,8 +199,6 @@ map writeable files now plus map offsets.
 
 Still to do in this release:
 
-* Write multi-abi FAQ answer.
-
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure
 it's DLL unload safe).
 
@@ -768,7 +766,50 @@ unique directory handle flag.
 
 [section:multi_abi How do I reconfigure AFIO within the same translation unit to use a different ABI?]
 
-todo
+Here is how the unit test does it:
+
+```
+// Reduce unit testing
+#define BOOST_AFIO_RUNNING_IN_CI 1
+// Use the Boost.Test emulation in Boost.BindLib as Boost.Test isn't multi ABI capable.
+#define BOOST_AFIO_USE_BOOST_UNIT_TEST 0
+
+#define STRINGIZE2(a) #a
+#define STRINGIZE(a, b) STRINGIZE2(a ## b)
+
+// Make unit test names be different
+#define BOOST_CATCH_AUTO_TEST_CASE_NAME(name) STRINGIZE(1_, name)
+
+// A copy of AFIO + unit tests completely standalone apart from Boost.Filesystem
+#define BOOST_AFIO_USE_BOOST_THREAD 0
+#define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
+#define ASIO_STANDALONE 1
+#include "test_all.cpp"
+#undef BOOST_AFIO_USE_BOOST_THREAD
+#undef BOOST_AFIO_USE_BOOST_FILESYSTEM
+#undef ASIO_STANDALONE
+
+// Force unit test utilities to be reincluded
+#undef BOOST_AFIO_TEST_FUNCTIONS_HPP
+#undef BOOST_CATCH_AUTO_TEST_CASE_NAME
+#define BOOST_CATCH_AUTO_TEST_CASE_NAME(name) STRINGIZE(2_, name)
+
+// A copy of AFIO + unit tests using Boost.Thread, Boost.Filesystem and Boost.ASIO
+#define BOOST_AFIO_USE_BOOST_THREAD 1
+#define BOOST_AFIO_USE_BOOST_FILESYSTEM 1
+// ASIO_STANDALONE undefined
+#include "test_all.cpp"
+```
+
+So, simply `#undef` and re-`#define` the configuration macros you want and reinclude `afio.hpp`. You
+can do this every time you switch between configuration in a translation unit, so you can return to
+a previously included translation BUT note that you cannot later include a new header not previously
+included during that configuration's previous existence. In other words, include all the headers you
+are ever going to use in that translation unit just after the first time you configure that configuration.
+
+The situation is very similar for including hard version dependencies. You cannot include a newer version
+of AFIO after including a previous version as some version of AFIO must be the most recent version in order
+for something to live at `boost::afio`. Just always include the newest version first.
 
 [endsect] [/multi_abi]
 

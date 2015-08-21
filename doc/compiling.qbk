@@ -145,7 +145,6 @@ if being used standalone or if being used as part of Boost:
               </ulink>
             </entry>
           </row>
-          <row/>
           <row>
             <entry>Apple Mac OS X 10.9</entry>
             <entry>clang 3.5</entry>

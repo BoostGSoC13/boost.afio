@@ -565,13 +565,16 @@ namespace detail
                   sectionh=h;
               }
             }
-            DWORD prot=FILE_MAP_READ;
-            if(!read_only && !!(flags() & file_flags::write))
-              prot=FILE_MAP_WRITE;
-            void *mapaddr=nullptr;
-            if((mapaddr=MapViewOfFile(sectionh, prot, (DWORD)(offset>>32), (DWORD)(offset&0xffffffff), length)))
+            if(sectionh)
             {
-              return detail::make_unique<mapped_file>(shared_from_this(), mapaddr, length, offset);
+              DWORD prot=FILE_MAP_READ;
+              if(!read_only && !!(flags() & file_flags::write))
+                prot=FILE_MAP_WRITE;
+              void *mapaddr=nullptr;
+              if((mapaddr=MapViewOfFile(sectionh, prot, (DWORD)(offset>>32), (DWORD)(offset&0xffffffff), length)))
+              {
+                return detail::make_unique<mapped_file>(shared_from_this(), mapaddr, length, offset);
+              }
             }
             return nullptr;
         }
