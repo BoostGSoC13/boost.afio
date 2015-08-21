@@ -1,7 +1,7 @@
 #!/bin/bash
 rm -rf send_to_wandbox_tmp
 mkdir send_to_wandbox_tmp
-include/boost/afio/bindlib/scripts/GenSingleHeader.py -DBOOST_AFIO_USE_CXA_THREAD_ATEXIT_WORKAROUND=1 -DBOOST_AFIO_USE_BOOST_FILESYSTEM=1 -DBOOST_AFIO_DISABLE_VALGRIND=1 -Eafio_iocp.ipp -Ent_kernel_stuff -Evalgrind -Amonad_policy -Afuture_policy include/boost/afio/afio.hpp > include/boost/afio/single_include.hpp
+include/boost/afio/bindlib/scripts/GenSingleHeader.py -DBOOST_AFIO_USE_BOOST_FILESYSTEM=1 -DBOOST_AFIO_DISABLE_VALGRIND=1 -Eafio_iocp.ipp -Ent_kernel_stuff -Evalgrind -Amonad_policy -Afuture_policy include/boost/afio/afio.hpp > include/boost/afio/single_include.hpp
 sed "1s/.*/#include \"afio_single_include.hpp\"/" example/readwrite_example.cpp > send_to_wandbox.cpp
 #cd send_to_wandbox_tmp
 #sed "s/#include/@include/g" ../include/boost/afio/single_include.hpp > afio_single_include.hpp
