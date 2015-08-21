@@ -46,9 +46,6 @@ should particularly aid the find regex in files tutorial example which is curren
 [heading Anticipated forthcoming features in future versions]
 [/=================]
 
-Todo:
- * Add unit test for multi-version use within the same translation unit.
-
 * The v1.4 engine will be rewritten yet again to use a new custom future
 implementation whereby async_io_op shall become afio::future<T>. This should
 let the API no longer return two sets of futures when returning results
@@ -148,7 +145,7 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 
 
 [/=================]
-[heading Boost 1.59 AFIO v1.40 alpha 20th July 2015 Boost peer review 1 edition]
+[heading Boost 1.59 AFIO v1.40 alpha 21st August 2015 Boost peer review 1 edition]
 [/=================]
 
 * Removed VS2013 support as lightweight future-promise will require VS2015:
@@ -199,6 +196,7 @@ we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
 * `handle::try_mapfile()` is no more, we now have `handle::map_file()` which can also
 map writeable files now plus map offsets.
 
+
 Still to do in this release:
 
 * Write multi-abi FAQ answer.
@@ -206,9 +204,7 @@ Still to do in this release:
 * ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research. Make sure
 it's DLL unload safe).
 
-* Linux: UPDATE TABLE IN COMPILATION DOCS.
-
-* TEST MULTIABI BUILD.
+* Add unit test for multi-version use within the same translation unit.
 
 [/=================]
 [heading Boost 1.58 AFIO v1.31 18th April 2015]

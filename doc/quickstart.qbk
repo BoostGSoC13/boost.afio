@@ -12,62 +12,10 @@ So why bother with __boost_afio__? What's wrong with the STL iostreams and Files
 
 The answer is that there is nothing wrong with either for 95% of use cases. Performance
 of both is pretty good in fact most of the time __dash__ which actually isn't that
-surprising as C++ is a pay-for-what-you-use systems language. If however you have ever
-experienced any of these problems, then AFIO may be useful to you:
+surprising as C++ is a pay-for-what-you-use systems language, and you'll see how well
+STL iostreams does later on in this tutorial.
 
-# Your spinning magnetic rust hard drive goes bananas when some routine in your code
-  tries to do something to storage, and latency per op starts heading into the seconds range.
-
-# Your super fast SSD which is supposed to be delivering hundreds of thousands of ops/sec
-  is barely managing a tenth of its supposed ability with your code. After reading about the
-  importance of high queue depth to maximising performance from SSDs, you try opening many
-  handles to the same file and firing an army of thread pool workers at the problem to try
-  and increase queue depth, but your performance actually drops over the single threaded case.
-
-# Your code has to interact with a regularly changing filesystem and not get weird race errors e.g. you
-  try to create a new file in path /X/Y/Z, but some other program has just renamed directory /X/Y
-  to /A/B in the time between you deciding on /X/Y/Z and getting round to it.
-
-# Your code keeps file handles open a long time in a place where others might delete or rename
-  them, including any part of the directory hierarchy preceding the file.
-  
-# Deleting directory trees randomly fails on Microsoft Windows for no obvious reason.
-
-# Your code needs to read and write files concurrently to other code without resorting to
-  shared memory region tricks e.g. if the files reside on a Samba or NFS network shared drive.
-
-# Your CPU needs to be doing more useful work instead of copying memory to and from disc i/o
-  buffers. As great as the STL iostream buffering is, unless disabled it doubles the LL cache
-  pressure on your CPU, evicting other more useful data. The STL iostreams design almost certainly won't
-  allow the kernel use VM tricks to directly busmaster DMA from its buffers to the hard drive, so
-  the kernel will have to copy those buffers a third time. That means that for every 1Kb you read
-  or write you are evicted, as a minimum, 3Kb from the LL caches in your CPU, all of which must be
-  refilled with more useful data later.
-
-# Your code wants to experience various filing system features identically across platforms which
-  also work on shared Samba and NFS network drives, such as:
-  * Deleting and renaming open files.
-  * Files having unique inode values.
-  * POSIX timestamping of last accessed, last modified, last status changed and created.
-  * File extent management and traversal.
-  * Explicitly documented filing system race guarantees.
-  * Interrogation of filing system characteristics, devices and mount points.
-  * Ten million item directories, or more. We have tested twenty five million item directories on NTFS
-    and ext4 and performance was actually tolerable with under a second pause. Ten million item directories is plenty fast, and
-    one million item directories you won't notice over a ten item directory. Note that your GUI file
-    explorer will very likely hang on ten million item directories, indeed so do most command line tools.
-  * Exclusive lock files (manually operated support already there, async support coming in v1.5).
-  * File change monitoring (coming in v1.5).
-  * File byte range advisory locking (coming in v1.5).
- 
-You'll probably note that these are POSIX file semantics. On Microsoft Windows, AFIO directly uses
-the NT kernel API and can therefore achieve reasonably accurate POSIX file semantics, at the cost of
-no support for DOS feature emulation like short names or case insensitivity or drive letters. Going directly to the
-NT kernel makes filing system performance on Windows both much faster and a close experience
-to coding for POSIX, this saves you time and money and produces a much more consistent experience
-for your users.
-
-A surprising amount of production code out there is highly unreliable when used on a filing
+However a surprising amount of production code out there is highly unreliable when used on a filing
 system experiencing rapid change, or even just a filing system mounted on a network. In many
 ways it is when your code needs to ["grow up] from assuming a never changing static filesystem
 into a more realistic model is when you ought to reach AFIO which has hopefully abstracted away
@@ -87,7 +35,6 @@ implementation of directory tree deletion for Windows is unreliable.
    * Lock files
    * Atomic renames
    * Never use absolute paths
-   * Windows only: use GUID instead of path lookup.
 # Real world sample mini-programs written using AFIO which show various filing system algorithms
 and strategies in action.
  * Hello world
@@ -859,6 +806,22 @@ your code will likely not even notice).
 
 More code is to come ...
 
+[table:conditions This third generation solution will perform excellently under these conditions:
+[[][Condition]]
+[[__tick__] [On Microsoft Windows you can place the store deep in a directory hierarchy and use long key names.]]
+[[__tick__] [Third party threads and processes can rename the location of the store during use.]]
+[[__tick__] [The size of ['all] the values being read at any given time fits into your virtual address space (which is at least 2Gb on 32 bit, 8Tb on 64 bit).]]
+[[__tick__] [As many processes and threads may read and write to the store concurrently as you like,
+including CIFS clients but excluding NFS clients.]]
+[[__tick__] [Processes may unexpectedly exit during modifies with no consequence on consistency.]]
+[[__tick__ __tick__] [Lookup performance is breathtakingly swift and close to invariant to item count.
+Write performance is much slower, but a lot faster than the atomic rename based design.]]
+[[__tick__ __tick__] [Sudden power loss will restore the key-value store to some point in history
+preserving the exact ordering of updates.]]
+[[__tick__] [This design allows the atomic transactional update of as many key-value item at once as you like.]]
+]
+
+
 [endsect] [/extents]
 
 [section:extents_problems The performance of and problems with this third generation design]
@@ -1127,20 +1090,20 @@ The essential rule for achieving maximum filing system race safety is to avoid u
 you want your code to also be safe on POSIX, you must additionally only assume race safety up to the final directory in
 a path __dash__ thereafter design your node to never behave racily within a single directory.
 
-The core container type for specifying a location on the filing system to AFIO is __afio_path_op_req__ which looks like this:
+The core container type for specifying a location on the filing system to AFIO is __afio_path_req__ which looks like this:
 
-    struct async_path_op_req
+    struct path_req
     {
         bool is_relative;              // Whether the precondition is also where this path begins.
         afio::path path;               // The filing system path to be used for this operation.
         file_flags flags;              // The flags to be used for this operation (note they can be overriden by flags passed during dispatcher construction).
-        async_io_op precondition;      // An optional precondition for this operation.
-        async_path_op_req(T &&);       // Converts T to a filesystem::path, makes it absolute, then converts to an afio::path
-        async_path_op_req(bool, T &&); // If the bool is true, converts T to an afio::path fragment. If false, same as above overload (i.e. make absolute).
+        future<> precondition;         // An optional precondition for this operation.
+        path_req(T &&);                // Converts T to a filesystem::path, makes it absolute, then converts to an afio::path
+        path_req(bool, T &&);          // If the bool is true, converts T to an afio::path fragment. If false, same as above overload (i.e. make absolute).
     };
     
-For convenience, type markup is provided for the boolean taking constructor, these being `async_path_op_req::relative` and
-`async_path_op_req::absolute`.
+For convenience, type markup is provided for the boolean taking constructor, these being `path_req::relative` and
+`path_req::absolute`.
 
 If the path is relative, then the path of the precondition is used as the base from which the relative path fragment
 operates. On FreeBSD, Linux and Windows this base extension happens inside the kernel and so the current path of the precondition
@@ -1150,6 +1113,7 @@ to lack of the `XXXat()` POSIX APIs the path of the precondition is fetched and 
 An AFIO extension allows you to specify a file as precondition. In this situation, if you specify an empty path
 then you mean the precondition itself which is very useful for deleting or renaming an open file handle. If you want
 a sibling file, this can be found via a path fragment starting with `../`, though note that this necessarily is racy
+to the containing directory
 (AFIO opens the containing directory of the file, ensuring the directory contains an inode matching the file, and
 then uses that directory handle as a base __dash__ the race here being if the file relocates after matching its
 containing directory).

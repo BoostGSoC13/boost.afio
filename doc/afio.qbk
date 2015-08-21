@@ -181,8 +181,8 @@ making use of host OS asynchronous file i/o facilities are provided for:
 __boost_afio__ is regularly compiled and per-commit unit tested on these platforms:
 
 * Android with ext4 (libc++ STL toolchain only).
-* Apple Mac OS X 10.9 with HFS+ (should still work on 10.5).
-* FreeBSD 10.1 with ZFS (should also work on 10.0).
+* Apple Mac OS X 10.9 with HFS+ (should still work on 10.5). Note that OS X does not provide race free filesystem due to insufficient APIs provided.
+* FreeBSD 10.1 with ZFS (should also work on 10.0). Note that the BSDs only provide race free filesystem for directories not files due to insufficient APIs provided.
 * Linux kernels 2.6.32 to 3.13 with ext4.
 * Microsoft Windows 8.1 with NTFS (should still work on XP).
 
@@ -192,7 +192,7 @@ throughput of using raw Boost.ASIO] at a latency of [link afio.FAQ.closure_laten
 of the completion of an operation]. This library was brought to __boost__ as part of Google
 Summer of Code 2013.
 
-Note that __boost_afio__ is a C++ 11 only library, and it requires, as an absolute minimum, a compiler with:
+__boost_afio__ is a C++ 11 only library, and it requires, as an absolute minimum, a compiler with:
 
 * Rvalue reference support.
 * Variadic templates.
