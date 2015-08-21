@@ -3809,7 +3809,7 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front());
+      return std::move(dispatcher->rmfile(std::vector<path_req>(1, std::move(req))).front());
     }
   };
   template<class T> struct async_symlink
