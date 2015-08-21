@@ -108,7 +108,8 @@ struct data_store::index
   std::vector<region> regions;
   std::unordered_map<std::string, size_t> key_to_region;
   index() : offset_loaded_from(0) { }
-
+//]
+//[workshop_final2]
   struct last_good_ondisk_index_info
   {
     afio::off_t offset;
@@ -258,7 +259,8 @@ start_linear_scan:
       return std::current_exception();
     }
   }
-
+//]
+//[workshop_final3]
   // Loads the index from the store
   monad<void> load(afio::handle_ptr h) noexcept
   {
@@ -286,7 +288,8 @@ start_linear_scan:
       return std::current_exception();
     }
   }
-
+//]
+//[workshop_final4]
   // Writes the index to the store
   monad<void> store(afio::handle_ptr rwh, afio::handle_ptr appendh) noexcept
   {
@@ -388,7 +391,8 @@ start_linear_scan:
     last_time_count=file_header.time_count;
     return {};
   }
-
+//]
+//[workshop_final5]
   // Reloads the index if needed
   monad<void> refresh(afio::handle_ptr h) noexcept
   {
@@ -411,7 +415,7 @@ start_linear_scan:
 };
 //]
 
-//[workshop_final3]
+//[workshop_final6]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
@@ -449,7 +453,8 @@ struct idirectstream : public std::istream
     rdbuf(nullptr);
   }
 };
-
+//]
+//[workshop_final7]
 // An iostream which buffers all the output, then commits on destruct
 struct data_store::_ostream : public std::ostream
 {
@@ -552,6 +557,7 @@ struct data_store::_ostream : public std::ostream
 };
 //]
 
+//[workshop_final8]
 data_store::data_store(size_t flags, afio::path path)
 {
   // Make a dispatcher for the local filesystem URI, masking out write flags on all operations if not writeable
@@ -611,9 +617,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
     return std::current_exception();
   }
 }
-//]
 
-//[workshop_final2]
 monad<data_store::ostream> data_store::write(std::string name) noexcept
 {
   try

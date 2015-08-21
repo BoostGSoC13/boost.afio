@@ -689,15 +689,20 @@ to be atomic except on NFS.
 
 [heading The relevance of all this filing system theory to the final key-value BLOB store]
 
-Why all this matters is because you need to understand all this to understand why the third generation
+Why all this matters is because you need to understand all this theory to understand why the third generation
 key-value BLOB store presented next is designed exactly the way it is. Unintuitively, it is going to
-be a single always-growing atomically-appended sparse file. We take advantage of hole punching
-to deallocate the parts of the file no longer needed so physically consumed storage does not grow
-past what is needed, but its apparent size grows forever
-and therefore the transactional write log described in the last section is both a replayable write
-log and the BLOB store [*AND] the index to itself. Thanks to the 2^64 maximum file size
-on modern filing systems, such a single file store ought to run for a very extended period
-of time before it might overrun its maximum length, and we can always defragment on restart.
+be a set of always-growing atomically-appended sparse files. We take advantage of hole punching
+to deallocate the parts of the files no longer needed so physically consumed storage does not grow
+past what is needed, but their apparent sizes grow forever and the atomicity of the atomic append operation
+is used as the concurrency control mechanism for implementing transactional updates as effectively copy-on-write, plus as the mechanism
+for marking time to the filing system such that extents which have exceeded their maximum age and must be
+flushed to storage are always exactly those at an offset earlier in the file. Because we never open
+nor close files, we avoid the costs of security checking during path lookup, and therefore maximise performance.
+While the next example does not make use of memory maps as that would severely complicate the code, the
+on-disk file format is capable of being used directly from a memory map which would allow high performance
+scaling to hundreds of millions of key-value pairs without blinking. The only real pessimism in the
+following design is that it doesn't scale well to modifies with worse than
+`O(N^2)` complexity to concurrency of writers and worse than `O(N)` complexity to key count.
 
 We do have to take some care however. As on Linux writes are not atomic with respect to reads across
 4Kb boundaries, we are going to need some mechanism of checking if some given append is valid or not, which usefully
@@ -708,22 +713,158 @@ of the store file, so long as it does not exceed 4Kb.
 
 And just to be extra special careful, we will never do a ['rewrite] of existing content exceeding
 a sector size which we'll assume is 512 bytes on a 512 byte boundary as that is publicly documented
-as guaranteed for all the major operating systems.
+as guaranteed for all the major operating systems. For that reason, as you will note in the implementation
+next section, everything is aligned to a 32 byte boundary and we never rewrite more than 32 bytes which
+guarantees we will never rewrite across a 512 byte boundary, and therefore risk atomicity.
 
 [endsect] [/extents_theory]
 
 [section:extents The final named blob store design]
 
-ECC 1024 bytes = 14 bits
-ECC 2048 bytes = 15 bits
-ECC 4096 bytes = 16 bits
+[caution This section was not finished in time for the beginning of the Boost peer review due a hard
+drive failure induced by the testing of AFIO-based key-value stores in this workshop tutorial (sigh!), but it will be finished
+shortly after I get up and running again on a new hard drive (as I write this, the drive is being cloned in between
+periods it hangs and I have to power cycle to get it back for more cloning). The page content is representative of the
+final edition, however the source code listed has not been debugged nor tuned for performance yet
+and is therefore not listed here. The benchmarks are obviously missing for this solution on the next page.]
 
+As you might have guessed from the theory on the preceding page, the final design of the key-value store is radically
+different to before. Instead of storing each value in its own file, we have this store structure instead:
+
+* `store/index`
+  
+ This always growing file is a simple linear history of snapshot state of the key-value store with a full copy of
+all the key-value pairs being written per transaction as a single shot atomic append. The blobs are referred to by
+unique integer index into a linked small blob index (see below). The key-value pairs are stored on-disk as a dense hash
+map which is very friendly to memory maps, eight bytes per entry, with the key strings stored contiguously after
+the hash array.
+
+ Each index record appended to the index is content hashed, and if during later parsing the hash does not match
+the contents the record is ignored. If after power loss the end of the index is trashed, the solution
+below will replay the history of transactions from the beginning, skipping any deallocated extents, until it finds the most recent complete
+undamaged index which does not refer to damaged blobs (see below).
+  
+* `store/large_blob_store`
+* `store/large_blob_store.ecc`
+  
+ We don't implement the large blob store in the solution below to keep the code brief, however it is intended
+to house any blob sized 4Kb or above as memory maps are a much superior way of working with larger values
+and keeping large blobs separately makes extent fragmentation from hole punching much less expensive. Unlike the other
+files, the large blob store is not necessarily always atomic appended, a deallocated extent might be reallocated
+for example. This eliminates the problem of ever exceeding a `2^64` maximum file size.
+
+ Each large blob is [*always] aligned to a 4Kb boundary to allow memory mapping. The large blob store is quite
+stupid and contains no metadata at all __dash__ it relies on the small blob store for all metadata. This
+stupidity, and the fact it is a separate file, allows you to speculatively allocate new
+blob value storage before a new value is written such that one writes directly into the final storage from
+the beginning with no unneeded memory copying. One then either commits the new value or throws it away by
+punching a hole over it. You will notice below that each blob keeps an age from a monotonically increase count
+based on updates, this is used to keep a blob pinned into existence for a period even if it is not in use.
+
+ In short, the large blob file provides a large number of useful optimisations, but is not strictly speaking
+necessary. You could just use the small blob file for all blobs, and that is what this simplified implementation
+does for brevity.
+
+ You are probably curious about the ECC file. The ECC file is a SECDED 32784,32768 Hamming code, so 16 bits (2 bytes)
+of ECC per 4096 bytes. This file allows single bit flips to be healed which can save a blob from being
+invalidated due to failing its hash check. We don't bother using this for either the index or the small
+blob store as almost all bit flips seen in a computer system stem from non-ECC RAM rather than long term
+storage, and the overhead of ECC calculation is probably not worth it except for large BLOBs given the
+statistical chance of a bit flip. AFIO provides a very fast SECDED implementation in `afio::utils::secded_ecc<>`.
+
+* `store/small_blob_store`
+  
+ The small blob store is where all the blob values live. To add a new value, one simply constructs
+a blob value record and atomically appends it in a single shot. Each blob has a hash of its content, and
+if the hash does not match its contents it is considered invalid and pending deallocation via hole punching.
+
+The operations involved in opening a data store for use become these:
+
+# Create/open the store directory.
+# Create/open for atomic append only the `index` and `small_blob_store` files.
+# Open for read write the `index` and `small_blob_store` files into a second open handle.
+# If either the `index` or `small_blob_store` files have zero length, atomic append into each their 32 byte header.
+This is racy, but safe as spurious additional 32 byte headers are ignored by the parsing code.
+# If either the `index` or `small_blob_store` files specify a last known length which is greater than the size
+reported by the operating system, or the last good index specified by the header points to a corrupted
+index, we consider either or both to be dirty. We firstly replay the
+small blob store from the beginning, skipping any deallocated extents, and we atomic append a blob store index (a map of content hashes to
+offsets in either the small or large blob store), updating the header to point at the new blob store index.
+
+ We then replay the index from the beginning, skipping any deallocated extents, matching off valid index
+records against our most recently generated blob store index. We choose the last uncorrupted index
+which does not refer to hashes of unavailable content.
+
+If two processes concurrently open the same dirty data store and both repair the store, you will note
+that the above healing process is invariant to concurrent heals. Again, the parsing code correctly skips
+spurious atomic writes.
+
+The operations involved for reading a key-value:
+
+# We reload the index and blob store index loaded into memory if it has changed (by simply checking
+if the file size for either has grown).
+# We look up the blob index mapped by the key.
+# We look up the blob store file linked to by the index and get the offset and file for the content.
+# We read the value to be delivered using the input stream, similar to the second generation key-value store.
+
+The operations involved for writing a key-value:
+
+# We hand out an output stream which records all output to memory.
+# On the destruction of the output stream, we build the gather write buffers for writing a blob with this value
+(i.e. hashing the contents etc).
+# We refresh the blob store index and see if this blob is already stored with an age less than 50. If so, we
+update its age to 0 along with all other blobs referred to by the index. If not, we atomic append the new blob
+and loop trying to atomic append an updated canonical blob store index until success (we must loop as we must
+reconcile with other concurrent writers). On success, we update the header at the front of the small blob store
+file to point at the new canonical blob store index with an incremented time count (this being a monotonically
+increasing count of successful blob store updates).
+# We refresh the index and update or add the key mapping to the map of keys to blob store index item, atomically
+appending the new index. If someone else wrote a new index between our starting index and our just written index,
+we return a transaction conflict error. On success, we update the header at the front of the
+index file to point at the new canonical index.
+# Every few thousand new indices we punch a hole earlier in index history by calling __afio_zero__. We always leave
+around a few thousand indices for replay after sudden power loss.
+
+It may now seem that there is a big race condition in between atomic appends of a new canonical index for either
+store and the updating of the header at the front of the file. This is correct, but is solved by the following
+index parsing algorithm for both store files:
+
+# Read the header at the front of the file for the hint to the current canonical index.
+# Parse each record from the hint onwards until the end of the file.
+
+In other words, a racily written hint adds a small bit of work to the parser, but nothing important. All we care
+is that it is approximately correct.
+
+We don't implement item deletion as we didn't in either of the previous two generation key-value stores, however if one were
+to implement it it would have these operations:
+
+# For all blobs in the blob store index with an age greater than 100 (this implies that writer concurrency
+must never exceed 50), and where their contiguous storage exceeds 4Kb, we remove those entries from the blob
+store index and write a new canonical blob store index.
+# If entries were removed, we calculate a set of extents to be deallocated and fire and forget a call
+to batch __afio_zero__. The extents to be deallocated are calculated by walking the small blob index
+and keeping a record of extents not referred to (i.e. the gaps between blobs stored). For each of those containing
+an aligned 4Kb quantity or more we rewrite the record header to have any parser skip the deallocated extent, and
+deallocate the rest.
+
+So let's look at our new interface file. It looks pretty similar to before, the only real change is the many new
+private member variable `handle_ptr`'s to the store files described above. Another change is that we now return
+a `monad<ostream>` for writing but a `shared_future<istream>` for reading __dash__ this is because as explained
+earlier, writes are now fully buffered to memory before being hashed and committed as a transaction, so by explicitly
+returning a monad we are saying that this is now a synchronous operation (one could just return an already ready
+shared future, but this method makes public API assurances, and because a __boost_monad__ future is a monad,
+your code will likely not even notice).
+
+[workshop_final_interface]
+
+More code is to come ...
 
 [endsect] [/extents]
 
 [section:extents_problems The performance of and problems with this third generation design]
 
-todo
+[caution This section was not completed in time for the beginning of the Boost peer review, but
+it will be finished shortly.]
 
 [endsect] [/extents_problems]
 
