@@ -799,8 +799,16 @@ static stat_t print_stat(handle_ptr h)
     {
       std::cout << "  Normalised path: " << normalise_path(h->path()) << std::endl;
       std::cout << "  Normalised path with volume GUID: " << normalise_path(h->path(), path_normalise::guid_volume) << std::endl;
-      std::cout << "  Normalised path as GUID: " << normalise_path(h->path(), path_normalise::guid_all) << std::endl;
-    }
+      std::cout << "  Normalised path as GUID: ";
+      try
+      {
+        std::cout << normalise_path(h->path(), path_normalise::guid_all) << std::endl;
+      }
+      catch (...)
+      {
+        std::cout << "EXCEPTION THROWN!" << std::endl;
+      }
+      }
     if(
 #ifdef BOOST_AFIO_USE_LEGACY_FILESYSTEM_SEMANTICS
       filesystem::file_type::symlink_file
