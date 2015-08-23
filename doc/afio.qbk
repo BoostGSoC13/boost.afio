@@ -25,7 +25,7 @@
 [def __boost__ Boost]
 [def __boost_afio__ Boost.AFIO]
 [def __boost_bindlib__ [@https://github.com/ned14/Boost.APIBind Boost.APIBind]]
-[def __boost_monad__ [@https://ci.nedprod.com/job/Boost.Spinlock%20Test%20Linux%20GCC%204.8/doxygen/group__future__promise.html Boost.Monad]]
+[def __boost_monad__ [@https://ned14.github.io/boost.monad/group__future__promise.html Boost.Monad]]
 [def __triplegit__ TripleGit]
 [def __fileurl__ file:///]
 [def __dash__ \u2014]
