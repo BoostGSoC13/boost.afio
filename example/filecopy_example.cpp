@@ -142,7 +142,7 @@ int main(int argc, const char *argv[])
         {
             std::cout << "\r" << (100*written)/totalbytes << "% complete (" << written
                 << " out of " << totalbytes << " @ " << (written/chrono::duration_cast<secs_type>(
-                    chrono::steady_clock::now()-begin).count()/1024/1024) << "Mb/sec) ...";
+                    chrono::steady_clock::now()-begin).count()/1024/1024) << "Mb/sec) ..." << std::flush;
         }
         // Retrieve any errors
         h.get();
