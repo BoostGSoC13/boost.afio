@@ -15,7 +15,7 @@ version to enter Boost if accepted]
 
 This peer review edition of AFIO v1.4 has been ["mocked up] with an API which should very closely
 resemble the eventual API in the v1.4 engine which will be rewritten to use the just written
-lightweight future-promise factory toolkit in forthcoming __boost_monad__. It is, however,
+lightweight future-promise factory toolkit in forthcoming __boost_outcome__. It is, however,
 still in fact the mature v1.3 engine with a faked wrapper API simulating the v1.4 engine.
 Known deviations from the eventual v1.4 release:
 

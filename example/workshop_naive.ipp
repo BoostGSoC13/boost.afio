@@ -1,6 +1,6 @@
 //[workshop_naive_interface
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
-using BOOST_MONAD_V1_NAMESPACE::monad;
+using BOOST_OUTCOME_V1_NAMESPACE::outcome;
 
 class data_store
 {
@@ -12,9 +12,9 @@ public:
   // Type used for write streams
   using ostream = std::shared_ptr<std::ostream>;
   // Type used for lookup
-  using lookup_result_type = monad<istream>;
+  using lookup_result_type = outcome<istream>;
   // Type used for write
-  using write_result_type = monad<ostream>;
+  using write_result_type = outcome<ostream>;
 
   // Disposition flags
   static constexpr size_t writeable = (1<<0);
@@ -23,14 +23,14 @@ public:
   data_store(size_t flags = 0, filesystem::path path = "store");
   
   // Look up item named name for reading, returning a std::istream for the item if it exists
-  monad<istream> lookup(std::string name) noexcept;
+  outcome<istream> lookup(std::string name) noexcept;
   // Look up item named name for writing, returning an ostream for that item
-  monad<ostream> write(std::string name) noexcept;
+  outcome<ostream> write(std::string name) noexcept;
 };
 //]
 
 //[workshop_naive]
-using BOOST_MONAD_V1_NAMESPACE::empty;
+using BOOST_OUTCOME_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
@@ -53,7 +53,7 @@ data_store::data_store(size_t flags, filesystem::path path) : _store_path(std::m
 {
 }
 
-monad<data_store::istream> data_store::lookup(std::string name) noexcept
+outcome<data_store::istream> data_store::lookup(std::string name) noexcept
 {
   if(!is_valid_name(name))
     return error_code(EINVAL, generic_category());
@@ -70,7 +70,7 @@ monad<data_store::istream> data_store::lookup(std::string name) noexcept
   }
 }
 
-monad<data_store::ostream> data_store::write(std::string name) noexcept
+outcome<data_store::ostream> data_store::write(std::string name) noexcept
 {
   if(!_writeable)
     return error_code(EROFS, generic_category());

@@ -3435,7 +3435,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle::mapped_file::~mapped_file()
 #endif
 }
 
-BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri, file_flags flagsforce, file_flags flagsmask, std::shared_ptr<thread_source> threadpool) noexcept
+BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC outcome<dispatcher_ptr> make_dispatcher(std::string uri, file_flags flagsforce, file_flags flagsmask, std::shared_ptr<thread_source> threadpool) noexcept
 {
     try
     {

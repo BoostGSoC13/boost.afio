@@ -93,10 +93,10 @@ DEALINGS IN THE SOFTWARE.
 
 // Default to the C++ 11 STL for atomic, chrono, mutex and thread except on Mingw32
 #if (defined(BOOST_AFIO_USE_BOOST_THREAD) && BOOST_AFIO_USE_BOOST_THREAD) || (defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__MINGW64_VERSION_MAJOR))
-# if defined(BOOST_MONAD_USE_BOOST_THREAD) && BOOST_MONAD_USE_BOOST_THREAD != 1
+# if defined(BOOST_OUTCOME_USE_BOOST_THREAD) && BOOST_OUTCOME_USE_BOOST_THREAD != 1
 #  error You must configure Boost.Monad and Boost.AFIO to both use Boost.Thread together or both not at all.
 # endif
-# define BOOST_MONAD_USE_BOOST_THREAD 1
+# define BOOST_OUTCOME_USE_BOOST_THREAD 1
 # define BOOST_AFIO_V2_STL11_IMPL boost
 # ifndef BOOST_THREAD_VERSION
 #  define BOOST_THREAD_VERSION 3
@@ -105,10 +105,10 @@ DEALINGS IN THE SOFTWARE.
 #  error Boost.AFIO requires that Boost.Thread be configured to v3 or later
 # endif
 #else
-# if defined(BOOST_MONAD_USE_BOOST_THREAD) && BOOST_MONAD_USE_BOOST_THREAD != 0
+# if defined(BOOST_OUTCOME_USE_BOOST_THREAD) && BOOST_OUTCOME_USE_BOOST_THREAD != 0
 #  error You must configure Boost.Monad and Boost.AFIO to both use Boost.Thread together or both not at all.
 # endif
-# define BOOST_MONAD_USE_BOOST_THREAD 0
+# define BOOST_OUTCOME_USE_BOOST_THREAD 0
 # define BOOST_AFIO_V2_STL11_IMPL std
 # ifndef BOOST_AFIO_USE_BOOST_THREAD
 #  define BOOST_AFIO_USE_BOOST_THREAD 0
@@ -132,16 +132,16 @@ DEALINGS IN THE SOFTWARE.
 // If building standalone, use a local asio, else Boost
 #ifndef BOOST_AFIO_V2_ASIO_IMPL
 # if ASIO_STANDALONE
-#  if defined(BOOST_MONAD_USE_BOOST_ERROR_CODE) && BOOST_MONAD_USE_BOOST_ERROR_CODE != 0
+#  if defined(BOOST_OUTCOME_USE_BOOST_ERROR_CODE) && BOOST_OUTCOME_USE_BOOST_ERROR_CODE != 0
 #   error You must configure Boost.Monad to use the STL error_code if using standalone ASIO
 #  endif
-#  define BOOST_MONAD_USE_BOOST_ERROR_CODE 0
+#  define BOOST_OUTCOME_USE_BOOST_ERROR_CODE 0
 #  define BOOST_AFIO_V2_ASIO_IMPL asio
 # else
-#  if defined(BOOST_MONAD_USE_BOOST_ERROR_CODE) && BOOST_MONAD_USE_BOOST_ERROR_CODE != 1
+#  if defined(BOOST_OUTCOME_USE_BOOST_ERROR_CODE) && BOOST_OUTCOME_USE_BOOST_ERROR_CODE != 1
 #   error You must configure Boost.Monad to use the Boost error code if using Boost.ASIO
 #  endif
-#  define BOOST_MONAD_USE_BOOST_ERROR_CODE 1
+#  define BOOST_OUTCOME_USE_BOOST_ERROR_CODE 1
 #  define BOOST_AFIO_V2_ASIO_IMPL boost
 // Pull in Boost now before Monad does to avoid warnings caused by APIBind emulating Boost
 #  include "boost/thread/future.hpp"
@@ -373,26 +373,26 @@ namespace boost { namespace asio {
 BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
-#include "../monad/include/boost/monad.hpp"
+#include "../outcome/include/boost/outcome.hpp"
 BOOST_AFIO_V2_NAMESPACE_BEGIN
-  using BOOST_MONAD_V1_NAMESPACE::is_lockable_locked;
-  using spins_to_sleep = BOOST_MONAD_V1_NAMESPACE::spins_to_sleep;
-  template<size_t _0> using spins_to_yield = BOOST_MONAD_V1_NAMESPACE::spins_to_yield<_0>;
-  template<size_t _0, bool _1=true> using spins_to_loop = BOOST_MONAD_V1_NAMESPACE::spins_to_loop<_0, _1>;
-  using null_spin_policy = BOOST_MONAD_V1_NAMESPACE::null_spin_policy;
-  template<class T> using spinlockbase = BOOST_MONAD_V1_NAMESPACE::spinlockbase<T>;
-  template<class T> using lockable_ptr = BOOST_MONAD_V1_NAMESPACE::lockable_ptr<T>;
-  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_MONAD_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
-  template<typename R> using monad = BOOST_MONAD_V1_NAMESPACE::monad<R>;
-  template<typename R> using result = BOOST_MONAD_V1_NAMESPACE::result<R>;
-  template<typename R> using option = BOOST_MONAD_V1_NAMESPACE::option<R>;
-  template<typename R> using lightweight_promise = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::promise<R>;
-  template<typename R> using lightweight_future = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::future<R>;
-  template<typename R> using is_lightweight_future = BOOST_MONAD_V1_NAMESPACE::lightweight_futures::is_future<R>;
-  using BOOST_MONAD_V1_NAMESPACE::empty;
-  using BOOST_MONAD_V1_NAMESPACE::make_option;
-  using BOOST_MONAD_V1_NAMESPACE::monad_errc;
-  using BOOST_MONAD_V1_NAMESPACE::monad_category;
+  using BOOST_OUTCOME_V1_NAMESPACE::is_lockable_locked;
+  using spins_to_sleep = BOOST_OUTCOME_V1_NAMESPACE::spins_to_sleep;
+  template<size_t _0> using spins_to_yield = BOOST_OUTCOME_V1_NAMESPACE::spins_to_yield<_0>;
+  template<size_t _0, bool _1=true> using spins_to_loop = BOOST_OUTCOME_V1_NAMESPACE::spins_to_loop<_0, _1>;
+  using null_spin_policy = BOOST_OUTCOME_V1_NAMESPACE::null_spin_policy;
+  template<class T> using spinlockbase = BOOST_OUTCOME_V1_NAMESPACE::spinlockbase<T>;
+  template<class T> using lockable_ptr = BOOST_OUTCOME_V1_NAMESPACE::lockable_ptr<T>;
+  template<typename T, template<class> class spinpolicy2=spins_to_loop<125>::policy, template<class> class spinpolicy3=spins_to_yield<250>::policy, template<class> class spinpolicy4=spins_to_sleep::policy> using spinlock = BOOST_OUTCOME_V1_NAMESPACE::spinlock<T, spinpolicy2, spinpolicy3, spinpolicy4>;
+  template<typename R> using outcome = BOOST_OUTCOME_V1_NAMESPACE::outcome<R>;
+  template<typename R> using result = BOOST_OUTCOME_V1_NAMESPACE::result<R>;
+  template<typename R> using option = BOOST_OUTCOME_V1_NAMESPACE::option<R>;
+  template<typename R> using lightweight_promise = BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::promise<R>;
+  template<typename R> using lightweight_future = BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::future<R>;
+  template<typename R> using is_lightweight_future = BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::is_future<R>;
+  using BOOST_OUTCOME_V1_NAMESPACE::empty;
+  using BOOST_OUTCOME_V1_NAMESPACE::make_option;
+  using BOOST_OUTCOME_V1_NAMESPACE::monad_errc;
+  using BOOST_OUTCOME_V1_NAMESPACE::monad_category;
 BOOST_AFIO_V2_NAMESPACE_END
 
 ///////////////////////////////////////////////////////////////////////////////

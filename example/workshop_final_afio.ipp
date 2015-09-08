@@ -3,8 +3,8 @@
 //[workshop_final_interface
 namespace afio = BOOST_AFIO_V2_NAMESPACE;
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
-using BOOST_MONAD_V1_NAMESPACE::monad;
-using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::shared_future;
+using BOOST_OUTCOME_V1_NAMESPACE::outcome;
+using BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::shared_future;
 
 class data_store
 {
@@ -27,7 +27,7 @@ public:
   // Type used for lookup
   using lookup_result_type = shared_future<istream>;
   // Type used for write
-  using write_result_type = monad<ostream>;
+  using write_result_type = outcome<ostream>;
 
   // Disposition flags
   static constexpr size_t writeable = (1<<0);
@@ -38,7 +38,7 @@ public:
   // Look up item named name for reading, returning an istream for the item
   shared_future<istream> lookup(std::string name) noexcept;
   // Look up item named name for writing, returning an ostream for that item
-  monad<ostream> write(std::string name) noexcept;
+  outcome<ostream> write(std::string name) noexcept;
 };
 //]
 
@@ -46,7 +46,7 @@ public:
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
-using BOOST_MONAD_V1_NAMESPACE::monad;
+using BOOST_OUTCOME_V1_NAMESPACE::outcome;
 
 // A special allocator of highly efficient file i/o memory
 using file_buffer_type = std::vector<char, afio::utils::file_buffer_allocator<char>>;
@@ -118,7 +118,7 @@ struct data_store::index
     last_good_ondisk_index_info() : offset(0), size(0) { }
   };
   // Finds the last good index in the store
-  monad<last_good_ondisk_index_info> find_last_good_ondisk_index(afio::handle_ptr h) noexcept
+  outcome<last_good_ondisk_index_info> find_last_good_ondisk_index(afio::handle_ptr h) noexcept
   {
     last_good_ondisk_index_info ret;
     error_code ec;
@@ -262,11 +262,11 @@ start_linear_scan:
 //]
 //[workshop_final3]
   // Loads the index from the store
-  monad<void> load(afio::handle_ptr h) noexcept
+  outcome<void> load(afio::handle_ptr h) noexcept
   {
     // If find_last_good_ondisk_index() returns error or exception, return those, else
     // initialise ondisk_index_info to monad.get()
-    BOOST_MONAD_AUTO(ondisk_index_info, find_last_good_ondisk_index(h));
+    BOOST_OUTCOME_AUTO(ondisk_index_info, find_last_good_ondisk_index(h));
     error_code ec;
     try
     {
@@ -291,7 +291,7 @@ start_linear_scan:
 //]
 //[workshop_final4]
   // Writes the index to the store
-  monad<void> store(afio::handle_ptr rwh, afio::handle_ptr appendh) noexcept
+  outcome<void> store(afio::handle_ptr rwh, afio::handle_ptr appendh) noexcept
   {
     error_code ec;
     std::vector<ondisk_index_regions::ondisk_index_region> ondisk_regions;
@@ -351,7 +351,7 @@ start_linear_scan:
     do
     {
       // Is this index stale?
-      BOOST_MONAD_AUTO(ondisk_index_info, find_last_good_ondisk_index(rwh));
+      BOOST_OUTCOME_AUTO(ondisk_index_info, find_last_good_ondisk_index(rwh));
       if(ondisk_index_info.offset!=offset_loaded_from)
       {
         // A better conflict resolution strategy might check to see if deltas
@@ -394,7 +394,7 @@ start_linear_scan:
 //]
 //[workshop_final5]
   // Reloads the index if needed
-  monad<void> refresh(afio::handle_ptr h) noexcept
+  outcome<void> refresh(afio::handle_ptr h) noexcept
   {
     static afio::off_t last_size;
     error_code ec;
@@ -595,7 +595,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
 {
   try
   {
-    BOOST_MONAD_PROPAGATE(_index->refresh(_index_store));
+    BOOST_OUTCOME_PROPAGATE(_index->refresh(_index_store));
     auto it=_index->key_to_region.find(name);
     if(_index->key_to_region.end()==it)
       return error_code(ENOENT, generic_category());  // not found
@@ -607,7 +607,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
     // When the read completes call this continuation
     return h.then([buffer, length](const afio::future<> &h) -> shared_future<data_store::istream> {
       // If read failed, return the error or exception immediately
-      BOOST_MONAD_PROPAGATE(h);
+      BOOST_OUTCOME_PROPAGATE(h);
       data_store::istream ret(std::make_shared<idirectstream>(h.get_handle(), buffer, (size_t) length));
       return ret;
     });
@@ -618,7 +618,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
   }
 }
 
-monad<data_store::ostream> data_store::write(std::string name) noexcept
+outcome<data_store::ostream> data_store::write(std::string name) noexcept
 {
   try
   {

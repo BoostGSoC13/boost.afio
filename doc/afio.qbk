@@ -25,7 +25,7 @@
 [def __boost__ Boost]
 [def __boost_afio__ Boost.AFIO]
 [def __boost_bindlib__ [@https://github.com/ned14/Boost.APIBind Boost.APIBind]]
-[def __boost_monad__ [@https://ned14.github.io/boost.monad/group__future__promise.html Boost.Monad]]
+[def __boost_outcome__ [@https://ned14.github.io/boost.outcome/group__future__promise.html Boost.Outcome]]
 [def __triplegit__ TripleGit]
 [def __fileurl__ file:///]
 [def __dash__ \u2014]

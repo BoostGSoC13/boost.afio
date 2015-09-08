@@ -66,9 +66,9 @@ to v2 you mean v2 and nothing but v2. If you just wanted the current AFIO, simpl
 `boost::afio` as with other libraries, this picks up whatever the current configuration and version of
 AFIO is.
 
-The `monad<>` comes from __boost_monad__ which is a dependency of __boost_afio__. It has an identical
+The `outcome<>` comes from __boost_outcome__ which is a dependency of __boost_afio__. It has an identical
 API to `std::future<>` or more rather `boost::future<>`, so simply treat it as an always ready future.
-`monad<>` here can return a shared pointer to the iostream, or empty (item not found), or an error, or
+`outcome<>` here can return a shared pointer to the iostream, or empty (item not found), or an error, or
 an exception as you can see in this example use case:
 
 [workshop_use_naive]
@@ -77,7 +77,7 @@ A perfectly straightforward and simple way of implementing `data_store` using pu
 
 [workshop_naive]
 
-Note that `monad<T>` implicitly consumes any `T`, `std::error_code`, `std::exception_ptr` or `empty`, hence
+Note that `outcome<T>` implicitly consumes any `T`, `std::error_code`, `std::exception_ptr` or `empty`, hence
 the ability to return any of those directly.
 
 This very simple solution assumes that the key-value store is a directory in the current path called ["store] and
@@ -156,7 +156,7 @@ quickly __dash__ indeed far faster than copying 4Kb of memory and often quicker 
 complete before scheduling the next write in order to report any errors which occurred during the write.
 
 This is the first use of asynchronous i/o in this tutorial. AFIO provides a custom `future<T>` type extending
-the lightweight monadic futures framework in __boost_monad__, so you get all the
+the lightweight monadic futures framework in __boost_outcome__, so you get all the
 [@http://www.drdobbs.com/parallel/improving-futures-and-callbacks-in-c-to/240004255 C++ 1z Concurrency TS extensions],
 [@http://blogs.msdn.com/b/vcblog/archive/2014/11/12/resumable-functions-in-c.aspx C++ 1z coroutines support] and
 [@http://www.boost.org/doc/html/thread/synchronization.html#thread.synchronization.futures Boost.Thread future extensions] in the AFIO custom `future<>`. There are also many
@@ -179,7 +179,7 @@ additional extensions beyond what Boost.Thread or the Concurrency TS provides, i
 [section:naive_afio_async 3. World's simplest named blob store in AFIO (asynchronous)]
 
 Let's see the same exact thing as in the last section, but this time with a fully asynchronous public interface.
-Instead of returning `monad<>`, we now return `shared_future<>`:
+Instead of returning `outcome<>`, we now return `shared_future<>`:
 
 [workshop_naive_async_afio_interface]
 
@@ -188,7 +188,7 @@ convert from their allowed monadic input types without you needing to write `mak
 Concurrency TS.
 
 You may be interested to know that the benchmarking harness code is 100% identical for all three of these
-implementations. This is because `monad<>` is sufficiently API-identical to `future<>` that identical code can drive all
+implementations. This is because `outcome<>` is sufficiently API-identical to `future<>` that identical code can drive all
 three implementations.
 
 `write()` is now implemented by scheduling the file to be opened for write access and attaching a continuation
@@ -203,7 +203,7 @@ a second continuation to return the input stream.
 
 The below pattern is 100% pure soon-to-be-standardised Concurrency TS future continuations which can be easily coroutinised
 automatically on a C++ 1z Coroutines supporting compiler (simply insert `await` before any AFIO `async_XXX` function). Apart from the fact that
-__boost_monad__ lightweight futures also provide an `error_code` transport, there is nothing below which wouldn't
+__boost_outcome__ lightweight futures also provide an `error_code` transport, there is nothing below which wouldn't
 work with an upcoming standard C++ library (unless the TS changes substantially, which is very unlikely at this late
 stage).
 
@@ -262,7 +262,7 @@ implementation is far faster and will [*always] be faster than AFIO if you do a 
 is pretty much this benchmark in a nutshell.
 
 [note This peer review edition of AFIO v1.40 uses a mocked up v1.40 API based on the v1.3 series engine. Performance
-of this mockup will be considerably below the final v1.40 engine written using __boost_monad__'s lightweight futures.]
+of this mockup will be considerably below the final v1.40 engine written using __boost_outcome__'s lightweight futures.]
 
 A design which makes better use of AFIO is one which is asynchronous throughout and which avoids file opens and closes
 (['tip:] always avoid file opens period if you want fast filesystem performance, they are always very slow due
@@ -795,10 +795,10 @@ deallocate the rest.
 
 So let's look at our new interface file. It looks pretty similar to before, the only real change is the many new
 private member variable `handle_ptr`'s to the store files described above. Another change is that we now return
-a `monad<ostream>` for writing but a `shared_future<istream>` for reading __dash__ this is because as explained
+a `outcome<ostream>` for writing but a `shared_future<istream>` for reading __dash__ this is because as explained
 earlier, writes are now fully buffered to memory before being hashed and committed as a transaction, so by explicitly
 returning a monad we are saying that this is now a synchronous operation (one could just return an already ready
-shared future, but this method makes public API assurances, and because a __boost_monad__ future is a monad,
+shared future, but this method makes public API assurances, and because a __boost_outcome__ future is a monad,
 your code will likely not even notice).
 
 [workshop_final_interface]

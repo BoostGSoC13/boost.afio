@@ -2413,9 +2413,9 @@ URIs currently supported by AFIO:
 }
 */
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri="file : / / /", file_flags flagsforce = file_flags::none, file_flags flagsmask = file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<dispatcher_ptr> make_dispatcher(std::string uri="file : / / /", file_flags flagsforce = file_flags::none, file_flags flagsmask = file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
 #else
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri="file:///", file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<dispatcher_ptr> make_dispatcher(std::string uri="file:///", file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
 #endif
 
 namespace detail

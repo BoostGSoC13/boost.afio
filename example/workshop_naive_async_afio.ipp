@@ -1,7 +1,7 @@
 //[workshop_naive_async_afio_interface
 namespace afio = BOOST_AFIO_V2_NAMESPACE;
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
-using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::shared_future;
+using BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::shared_future;
 
 class data_store
 {
@@ -180,7 +180,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
     // When it completes, call this continuation
     return h.then([](afio::future<> &_h) -> shared_future<data_store::istream> {
       // If file didn't open, return the error or exception immediately
-      BOOST_MONAD_PROPAGATE(_h);
+      BOOST_OUTCOME_PROPAGATE(_h);
       size_t length=(size_t) _h->lstat(afio::metadata_flags::size).st_size;
       // Is a memory map more appropriate?
       if(length>=128*1024)
@@ -198,7 +198,7 @@ shared_future<data_store::istream> data_store::lookup(std::string name) noexcept
       // When the read completes call this continuation
       return h.then([buffer, length](const afio::future<> &h) -> shared_future<data_store::istream> {
         // If read failed, return the error or exception immediately
-        BOOST_MONAD_PROPAGATE(h);
+        BOOST_OUTCOME_PROPAGATE(h);
         data_store::istream ret(std::make_shared<idirectstream>(h.get_handle(), buffer, length));
         return ret;
       });
@@ -224,7 +224,7 @@ shared_future<data_store::ostream> data_store::write(std::string name) noexcept
     // When it completes, call this continuation
     return h.then([](const afio::future<> &h) -> shared_future<data_store::ostream> {
       // If file didn't open, return the error or exception immediately
-      BOOST_MONAD_PROPAGATE(h);
+      BOOST_OUTCOME_PROPAGATE(h);
       // Create an ostream which directly uses the file.
       data_store::ostream ret(std::make_shared<odirectstream>(h.get_handle()));
       return std::move(ret);

@@ -18,7 +18,7 @@ an opaque abstract base class. When constructed using __afio_make_dispatcher__ y
 namespace the dispatcher will dispatch onto. You can create your own custom `dispatcher` implementations for some URI regex pattern too.
 
 * AFIO provides its own custom future type `afio::__afio_op__<T = void>` which [*always] represents a future `handle_ptr` plus an optional `T`
-which is usually `void` (hence defaulting `T` to `void`). This custom future type is implemented using __boost_monad__'s lightweight
+which is usually `void` (hence defaulting `T` to `void`). This custom future type is implemented using __boost_outcome__'s lightweight
 monadic future factory toolkit, and therefore provides all the C++ 1z Concurrency TS and __boost_thread__ extensions including
 continuations and wait composure. Note that lightweight futures can carry an `error_code` as well as an `exception_ptr`, and therefore
 much of the need for non-throwing `error_code` taking API overloads is not needed (though any function not returning a future still
@@ -46,7 +46,7 @@ API which consumes a future can throw (unless you know for a fact the future is 
 not errored).
 
  [note Gathering error states from many futures at once is made easier using the `when_all_p()`
-(when all propagating) extended wait composure function from __boost_monad__ __dash__ this
+(when all propagating) extended wait composure function from __boost_outcome__ __dash__ this
 propagates any error in any of the entry futures into the composed output future, thus saving
 you having to check the futures for errors by hand.]
 
@@ -180,7 +180,7 @@ to keep the continuations information per future. This had the big advantage tha
 futures could be used, but it came with many other problems, mainly performance and code complexity related.
 An additional problem was that the Concurrency TS had moved on considerably since 2012, and AFIO's emulation
 was now significantly out of date.
-For v1.4 a new lightweight future-promise factory toolkit library called __boost_monad__ was written between the
+For v1.4 a new lightweight future-promise factory toolkit library called __boost_outcome__ was written between the
 end of C++ Now (May) and the beginning of the AFIO peer review (July) which makes
 easy the writing of arbitrarily customisable future-promises for C++ which:
 
