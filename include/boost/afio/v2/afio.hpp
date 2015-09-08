@@ -5285,7 +5285,7 @@ inline future<> async_truncate(future<> _precondition, off_t newsize)
 */
 inline void truncate(future<> _precondition, off_t newsize)
 {
-  detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
+  auto h=detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file length truncation after a preceding operation.
 
@@ -5302,7 +5302,7 @@ inline void truncate(future<> _precondition, off_t newsize)
 */
 inline void truncate(error_code &_ec, future<> _precondition, off_t newsize)
 {
-  detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
+  auto h=detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
 }
 
 
