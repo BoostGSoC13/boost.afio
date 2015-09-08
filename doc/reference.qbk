@@ -99,7 +99,7 @@
 
 [section:utilities Utilities]
 [section:classes Classes]
-[include generated/class_utils_1_1file_buffer_allocator.qbk]
+[include generated/class_utils_1_1page_allocator.qbk]
 [include generated/class_utils_1_1secded_ecc.qbk]
 [endsect]
 [section:function Functions in namespace utils]

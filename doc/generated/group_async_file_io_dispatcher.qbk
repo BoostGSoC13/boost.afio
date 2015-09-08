@@ -53,7 +53,7 @@ URIs currently supported by AFIO:
 
 [heading Synopsis]
 ``BOOST_AFIO_DECL outcome<dispatcher_ptr> make_dispatcher(std::string uri = "file : / / /", file_flags flagsforce = file_flags::none, file_flags flagsmask = file_flags::none,
-                                                        std::shared_ptr< thread_source > threadpool = process_threadpool())``
+                                                          std::shared_ptr< thread_source > threadpool = process_threadpool())``
 
 [heading Parameters]
 

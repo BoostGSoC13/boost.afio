@@ -21,7 +21,7 @@ namespace {
 
     // Keep memory buffers around
     // A special allocator of highly efficient file i/o memory
-    typedef std::vector<char, utils::file_buffer_allocator<char>> file_buffer_type;
+    typedef std::vector<char, utils::page_allocator<char>> file_buffer_type;
     static std::vector<std::unique_ptr<file_buffer_type>> buffers;
 
     // Parallel copy files in sources into dest, concatenating

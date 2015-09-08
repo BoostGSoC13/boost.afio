@@ -37,7 +37,7 @@ using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
 // A special allocator of highly efficient file i/o memory
-using file_buffer_type = std::vector<char, afio::utils::file_buffer_allocator<char>>;
+using file_buffer_type = std::vector<char, afio::utils::page_allocator<char>>;
 
 // An iostream which reads directly from a memory mapped AFIO file
 struct idirectstream : public std::istream

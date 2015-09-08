@@ -152,6 +152,8 @@ explicitly closed, the async_io_handle destructor must synchronously close)
 link() or file(file_flags::create_compressed). This caused test failure on FAT32 and ReFS
 volumes on Windows as those operations are not supported.
 
+* Rename file_buffer_allocator to page_allocator. Fixes issue #95 from review.
+
 [/=================]
 [heading Boost 1.59 AFIO v1.40 alpha 21st August 2015 Boost peer review 1 edition]
 [/=================]
@@ -329,7 +331,7 @@ expect-based lldb automator to get stack backtraces of failures, which was tedio
 * page_size() has become page_sizes(), and now can return large/huge page sizes. A file_buffer_default_size()
 new API will return the closest page size to 1Mb.
 
-* Added file_buffer_allocator, a STL allocator suitable for allocating efficient large file buffers.
+* Added page_allocator, a STL allocator suitable for allocating efficient large file buffers.
 
 * stat_t flags, gen and birthtime weren't being set on FreeBSD. Sorry.
 

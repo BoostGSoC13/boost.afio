@@ -5780,7 +5780,7 @@ namespace utils
   */
   BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available = true) noexcept;
 
-  /*! \brief Returns a reasonable default size for file_buffer_allocator, typically the closest page size from
+  /*! \brief Returns a reasonable default size for page_allocator, typically the closest page size from
   page_sizes() to 1Mb.
 
   \return A value of a TLB large page size close to 1Mb.
@@ -6236,7 +6236,7 @@ namespace utils
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC large_page_allocation allocate_large_pages(size_t bytes);
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void deallocate_large_pages(void *p, size_t bytes);
   }
-  /*! \class file_buffer_allocator
+  /*! \class page_allocator
   \brief An STL allocator which allocates large TLB page memory.
   \ingroup utils
 
@@ -6255,7 +6255,7 @@ namespace utils
   page size, so if the large page size were 2Mb and you allocate 2Mb + 1 byte, 4Mb is actually consumed.
   */
   template <typename T>
-  class file_buffer_allocator
+  class page_allocator
   {
   public:
       typedef T         value_type;
@@ -6269,13 +6269,13 @@ namespace utils
       typedef std::true_type is_always_equal;
 
       template <class U>
-      struct rebind { typedef file_buffer_allocator<U> other; };
+      struct rebind { typedef page_allocator<U> other; };
 
-      file_buffer_allocator() noexcept
+      page_allocator() noexcept
       {}
 
       template <class U>
-      file_buffer_allocator(const file_buffer_allocator<U>&) noexcept
+      page_allocator(const page_allocator<U>&) noexcept
       {}
 
       size_type
@@ -6319,7 +6319,7 @@ namespace utils
       { p->~U(); }
   };
   template <>
-  class file_buffer_allocator<void>
+  class page_allocator<void>
   {
   public:
       typedef void         value_type;
@@ -6329,9 +6329,9 @@ namespace utils
       typedef std::true_type is_always_equal;
 
       template <class U>
-      struct rebind { typedef file_buffer_allocator<U> other; };
+      struct rebind { typedef page_allocator<U> other; };
   };
-  template<class T, class U> inline bool operator==(const file_buffer_allocator<T> &, const file_buffer_allocator<U> &) noexcept { return true; }
+  template<class T, class U> inline bool operator==(const page_allocator<T> &, const page_allocator<U> &) noexcept { return true; }
 }
 
 

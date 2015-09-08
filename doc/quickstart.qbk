@@ -147,7 +147,7 @@ the file.
 The write stream is a bit more complicated: we fill a 4Kb page and ['asynchronously] write it out
 using a page stealing friendly algorithm which in the usual case means the kernel simply takes possession of
 the 4Kb page as-is with no memory copying at all. At some future point it will be flushed onto storage. The
-reason this works is thanks to the special STL allocator `utils::file_buffer_allocator<>` which returns whole kernel
+reason this works is thanks to the special STL allocator `utils::page_allocator<>` which returns whole kernel
 page cache pages. Most kernels will mark whole pages scheduled for write with copy-on-write behaviour such that
 they can be safely DMAed by the kernel DMA engine as any subsequent write will cause a copy, so because we never write to the page between the write
 request and freeing the page, most kernels simply transfer ownership of the page from the user space process
@@ -887,7 +887,7 @@ is a very good example, incidentally, of why C++11 is like a whole new language 
 C++98 even for simple systems programming tasks like this one.
 
 You may note that the temporary buffers for each chunk are allocated using a special
-`file_buffer_allocator`. If your operating system allows it, regions of memory returned
+`page_allocator`. If your operating system allows it, regions of memory returned
 by this allocator have the maximum possible scatter gather DMA efficiency possible.
 Even if your operating system doesn't allow it, it does no harm to use this allocator
 instead of the system allocator.

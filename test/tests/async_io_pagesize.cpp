@@ -15,7 +15,7 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_pagesize, "Tests that the utility functions w
       std::cout << "  " << i << " bytes" << std::endl;
     BOOST_CHECK(!utils::page_sizes(true).empty());
     
-    std::vector<char, utils::file_buffer_allocator<char>> fba(8*1024*1024);
+    std::vector<char, utils::page_allocator<char>> fba(8*1024*1024);
     auto fba_detail(utils::detail::calculate_large_page_allocation(8*1024*1024));
     std::cout << "\n\nAllocating 8Mb with the file buffer allocator yields an address at " << ((void *) fba.data())
               << " and may use pages of " << fba_detail.page_size_used << " and be actually "

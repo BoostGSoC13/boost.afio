@@ -2560,7 +2560,7 @@ namespace detail {
             // Fall back onto a write of zeros
             if(!done)
             {
-              std::vector<char, utils::file_buffer_allocator<char>> buffer(utils::file_buffer_default_size());
+              std::vector<char, utils::page_allocator<char>> buffer(utils::file_buffer_default_size());
               for(auto &i: ranges)
               {
                 ssize_t byteswritten=0;

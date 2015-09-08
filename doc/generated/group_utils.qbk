@@ -43,7 +43,7 @@ The page sizes of this architecture.
 '''<?dbhtml-include href="disqus_identifiers/file_buffer_default_size.html"?>'''
 
 '''<indexterm><primary>file_buffer_default_size</primary></indexterm>'''
-Returns a reasonable default size for file\u005fbuffer\u005fallocator, typically the closest page size from page\u005fsizes() to 1Mb. 
+Returns a reasonable default size for page\u005fallocator, typically the closest page size from page\u005fsizes() to 1Mb. 
 
 [heading Synopsis]
 ``size_t utils::file_buffer_default_size()``
