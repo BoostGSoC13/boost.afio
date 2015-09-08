@@ -158,6 +158,8 @@ volumes on Windows as those operations are not supported.
 
 * All synchronous free functions not returning anything now return a void. Fixes issue #107 from review.
 
+* ASIO_STANDALONE is now detected using #ifdef not #if. Fixes issue #113 from review.
+
 [/=================]
 [heading Boost 1.59 AFIO v1.40 alpha 21st August 2015 Boost peer review 1 edition]
 [/=================]
@@ -241,7 +243,7 @@ which is only barely summarised here:
   * Using Boost.Atomic, Boost.Chrono and Boost.Thread OR the C++ 11 STL (BOOST_AFIO_USE_BOOST_THREAD=0).
   * Using Boost.Filesystem OR the C++ 1z Filesystem TS (BOOST_AFIO_USE_BOOST_FILESYSTEM=1, except on
   VS2015 which provides Filesystem).
-  * Using Boost.ASIO OR standalone ASIO (ASIO_STANDALONE=0)
+  * Using Boost.ASIO OR standalone ASIO (ASIO_STANDALONE=1)
   
   That makes eight different potential configurations, and all eight can coexist in the same translation unit,
   though you will find compilation time becomes enormous.

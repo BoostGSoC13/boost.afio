@@ -10,7 +10,7 @@ int main(void)
     //[readallof_example_bad
     char input[1024];
     auto file_opened = file("foo.txt");
-    auto file_read = read(file_opened, input, 0);
+    read(file_opened, input, 0);
     //]
 }
 
@@ -44,7 +44,7 @@ int main(void)
     // Fetch ONLY the size metadata. Blocks because it's synchronous!
     directory_entry de = file_opened->direntry(metadata_flags::size);
     // Read now we know the file size
-    auto file_read = read(file_opened,
+    read(file_opened,
         (void *) input,
         (size_t) de.st_size(), // doesn't block, as size was fetched before.
         0);
