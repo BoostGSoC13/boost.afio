@@ -856,7 +856,7 @@ retry:
             return open_states::closed;
           return available_to_directory_cache() ? open_states::opendir : open_states::open;
         }
-        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(size_t)fd; }
+        BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void *native_handle() const override final { return (void *)(uintptr_t)fd; }
         BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC BOOST_AFIO_V2_NAMESPACE::path path(bool refresh=false) override final
         {
           if(refresh)
