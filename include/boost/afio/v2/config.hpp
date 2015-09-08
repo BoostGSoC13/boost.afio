@@ -478,6 +478,9 @@ BOOST_AFIO_V2_NAMESPACE_END
 # endif
 #endif
 
+#ifndef BOOST_AFIO_LOG_FATAL_EXIT
+#define BOOST_AFIO_LOG_FATAL_EXIT(expr) std::cerr << expr
+#endif
 
 #endif  // BOOST_AFIO_NEED_DEFINE
 

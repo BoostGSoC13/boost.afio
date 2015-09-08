@@ -716,11 +716,13 @@ namespace detail {
 namespace detail {
     BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void print_fatal_exception_message_to_stderr(const char *msg)
     {
-        std::cerr << "FATAL EXCEPTION: " << msg << std::endl;
+        BOOST_AFIO_LOG_FATAL_EXIT("FATAL EXCEPTION: " << msg << std::endl);
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
         stack_type stack;
         collect_stack(stack);
-        print_stack(std::cerr, stack);
+        std::stringstream stacktxt;
+        print_stack(stacktxt, stack);
+        BOOST_AFIO_LOG_FATAL_EXIT(stacktxt.str() << std::endl);
 #endif
     }
 
@@ -1622,16 +1624,18 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher::~dispatcher()
                             {
                                 static const char *statuses[]={ "ready", "timeout", "deferred", "unknown" };
                                 int status=static_cast<int>(it->second.second);
-                                std::cerr << "WARNING: ~async_file_dispatcher_base() detects stuck future<> in total of " << p->ops.size() << " extant ops\n"
-                                    "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(status>=0 && status<=2) ? status : 3] << " failcount=" << it->second.first << " Completions:";
+                                BOOST_AFIO_LOG_FATAL_EXIT("WARNING: ~async_file_dispatcher_base() detects stuck future<> in total of " << p->ops.size() << " extant ops\n"
+                                    "   id=" << op.first << " type=" << detail::optypes[static_cast<size_t>(op.second->optype)] << " flags=0x" << std::hex << static_cast<size_t>(op.second->flags) << std::dec << " status=" << statuses[(status>=0 && status<=2) ? status : 3] << " failcount=" << it->second.first << " Completions:");
                                 for(auto &c: op.second->completions)
                                 {
-                                    std::cerr << " id=" << c.first;
+                                    BOOST_AFIO_LOG_FATAL_EXIT(" id=" << c.first);
                                 }
-                                std::cerr << std::endl;
+                                BOOST_AFIO_LOG_FATAL_EXIT(std::endl);
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
-                                std::cerr << "  Allocation backtrace:" << std::endl;
-                                print_stack(std::cerr, op.second->stack);
+                                BOOST_AFIO_LOG_FATAL_EXIT("  Allocation backtrace:" << std::endl);
+                                std::stringstream stacktxt;
+                                print_stack(stacktxt, op.second->stack);
+                                BOOST_AFIO_LOG_FATAL_EXIT(stacktxt.str() << std::endl);
 #endif
                             }
                         }
@@ -1663,7 +1667,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher::~dispatcher()
         }
         if(mincount>=10 && mincount!=(size_t)-1) // i.e. nothing is changing
         {
-            std::cerr << "WARNING: ~async_file_dispatcher_base() sees no change in " << reallyoutstanding.size() << " stuck async_io_ops, so exiting destructor wait" << std::endl;
+            BOOST_AFIO_LOG_FATAL_EXIT("WARNING: ~async_file_dispatcher_base() sees no change in " << reallyoutstanding.size() << " stuck async_io_ops, so exiting destructor wait" << std::endl);
             break;
         }
     }
@@ -1672,7 +1676,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC dispatcher::~dispatcher()
         this_thread::sleep_for(chrono::milliseconds(10));
         if(n>300)
         {
-            std::cerr << "WARNING: ~async_file_dispatcher_base() sees no change in " << p->fds.size() << " stuck handle_ptr's, so exiting destructor wait" << std::endl;
+            BOOST_AFIO_LOG_FATAL_EXIT("WARNING: ~async_file_dispatcher_base() sees no change in " << p->fds.size() << " stuck handle_ptr's, so exiting destructor wait" << std::endl);
             break;
         }
     }

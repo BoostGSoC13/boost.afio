@@ -154,6 +154,8 @@ volumes on Windows as those operations are not supported.
 
 * Rename file_buffer_allocator to page_allocator. Fixes issue #95 from review.
 
+* Replace all use of std::cerr with BOOST_AFIO_LOG_FATAL_EXIT(). Fixes issue #104 from review.
+
 [/=================]
 [heading Boost 1.59 AFIO v1.40 alpha 21st August 2015 Boost peer review 1 edition]
 [/=================]

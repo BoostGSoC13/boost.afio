@@ -203,7 +203,7 @@ public:
         {
             if(_p->done)
             {
-              std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl;
+              BOOST_AFIO_LOG_FATAL_EXIT(detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl);
               BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after stl_future set."));
             }
             if(_p->autoset && !_p->done) 
@@ -237,7 +237,7 @@ public:
         {
             if(_p->done)
             {
-              std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl;
+              BOOST_AFIO_LOG_FATAL_EXIT(detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl);
               BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after stl_future set."));
             }
             if(_p->autoset && !_p->done)
@@ -303,7 +303,7 @@ class std_thread_pool : public thread_source {
             }
             catch(...)
             {
-                std::cerr << "WARNING: ASIO exits via " << detail::output_exception_info << " which shouldn't happen." << std::endl;
+              BOOST_AFIO_LOG_FATAL_EXIT("WARNING: ASIO exits via " << detail::output_exception_info << " which shouldn't happen." << std::endl);
             }
         }
     };
