@@ -4206,7 +4206,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
-\return A handle to the directory.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
@@ -4221,9 +4220,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous directory deletion after an optional precondition.
 
@@ -4231,7 +4230,6 @@ template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path =
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
-\return A handle to the directory.
 \param _path The filing system path to use.
 \param _flags The flags to use.
 \ingroup rmdir
@@ -4243,9 +4241,9 @@ template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path =
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmdir(T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle();
+  detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
 /*! \brief Synchronous directory deletion after an optional precondition.
 
@@ -4253,7 +4251,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
-\return A handle to the directory.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
@@ -4269,9 +4266,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmdir(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmdir(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous directory deletion after an optional precondition.
 
@@ -4291,9 +4288,9 @@ template<class T=path> inline handle_ptr rmdir(error_code &_ec, future<> _precon
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmdir(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 /*! \brief Asynchronous file creation and open after an optional precondition.
@@ -4490,7 +4487,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4505,9 +4501,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file deletion after an optional precondition.
 
@@ -4515,7 +4511,6 @@ template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path 
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
 \ingroup rmfile
@@ -4527,9 +4522,9 @@ template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path 
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmfile(T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle();
+  detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
 /*! \brief Synchronous file deletion after an optional precondition.
 
@@ -4537,7 +4532,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
@@ -4553,9 +4547,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmfile(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous file deletion after an optional precondition.
 
@@ -4563,7 +4557,6 @@ template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _preco
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _ec Error code to set.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4576,9 +4569,9 @@ template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _preco
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmfile(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 
@@ -4782,7 +4775,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4797,9 +4789,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous symlink deletion after an optional precondition.
 
@@ -4807,7 +4799,6 @@ template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _pa
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
 \ingroup rmsymlink
@@ -4819,9 +4810,9 @@ template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _pa
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmsymlink(T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle();
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
 /*! \brief Synchronous symlink deletion after an optional precondition.
 
@@ -4829,7 +4820,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
@@ -4845,9 +4835,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmsymlink(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous symlink deletion after an optional precondition.
 
@@ -4855,7 +4845,6 @@ template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _pr
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _ec Error code to set.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4868,9 +4857,9 @@ template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _pr
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmsymlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 
@@ -4893,7 +4882,6 @@ inline future<> async_sync(future<> _precondition)
 
 \docs_sync
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \ingroup sync
 \qbk{distinguish, throwing}
@@ -4901,14 +4889,13 @@ inline future<> async_sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr sync(future<> _precondition)
+inline void sync(future<> _precondition)
 {
-  return detail::async_sync()(std::move(_precondition)).get_handle();
+  detail::async_sync()(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous content synchronisation with physical storage after a preceding operation.
 
 \docs_sync
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \ingroup sync
@@ -4917,9 +4904,9 @@ inline handle_ptr sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr sync(error_code &_ec, future<> _precondition)
+inline void sync(error_code &_ec, future<> _precondition)
 {
-  return detail::async_sync()(std::move(_precondition)).get_handle(_ec);
+  detail::async_sync()(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -4943,7 +4930,6 @@ inline future<> async_zero(future<> _precondition, std::vector<std::pair<off_t, 
 
 \docs_zero
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param ranges A sequence of extents to zero and deallocate
 \ingroup zero
@@ -4952,15 +4938,14 @@ inline future<> async_zero(future<> _precondition, std::vector<std::pair<off_t, 
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline handle_ptr zero(future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline void zero(future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
-  return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle();
+  detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous zeroing and deallocation of physical storage ("hole punching") after a preceding operation.
 
 \docs_zero
 
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param ranges A sequence of extents to zero and deallocate
@@ -4970,9 +4955,9 @@ inline handle_ptr zero(future<> _precondition, std::vector<std::pair<off_t, off_
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline handle_ptr zero(error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline void zero(error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
-  return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle(_ec);
+  detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -4995,7 +4980,6 @@ inline future<> async_close(future<> _precondition)
 
 \docs_close
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \ingroup close
 \qbk{distinguish, throwing}
@@ -5003,15 +4987,14 @@ inline future<> async_close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline handle_ptr close(future<> _precondition)
+inline void close(future<> _precondition)
 {
-  return detail::async_close()(std::move(_precondition)).get_handle();
+  detail::async_close()(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file or directory handle close after a preceding operation.
 
 \docs_close
 
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \ingroup close
@@ -5020,9 +5003,9 @@ inline handle_ptr close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline handle_ptr close(error_code &_ec, future<> _precondition)
+inline void close(error_code &_ec, future<> _precondition)
 {
-  return detail::async_close()(std::move(_precondition)).get_handle(_ec);
+  detail::async_close()(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5073,7 +5056,6 @@ template<class T> inline future<> async_read(future<> _precondition, T &&v, size
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
@@ -5083,9 +5065,9 @@ template<class T> inline future<> async_read(future<> _precondition, T &&v, size
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _where)
+template<class T> inline void read(future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
+  detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data read after a preceding operation, where offset and total data read must not exceed the present file size.
 
@@ -5093,7 +5075,6 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _w
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
@@ -5104,9 +5085,9 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _w
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void read(future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
+  detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data read after a preceding operation, where offset and total data read must not exceed the present file size.
 
@@ -5114,7 +5095,6 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5125,9 +5105,9 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline void read(error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous data read after a preceding operation, where offset and total data read must not exceed the present file size.
 
@@ -5135,7 +5115,6 @@ template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5147,9 +5126,9 @@ template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void read(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5200,7 +5179,6 @@ template<class T> inline future<> async_write(future<> _precondition, T &&v, siz
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
@@ -5210,9 +5188,9 @@ template<class T> inline future<> async_write(future<> _precondition, T &&v, siz
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _where)
+template<class T> inline void write(future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
+  detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size.
 
@@ -5220,7 +5198,6 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
@@ -5231,9 +5208,9 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void write(future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
+  detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size.
 
@@ -5241,7 +5218,6 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t 
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5252,9 +5228,9 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t 
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline void write(error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size.
 
@@ -5262,7 +5238,6 @@ template<class T> inline handle_ptr write(error_code &_ec, future<> _preconditio
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5274,9 +5249,9 @@ template<class T> inline handle_ptr write(error_code &_ec, future<> _preconditio
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void write(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5300,7 +5275,6 @@ inline future<> async_truncate(future<> _precondition, off_t newsize)
 
 \docs_truncate
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param newsize The new size for the file.
 \ingroup truncate
@@ -5309,15 +5283,14 @@ inline future<> async_truncate(future<> _precondition, off_t newsize)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr truncate(future<> _precondition, off_t newsize)
+inline void truncate(future<> _precondition, off_t newsize)
 {
-  return detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
+  detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file length truncation after a preceding operation.
 
 \docs_truncate
 
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param newsize The new size for the file.
@@ -5327,9 +5300,9 @@ inline handle_ptr truncate(future<> _precondition, off_t newsize)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr truncate(error_code &_ec, future<> _precondition, off_t newsize)
+inline void truncate(error_code &_ec, future<> _precondition, off_t newsize)
 {
-  return detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
+  detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
 }
 
 

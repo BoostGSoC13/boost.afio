@@ -80,7 +80,7 @@ A future<void>
 Synchronous file length truncation after a preceding operation. 
 
 [heading Synopsis]
-``handle_ptr truncate(future<> _precondition, off_t newsize)``
+``void truncate(future<> _precondition, off_t newsize)``
 
 [heading Parameters]
 
@@ -90,9 +90,6 @@ Synchronous file length truncation after a preceding operation.
 [[off_t] [] [newsize] [The new size for the file.]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -112,7 +109,7 @@ A handle with outcome.
 Synchronous file length truncation after a preceding operation. 
 
 [heading Synopsis]
-``handle_ptr truncate(error_code & _ec, future<> _precondition, off_t newsize)``
+``void truncate(error_code & _ec, future<> _precondition, off_t newsize)``
 
 [heading Parameters]
 
@@ -123,9 +120,6 @@ Synchronous file length truncation after a preceding operation.
 [[off_t] [] [newsize] [The new size for the file.]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`

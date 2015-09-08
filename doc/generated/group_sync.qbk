@@ -87,7 +87,7 @@ Synchronous content synchronisation with physical storage after a preceding oper
 It goes without saying that this call can take very significant amounts of time to complete!
 
 [heading Synopsis]
-``handle_ptr sync(future<> _precondition)``
+``void sync(future<> _precondition)``
 
 [heading Parameters]
 
@@ -96,9 +96,6 @@ It goes without saying that this call can take very significant amounts of time 
 [[future<>] [] [_precondition] [The precondition to use.]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -121,7 +118,7 @@ Synchronous content synchronisation with physical storage after a preceding oper
 It goes without saying that this call can take very significant amounts of time to complete! 
 
 [heading Synopsis]
-``handle_ptr sync(error_code & _ec, future<> _precondition)``
+``void sync(error_code & _ec, future<> _precondition)``
 
 [heading Parameters]
 
@@ -131,9 +128,6 @@ It goes without saying that this call can take very significant amounts of time 
 [[future<>] [] [_precondition] [The precondition to use.]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`

@@ -156,6 +156,8 @@ volumes on Windows as those operations are not supported.
 
 * Replace all use of std::cerr with BOOST_AFIO_LOG_FATAL_EXIT(). Fixes issue #104 from review.
 
+* All synchronous free functions not returning anything now return a void. Fixes issue #107 from review.
+
 [/=================]
 [heading Boost 1.59 AFIO v1.40 alpha 21st August 2015 Boost peer review 1 edition]
 [/=================]

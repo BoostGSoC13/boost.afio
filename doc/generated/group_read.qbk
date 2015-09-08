@@ -134,7 +134,7 @@ Related types: [^`__afio_io_req__`] Note that on Windows this call issues a sepa
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr read(future<> _precondition, T && v, off_t _where)``
+void read(future<> _precondition, T && v, off_t _where)``
 
 [heading Parameters]
 
@@ -146,9 +146,6 @@ handle_ptr read(future<> _precondition, T && v, off_t _where)``
 [[off_t] [] [_where] [The file offset to do the i/o]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -172,8 +169,8 @@ Related types: [^`__afio_io_req__`] Note that on Windows this call issues a sepa
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr read(future<> _precondition, T && v, size_t _length,
-                off_t _where)``
+void read(future<> _precondition, T && v, size_t _length,
+          off_t _where)``
 
 [heading Parameters]
 
@@ -186,9 +183,6 @@ handle_ptr read(future<> _precondition, T && v, size_t _length,
 [[off_t] [] [_where] [The file offset to do the i/o]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -212,8 +206,8 @@ Related types: [^`__afio_io_req__`] Note that on Windows this call issues a sepa
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr read(error_code & _ec, future<> _precondition, T && v,
-                off_t _where)``
+void read(error_code & _ec, future<> _precondition, T && v,
+          off_t _where)``
 
 [heading Parameters]
 
@@ -226,9 +220,6 @@ handle_ptr read(error_code & _ec, future<> _precondition, T && v,
 [[off_t] [] [_where] [The file offset to do the i/o]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -252,8 +243,8 @@ Related types: [^`__afio_io_req__`] Note that on Windows this call issues a sepa
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr read(error_code & _ec, future<> _precondition, T && v,
-                size_t _length, off_t _where)``
+void read(error_code & _ec, future<> _precondition, T && v,
+          size_t _length, off_t _where)``
 
 [heading Parameters]
 
@@ -267,9 +258,6 @@ handle_ptr read(error_code & _ec, future<> _precondition, T && v,
 [[off_t] [] [_where] [The file offset to do the i/o]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`

@@ -143,7 +143,7 @@ Make sure you read the docs for [^`__afio_handle__::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)``
+void rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -155,9 +155,6 @@ handle_ptr rmdir(future<> _precondition, T _path = path(), file_flags _flags = f
 [[file_flags] [] [_flags] [The flags to use.]]
 ]
 
-
-[heading Returns]
-A handle to the directory. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -186,7 +183,7 @@ Make sure you read the docs for [^`__afio_handle__::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T, typename>
-handle_ptr rmdir(T _path, file_flags _flags = file_flags::none)``
+void rmdir(T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -198,9 +195,6 @@ handle_ptr rmdir(T _path, file_flags _flags = file_flags::none)``
 [[file_flags] [] [_flags] [The flags to use.]]
 ]
 
-
-[heading Returns]
-A handle to the directory. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -227,8 +221,8 @@ Make sure you read the docs for [^`__afio_handle__::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T>
-handle_ptr rmdir(error_code & _ec, future<> _precondition, T _path = path(),
-                 file_flags _flags = file_flags::none)``
+void rmdir(error_code & _ec, future<> _precondition, T _path = path(),
+           file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
@@ -241,9 +235,6 @@ handle_ptr rmdir(error_code & _ec, future<> _precondition, T _path = path(),
 [[file_flags] [] [_flags] [The flags to use.]]
 ]
 
-
-[heading Returns]
-A handle to the directory. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -272,7 +263,7 @@ Make sure you read the docs for [^`__afio_handle__::unlink()`] for important cav
 
 [heading Synopsis]
 ``template<class T, typename>
-handle_ptr rmdir(error_code & _ec, T _path, file_flags _flags = file_flags::none)``
+void rmdir(error_code & _ec, T _path, file_flags _flags = file_flags::none)``
 
 [heading Parameters]
 
