@@ -18,14 +18,14 @@ BOOST_AFIO_AUTO_TEST_CASE(free_functions_work, "Tests that the free functions wo
   {
     auto diropened = dir("testdir", file_flags::create | file_flags::write);
     auto fileopened = file(diropened, "testfile", file_flags::create | file_flags::write);
-    auto filedeleted = rmfile(fileopened);
-    auto dirdeleted = rmdir(diropened);
+    rmfile(fileopened);
+    rmdir(diropened);
   }
   {
     error_code ec;
     auto diropened = dir(ec, "testdir", file_flags::create | file_flags::write);
     auto fileopened = file(ec, diropened, "testfile", file_flags::create | file_flags::write);
-    auto filedeleted = rmfile(ec, fileopened);
-    auto dirdeleted = rmdir(ec, diropened);
+    rmfile(ec, fileopened);
+    rmdir(ec, diropened);
   }
 }
