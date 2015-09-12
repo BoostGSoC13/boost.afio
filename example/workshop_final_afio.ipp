@@ -1,44 +1,510 @@
-#include "../detail/SpookyV2.h"
-
-//[workshop_final_interface
-namespace afio = BOOST_AFIO_V2_NAMESPACE;
-namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
-using BOOST_OUTCOME_V1_NAMESPACE::outcome;
-using BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::shared_future;
-
-class data_store
+#include "workshop_interface.hpp"
+namespace transactional_key_store
 {
-  struct _ostream;
-  friend struct _ostream;
-  afio::dispatcher_ptr _dispatcher;
-  // The small blob store keeps non-memory mappable blobs at 32 byte alignments
-  afio::handle_ptr _small_blob_store, _small_blob_store_append, _small_blob_store_ecc;
-  // The large blob store keeps memory mappable blobs at 4Kb alignments
-  afio::handle_ptr _large_blob_store, _large_blob_store_append, _large_blob_store_ecc;
-  // The index is where we keep the map of keys to blobs
-  afio::handle_ptr _index_store, _index_store_append, _index_store_ecc;
-  struct index;
-  std::unique_ptr<index> _index;
+  namespace ondisk
+  {
+    // Serialisation helper types
+#pragma pack(push, 1)
+    // A dense on-disk hash map
+    template<class Policy> struct dense_hashmap : public Policy
+    {
+      unsigned count;
+      typename Policy::value_type items[1];
+
+      char *end_of_items() const { return (char *)(items + count); }
+      template<class Sequence> size_t bytes_needed(const Sequence &newitems) const noexcept
+      {
+        size_t ret = sizeof(*this)-sizeof(items[0]);
+        for (unsigned n = 0; n < count; n++)
+          ret += sizeof(items[n]) + Policy::additional_size(items[n]);
+        for (auto &i : newitems)
+          ret += sizeof(items[0]) + Policy::additional_size(i);
+        return ret;
+      }
+      // Predicate search on the dense hash map
+      template<class Pred> const typename Policy::value_type *search(unsigned start, Pred &&pred) const noexcept
+      {
+        unsigned int left = start, right = start;
+        if (pred(items+left))
+          return items + left;
+        do
+        {
+          left = (left == 0) ? count - 1 : left - 1;
+          right = (++right == count) ? 0 : right;
+          if (pred(items+left))
+            return items + left;
+          if (pred(items+right))
+            return items + right;
+        } while (left != right);
+        return nullptr;
+      }
+      // Find an item in the dense hash map
+      template<class T> const typename Policy::value_type *find(const T &k) const noexcept
+      {
+        unsigned int start = Policy::hash(k) % count;
+        return search(start, [this, &k](const typename Policy::value_type *v) { return Policy::compare(v, k); });
+      }
+      // Find an empty slot in the dense hash map
+      template<class T> typename Policy::value_type *find_empty(const T &k) const noexcept
+      {
+        unsigned int start = Policy::hash(k) % count;
+        return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return !v->key && !v->value; }));
+      }
+      // Remove item
+      void remove(const typename Policy::value_type *i) noexcept
+      {
+        memset((void *) i, 0, sizeof(Policy::value_type));
+      }
+      // Update value on key
+      void update(const typename Policy::value_type *i, typename Policy::value_type *v)
+      {
+        assert(i->key == v->key);
+        *(typename Policy::value_type *)i = *v;
+      }
+    };
+    struct StringKeyPolicy
+    {
+      struct value_type
+      {
+        unsigned int key;
+        unsigned int value;
+
+        unsigned int key_length;
+      };
+      static unsigned hash(const std::string &k) noexcept
+      {
+        uint32 seed=0;
+        return SpookyHash::Hash32(k.c_str(), k.size(), seed);
+      }
+      static unsigned hash(const std::pair<const char *, size_t> &k) noexcept
+      {
+        uint32 seed=0;
+        return SpookyHash::Hash32(k.first, k.second, seed);
+      }
+      bool compare(const value_type *v, const std::string &k) const noexcept
+      {
+        if (v->key_length != (unsigned)k.size())
+          return false;
+        return !memcmp((char *) this + v->key, k.c_str(), k.size());
+      }
+      bool compare(const value_type *v, const std::pair<const char *, size_t> &k) const noexcept
+      {
+        if (v->key_length != (unsigned)k.second)
+          return false;
+        return !memcmp((char *) this + v->key, k.first, (unsigned) k.second);
+      }
+      static size_t additional_size(const value_type &v) noexcept { return v.key_length+1; }
+      static size_t additional_size(const std::pair<std::string, int> &v) noexcept { return v.first.size() + 1; }
+      std::pair<const char *, size_t> key(const value_type *v) const noexcept { return std::make_pair((const char *) this + v->key, v->key_length); }
+      void store(value_type *newslot, const value_type *oldslot, char *&afteritems, const std::pair<const char *, size_t> &oldkey) noexcept
+      {
+        *newslot = *oldslot;
+        newslot->key = (unsigned)(afteritems - (char *) this);
+        memcpy(afteritems, oldkey.first, newslot->key_length + 1);
+        afteritems += newslot->key_length + 1;
+      }
+      void store(value_type *newslot, const std::pair<std::string, int> &i, char *&afteritems) noexcept
+      {
+        newslot->value = i.second;
+        newslot->key_length = (unsigned) i.first.size();
+        newslot->key = (unsigned)(afteritems - (char *) this);
+        memcpy(afteritems, i.first.c_str(), newslot->key_length + 1);
+        afteritems += newslot->key_length + 1;
+      }
+    };
+    struct BlobKeyPolicy
+    {
+      struct value_type
+      {
+        unsigned int key;
+        afio::off_t value;
+
+        unsigned int age;
+      };
+      static unsigned hash(unsigned k) noexcept
+      {
+        return k;
+      }
+      bool compare(const value_type *v, unsigned k) const noexcept
+      {
+        return v->value==k;
+      }
+      static size_t additional_size(const value_type &v) noexcept { return 0; }
+      unsigned key(const value_type *v) const noexcept { return v->key; }
+      void store(value_type *newslot, const value_type *oldslot, char *&afteritems, unsigned oldkey) noexcept
+      {
+        *newslot = *oldslot;
+        newslot->key = oldkey;
+      }
+      void store(value_type *newslot, const value_type *oldslot, char *&afteritems) noexcept
+      {
+        *newslot = *oldslot;
+        newslot->key = oldkey;
+      }
+    };
+
+    // A record length
+    struct record_length  // 8 bytes  0xMMLLLLLLLLLLLLLLLLLLLLLLLLLLLLLK
+    {
+      afio::off_t magic : 16;     // 0xad magic
+      afio::off_t _length : 43;   // 32 byte multiple size of the object (including this preamble, regions, key values) (+8)
+      afio::off_t _spare : 1;
+      afio::off_t hash_kind : 2;  // 1 = spookyhash, 2=blake2b
+      afio::off_t kind : 2;       // 0 for zeroed space, 1,2 for blob, 3 for index
+      afio::off_t value() const noexcept { return _length*32; }
+      void value(afio::off_t v) noexcept
+      {
+        assert(!(v & 31));
+        assert(v<(1ULL<<43));
+        if((v & 31) || v>=(1ULL<<43))
+          throw std::invalid_argument("Cannot store a non 32 byte multiple or a value greater than or equal to 2^43");
+        _length=v/32;
+      }
+    };
+    struct file_header   // 20 bytes
+    {
+      union
+      {
+        record_length length;          // Always 8 bytes
+        char endian[8];
+      };
+      afio::off_t index_offset_begin;  // Hint to the length of the store when the index was last written
+      unsigned int time_count;         // Racy monotonically increasing count
+    };
+    struct record_header  // 24 bytes - ALWAYS ALIGNED TO 32 BYTE FILE OFFSET
+    {
+      record_length length;      // (+8)
+      hash_value_type hash;      // 128-bit hash of the object (from below onwards) (+28)
+      hash_kind hash_kind() const noexcept { return static_cast<hash_kind>(length.hash_kind); }
+      void do_hash(unsigned record_type, afio::off_t bytes, hash_kind k)
+      {
+        length.value(bytes);
+        length.magic=0xad;
+        length.hash_kind=static_cast<unsigned>(k);
+        length.kind=record_type;
+        const char *myend=((const char *) this)+sizeof(*this);
+        SpookyHash::Hash128(myend, bytes-sizeof(*this), hash._uint64[0], hash._uint64[1]);
+      }
+    };
+    struct small_blob_record     // 8 bytes + length
+    {
+      record_header header;
+      afio::off_t length;        // Exact byte length of this small blob
+      char data[1];
+    };
+    struct large_blob_record     // 8 bytes + 16 bytes * extents
+    {
+      record_header header;
+      afio::off_t length;        // Exact byte length of this large blob
+      struct { afio::off_t offset, afio::off_t length } pages[1];  // What in the large blob store makes up this blob
+    };
+    template<class Policy> struct index_record
+    {
+      record_header header;
+      afio::off_t thisoffset;     // this index only valid if stored at this offset
+      afio::off_t bloboffset;     // offset of the blob index we are using as a base
+      ondisk_dense_hashmap<Policy> map;
+    };
+    using blobindex_record = index_record<BlobKeyPolicy>;
+#pragma pack(pop)
+  }
+  struct data_store::data_store_private
+  {
+    afio::dispatcher_ptr _dispatcher;
+    afio::handle_ptr _small_blob_store_append, _small_blob_store, _large_blob_store, _large_blob_store_ecc, _index_store_appned, _index_store;
+  };
+
+  blob_reference::~blob_reference()
+  {
+    // TODO: Could stop this blob's age being refreshed to keep it from being garbage collected
+  }
+
+  future<void> blob_reference::load(buffers_type buffers)
+  {
+    return future<void>();
+  }
+
+  //future<std::shared_ptr<const_buffers_type>> blob_reference::map() noexcept
+
+  data_store::data_store(size_t flags, filesystem::path path) : p(new data_store_private)
+  {
+    // Make a dispatcher for the local filesystem URI, masking out write flags on all operations if not writeable
+    p->_dispatcher=afio::make_dispatcher("file:///", afio::file_flags::none, !(flags & writeable) ? afio::file_flags::write : afio::file_flags::none).get();
+    // Set the dispatcher for this thread, and create/open a handle to the store directory
+    afio::current_dispatcher_guard h(p->_dispatcher);
+    auto dirh(afio::dir(std::move(path), afio::file_flags::create));  // throws if there was an error
+
+    // The small blob store keeps non-memory mappable blobs at 32 byte alignments
+    p->_small_blob_store_append=afio::file(dirh, "small_blob_store", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
+    p->_small_blob_store=afio::file(dirh, "small_blob_store", afio::file_flags::read_write);          // throws if there was an error
+    // Is this store just created?
+    if(!p->_small_blob_store_append->lstat(afio::metadata_flags::size).st_size)
+    {
+      char buffer[96];
+      memset(buffer, 0, sizeof(buffer));
+      ondisk::file_header *header=(ondisk::file_header *) buffer;
+      ondisk::blobindex_record *index=(ondisk::blobindex_record *)(buffer+32);
+      header->length.value(32);
+      header->index_offset_begin=32;
+      header->time_count=0;
+      index->thisoffset=32;
+      index->bloboffset=0;
+      index->header.gen_hash(3/*index*/, 64, hash_kind::fast);
+      // This is racy, but the file format doesn't care
+      afio::write(_small_blob_store_append, buffer, 96, 0);
+    }
+#if 0
+    // The large blob store keeps memory mappable blobs at 4Kb alignments
+    // TODO
+
+    // The index is where we keep the map of keys to blobs
+    p->_index_store_append=afio::file(dirh, "index", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
+    p->_index_store=afio::file(dirh, "index", afio::file_flags::read_write);          // throws if there was an error
+    // Is this store just created?
+    if(!p->_index_store_append->lstat(afio::metadata_flags::size).st_size)
+    {
+      ondisk_file_header header;
+      header.length=32;
+      header.index_offset_begin=32;
+      header.time_count=0;
+      // This is racy, but the file format doesn't care
+      afio::write(_index_store_append, header, 0);
+    }
+#endif
+  }
+
+  future<blob_reference> data_store::store_blob(hash_kind hash_type, const_buffers_type buffers) noexcept
+  {
+    return future<blob_reference>();
+  }
+
+  future<blob_reference> data_store::find_blob(hash_kind hash_type, hash_value_type hash) noexcept
+  {
+    return future<blob_reference>();
+  }
+
+}
+
+
+
+#if 0
+
+  char *end_of_items() const { return (char *)(items + count); }
+  template<class Sequence> size_t bytes_needed(const Sequence &newitems) const noexcept
+  {
+    size_t ret = sizeof(*this)-sizeof(items[0]);
+    for (unsigned n = 0; n < count; n++)
+      ret += sizeof(items[n]) + Policy::additional_size(items[n]);
+    for (auto &i : newitems)
+      ret += sizeof(items[0]) + Policy::additional_size(i);
+    return ret;
+  }
+  // Predicate search on the dense hash map
+  template<class Pred> const typename Policy::value_type *search(unsigned start, Pred &&pred) const noexcept
+  {
+    unsigned int left = start, right = start;
+    if (pred(items+left))
+      return items + left;
+    do
+    {
+      left = (left == 0) ? count - 1 : left - 1;
+      right = (++right == count) ? 0 : right;
+      if (pred(items+left))
+        return items + left;
+      if (pred(items+right))
+        return items + right;
+    } while (left != right);
+    return nullptr;
+  }
+  // Find an item in the dense hash map
+  template<class T> const typename Policy::value_type *find(const T &k) const noexcept
+  {
+    unsigned int start = Policy::hash(k) % count;
+    return search(start, [this, &k](const typename Policy::value_type *v) { return Policy::compare(v, k); });
+  }
+  // Find an empty slot in the dense hash map
+  template<class T> typename Policy::value_type *find_empty(const T &k) const noexcept
+  {
+    unsigned int start = Policy::hash(k) % count;
+    return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return !v->key && !v->value; }));
+  }
+  // Remove item
+  void remove(const typename Policy::value_type *i) noexcept
+  {
+    memset((void *) i, 0, sizeof(Policy::value_type));
+  }
+  // Update value on key
+  void update(const typename Policy::value_type *i, typename Policy::value_type *v)
+  {
+    assert(i->key == v->key);
+    *(typename Policy::value_type *)i = *v;
+  }
+};
+//]
+
+//[workshop_final_ondisk_dense_hashmap2]
+struct StringKeyPolicy
+{
+  struct value_type
+  {
+    unsigned int key;
+    unsigned int value;
+
+    unsigned int key_length;
+  };
+  static unsigned hash(const std::string &k) noexcept
+  {
+    uint32 seed=0;
+    return SpookyHash::Hash32(k.c_str(), k.size(), seed);
+  }
+  static unsigned hash(const std::pair<const char *, size_t> &k) noexcept
+  {
+    uint32 seed=0;
+    return SpookyHash::Hash32(k.first, k.second, seed);
+  }
+  bool compare(const value_type *v, const std::string &k) const noexcept
+  {
+    if (v->key_length != (unsigned)k.size())
+      return false;
+    return !memcmp((char *) this + v->key, k.c_str(), k.size());
+  }
+  bool compare(const value_type *v, const std::pair<const char *, size_t> &k) const noexcept
+  {
+    if (v->key_length != (unsigned)k.second)
+      return false;
+    return !memcmp((char *) this + v->key, k.first, (unsigned) k.second);
+  }
+  static size_t additional_size(const value_type &v) noexcept { return v.key_length+1; }
+  static size_t additional_size(const std::pair<std::string, int> &v) noexcept { return v.first.size() + 1; }
+  std::pair<const char *, size_t> key(const value_type *v) const noexcept { return std::make_pair((const char *) this + v->key, v->key_length); }
+  void store(value_type *newslot, const value_type *oldslot, char *&afteritems, const std::pair<const char *, size_t> &oldkey) noexcept
+  {
+    *newslot = *oldslot;
+    newslot->key = afteritems - (char *) this;
+    memcpy(afteritems, oldkey.first, newslot->key_length + 1);
+    afteritems += newslot->key_length + 1;
+  }
+  void store(value_type *newslot, const std::pair<std::string, int> &i, char *&afteritems) noexcept
+  {
+    newslot->value = i.second;
+    newslot->key_length = (unsigned) i.first.size();
+    newslot->key = afteritems - (char *) this;
+    memcpy(afteritems, i.first.c_str(), newslot->key_length + 1);
+    afteritems += newslot->key_length + 1;
+  }
+};
+//]
+
+//[workshop_final_ondisk_dense_hashmap3]
+struct BlobKeyPolicy
+{
+  struct value_type
+  {
+    unsigned int key;
+    afio::off_t value;
+
+    unsigned int age;
+  };
+  static unsigned hash(unsigned k) noexcept
+  {
+    return k;
+  }
+  bool compare(const value_type *v, unsigned k) const noexcept
+  {
+    return v->value==k;
+  }
+  static size_t additional_size(const value_type &v) noexcept { return 0; }
+  unsigned key(const value_type *v) const noexcept { return return v->key; }
+  void store(value_type *newslot, const value_type *oldslot, char *&afteritems, unsigned oldkey) noexcept
+  {
+    *newslot = *oldslot;
+    newslot->key = oldkey
+    memcpy(afteritems, oldkey.first, newslot->key_length + 1);
+    afteritems += newslot->key_length + 1;
+  }
+};
+//]
+
+//[workshop_final_ondisk_dense_hashmap4]
+template<class Policy> class dense_hashmap
+{
+  afio::handle::mapped_file_ptr _maph;
+  file_buffer_type _data;
+  ondisk_dense_hashmap<Policy> *_get() noexcept { return !_data.empty() ? (ondisk_dense_hashmap<Policy> *) _data.data() : nullptr; }
+  const ondisk_dense_hashmap<Policy> *_getc() const noexcept { return !_data.empty() ? (const ondisk_dense_hashmap<Policy> *) _data.data() : (const ondisk_index<Policy> *) _maph.addr; }
+  const typename Policy::value_type *_cow(const typename Policy::value_type *i=nullptr)
+  {
+    if(_data.empty())
+    {
+      _data.resize(_maph->length);
+      memcpy(_data.data(), _maph->addr, _newlength);
+      i=(const Policy *)(_data.data() + ((char *) i - (char *) _maph->addr)); 
+      _maph.reset();
+    }
+    return i;
+  }
 public:
-  // Type used for read streams
-  using istream = std::shared_ptr<std::istream>;
-  // Type used for write streams
-  using ostream = std::shared_ptr<std::ostream>;
-  // Type used for lookup
-  using lookup_result_type = shared_future<istream>;
-  // Type used for write
-  using write_result_type = outcome<ostream>;
-
-  // Disposition flags
-  static constexpr size_t writeable = (1<<0);
-
-  // Open a data store at path
-  data_store(size_t flags = 0, afio::path path = "store");
-  
-  // Look up item named name for reading, returning an istream for the item
-  shared_future<istream> lookup(std::string name) noexcept;
-  // Look up item named name for writing, returning an ostream for that item
-  outcome<ostream> write(std::string name) noexcept;
+  std::pair<const ondisk_dense_hashmap<Policy> *, size_t> raw_buffer() const noexcept
+  {
+    if(_data.empty())
+      return std::make_pair((const ondisk_index<Policy> *) _maph.addr, _maph.length);
+    else
+      return std::make_pair((const ondisk_index<Policy> *) _data.data(), _data.size());
+  }
+  constexpr dense_hashmap() { }
+  // From a file
+  dense_hashmap(afio::handle_ptr h, afio::off_t offset, size_t length)
+  {
+    if(length>=128*1024)
+      _maph=h->map_file(length, offset, true);
+    if(!_maph)
+    {
+      _data.resize(length);
+      afio::read(h, _data.data(), length, offset);
+    }
+  }
+  dense_hashmap(const dense_hashmap &) = delete;
+  dense_hashmap(dense_hashmap &&o) noexcept : _maph(std::move(o._maph)), _data(std::move(o._data)) { }
+  dense_hashmap &operator=(const dense_hashmap &) = delete;
+  dense_hashmap &operator=(dense_hashmap &&o) noexcept { _maph=std::move(o._maph); _data=std::move(o._data); return *this; }
+  template<class Sequence> void insert(const Sequence &items)
+  {
+    size_t newsize = _getc()->bytes_needed(items);
+    std::vector<char> newdata(newsize);
+    const ondisk_dense_hashmap<Policy> *oldmap = _get();
+    ondisk_dense_hashmap<Policy> *newmap = (ondisk_dense_hashmap<Policy> *) newdata.data();
+    // What's the new count?
+    newmap->count = (unsigned) items.size();
+    for (unsigned n = 0; n < oldmap->count; n++)
+      if (oldmap->items[n].key || oldmap->items[n].value)
+        newmap->count++;
+    char *afteritems = newmap->end_of_items();
+    // Rehash old to new
+    for (unsigned n = 0; n < oldmap->count; n++)
+      if (oldmap->items[n].key || oldmap->items[n].value)
+      {
+        auto key = oldmap->key(oldmap->items + n);
+        auto *newslot = newmap->find_empty(key);
+        newmap->store(newslot, oldmap->items + n, afteritems, key);
+      }
+    // Add the new items
+    for (auto &i : items)
+    {
+      auto *newslot = newmap->find_empty(i.first);
+      newmap->store(newslot, i, afteritems);
+    }
+    _data = std::move(newdata);
+    _maph.reset();
+  }
+  template<class Key> const typename Policy::value_type *find(const Key &k) const noexcept
+  {
+    return _get()->find(k);
+  }
+  void erase(const typename Policy::value_type *i) noexcept
+  {
+    assert(i);
+    _get()->remove(i);
+  }
 };
 //]
 
@@ -53,69 +519,73 @@ using file_buffer_type = std::vector<char, afio::utils::page_allocator<char>>;
 
 // Serialisation helper types
 #pragma pack(push, 1)
-struct ondisk_file_header  // 20 bytes
+struct ondisk_length  // 8 bytes  0xMMLLLLLLLLLLLLLLLLLLLLLLLLLLLLLK
+{
+  afio::off_t magic : 16;   // 0xad magic
+  afio::off_t _length : 43; // 32 byte multiple size of the object (including this preamble, regions, key values) (+8)
+  afio::off_t _spare : 3;
+  afio::off_t kind : 2;     // 0 for zeroed space, 1,2 for blob, 3 for index
+  afio::off_t value() const noexcept { return _length*32; }
+  void value(afio::off_t v) noexcept
+  {
+    assert(!(v & 31));
+    assert(v<(1ULL<<43));
+    if((v & 31) || v>=(1ULL<<43))
+      throw std::invalid_argument("Cannot store a non 32 byte multiple or a value greater than or equal to 2^43");
+    _length=v/32;
+  }
+};
+struct ondisk_file_header   // 20 bytes
 {
   union
   {
-    afio::off_t length;            // Always 32 in byte order of whoever wrote this
+    ondisk_length length;          // Always 32 bytes
     char endian[8];
   };
   afio::off_t index_offset_begin;  // Hint to the length of the store when the index was last written
   unsigned int time_count;         // Racy monotonically increasing count
 };
-struct ondisk_record_header  // 28 bytes - ALWAYS ALIGNED TO 32 BYTE FILE OFFSET
+struct ondisk_record_header  // 24 bytes - ALWAYS ALIGNED TO 32 BYTE FILE OFFSET
 {
-  afio::off_t magic : 16;   // 0xad magic
-  afio::off_t kind : 2;     // 0 for zeroed space, 1,2 for blob, 3 for index
-  afio::off_t _spare : 6;
-  afio::off_t length : 40;  // Size of the object (including this preamble, regions, key values) (+8)
-  unsigned int age;         // file header time_count when this was added (+12)
-  uint64 hash[2];           // 128-bit SpookyHash of the object (from below onwards) (+28)
-  // ondisk_index_regions
-  // ondisk_index_key_value (many until length)
+  ondisk_length length;      // (+8)
+  uint64 hash[2];            // 128-bit SpookyHash of the object (from below onwards) (+28)
+  // Potentially followed by one of:
+  //   - ondisk_small_blob
+  //   - ondisk_large_blob
+  //   - ondisk_index
 };
-struct ondisk_index_regions  // 12 + regions_size * 32
+struct ondisk_small_blob     // 8 bytes + length
 {
-  afio::off_t thisoffset;     // this index only valid if equals this offset
-  unsigned int regions_size;  // count of regions with their status (+28)
-  struct ondisk_index_region
-  {
-    afio::off_t offset;       // offset to this region
-    ondisk_record_header r;   // copy of the header at the offset to avoid a disk seek
-  } regions[1];
+  afio::off_t length;        // Exact byte length of this small blob
+  char data[1];
 };
-struct ondisk_index_key_value // 8 + sizeof(key)
+struct ondisk_large_blob     // 8 bytes + 16 bytes * extents
 {
-  unsigned int region_index;  // Index into regions
-  unsigned int name_size;     // Length of key
-  char name[1];               // Key string (utf-8)
+  afio::off_t length;        // Exact byte length of this large blob
+  struct { afio::off_t offset, afio::off_t length } pages[1];  // What in the large blob store makes up this blob
+};
+template<class Policy> struct ondisk_index
+{
+  afio::off_t thisoffset;     // this index only valid if stored at this offset
+  afio::off_t bloboffset;     // offset of the blob index we are using as a base
+  ondisk_dense_hashmap<Policy> map;
 };
 #pragma pack(pop)
 
-struct data_store::index
+template<class Policy> index
 {
-  struct region
-  {
-    enum kind_type { zeroed=0, small_blob=1, large_blob=2, index=3 } kind;
-    afio::off_t offset, length;
-    uint64 hash[2];
-    region(ondisk_index_regions::ondisk_index_region *r) : kind(static_cast<kind_type>(r->r.kind)), offset(r->offset), length(r->r.length) { memcpy(hash, r->r.hash, sizeof(hash)); }
-    bool operator<(const region &o) const noexcept { return offset<o.offset; }
-    bool operator==(const region &o) const noexcept { return offset==o.offset && length==o.length; }
-  };
+  // Smart pointer to a dense hash map which can work directly from a read-only memory map
+  dense_hashmap<Policy> current_map;
   afio::off_t offset_loaded_from;  // Offset this index was loaded from
   unsigned int last_time_count;    // Header time count
-  std::vector<region> regions;
-  std::unordered_map<std::string, size_t> key_to_region;
-  index() : offset_loaded_from(0) { }
+  index() : offset_loaded_from(0), last_time_count(0) { }
 //]
 //[workshop_final2]
   struct last_good_ondisk_index_info
   {
     afio::off_t offset;
-    std::unique_ptr<char[]> buffer;
-    size_t size;
-    last_good_ondisk_index_info() : offset(0), size(0) { }
+    dense_hashmap<Policy> map;
+    last_good_ondisk_index_info() : offset(0) { }
   };
   // Finds the last good index in the store
   outcome<last_good_ondisk_index_info> find_last_good_ondisk_index(afio::handle_ptr h) noexcept
@@ -127,12 +597,23 @@ struct data_store::index
       // Read the front of the store file to get the index offset hint
       ondisk_file_header header;
       afio::read(h, header, 0);
+      afio::off_t file_length=h->lstat(afio::metadata_flags::size).st_size;
       afio::off_t offset=0;
       if(header.length==32)
+      {
         offset=header.index_offset_begin;
+        // Does the hint exceed the file length? If so, need to replay from the beginning
+        if(offset>=file_length)
+        {
+          header.index_offset_begin=0;
+          offset=32;
+        }
+        if(offset<32)
+          offset=32;
+      }
       else if(header.endian[0]==32)  // wrong endian
         return error_code(ENOEXEC, generic_category());
-      else  // corrupted
+      else  // not one of our store files
         return error_code(ENOTSUP, generic_category());
       last_time_count=header.time_count;
       // Fetch the valid extents
@@ -143,12 +624,26 @@ struct data_store::index
       do
       {
         afio::off_t linear_scanning=0;
-        ondisk_record_header record;
-        afio::off_t file_length=h->lstat(afio::metadata_flags::size).st_size;
-        for(; offset<file_length;)
+        auto finish_linear_scanning=[&linear_scanning, &h]
         {
-          // Round to 32 byte boundary
-          offset&=~31ULL;
+          std::cerr << "NOTE: Found valid record after linear scan at " << offset << std::endl;
+          std::cerr << "      Removing invalid data between " << linear_scanning << " and " << offset << std::endl;
+          // Rewrite a valid record to span the invalid section
+          ondisk_record_header temp={0};
+          temp.length.magic=0xad;
+          temp.length.value(offset-linear_scanning);
+          temp.age=last_time_count;
+          afio::write(ec, h, temp, linear_scanning);
+          // Deallocate the physical storage for the invalid section
+          afio::zero(ec, h, {{linear_scanning+12, offset-linear_scanning-12}});
+          linear_scanning=0;
+        };
+        char buffer[sizeof(ondisk_record_header)+sizeof(ondisk_index)-sizeof(typename Policy::value_type)];
+        ondisk_record_header *record=(ondisk_record_header *) buffer;
+        // Iterate until end of the file, refreshing end of the file at the end of the file
+        for(; (offset==file_length ? file_length=h->lstat(afio::metadata_flags::size).st_size : 0), offset<file_length;)
+        {
+          assert(!(offset & 31));
           // Find my valid extent
           while(offset>=valid_extents_it->first+valid_extents_it->second)
           {
@@ -161,11 +656,11 @@ struct data_store::index
           // Is this offset within a valid extent? If not, bump it.
           if(offset<valid_extents_it->first)
             offset=valid_extents_it->first;
-          afio::read(ec, h, record, offset);
+          afio::read(ec, h, buffer, sizeof(buffer), offset);
           if(ec) return ec;
           // If this does not contain a valid record, linear scan
           // until we find one
-          if(record.magic!=0xad || (record.length & 31))
+          if(record->magic!=0xad)
           {
 start_linear_scan:
             if(!linear_scanning)
@@ -178,68 +673,49 @@ start_linear_scan:
           }
           // Is this the first good record after a corrupted section?
           if(linear_scanning)
-          {
-            std::cerr << "NOTE: Found valid record after linear scan at " << offset << std::endl;
-            std::cerr << "      Removing invalid data between " << linear_scanning << " and " << offset << std::endl;
-            // Rewrite a valid record to span the invalid section
-            ondisk_record_header temp={0};
-            temp.magic=0xad;
-            temp.length=offset-linear_scanning;
-            temp.age=last_time_count;
-            afio::write(ec, h, temp, linear_scanning);
-            // Deallocate the physical storage for the invalid section
-            afio::zero(ec, h, {{linear_scanning+12, offset-linear_scanning-12}});
-            linear_scanning=0;
-          }
+            finish_linear_scanning();
           // If not an index, skip entire record
-          if(record.kind!=3 /*index*/)
+          if(record->kind!=3 /*index*/)
           {
-            // If this record length is wrong, start a linear scan
-            if(record.length>file_length-offset)
-              offset+=32;
-            else
-              offset+=record.length;
-            continue;
-          }
-          std::unique_ptr<char[]> buffer;
-          // If record.length is corrupt, this will throw bad_alloc
-          try
-          {
-            buffer.reset(new char[(size_t) record.length-sizeof(header)]);
-          }
-          catch(...)
-          {
-            // Either we are out of memory, or it's a corrupted record
-            // TODO: Try a ECC heal pass here
-            // If this record length is wrong, start a linear scan
-            if(record.length>file_length-offset)
-              goto start_linear_scan;
-            else
-              offset+=record.length;
-            continue;
-          }
-          afio::read(ec, h, buffer.get(), (size_t) record.length-sizeof(header), offset+sizeof(header));
-          if(ec)
-            return ec;
-          uint64 hash[2]={0, 0};
-          SpookyHash::Hash128(buffer.get(), (size_t) record.length-sizeof(header), hash, hash+1);
-          // Is this record correct?
-          if(!memcmp(hash, record.hash, sizeof(hash)))
-          {
-            // Is this index not conflicted? If not, it's the new most recent index
-            ondisk_index_regions *r=(ondisk_index_regions *) buffer.get();
-            if(r->thisoffset==offset)
+            // If this record length exceeds the file length, start a linear scan
+            if(record->length.value()>file_length-offset)
             {
-              ret.buffer=std::move(buffer);
-              ret.size=(size_t) record.length-sizeof(header);
+              file_length=h->lstat(afio::metadata_flags::size).st_size;
+              if(record->length.value()>file_length-offset)
+                goto start_linear_scan;
+            }
+            else
+              offset+=record->length.value();
+            continue;
+          }
+          ondisk_index *index=(ondisk_index *)(buffer+sizeof(ondisk_record_header));
+          // Is this index canonical?
+          if(index->thisoffset==offset)
+          {
+            // It is valid? This will mmap the index if it's big enough. This code should scale
+            // up to billions of entries easily.
+            afio::off_t offsetdiff=sizeof(ondisk_record_header)+16;
+            dense_hashmap<Policy> map(h, offset+offsetdiff, record->length.value()-offsetdiff);
+            uint64 hash[2]={0, 0};
+            SpookyHash::Hash128(buffer, (size_t) offsetdiff, hash, hash+1);
+            auto raw_buffer(map.raw_buffer());
+            SpookyHash::Hash128(raw_buffer.first, raw_buffer.second, hash, hash+1);
+            // Is this record correct?
+            if(!memcmp(hash, record->hash, sizeof(hash)))
+            {
+              // Store as latest good known
+              ret.map=std::move(map);
               ret.offset=offset;
             }
           }
-          offset+=record.length;
+          offset+=record->length.value();
         }
+        // End of file may be garbage, if so zero the lot
+        if(linear_scanning)
+          finish_linear_scanning();
         if(ret.offset)  // we have a valid most recent index so we're done
           done=true;
-        else if(header.index_offset_begin>sizeof(header))
+        else if(header.index_offset_begin>32)
         {
           // Looks like the end of the store got trashed.
           // Reparse from the very beginning
@@ -261,32 +737,15 @@ start_linear_scan:
   }
 //]
 //[workshop_final3]
-  // Loads the index from the store
+  // Loads the index from a store
   outcome<void> load(afio::handle_ptr h) noexcept
   {
     // If find_last_good_ondisk_index() returns error or exception, return those, else
     // initialise ondisk_index_info to monad.get()
     BOOST_OUTCOME_AUTO(ondisk_index_info, find_last_good_ondisk_index(h));
-    error_code ec;
-    try
-    {
-      offset_loaded_from=0;
-      regions.clear();
-      key_to_region.clear();
-      ondisk_index_regions *r=(ondisk_index_regions *) ondisk_index_info.buffer.get();
-      regions.reserve(r->regions_size);
-      for(size_t n=0; n<r->regions_size; n++)
-        regions.push_back(region(r->regions+n));
-      ondisk_index_key_value *k=(ondisk_index_key_value *)(r+r->regions_size), *end=(ondisk_index_key_value *)(ondisk_index_info.buffer.get()+ondisk_index_info.size);
-      while(k<end)
-        key_to_region.insert(std::make_pair(std::string(k->name, k->name_size), k->region_index));
-      offset_loaded_from=ondisk_index_info.offset;
-      return {};
-    }
-    catch(...)
-    {
-      return std::current_exception();
-    }
+    current_index=std::move(ondisk_index_info.buffer);
+    offset_loaded_from=ondisk_index_info.offset;
+    return {};
   }
 //]
 //[workshop_final4]
@@ -414,6 +873,51 @@ start_linear_scan:
   }
 };
 //]
+
+//[workshop_final_interface
+namespace afio = BOOST_AFIO_V2_NAMESPACE;
+namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
+using BOOST_MONAD_V1_NAMESPACE::monad;
+using BOOST_MONAD_V1_NAMESPACE::lightweight_futures::shared_future;
+
+class data_store
+{
+  struct _ostream;
+  friend struct _ostream;
+  afio::dispatcher_ptr _dispatcher;
+  // The small blob store keeps non-memory mappable blobs at 32 byte alignments
+  afio::handle_ptr _small_blob_store, _small_blob_store_append;
+  // The large blob store keeps memory mappable blobs at 4Kb alignments
+  afio::handle_ptr _large_blob_store, _large_blob_store_append, _large_blob_store_ecc;
+  // The index is where we keep the map of keys to blobs
+  afio::handle_ptr _index_store, _index_store_append;
+  // Our current indices for the index and blob store
+  index<StringKeyPolicy> _index;
+  index<BlobKeyPolicy> _blob_store_index;
+public:
+  // Type used for read streams
+  using istream = std::shared_ptr<std::istream>;
+  // Type used for write streams
+  using ostream = std::shared_ptr<std::ostream>;
+  // Type used for lookup
+  using lookup_result_type = shared_future<istream>;
+  // Type used for write
+  using write_result_type = monad<ostream>;
+
+  // Disposition flags
+  static constexpr size_t writeable = (1<<0);
+
+  // Open a data store at path
+  data_store(size_t flags = 0, afio::path path = "store");
+  
+  // Look up item named name for reading, returning an istream for the item
+  shared_future<istream> lookup(std::string name) noexcept;
+  // Look up item named name for writing, returning an ostream for that item
+  monad<ostream> write(std::string name) noexcept;
+};
+//]
+
+
 
 //[workshop_final6]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
@@ -630,36 +1134,4 @@ outcome<data_store::ostream> data_store::write(std::string name) noexcept
   }
 }
 //]
-
-int main(void)
-{
-  // To write a key-value item called "dog"
-  {
-    data_store ds;
-    auto dogh = ds.write("dog").get();
-    auto &dogs = *dogh;
-    dogs << "I am a dog";
-  }
-
-  // To retrieve a key-value item called "dog"
-  {
-    data_store ds;
-    auto dogh = ds.lookup("dog");
-    if (dogh.empty())
-      std::cerr << "No item called dog" << std::endl;
-    else if(dogh.has_error())
-      std::cerr << "ERROR: Looking up dog returned error " << dogh.get_error().message() << std::endl;
-    else if (dogh.has_exception())
-    {
-      std::cerr << "FATAL: Looking up dog threw exception" << std::endl;
-      std::terminate();
-    }
-    else
-    {
-      std::string buffer;
-      *dogh.get() >> buffer;
-      std::cout << "Item dog has value " << buffer << std::endl;
-    }
-  }
-  return 0;
-}
+#endif
