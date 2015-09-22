@@ -20,7 +20,7 @@ namespace transactional_key_store
     constexpr bool operator!=(const hash_value_type &o) const noexcept { return _uint64[0] != o._uint64[0] || _uint64[1] != o._uint64[1]; }
   };
   //! The kind of hash used
-  enum class hash_kind : unsigned char
+  enum class hash_kind_type : unsigned char
   {
     unknown = 0,
     fast,        //!< We are using SpookyHash (0.3 cycles/byte)
@@ -36,22 +36,26 @@ namespace transactional_key_store
   {
     friend class data_store;
     data_store &_ds;
-    hash_kind _hash_kind;
+    hash_kind_type _hash_kind;
     hash_value_type _hash;
     size_t _length;
     std::shared_ptr<const_buffers_type> _mapping;
-    constexpr blob_reference(data_store &ds) noexcept : _ds(ds), _hash_kind(hash_kind::unknown), _length(0) { }
-    constexpr blob_reference(data_store &ds, hash_kind hash_type, hash_value_type hash, size_t length) noexcept : _ds(ds), _hash_kind(hash_type), _hash(hash), _length(length) { }
+    constexpr blob_reference(data_store &ds) noexcept : _ds(ds), _hash_kind(hash_kind_type::unknown), _length(0) { }
+    constexpr blob_reference(data_store &ds, hash_kind_type hash_type, hash_value_type hash, size_t length) noexcept : _ds(ds), _hash_kind(hash_type), _hash(hash), _length(length) { }
   public:
     ~blob_reference();
 
     //! True if reference is valid
-    explicit operator bool() const noexcept { return _hash_kind != hash_kind::unknown; }
+    explicit operator bool() const noexcept { return _hash_kind != hash_kind_type::unknown; }
     //! True if reference is not valid
-    bool operator !() const noexcept { return _hash_kind == hash_kind::unknown; }
+    bool operator !() const noexcept { return _hash_kind == hash_kind_type::unknown; }
+    //! True if references are equal
+    bool operator==(const blob_reference &o) const noexcept { return _hash_kind == o._hash_kind && _hash == o._hash && _length == o._length; }
+    //! True if references are not equal
+    bool operator!=(const blob_reference &o) const noexcept { return _hash_kind != o._hash_kind || _hash != o._hash || _length != o._length; }
 
     //! Kind of hash used
-    constexpr hash_kind hash_kind() const noexcept { return _hash_kind; }
+    constexpr hash_kind_type hash_kind() const noexcept { return _hash_kind; }
     //! Hash value
     constexpr hash_value_type hash_value() const noexcept { return _hash; }
     //! Length of blob
@@ -82,10 +86,10 @@ namespace transactional_key_store
     data_store(size_t flags = 0, filesystem::path path = "store");
 
     //! Store a blob
-    future<blob_reference> store_blob(hash_kind hash_type, const_buffers_type buffers) noexcept;
+    future<blob_reference> store_blob(hash_kind_type hash_type, const_buffers_type buffers) noexcept;
 
     //! Find a blob
-    future<blob_reference> find_blob(hash_kind hash_type, hash_value_type hash) noexcept;
+    future<blob_reference> find_blob(hash_kind_type hash_type, hash_value_type hash) noexcept;
   private:
     friend class transaction;
     struct index_base

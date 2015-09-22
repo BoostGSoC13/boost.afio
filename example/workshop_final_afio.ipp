@@ -16,7 +16,8 @@ namespace transactional_key_store
       {
         size_t ret = sizeof(*this)-sizeof(items[0]);
         for (unsigned n = 0; n < count; n++)
-          ret += sizeof(items[n]) + Policy::additional_size(items[n]);
+          if (items[n].key!=Policy::deleted_key)
+            ret += sizeof(items[n]) + Policy::additional_size(items[n]);
         for (auto &i : newitems)
           ret += sizeof(items[0]) + Policy::additional_size(i);
         return ret;
@@ -51,9 +52,10 @@ namespace transactional_key_store
         return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return !v->key && !v->value; }));
       }
       // Remove item
-      void remove(const typename Policy::value_type *i) noexcept
+      void remove(typename Policy::value_type *i) noexcept
       {
         memset((void *) i, 0, sizeof(Policy::value_type));
+        i->key = Policy::deleted_key;
       }
       // Update value on key
       void update(const typename Policy::value_type *i, typename Policy::value_type *v)
@@ -71,6 +73,7 @@ namespace transactional_key_store
 
         unsigned int key_length;
       };
+      static constexpr unsigned int deleted_key = 0;
       static unsigned hash(const std::string &k) noexcept
       {
         uint32 seed=0;
@@ -121,25 +124,26 @@ namespace transactional_key_store
 
         unsigned int age;
       };
+      static constexpr unsigned int deleted_key = (unsigned)-1;
       static unsigned hash(unsigned k) noexcept
       {
         return k;
       }
       bool compare(const value_type *v, unsigned k) const noexcept
       {
-        return v->value==k;
+        return v->key==k;
       }
       static size_t additional_size(const value_type &v) noexcept { return 0; }
+      static size_t additional_size(const std::pair<unsigned, afio::off_t> &v) noexcept { return 0; }
       unsigned key(const value_type *v) const noexcept { return v->key; }
       void store(value_type *newslot, const value_type *oldslot, char *&afteritems, unsigned oldkey) noexcept
       {
         *newslot = *oldslot;
-        newslot->key = oldkey;
       }
-      void store(value_type *newslot, const value_type *oldslot, char *&afteritems) noexcept
+      void store(value_type *newslot, const std::pair<unsigned, afio::off_t> &i, char *&afteritems) noexcept
       {
-        *newslot = *oldslot;
-        newslot->key = oldkey;
+        newslot->key = i.first;
+        newslot->value = i.second;
       }
     };
 
@@ -152,7 +156,7 @@ namespace transactional_key_store
       afio::off_t hash_kind : 2;  // 1 = spookyhash, 2=blake2b
       afio::off_t kind : 2;       // 0 for zeroed space, 1,2 for blob, 3 for index
       afio::off_t value() const noexcept { return _length*32; }
-      void value(afio::off_t v) noexcept
+      void value(afio::off_t v)
       {
         assert(!(v & 31));
         assert(v<(1ULL<<43));
@@ -175,15 +179,15 @@ namespace transactional_key_store
     {
       record_length length;      // (+8)
       hash_value_type hash;      // 128-bit hash of the object (from below onwards) (+28)
-      hash_kind hash_kind() const noexcept { return static_cast<hash_kind>(length.hash_kind); }
-      void do_hash(unsigned record_type, afio::off_t bytes, hash_kind k)
+      hash_kind_type hash_kind() const noexcept { return static_cast<hash_kind_type>(length.hash_kind); }
+      void do_hash(unsigned record_type, afio::off_t bytes, hash_kind_type k)
       {
         length.value(bytes);
         length.magic=0xad;
         length.hash_kind=static_cast<unsigned>(k);
         length.kind=record_type;
         const char *myend=((const char *) this)+sizeof(*this);
-        SpookyHash::Hash128(myend, bytes-sizeof(*this), hash._uint64[0], hash._uint64[1]);
+        SpookyHash::Hash128(myend, bytes-sizeof(*this), hash._uint64+0, hash._uint64+1);
       }
     };
     struct small_blob_record     // 8 bytes + length
@@ -196,18 +200,115 @@ namespace transactional_key_store
     {
       record_header header;
       afio::off_t length;        // Exact byte length of this large blob
-      struct { afio::off_t offset, afio::off_t length } pages[1];  // What in the large blob store makes up this blob
+      struct { afio::off_t offset; afio::off_t length; } pages[1];  // What in the large blob store makes up this blob
     };
     template<class Policy> struct index_record
     {
       record_header header;
       afio::off_t thisoffset;     // this index only valid if stored at this offset
       afio::off_t bloboffset;     // offset of the blob index we are using as a base
-      ondisk_dense_hashmap<Policy> map;
+      ondisk::dense_hashmap<Policy> map;
     };
     using blobindex_record = index_record<BlobKeyPolicy>;
 #pragma pack(pop)
   }
+
+  // A special allocator of highly efficient file i/o memory
+  using file_buffer_type = std::vector<char, afio::utils::page_allocator<char>>;
+
+  template<class Policy> class dense_hashmap
+  {
+    afio::handle::mapped_file_ptr _maph;
+    file_buffer_type _data;
+    ondisk::dense_hashmap<Policy> *_get_mut() noexcept { return !_data.empty() ? (ondisk::dense_hashmap<Policy> *) _data.data() : nullptr; }
+    const ondisk::dense_hashmap<Policy> *_get_const() const noexcept
+    {
+      if(!_data.empty())
+        return (const ondisk::dense_hashmap<Policy> *) _data.data();
+      if(_maph)
+        return (const ondisk::dense_hashmap<Policy> *) _maph->addr;
+      static const ondisk::dense_hashmap<Policy> empty;
+      return &empty;
+    }
+    typename Policy::value_type *_cow(typename Policy::value_type *i=nullptr)
+    {
+      if(_data.empty())
+      {
+        _data.resize(_maph->length);
+        memcpy(_data.data(), _maph->addr, _maph->length);
+        i=(typename Policy::value_type *)(_data.data() + ((char *) i - (char *) _maph->addr)); 
+        _maph.reset();
+      }
+      return i;
+    }
+  public:
+    std::pair<const ondisk::dense_hashmap<Policy> *, size_t> raw_buffer() const noexcept
+    {
+      if(_data.empty())
+        return std::make_pair((const ondisk::dense_hashmap<Policy> *) _maph->addr, _maph->length);
+      else
+        return std::make_pair((const ondisk::dense_hashmap<Policy> *) _data.data(), _data.size());
+    }
+    constexpr dense_hashmap() { }
+    // From a file
+    dense_hashmap(afio::handle_ptr h, afio::off_t offset, size_t length)
+    {
+      if(length>=128*1024)
+        _maph=h->map_file(length, offset, true);
+      if(!_maph)
+      {
+        _data.resize(length);
+        afio::read(h, _data.data(), length, offset);
+      }
+    }
+    dense_hashmap(const dense_hashmap &) = delete;
+    dense_hashmap(dense_hashmap &&o) noexcept : _maph(std::move(o._maph)), _data(std::move(o._data)) { }
+    dense_hashmap &operator=(const dense_hashmap &) = delete;
+    dense_hashmap &operator=(dense_hashmap &&o) noexcept { _maph=std::move(o._maph); _data=std::move(o._data); return *this; }
+    template<class Sequence> void insert(const Sequence &items)
+    {
+      size_t newsize = _get_const()->bytes_needed(items);
+      file_buffer_type newdata(newsize);
+      const ondisk::dense_hashmap<Policy> *oldmap = _get_const();
+      ondisk::dense_hashmap<Policy> *newmap = (ondisk::dense_hashmap<Policy> *) newdata.data();
+      // What's the new count?
+      newmap->count = (unsigned) items.size();
+      for (unsigned n = 0; n < oldmap->count; n++)
+        if (oldmap->items[n].key != Policy::deleted_key)
+          newmap->count++;
+      char *afteritems = newmap->end_of_items();
+      // Rehash old to new
+      for (unsigned n = 0; n < oldmap->count; n++)
+        if (oldmap->items[n].key != Policy::deleted_key)
+        {
+          auto key = oldmap->key(oldmap->items + n);
+          auto *newslot = newmap->find_empty(key);
+          newmap->store(newslot, oldmap->items + n, afteritems, key);
+        }
+      // Add the new items
+      for (auto &i : items)
+      {
+        auto *newslot = newmap->find_empty(i.first);
+        newmap->store(newslot, i, afteritems);
+      }
+      _data = std::move(newdata);
+      _maph.reset();
+    }
+    template<class Key> const typename Policy::value_type *find(const Key &k) const noexcept
+    {
+      auto p=_get_const();
+      return p ? p->find(k) : nullptr;
+    }
+    void erase(typename Policy::value_type *i) noexcept
+    {
+      assert(i);
+      _get_mut()->remove(_cow(i));
+    }
+    void erase(const typename Policy::value_type *i) noexcept { erase(const_cast<typename Policy::value_type *>(i)); }
+  };
+
+
+
   struct data_store::data_store_private
   {
     afio::dispatcher_ptr _dispatcher;
@@ -249,9 +350,9 @@ namespace transactional_key_store
       header->time_count=0;
       index->thisoffset=32;
       index->bloboffset=0;
-      index->header.gen_hash(3/*index*/, 64, hash_kind::fast);
+      index->header.do_hash(3/*index*/, 64, hash_kind_type::fast);
       // This is racy, but the file format doesn't care
-      afio::write(_small_blob_store_append, buffer, 96, 0);
+      afio::write(p->_small_blob_store_append, buffer, 96, 0);
     }
 #if 0
     // The large blob store keeps memory mappable blobs at 4Kb alignments
@@ -273,12 +374,12 @@ namespace transactional_key_store
 #endif
   }
 
-  future<blob_reference> data_store::store_blob(hash_kind hash_type, const_buffers_type buffers) noexcept
+  future<blob_reference> data_store::store_blob(hash_kind_type hash_type, const_buffers_type buffers) noexcept
   {
     return future<blob_reference>();
   }
 
-  future<blob_reference> data_store::find_blob(hash_kind hash_type, hash_value_type hash) noexcept
+  future<blob_reference> data_store::find_blob(hash_kind_type hash_type, hash_value_type hash) noexcept
   {
     return future<blob_reference>();
   }
@@ -289,223 +390,8 @@ namespace transactional_key_store
 
 #if 0
 
-  char *end_of_items() const { return (char *)(items + count); }
-  template<class Sequence> size_t bytes_needed(const Sequence &newitems) const noexcept
-  {
-    size_t ret = sizeof(*this)-sizeof(items[0]);
-    for (unsigned n = 0; n < count; n++)
-      ret += sizeof(items[n]) + Policy::additional_size(items[n]);
-    for (auto &i : newitems)
-      ret += sizeof(items[0]) + Policy::additional_size(i);
-    return ret;
-  }
-  // Predicate search on the dense hash map
-  template<class Pred> const typename Policy::value_type *search(unsigned start, Pred &&pred) const noexcept
-  {
-    unsigned int left = start, right = start;
-    if (pred(items+left))
-      return items + left;
-    do
-    {
-      left = (left == 0) ? count - 1 : left - 1;
-      right = (++right == count) ? 0 : right;
-      if (pred(items+left))
-        return items + left;
-      if (pred(items+right))
-        return items + right;
-    } while (left != right);
-    return nullptr;
-  }
-  // Find an item in the dense hash map
-  template<class T> const typename Policy::value_type *find(const T &k) const noexcept
-  {
-    unsigned int start = Policy::hash(k) % count;
-    return search(start, [this, &k](const typename Policy::value_type *v) { return Policy::compare(v, k); });
-  }
-  // Find an empty slot in the dense hash map
-  template<class T> typename Policy::value_type *find_empty(const T &k) const noexcept
-  {
-    unsigned int start = Policy::hash(k) % count;
-    return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return !v->key && !v->value; }));
-  }
-  // Remove item
-  void remove(const typename Policy::value_type *i) noexcept
-  {
-    memset((void *) i, 0, sizeof(Policy::value_type));
-  }
-  // Update value on key
-  void update(const typename Policy::value_type *i, typename Policy::value_type *v)
-  {
-    assert(i->key == v->key);
-    *(typename Policy::value_type *)i = *v;
-  }
-};
-//]
-
-//[workshop_final_ondisk_dense_hashmap2]
-struct StringKeyPolicy
-{
-  struct value_type
-  {
-    unsigned int key;
-    unsigned int value;
-
-    unsigned int key_length;
-  };
-  static unsigned hash(const std::string &k) noexcept
-  {
-    uint32 seed=0;
-    return SpookyHash::Hash32(k.c_str(), k.size(), seed);
-  }
-  static unsigned hash(const std::pair<const char *, size_t> &k) noexcept
-  {
-    uint32 seed=0;
-    return SpookyHash::Hash32(k.first, k.second, seed);
-  }
-  bool compare(const value_type *v, const std::string &k) const noexcept
-  {
-    if (v->key_length != (unsigned)k.size())
-      return false;
-    return !memcmp((char *) this + v->key, k.c_str(), k.size());
-  }
-  bool compare(const value_type *v, const std::pair<const char *, size_t> &k) const noexcept
-  {
-    if (v->key_length != (unsigned)k.second)
-      return false;
-    return !memcmp((char *) this + v->key, k.first, (unsigned) k.second);
-  }
-  static size_t additional_size(const value_type &v) noexcept { return v.key_length+1; }
-  static size_t additional_size(const std::pair<std::string, int> &v) noexcept { return v.first.size() + 1; }
-  std::pair<const char *, size_t> key(const value_type *v) const noexcept { return std::make_pair((const char *) this + v->key, v->key_length); }
-  void store(value_type *newslot, const value_type *oldslot, char *&afteritems, const std::pair<const char *, size_t> &oldkey) noexcept
-  {
-    *newslot = *oldslot;
-    newslot->key = afteritems - (char *) this;
-    memcpy(afteritems, oldkey.first, newslot->key_length + 1);
-    afteritems += newslot->key_length + 1;
-  }
-  void store(value_type *newslot, const std::pair<std::string, int> &i, char *&afteritems) noexcept
-  {
-    newslot->value = i.second;
-    newslot->key_length = (unsigned) i.first.size();
-    newslot->key = afteritems - (char *) this;
-    memcpy(afteritems, i.first.c_str(), newslot->key_length + 1);
-    afteritems += newslot->key_length + 1;
-  }
-};
-//]
-
-//[workshop_final_ondisk_dense_hashmap3]
-struct BlobKeyPolicy
-{
-  struct value_type
-  {
-    unsigned int key;
-    afio::off_t value;
-
-    unsigned int age;
-  };
-  static unsigned hash(unsigned k) noexcept
-  {
-    return k;
-  }
-  bool compare(const value_type *v, unsigned k) const noexcept
-  {
-    return v->value==k;
-  }
-  static size_t additional_size(const value_type &v) noexcept { return 0; }
-  unsigned key(const value_type *v) const noexcept { return return v->key; }
-  void store(value_type *newslot, const value_type *oldslot, char *&afteritems, unsigned oldkey) noexcept
-  {
-    *newslot = *oldslot;
-    newslot->key = oldkey
-    memcpy(afteritems, oldkey.first, newslot->key_length + 1);
-    afteritems += newslot->key_length + 1;
-  }
-};
-//]
 
 //[workshop_final_ondisk_dense_hashmap4]
-template<class Policy> class dense_hashmap
-{
-  afio::handle::mapped_file_ptr _maph;
-  file_buffer_type _data;
-  ondisk_dense_hashmap<Policy> *_get() noexcept { return !_data.empty() ? (ondisk_dense_hashmap<Policy> *) _data.data() : nullptr; }
-  const ondisk_dense_hashmap<Policy> *_getc() const noexcept { return !_data.empty() ? (const ondisk_dense_hashmap<Policy> *) _data.data() : (const ondisk_index<Policy> *) _maph.addr; }
-  const typename Policy::value_type *_cow(const typename Policy::value_type *i=nullptr)
-  {
-    if(_data.empty())
-    {
-      _data.resize(_maph->length);
-      memcpy(_data.data(), _maph->addr, _newlength);
-      i=(const Policy *)(_data.data() + ((char *) i - (char *) _maph->addr)); 
-      _maph.reset();
-    }
-    return i;
-  }
-public:
-  std::pair<const ondisk_dense_hashmap<Policy> *, size_t> raw_buffer() const noexcept
-  {
-    if(_data.empty())
-      return std::make_pair((const ondisk_index<Policy> *) _maph.addr, _maph.length);
-    else
-      return std::make_pair((const ondisk_index<Policy> *) _data.data(), _data.size());
-  }
-  constexpr dense_hashmap() { }
-  // From a file
-  dense_hashmap(afio::handle_ptr h, afio::off_t offset, size_t length)
-  {
-    if(length>=128*1024)
-      _maph=h->map_file(length, offset, true);
-    if(!_maph)
-    {
-      _data.resize(length);
-      afio::read(h, _data.data(), length, offset);
-    }
-  }
-  dense_hashmap(const dense_hashmap &) = delete;
-  dense_hashmap(dense_hashmap &&o) noexcept : _maph(std::move(o._maph)), _data(std::move(o._data)) { }
-  dense_hashmap &operator=(const dense_hashmap &) = delete;
-  dense_hashmap &operator=(dense_hashmap &&o) noexcept { _maph=std::move(o._maph); _data=std::move(o._data); return *this; }
-  template<class Sequence> void insert(const Sequence &items)
-  {
-    size_t newsize = _getc()->bytes_needed(items);
-    std::vector<char> newdata(newsize);
-    const ondisk_dense_hashmap<Policy> *oldmap = _get();
-    ondisk_dense_hashmap<Policy> *newmap = (ondisk_dense_hashmap<Policy> *) newdata.data();
-    // What's the new count?
-    newmap->count = (unsigned) items.size();
-    for (unsigned n = 0; n < oldmap->count; n++)
-      if (oldmap->items[n].key || oldmap->items[n].value)
-        newmap->count++;
-    char *afteritems = newmap->end_of_items();
-    // Rehash old to new
-    for (unsigned n = 0; n < oldmap->count; n++)
-      if (oldmap->items[n].key || oldmap->items[n].value)
-      {
-        auto key = oldmap->key(oldmap->items + n);
-        auto *newslot = newmap->find_empty(key);
-        newmap->store(newslot, oldmap->items + n, afteritems, key);
-      }
-    // Add the new items
-    for (auto &i : items)
-    {
-      auto *newslot = newmap->find_empty(i.first);
-      newmap->store(newslot, i, afteritems);
-    }
-    _data = std::move(newdata);
-    _maph.reset();
-  }
-  template<class Key> const typename Policy::value_type *find(const Key &k) const noexcept
-  {
-    return _get()->find(k);
-  }
-  void erase(const typename Policy::value_type *i) noexcept
-  {
-    assert(i);
-    _get()->remove(i);
-  }
-};
 //]
 
 //[workshop_final1]
