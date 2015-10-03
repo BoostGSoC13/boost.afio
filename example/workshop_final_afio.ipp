@@ -4,6 +4,7 @@
 
 namespace transactional_key_store
 {
+  using BOOST_OUTCOME_V1_NAMESPACE::lightweight_futures::make_errored_future;
   namespace ondisk
   {
     // Serialisation helper types
@@ -28,7 +29,7 @@ namespace transactional_key_store
       {
         size_t ret = sizeof(*this)-sizeof(items[0]);
         for (unsigned n = 0; n < count; n++)
-          if (items[n].key!=Policy::deleted_key)
+          if (items[n].key!=Policy::deleted_key())
             ret += sizeof(items[n]) + Policy::additional_size(items[n]);
         return ret;
       }
@@ -68,13 +69,13 @@ namespace transactional_key_store
       {
         if (!count) return nullptr;
         unsigned int start = Policy::hash(k) % count;
-        return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return !v->key && !v->value; }));
+        return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return v->key==Policy::deleted_key(); }));
       }
       // Remove item
       void remove(typename Policy::value_type *i) noexcept
       {
         memset((void *) i, 0, sizeof(Policy::value_type));
-        i->key = Policy::deleted_key;
+        i->key = Policy::deleted_key();
       }
       // Update value on key
       void update(const typename Policy::value_type *i, typename Policy::value_type *v)
@@ -92,7 +93,7 @@ namespace transactional_key_store
 
         unsigned int key_length;
       };
-      static constexpr unsigned int deleted_key = 0;
+      static constexpr unsigned int deleted_key() { return 0; }
       static unsigned hash(const std::string &k) noexcept
       {
         uint32 seed=0;
@@ -138,28 +139,28 @@ namespace transactional_key_store
     {
       struct value_type
       {
-        unsigned int key;
-        afio::off_t value;
+        hash_value_type key;
+        std::pair<afio::off_t, afio::off_t> value;    // offset + length
 
         unsigned int age;
       };
-      static constexpr unsigned int deleted_key = (unsigned)-1;
-      static unsigned hash(unsigned k) noexcept
+      static constexpr hash_value_type deleted_key() { return hash_value_type(); }
+      static unsigned hash(const hash_value_type &k) noexcept
       {
-        return k;
+        return k._uint32[0];
       }
-      bool compare(const value_type *v, unsigned k) const noexcept
+      bool compare(const value_type *v, const hash_value_type &k) const noexcept
       {
         return v->key==k;
       }
       static size_t additional_size(const value_type &v) noexcept { return 0; }
-      static size_t additional_size(const std::pair<unsigned, afio::off_t> &v) noexcept { return 0; }
-      unsigned key(const value_type *v) const noexcept { return v->key; }
-      void store(value_type *newslot, const value_type *oldslot, char *&afteritems, unsigned oldkey) noexcept
+      static size_t additional_size(const std::pair<hash_value_type, std::pair<afio::off_t, afio::off_t>> &v) noexcept { return 0; }
+      hash_value_type key(const value_type *v) const noexcept { return v->key; }
+      void store(value_type *newslot, const value_type *oldslot, char *&afteritems, const hash_value_type &oldkey) noexcept
       {
         *newslot = *oldslot;
       }
-      void store(value_type *newslot, const std::pair<unsigned, afio::off_t> &i, char *&afteritems) noexcept
+      void store(value_type *newslot, const std::pair<hash_value_type, std::pair<afio::off_t, afio::off_t>> &i, char *&afteritems) noexcept
       {
         newslot->key = i.first;
         newslot->value = i.second;
@@ -202,15 +203,12 @@ namespace transactional_key_store
       hash_value_type hash;      // 128-bit hash of the object (from below onwards) (+28)
       hash_kind_type hash_kind() const noexcept { return static_cast<hash_kind_type>(length.hash_kind); }
       bool operator==(const record_header &o) const noexcept { return length == o.length && hash == o.hash; }
-      void do_hash(unsigned record_type, afio::off_t bytes, hash_kind_type k)
+      void fill(unsigned record_type, afio::off_t bytes, hash_kind_type k)
       {
         length.value(bytes);
         length.magic=0xad;
         length.hash_kind=static_cast<unsigned>(k);
         length.kind=record_type;
-        const char *myend=((const char *) this)+sizeof(*this);
-        size_t payload = bytes - sizeof(*this);
-        SpookyHash::Hash128(myend, payload, hash._uint64+0, hash._uint64+1);
       }
     };
     struct small_blob_record     // 8 bytes + length
@@ -307,12 +305,12 @@ namespace transactional_key_store
       // What's the new count?
       newmap->count = (unsigned) items.size();
       for (unsigned n = 0; n < oldmap->count; n++)
-        if (oldmap->items[n].key != Policy::deleted_key)
+        if (oldmap->items[n].key != Policy::deleted_key())
           newmap->count++;
       char *afteritems = newmap->end_of_items();
       // Rehash old to new
       for (unsigned n = 0; n < oldmap->count; n++)
-        if (oldmap->items[n].key != Policy::deleted_key)
+        if (oldmap->items[n].key != Policy::deleted_key())
         {
           auto key = oldmap->key(oldmap->items + n);
           auto *newslot = newmap->find_empty(key);
@@ -466,14 +464,16 @@ namespace transactional_key_store
       for (;;)
       {
         // Find any non-collided index record
-        index_header.thisoffset = indexoffset;
         afio::off_t nextindexoffset = _find_record<ondisk::index_record<Policy>>(h, [&index_header](const ondisk::index_record<Policy> &header, afio::off_t thisoffset, afio::off_t length) {
           if (header.header.length.magic != 0xad)
             return false;
-          return header.thisoffset == thisoffset;
+          if (header.thisoffset != thisoffset)
+            return false;
+          index_header = header;
+          return true;
         }, indexoffset, true);
         // If next index record is before last known good because we replayed, we're done
-        if (nextindexoffset < _hashmapoffset)
+        if (nextindexoffset <= _hashmapoffset)
           break;
         indexoffset = nextindexoffset;
         // Is this index uncorrupted? Load the thing and find out
@@ -528,15 +528,13 @@ namespace transactional_key_store
       size_t bytes = sizeof(index_header) + _hashmap.bytes_needed();
       bytes = (31 + bytes)&~31;
       size_t headerbytes = sizeof(index_header) - sizeof(index_header.header);
+      index_header.header.fill(3/*index*/, bytes, hash_kind_type::fast);
       index_header.thisoffset = _nexthashmapoffset;
       index_header.bloboffset = _hashmapoffset;
-      index_header.header.length.value(bytes);
-      index_header.header.length.magic = 0xad;
-      index_header.header.length.hash_kind = 3/*index*/;
       SpookyHash _hash;
       _hash.Init(0, 0);
       _hash.Update(&index_header.thisoffset, headerbytes);
-      _hash.Update(_hashmap.raw_buffer().first, bytes - headerbytes);
+      _hash.Update(_hashmap.raw_buffer().first, bytes - sizeof(index_header));
       _hash.Final(index_header.header.hash._uint64 + 0, index_header.header.hash._uint64 + 1);
       std::vector<afio::asio::const_buffer> buffers;
       buffers.reserve(2);
@@ -588,7 +586,8 @@ namespace transactional_key_store
       header->time_count = 0;
       index->thisoffset = 32;
       index->bloboffset = 0;
-      index->header.do_hash(3/*index*/, 64, hash_kind_type::fast);
+      index->header.fill(3/*index*/, 64, hash_kind_type::fast);
+      SpookyHash::Hash128(&index->thisoffset, 64-sizeof(index->header), index->header.hash._uint64+0, index->header.hash._uint64+1);
       // This is racy, but the file format doesn't care
       afio::write(p->_blob_index_append, buffer, 96, 0);
     }
@@ -639,49 +638,78 @@ namespace transactional_key_store
     // TODO: Make this actually asynchronous!
 
     // Build gather buffers from input gather buffers of blobs to write
+    char zerobuffer[32];
+    memset(zerobuffer, 0, 32);
     for(auto &buffer : buffers)
     {
       headers.push_back(ondisk::small_blob_record(nullptr));
       ondisk::small_blob_record &header = headers.back();
       for (auto &b : buffer)
         header.length += b.second;
-      header.header.do_hash(1, 32 + ((31 + header.length) & ~31), hash_kind_type::fast);
-      ret.push_back(blob_reference(*this, hash_type, header.header.hash, header.length));
+      header.header.fill(1, 32 + ((31 + header.length) & ~31), hash_kind_type::fast);
       // Build gather write buffers
+      SpookyHash _hash;
+      _hash.Init(0, 0);
       writebuffers.push_back(afio::asio::const_buffer(&header, 32));
+      _hash.Update(&header.length, sizeof(header)-sizeof(header.header));
       for (auto &b : buffer)
+      {
         writebuffers.push_back(afio::asio::const_buffer(b.first, b.second));
+        _hash.Update(b.first, b.second);
+      }
+      if (header.length & 31)
+      {
+        size_t diff = 32 - (header.length & 31);
+        writebuffers.push_back(afio::asio::const_buffer(zerobuffer, diff));
+        _hash.Update(zerobuffer, diff);
+      }
+      _hash.Final(header.header.hash._uint64+0, header.header.hash._uint64+1);
+      // Return outcome
+      ret.push_back(blob_reference(*this, hash_type, header.header.hash, header.length, 0));
     }
     // Small blobs about to be stored must be this offset or later
     afio::off_t sbslen = p->_small_blob_store_append->lstat(afio::metadata_flags::size).st_size;
     afio::write(p->_small_blob_store_append, writebuffers, 0);
     // Find out where we ended up writing our small blobs
-    std::vector<afio::off_t> bloboffsets;
-    bloboffsets.reserve(buffers.size());
-    for(auto &header : headers)
-      bloboffsets.push_back((sbslen = _find_record<ondisk::small_blob_record>(p->_small_blob_store, [&header](const ondisk::small_blob_record &thisheader, afio::off_t thisindex, afio::off_t length) {
+    for (size_t n = 0; n < headers.size(); n++)
+    {
+      const ondisk::small_blob_record &header = headers[n];
+      ret[n]._offset=(sbslen = _find_record<ondisk::small_blob_record>(p->_small_blob_store, [&header](const ondisk::small_blob_record &thisheader, afio::off_t thisindex, afio::off_t length) {
         return header == thisheader;
-    }, sbslen)));
+      }, sbslen));
+      assert(ret[n]._offset);
+    }
 
     // Load latest blobindex, add the new blobs and write out
+    std::vector<std::pair<hash_value_type, std::pair<afio::off_t, afio::off_t>>> newitems;
+    newitems.reserve(ret.size());
+    for (auto &i : ret)
+      newitems.push_back(std::make_pair(i.hash_value(), std::make_pair(i._offset, i._length)));
     index<ondisk::BlobKeyPolicy> blobindex;
     do
     {
       blobindex.load(p->_blob_index);
-      unsigned nextidx = blobindex.back() ? blobindex.back()->key : 0;
-      std::vector<std::pair<unsigned, afio::off_t>> newitems;
-      newitems.reserve(bloboffsets.size());
-      for (auto &bloboffset : bloboffsets)
-        newitems.push_back(std::make_pair(++nextidx, bloboffset));
       blobindex.insert(newitems);
     } while (!blobindex.store(p->_blob_index_append, p->_blob_index));
+    // TODO: Cache blobindex
 
     return future<std::vector<blob_reference>>(std::move(ret));
   }
 
   future<blob_reference> data_store::find_blob(hash_kind_type hash_type, hash_value_type hash) noexcept
   {
-    return future<blob_reference>();
+    // TODO: Make this actually asynchronous!
+
+    index<ondisk::BlobKeyPolicy> blobindex;
+    blobindex.load(p->_blob_index);
+    const ondisk::BlobKeyPolicy::value_type *i = blobindex.find(hash);
+    if (i)
+    {
+      assert(i->key == hash);
+      return future<blob_reference>(blob_reference(*this, hash_type, hash, i->value.second, i->value.first));
+    }
+    else
+      return make_errored_future<blob_reference>(ENOENT);
   }
 
 }

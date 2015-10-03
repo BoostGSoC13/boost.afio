@@ -49,6 +49,7 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_dense_hash_map_works, "Tests that the direct 
   BOOST_CHECK(string_map.find("niall")->value == 1);
   dump(string_map.raw_buffer());
 
+#if 0
   dense_hashmap<ondisk::BlobKeyPolicy> blob_map;
   blob_map.insert(std::vector<std::pair<unsigned, afio::off_t>>{ {0, 1}, { 1, 2 }, { 2, 3 }, { 3, 4 }, { 4, 5 } });
   dump(blob_map.raw_buffer());
@@ -74,10 +75,11 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_dense_hash_map_works, "Tests that the direct 
   BOOST_CHECK(blob_map.find(4)->value == 5);
   BOOST_CHECK(blob_map.find(5)->value == 6);
   dump(blob_map.raw_buffer());
+#endif
 }
 
 #if 1
-BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store and find blobs", 5)
+BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store and find blobs", 30)
 {
   using namespace BOOST_AFIO_V2_NAMESPACE;
   using namespace transactional_key_store;
@@ -105,6 +107,9 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store an
   BOOST_CHECK(aref.size() == a.size());
   BOOST_CHECK(bref.size() == b.size());
   BOOST_CHECK(cref.size() == c.size());
+  std::cout << "A: "; aref._debugprint(std::cout) << std::endl;
+  std::cout << "B: "; bref._debugprint(std::cout) << std::endl;
+  std::cout << "C: "; cref._debugprint(std::cout) << std::endl;
 
   auto _aref = ds.find_blob(hash_kind_type::fast, aref.hash_value()).get();
   auto _bref = ds.find_blob(hash_kind_type::fast, bref.hash_value()).get();
@@ -112,6 +117,12 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store an
   BOOST_CHECK(aref.hash_value() == _aref.hash_value());
   BOOST_CHECK(bref.hash_value() == _bref.hash_value());
   BOOST_CHECK(cref.hash_value() == _cref.hash_value());
+  std::cout << "A': "; _aref._debugprint(std::cout) << std::endl;
+  std::cout << "B': "; _bref._debugprint(std::cout) << std::endl;
+  std::cout << "C': "; _cref._debugprint(std::cout) << std::endl;
+
+  // TODO: blob_reference load(), map()
+
 }
 #endif
 

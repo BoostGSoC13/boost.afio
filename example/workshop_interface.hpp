@@ -13,6 +13,7 @@ namespace transactional_key_store
     union
     {
       unsigned char _uint8[16];
+      unsigned int _uint32[4];
       unsigned long long int _uint64[2];
     };
     constexpr hash_value_type() noexcept : _uint64{ 0, 0 } {}
@@ -38,10 +39,11 @@ namespace transactional_key_store
     data_store &_ds;
     hash_kind_type _hash_kind;
     hash_value_type _hash;
-    size_t _length;
+    afio::off_t _length;
+    afio::off_t _offset;
     std::shared_ptr<const_buffers_type> _mapping;
-    constexpr blob_reference(data_store &ds) noexcept : _ds(ds), _hash_kind(hash_kind_type::unknown), _length(0) { }
-    constexpr blob_reference(data_store &ds, hash_kind_type hash_type, hash_value_type hash, size_t length) noexcept : _ds(ds), _hash_kind(hash_type), _hash(hash), _length(length) { }
+    constexpr blob_reference(data_store &ds) noexcept : _ds(ds), _hash_kind(hash_kind_type::unknown), _length(0), _offset(0) { }
+    constexpr blob_reference(data_store &ds, hash_kind_type hash_type, hash_value_type hash, afio::off_t length, afio::off_t offset) noexcept : _ds(ds), _hash_kind(hash_type), _hash(hash), _length(length), _offset(offset) { }
   public:
     ~blob_reference();
 
@@ -59,13 +61,22 @@ namespace transactional_key_store
     //! Hash value
     constexpr hash_value_type hash_value() const noexcept { return _hash; }
     //! Length of blob
-    constexpr size_t size() const noexcept { return _length; }
+    constexpr afio::off_t size() const noexcept { return _length; }
 
     //! Reads the blob into the supplied scatter buffers. Throws invalid_argument if all the buffers sizes are less than blob size.
     future<void> load(buffers_type buffers);
 
     //! Maps the blob into memory, returning a shared set of scattered buffers
     future<std::shared_ptr<const_buffers_type>> map() noexcept;
+
+    std::ostream &_debugprint(std::ostream &s) const
+    {
+      char buffer[33];
+      for (size_t n = 0; n < 16; n++)
+        sprintf(buffer+n*2, "%.2x", _hash._uint8[n]);
+      s << "BLOB 0x" << buffer << " length " << _length << " offset " << _offset;
+      return s;
+    }
   };
 
   namespace detail
