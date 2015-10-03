@@ -24,7 +24,7 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_dense_hash_map_works, "Tests that the direct 
   using namespace transactional_key_store;
 
   dense_hashmap<ondisk::StringKeyPolicy> string_map;
-  string_map.insert(std::vector<std::pair<const char *, size_t>>{ {"cat", 5}, { "dog", 6}, {"horse", 7}, {"pig", 8}, {"sheep", 9} });
+  string_map.insert(std::vector<std::pair<const char *, unsigned>>{ {"cat", 5}, { "dog", 6}, {"horse", 7}, {"pig", 8}, {"sheep", 9} });
   dump(string_map.raw_buffer());
   BOOST_CHECK(string_map.find("cat")->value == 5);
   BOOST_CHECK(string_map.find("dog")->value == 6);
@@ -40,7 +40,7 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_dense_hash_map_works, "Tests that the direct 
   BOOST_CHECK(string_map.find("pig") == nullptr);
   BOOST_CHECK(string_map.find("sheep")->value == 9);
   BOOST_CHECK(string_map.find("niall") == nullptr);
-  string_map.insert(std::vector<std::pair<const char *, size_t>>{ {"niall", 1} });
+  string_map.insert(std::vector<std::pair<const char *, unsigned>>{ {"niall", 1} });
   BOOST_CHECK(string_map.find("cat") == nullptr);
   BOOST_CHECK(string_map.find("dog")->value == 6);
   BOOST_CHECK(string_map.find("horse")->value == 7);
@@ -76,17 +76,32 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_dense_hash_map_works, "Tests that the direct 
   dump(blob_map.raw_buffer());
 }
 
-#if 0
+#if 1
 BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store and find blobs", 5)
 {
   using namespace BOOST_AFIO_V2_NAMESPACE;
   using namespace transactional_key_store;
+  char buffer[40] = { 0x20 };
+  hash_value_type hash1, hash2;
+  SpookyHash::Hash128(buffer, 40, hash1._uint64 + 0, hash1._uint64 + 1);
+  SpookyHash h;
+  h.Init(0, 0);
+  h.Update(buffer, 16);
+  h.Update(buffer + 16, 24);
+  h.Final(hash2._uint64 + 0, hash2._uint64 + 1);
+  assert(hash1 == hash2);
+
   filesystem::remove_all("store");
   data_store ds(data_store::writeable);
   std::string a("Niall"), b("Douglas"), c("Clara");
-  auto aref = ds.store_blob(hash_kind_type::fast, { {a.c_str(), a.size()} }).get();
-  auto bref = ds.store_blob(hash_kind_type::fast, { {b.c_str(), b.size()} }).get();
-  auto cref = ds.store_blob(hash_kind_type::fast, { {c.c_str(), c.size()} }).get();
+  auto refs = ds.store_blobs(hash_kind_type::fast, {
+    { std::make_pair(a.c_str(), a.size()) },
+    { std::make_pair(b.c_str(), b.size()) },
+    { std::make_pair(c.c_str(), c.size()) }
+  }).get();
+  auto &aref = refs[0];
+  auto &bref = refs[1];
+  auto &cref = refs[2];
   BOOST_CHECK(aref.size() == a.size());
   BOOST_CHECK(bref.size() == b.size());
   BOOST_CHECK(cref.size() == c.size());
@@ -114,21 +129,21 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_transaction, "Tests that one can issue transa
   blob_reference cref = ds.store_blob(hash_kind_type::fast, { { c.c_str(), c.size() } }).get();
 
   // Write our values as a single transaction
-  transaction t1(ds);
+  transaction t1 = ds.begin_transaction({ ds.default_string_index() }).get();
   t1.add("niall", aref);
   t1.add("douglas", bref);
   t1.add("clara", aref);
   BOOST_REQUIRE(transaction_status::success==t1.commit().get());
 
   // Read modify write as a transaction
-  transaction t2(ds);
+  transaction t2 = ds.begin_transaction({ ds.default_string_index() }).get();
   blob_reference dref = t2.lookup("niall");
   BOOST_CHECK(dref == aref);
   t2.add("clara", cref);
   BOOST_REQUIRE(transaction_status::success == t2.commit().get());
 
   // Make sure state is as it should be
-  transaction t3(ds);
+  transaction t3 = ds.begin_transaction({ ds.default_string_index() }).get();
   BOOST_CHECK(t3.lookup("niall") == aref);
   BOOST_CHECK(t3.lookup("douglas") == bref);
   BOOST_CHECK(t3.lookup("clara") == cref);

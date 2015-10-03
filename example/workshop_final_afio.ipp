@@ -1,10 +1,22 @@
 #include "workshop_interface.hpp"
+
+#define DEBUG_PRINTING 1
+
 namespace transactional_key_store
 {
   namespace ondisk
   {
     // Serialisation helper types
 #pragma pack(push, 1)
+#define TYPE_IS_POD(T) \
+    inline std::vector<afio::asio::mutable_buffer> to_asio_buffers(T &v) \
+    { \
+      return{ afio::asio::mutable_buffer(&v, sizeof(v)) }; \
+    } \
+    inline std::vector<afio::asio::const_buffer> to_asio_buffers(const T &v) \
+    { \
+      return{ afio::asio::const_buffer(&v, sizeof(v)) }; \
+    }
     // A dense on-disk hash map
     template<class Policy> struct dense_hashmap : public Policy
     {
@@ -12,12 +24,17 @@ namespace transactional_key_store
       typename Policy::value_type items[1];
 
       char *end_of_items() const { return (char *)(items + count); }
-      template<class Sequence> size_t bytes_needed(const Sequence &newitems) const noexcept
+      size_t bytes_needed() const noexcept
       {
         size_t ret = sizeof(*this)-sizeof(items[0]);
         for (unsigned n = 0; n < count; n++)
           if (items[n].key!=Policy::deleted_key)
             ret += sizeof(items[n]) + Policy::additional_size(items[n]);
+        return ret;
+      }
+      template<class Sequence> size_t bytes_needed(const Sequence &newitems) const noexcept
+      {
+        size_t ret = bytes_needed();
         for (auto &i : newitems)
           ret += sizeof(items[0]) + Policy::additional_size(i);
         return ret;
@@ -42,12 +59,14 @@ namespace transactional_key_store
       // Find an item in the dense hash map
       template<class T> const typename Policy::value_type *find(const T &k) const noexcept
       {
+        if (!count) return nullptr;
         unsigned int start = Policy::hash(k) % count;
         return search(start, [this, &k](const typename Policy::value_type *v) { return Policy::compare(v, k); });
       }
       // Find an empty slot in the dense hash map
       template<class T> typename Policy::value_type *find_empty(const T &k) const noexcept
       {
+        if (!count) return nullptr;
         unsigned int start = Policy::hash(k) % count;
         return const_cast<typename Policy::value_type *>(search(start, [](const typename Policy::value_type *v) { return !v->key && !v->value; }));
       }
@@ -106,7 +125,7 @@ namespace transactional_key_store
         memcpy(afteritems, oldkey.first, newslot->key_length + 1);
         afteritems += newslot->key_length + 1;
       }
-      void store(value_type *newslot, const std::pair<std::string, int> &i, char *&afteritems) noexcept
+      void store(value_type *newslot, const std::pair<std::string, unsigned> &i, char *&afteritems) noexcept
       {
         newslot->value = i.second;
         newslot->key_length = (unsigned) i.first.size();
@@ -155,6 +174,7 @@ namespace transactional_key_store
       afio::off_t _spare : 1;
       afio::off_t hash_kind : 2;  // 1 = spookyhash, 2=blake2b
       afio::off_t kind : 2;       // 0 for zeroed space, 1,2 for blob, 3 for index
+      bool operator==(const record_length &o) const noexcept { return *reinterpret_cast<const afio::off_t *>(this) == *reinterpret_cast<const afio::off_t *>(&o); }
       afio::off_t value() const noexcept { return _length*32; }
       void value(afio::off_t v)
       {
@@ -175,11 +195,13 @@ namespace transactional_key_store
       afio::off_t index_offset_begin;  // Hint to the length of the store when the index was last written
       unsigned int time_count;         // Racy monotonically increasing count
     };
+    TYPE_IS_POD(file_header)
     struct record_header  // 24 bytes - ALWAYS ALIGNED TO 32 BYTE FILE OFFSET
     {
       record_length length;      // (+8)
       hash_value_type hash;      // 128-bit hash of the object (from below onwards) (+28)
       hash_kind_type hash_kind() const noexcept { return static_cast<hash_kind_type>(length.hash_kind); }
+      bool operator==(const record_header &o) const noexcept { return length == o.length && hash == o.hash; }
       void do_hash(unsigned record_type, afio::off_t bytes, hash_kind_type k)
       {
         length.value(bytes);
@@ -187,29 +209,36 @@ namespace transactional_key_store
         length.hash_kind=static_cast<unsigned>(k);
         length.kind=record_type;
         const char *myend=((const char *) this)+sizeof(*this);
-        SpookyHash::Hash128(myend, bytes-sizeof(*this), hash._uint64+0, hash._uint64+1);
+        size_t payload = bytes - sizeof(*this);
+        SpookyHash::Hash128(myend, payload, hash._uint64+0, hash._uint64+1);
       }
     };
     struct small_blob_record     // 8 bytes + length
     {
       record_header header;
       afio::off_t length;        // Exact byte length of this small blob
-      char data[1];
+      bool operator==(const small_blob_record &o) const noexcept { return header == o.header && length == o.length; }
+      //char data[1];
+      small_blob_record() {}
+      explicit small_blob_record(std::nullptr_t) { memset(this, 0, sizeof(*this)); }
     };
+    TYPE_IS_POD(small_blob_record)
     struct large_blob_record     // 8 bytes + 16 bytes * extents
     {
       record_header header;
       afio::off_t length;        // Exact byte length of this large blob
-      struct { afio::off_t offset; afio::off_t length; } pages[1];  // What in the large blob store makes up this blob
+      //struct { afio::off_t offset; afio::off_t length; } pages[1];  // What in the large blob store makes up this blob
     };
     template<class Policy> struct index_record
     {
       record_header header;
       afio::off_t thisoffset;     // this index only valid if stored at this offset
       afio::off_t bloboffset;     // offset of the blob index we are using as a base
-      ondisk::dense_hashmap<Policy> map;
+      //ondisk::dense_hashmap<Policy> map;
     };
     using blobindex_record = index_record<BlobKeyPolicy>;
+    TYPE_IS_POD(blobindex_record)
+
 #pragma pack(pop)
   }
 
@@ -249,6 +278,10 @@ namespace transactional_key_store
       else
         return std::make_pair((const ondisk::dense_hashmap<Policy> *) _data.data(), _data.size());
     }
+    size_t bytes_needed() const noexcept
+    {
+      return _get_const()->bytes_needed();
+    }
     constexpr dense_hashmap() { }
     // From a file
     dense_hashmap(afio::handle_ptr h, afio::off_t offset, size_t length)
@@ -268,7 +301,7 @@ namespace transactional_key_store
     template<class Sequence> void insert(const Sequence &items)
     {
       size_t newsize = _get_const()->bytes_needed(items);
-      file_buffer_type newdata(newsize);
+      file_buffer_type newdata((31+newsize)&~31);
       const ondisk::dense_hashmap<Policy> *oldmap = _get_const();
       ondisk::dense_hashmap<Policy> *newmap = (ondisk::dense_hashmap<Policy> *) newdata.data();
       // What's the new count?
@@ -294,6 +327,26 @@ namespace transactional_key_store
       _data = std::move(newdata);
       _maph.reset();
     }
+    bool empty() const noexcept
+    {
+      auto p = _get_const();
+      return (p && p->count) ? false : true;
+    }
+    size_t size() const noexcept
+    {
+      auto p = _get_const();
+      return p ? p->count : 0;
+    }
+    const typename Policy::value_type *front() const noexcept
+    {
+      auto p = _get_const();
+      return (p && p->count) ? p->items+0 : nullptr;
+    }
+    const typename Policy::value_type *back() const noexcept
+    {
+      auto p = _get_const();
+      return (p && p->count) ? p->items+(p->count-1) : nullptr;
+    }
     template<class Key> const typename Policy::value_type *find(const Key &k) const noexcept
     {
       auto p=_get_const();
@@ -312,7 +365,193 @@ namespace transactional_key_store
   struct data_store::data_store_private
   {
     afio::dispatcher_ptr _dispatcher;
-    afio::handle_ptr _small_blob_store_append, _small_blob_store, _large_blob_store, _large_blob_store_ecc, _index_store_appned, _index_store;
+    afio::handle_ptr _blob_index_append, _blob_index;
+    afio::handle_ptr _small_blob_store_append, _small_blob_store;
+    afio::handle_ptr _large_blob_store_append, _large_blob_store, _large_blob_store_ecc;
+  };
+
+  template<class T, class Pred> static inline afio::off_t _find_record(afio::handle_ptr &h, Pred &&pred, afio::off_t startidx = 32, bool replay_if_not_found = false)
+  {
+    afio::off_t hint = startidx;
+    bool replaying = false;
+    T temp;
+    std::vector<std::pair<afio::off_t, afio::off_t>> valid_extents;
+    do
+    {
+      afio::off_t len = h->lstat(afio::metadata_flags::size).st_size;
+      do
+      {
+        while (hint < len)
+        {
+          afio::read(h, temp, hint);
+          if (pred(temp, hint, len))
+            return hint;
+          // Skip to next record. If this record is sensible, skip by suggested length
+          if (temp.header.length.magic == 0xad && temp.header.length.value()<len)
+            hint += temp.header.length.value();
+          else if (replaying)
+          {
+            if (valid_extents.empty())
+              valid_extents = afio::extents(h);
+            auto it = valid_extents.begin();
+            while (hint < it->first)
+            {
+              if (valid_extents.end() == ++it)
+              {
+                valid_extents = afio::extents(h);
+                it = valid_extents.begin();
+              }
+            }
+            // If inside a valid extent, try any possible header until valid
+            // else jump to next valid extent
+            if (hint >= it->first && hint < it->first + it->second)
+              hint += 32;
+            else
+              hint = it->first;
+          }
+          else
+            hint += 32;
+        }
+        len = h->lstat(afio::metadata_flags::size).st_size;
+      } while (hint < len);
+      if (replay_if_not_found)
+      {
+        if (replaying)
+          break;
+        replaying = true;
+        hint = 32;
+      }
+    } while (replay_if_not_found);
+    return 0;  /* not found */
+  }
+  template<class Policy> class index
+  {
+    afio::off_t _hashmapoffset, _nexthashmapoffset;
+    dense_hashmap<Policy> _hashmap;
+  public:
+    constexpr index() : _hashmapoffset(0), _nexthashmapoffset(0) { }
+    bool empty() const noexcept { return _hashmap.empty(); }
+    size_t size() const noexcept { return _hashmap.size(); }
+    const typename Policy::value_type *front() const noexcept { return _hashmap.front(); }
+    const typename Policy::value_type *back() const noexcept { return _hashmap.back(); }
+    template<template<class ...> class Sequence, class Key, class Value, class ... Args> void insert(const Sequence<std::pair<Key, Value>, Args...> &items)
+    {
+      std::vector<std::pair<Key, Value>> to_insert;
+      to_insert.reserve(items.size());
+      for (auto &i : items)
+      {
+        const typename Policy::value_type *_i = _hashmap.find(i.first);
+        if (_i)
+          const_cast<typename Policy::value_type *>(_i)->value = i.second;
+        else
+          to_insert.push_back(i);
+      }
+      if(!to_insert.empty())
+        _hashmap.insert(to_insert);
+    }
+    template<class Key> const typename Policy::value_type *find(const Key &k) const noexcept { return _hashmap.find(k); }
+    void erase(const typename Policy::value_type *i) noexcept { _hashmap.erase(i); }
+
+    // TODO Make this asynchronous
+    void load(afio::handle_ptr &h)
+    {
+      ondisk::file_header file_header;
+      afio::read(h, file_header, 0);
+      ondisk::index_record<Policy> index_header;
+      afio::off_t indexoffset = file_header.index_offset_begin;
+#ifdef DEBUG_PRINTING
+      std::cout << "Starting most recent valid index search from offset " << indexoffset << std::endl;
+#endif
+      _hashmapoffset = _nexthashmapoffset = 0;
+      for (;;)
+      {
+        // Find any non-collided index record
+        index_header.thisoffset = indexoffset;
+        afio::off_t nextindexoffset = _find_record<ondisk::index_record<Policy>>(h, [&index_header](const ondisk::index_record<Policy> &header, afio::off_t thisoffset, afio::off_t length) {
+          if (header.header.length.magic != 0xad)
+            return false;
+          return header.thisoffset == thisoffset;
+        }, indexoffset, true);
+        // If next index record is before last known good because we replayed, we're done
+        if (nextindexoffset < _hashmapoffset)
+          break;
+        indexoffset = nextindexoffset;
+        // Is this index uncorrupted? Load the thing and find out
+        try
+        {
+          size_t bytes = index_header.header.length.value() - sizeof(index_header.header);
+          size_t headerbytes = sizeof(index_header) - sizeof(index_header.header);
+          dense_hashmap<Policy> hashmap(h, indexoffset + sizeof(index_header), bytes - headerbytes);
+          SpookyHash _hash;
+          _hash.Init(0, 0);
+          _hash.Update(&index_header.thisoffset, headerbytes);
+          _hash.Update(hashmap.raw_buffer().first, bytes - headerbytes);
+          hash_value_type hash;
+          _hash.Final(hash._uint64 + 0, hash._uint64 + 1);
+          if (index_header.header.hash == hash)
+          {
+#ifdef DEBUG_PRINTING
+            std::cout << "Valid index found at offset " << indexoffset << std::endl;
+#endif
+            _hashmap = std::move(hashmap);
+            _hashmapoffset = indexoffset;
+            _nexthashmapoffset = indexoffset + index_header.header.length.value();
+          }
+          else
+          {
+#ifdef DEBUG_PRINTING
+            std::cout << "Index with invalid hash at offset " << indexoffset << ", ignoring" << std::endl;
+#endif
+          }
+          indexoffset += index_header.header.length.value();
+        }
+        catch (...)
+        {
+          // If we failed to load the hashmap, assume it's a corrupted record
+#ifdef DEBUG_PRINTING
+          std::cout << "Index with impossible length at offset " << indexoffset << ", ignoring" << std::endl;
+#endif
+          indexoffset += 32;
+        }
+      }
+    }
+    // TODO Make this asynchronous
+    bool store(afio::handle_ptr &appendh, afio::handle_ptr &rwh)
+    {
+      // Are we out of date?
+      afio::off_t len = appendh->lstat(afio::metadata_flags::size).st_size;
+      if (len > _nexthashmapoffset)
+        return false;
+
+      // Prepare a new index
+      ondisk::index_record<Policy> index_header;
+      size_t bytes = sizeof(index_header) + _hashmap.bytes_needed();
+      bytes = (31 + bytes)&~31;
+      size_t headerbytes = sizeof(index_header) - sizeof(index_header.header);
+      index_header.thisoffset = _nexthashmapoffset;
+      index_header.bloboffset = _hashmapoffset;
+      index_header.header.length.value(bytes);
+      index_header.header.length.magic = 0xad;
+      index_header.header.length.hash_kind = 3/*index*/;
+      SpookyHash _hash;
+      _hash.Init(0, 0);
+      _hash.Update(&index_header.thisoffset, headerbytes);
+      _hash.Update(_hashmap.raw_buffer().first, bytes - headerbytes);
+      _hash.Final(index_header.header.hash._uint64 + 0, index_header.header.hash._uint64 + 1);
+      std::vector<afio::asio::const_buffer> buffers;
+      buffers.reserve(2);
+      buffers.push_back(afio::asio::const_buffer(&index_header, sizeof(index_header)));
+      buffers.push_back(afio::asio::const_buffer(_hashmap.raw_buffer().first, bytes - headerbytes));
+
+      len = appendh->lstat(afio::metadata_flags::size).st_size;
+      // Avoid a wasted write if possible
+      if (len > _nexthashmapoffset)
+        return false;
+      afio::write(appendh, buffers, 0);
+      return _nexthashmapoffset == _find_record<ondisk::index_record<Policy>>(rwh, [&index_header](const ondisk::index_record<Policy> &thisheader, afio::off_t thisoffset, afio::off_t length) {
+        return index_header.header.hash == thisheader.header.hash;
+      }, _nexthashmapoffset);
+    }
   };
 
   blob_reference::~blob_reference()
@@ -334,6 +573,25 @@ namespace transactional_key_store
     // Set the dispatcher for this thread, and create/open a handle to the store directory
     afio::current_dispatcher_guard h(p->_dispatcher);
     auto dirh(afio::dir(std::move(path), afio::file_flags::create));  // throws if there was an error
+                                                                      // The small blob store keeps non-memory mappable blobs at 32 byte alignments
+    p->_blob_index_append = afio::file(dirh, "blob_index", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
+    p->_blob_index = afio::file(dirh, "blob_index", afio::file_flags::read_write);                                // throws if there was an error
+    // Is this store just created?
+    if (!p->_blob_index_append->lstat(afio::metadata_flags::size).st_size)
+    {
+      char buffer[96];
+      memset(buffer, 0, sizeof(buffer));
+      ondisk::file_header *header = (ondisk::file_header *) buffer;
+      ondisk::blobindex_record *index = (ondisk::blobindex_record *)(buffer + 32);
+      header->length.value(32);
+      header->index_offset_begin = 32;
+      header->time_count = 0;
+      index->thisoffset = 32;
+      index->bloboffset = 0;
+      index->header.do_hash(3/*index*/, 64, hash_kind_type::fast);
+      // This is racy, but the file format doesn't care
+      afio::write(p->_blob_index_append, buffer, 96, 0);
+    }
 
     // The small blob store keeps non-memory mappable blobs at 32 byte alignments
     p->_small_blob_store_append=afio::file(dirh, "small_blob_store", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
@@ -341,18 +599,11 @@ namespace transactional_key_store
     // Is this store just created?
     if(!p->_small_blob_store_append->lstat(afio::metadata_flags::size).st_size)
     {
-      char buffer[96];
+      char buffer[32];
       memset(buffer, 0, sizeof(buffer));
       ondisk::file_header *header=(ondisk::file_header *) buffer;
-      ondisk::blobindex_record *index=(ondisk::blobindex_record *)(buffer+32);
-      header->length.value(32);
-      header->index_offset_begin=32;
-      header->time_count=0;
-      index->thisoffset=32;
-      index->bloboffset=0;
-      index->header.do_hash(3/*index*/, 64, hash_kind_type::fast);
       // This is racy, but the file format doesn't care
-      afio::write(p->_small_blob_store_append, buffer, 96, 0);
+      afio::write(p->_small_blob_store_append, buffer, 32, 0);
     }
 #if 0
     // The large blob store keeps memory mappable blobs at 4Kb alignments
@@ -374,9 +625,58 @@ namespace transactional_key_store
 #endif
   }
 
-  future<blob_reference> data_store::store_blob(hash_kind_type hash_type, const_buffers_type buffers) noexcept
+  future<std::vector<blob_reference>> data_store::store_blobs(hash_kind_type hash_type, std::vector<const_buffers_type> buffers) noexcept
   {
-    return future<blob_reference>();
+    std::vector<blob_reference> ret;
+    ret.reserve(buffers.size());
+    afio::off_t bloboffset = 0;
+    std::vector<ondisk::small_blob_record> headers;
+    headers.reserve(buffers.size());
+    std::vector<afio::asio::const_buffer> writebuffers;
+    writebuffers.reserve(buffers.size()*2);
+
+    // TODO: Don't write blobs already in the store!
+    // TODO: Make this actually asynchronous!
+
+    // Build gather buffers from input gather buffers of blobs to write
+    for(auto &buffer : buffers)
+    {
+      headers.push_back(ondisk::small_blob_record(nullptr));
+      ondisk::small_blob_record &header = headers.back();
+      for (auto &b : buffer)
+        header.length += b.second;
+      header.header.do_hash(1, 32 + ((31 + header.length) & ~31), hash_kind_type::fast);
+      ret.push_back(blob_reference(*this, hash_type, header.header.hash, header.length));
+      // Build gather write buffers
+      writebuffers.push_back(afio::asio::const_buffer(&header, 32));
+      for (auto &b : buffer)
+        writebuffers.push_back(afio::asio::const_buffer(b.first, b.second));
+    }
+    // Small blobs about to be stored must be this offset or later
+    afio::off_t sbslen = p->_small_blob_store_append->lstat(afio::metadata_flags::size).st_size;
+    afio::write(p->_small_blob_store_append, writebuffers, 0);
+    // Find out where we ended up writing our small blobs
+    std::vector<afio::off_t> bloboffsets;
+    bloboffsets.reserve(buffers.size());
+    for(auto &header : headers)
+      bloboffsets.push_back((sbslen = _find_record<ondisk::small_blob_record>(p->_small_blob_store, [&header](const ondisk::small_blob_record &thisheader, afio::off_t thisindex, afio::off_t length) {
+        return header == thisheader;
+    }, sbslen)));
+
+    // Load latest blobindex, add the new blobs and write out
+    index<ondisk::BlobKeyPolicy> blobindex;
+    do
+    {
+      blobindex.load(p->_blob_index);
+      unsigned nextidx = blobindex.back() ? blobindex.back()->key : 0;
+      std::vector<std::pair<unsigned, afio::off_t>> newitems;
+      newitems.reserve(bloboffsets.size());
+      for (auto &bloboffset : bloboffsets)
+        newitems.push_back(std::make_pair(++nextidx, bloboffset));
+      blobindex.insert(newitems);
+    } while (!blobindex.store(p->_blob_index_append, p->_blob_index));
+
+    return future<std::vector<blob_reference>>(std::move(ret));
   }
 
   future<blob_reference> data_store::find_blob(hash_kind_type hash_type, hash_value_type hash) noexcept

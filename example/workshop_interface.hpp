@@ -68,7 +68,65 @@ namespace transactional_key_store
     future<std::shared_ptr<const_buffers_type>> map() noexcept;
   };
 
-  class transaction;
+  namespace detail
+  {
+    inline size_t is_valid_name(const char *name)
+    {
+      static const char banned[]="<>:\"/\\|?*";
+      if (!*name || *name=='.')
+        throw std::invalid_argument("Name not valid");
+      const char *p = name;
+      for (; *p; p++)
+        for (size_t n = 0; n < sizeof(banned); n++)
+          if (*p == n)
+            throw std::invalid_argument("Name not valid");
+      return p - name;
+    }
+  }
+
+  //! A valid index type
+  class index_type
+  {
+    const char *_name;
+    size_t _length;
+  public:
+    index_type(const char *name) : _name(name), _length(detail::is_valid_name(name)) { }
+  };
+  //! A valid index name
+  class index_name
+  {
+    const char *_name;
+    size_t _length;
+  public:
+    index_name(const char *name) : _name(name), _length(detail::is_valid_name(name)) { }
+  };
+
+  //! Potential transaction commit outcomes
+  enum class transaction_status
+  {
+    success = 0,  //!< The transaction was successfully committed
+    conflict,     //!< This transaction conflicted with another transaction (index is stale)
+    stale         //!< One or more blob references could not be found (perhaps blob is too old)
+  };
+  //! A transaction object
+  class transaction
+  {
+    struct transaction_private;
+    std::unique_ptr<transaction_private> p;
+  public:
+    //! The default index which is called "default"
+    static const index_name &default_index();
+
+    //! Look up a key
+    template<class U> blob_reference lookup(U &&key, const index_name &index = default_index());
+
+    //! Adds an update to be part of the transaction
+    template<class U> void add(U &&key, blob_reference value, const index_name &index = default_index());
+
+    //! Commits the transaction, returning outcome
+    future<transaction_status> commit() noexcept;
+  };
+
   //! Implements a late durable ACID key-value blob store
   class data_store
   {
@@ -85,61 +143,17 @@ namespace transactional_key_store
     //! Open a data store at path with disposition flags
     data_store(size_t flags = 0, filesystem::path path = "store");
 
-    //! Store a blob
-    future<blob_reference> store_blob(hash_kind_type hash_type, const_buffers_type buffers) noexcept;
+    //! Store blobs
+    future<std::vector<blob_reference>> store_blobs(hash_kind_type hash_type, std::vector<const_buffers_type> buffers) noexcept;
 
     //! Find a blob
     future<blob_reference> find_blob(hash_kind_type hash_type, hash_value_type hash) noexcept;
-  private:
-    friend class transaction;
-    struct index_base
-    {
-      virtual ~index_base() {}
-      virtual blob_reference lookup(std::string key)=0;
-    };
-    using index_ptr = std::shared_ptr<index_base>;
-    index_ptr latest_index();
-  };
 
-  //! Potentional transaction commit outcomes
-  enum class transaction_status
-  {
-    success = 0,  //!< The transaction was successfully committed
-    conflict,   //!< This transaction conflicted with another transaction (index is stale)
-    stale       //!< One or more blob references could not be found (perhaps blob is too old)
-  };
-  //! A transaction object
-  class transaction
-  {
-    data_store &_ds;
-    data_store::index_ptr index_ptr;
-    std::vector<std::tuple<std::string, blob_reference, bool>> _operations;
-  public:
-    //! Begins a transaction with the data store
-    constexpr transaction(data_store &ds) : _ds(ds) { }
+    //! The default index which is an index of strings called "default"
+    static const std::pair<index_name, index_type> default_string_index();
 
-    //! Look up a key
-    blob_reference lookup(std::string key)
-    {
-      if (!index_ptr)
-        index_ptr = _ds.latest_index();
-      blob_reference ret = index_ptr->lookup(key);
-      if (!ret)
-        return ret;
-      _operations.push_back(std::make_tuple(std::move(key), ret, false));
-      return ret;
-    }
-
-    //! Adds an update to be part of the transaction
-    void add(std::string key, blob_reference value)
-    {
-      if (!index_ptr)
-        index_ptr = _ds.latest_index();
-      _operations.push_back(std::make_tuple(std::move(key), std::move(value), true));
-    }
-
-    //! Commits the transaction, returning outcome
-    future<transaction_status> commit() noexcept;
+    //! Begin a transaction on the named indices
+    future<transaction> begin_transaction(std::vector<std::pair<index_name, index_type>> indices);
   };
 }
 //]
