@@ -17,7 +17,7 @@ Boost.AFIO Jenkins CI status:
 </tr>
 
 <!-- static analysis MSVC -->
-<tr align="center"><td>VS2013</td><td></td><td></td><td>
+<tr align="center"><td>VS2015</td><td></td><td></td><td>
 <div><a href='https://ci.nedprod.com/job/Boost.AFIO%20Static%20Analysis%20MSVC/'><img src='https://ci.nedprod.com/buildStatus/icon?job=Boost.AFIO%20Static%20Analysis%20MSVC' /></a></div></td><td></td>
 </tr>
 
