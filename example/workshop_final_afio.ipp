@@ -450,16 +450,18 @@ namespace transactional_key_store
     template<class Key> const typename Policy::value_type *find(const Key &k) const noexcept { return _hashmap.find(k); }
     void erase(const typename Policy::value_type *i) noexcept { _hashmap.erase(i); }
 
+    // Returns false if had to replay to find the latest index
     // TODO Make this asynchronous
-    void load(afio::handle_ptr &h)
+    bool load(afio::handle_ptr &h, bool replay_if_corrupt=false)
     {
       ondisk::file_header file_header;
       afio::read(h, file_header, 0);
       ondisk::index_record<Policy> index_header;
-      afio::off_t indexoffset = file_header.index_offset_begin;
+      afio::off_t indexoffset = file_header.index_offset_begin, indexfilelen = h->lstat(afio::metadata_flags::size).st_size;
 #ifdef DEBUG_PRINTING
       std::cout << "Starting most recent valid index search from offset " << indexoffset << std::endl;
 #endif
+      std::vector<std::pair<afio::off_t, afio::off_t>> all_known_good_indices;
       _hashmapoffset = _nexthashmapoffset = 0;
       for (;;)
       {
@@ -471,50 +473,74 @@ namespace transactional_key_store
             return false;
           index_header = header;
           return true;
-        }, indexoffset, true);
+        }, indexoffset, replay_if_corrupt);
         // If next index record is before last known good because we replayed, we're done
         if (nextindexoffset <= _hashmapoffset)
           break;
         indexoffset = nextindexoffset;
         // Is this index uncorrupted? Load the thing and find out
-        try
+        size_t bytes = index_header.header.length.value() - sizeof(index_header.header);
+        size_t headerbytes = sizeof(index_header) - sizeof(index_header.header);
+        if (indexoffset + sizeof(index_header) + bytes - headerbytes <= indexfilelen)
         {
-          size_t bytes = index_header.header.length.value() - sizeof(index_header.header);
-          size_t headerbytes = sizeof(index_header) - sizeof(index_header.header);
-          dense_hashmap<Policy> hashmap(h, indexoffset + sizeof(index_header), bytes - headerbytes);
-          SpookyHash _hash;
-          _hash.Init(0, 0);
-          _hash.Update(&index_header.thisoffset, headerbytes);
-          _hash.Update(hashmap.raw_buffer().first, bytes - headerbytes);
-          hash_value_type hash;
-          _hash.Final(hash._uint64 + 0, hash._uint64 + 1);
-          if (index_header.header.hash == hash)
+          // Index may have grown
+          indexfilelen = h->lstat(afio::metadata_flags::size).st_size;
+          if (indexoffset + sizeof(index_header) + bytes - headerbytes <= indexfilelen)
           {
+            dense_hashmap<Policy> hashmap(h, indexoffset + sizeof(index_header), bytes - headerbytes);
+            SpookyHash _hash;
+            _hash.Init(0, 0);
+            _hash.Update(&index_header.thisoffset, headerbytes);
+            _hash.Update(hashmap.raw_buffer().first, bytes - headerbytes);
+            hash_value_type hash;
+            _hash.Final(hash._uint64 + 0, hash._uint64 + 1);
+            if (index_header.header.hash == hash)
+            {
 #ifdef DEBUG_PRINTING
-            std::cout << "Valid index found at offset " << indexoffset << std::endl;
+              std::cout << "Valid index found at offset " << indexoffset << " length " << index_header.header.length.value() << std::endl;
 #endif
-            _hashmap = std::move(hashmap);
-            _hashmapoffset = indexoffset;
-            _nexthashmapoffset = indexoffset + index_header.header.length.value();
+              _hashmap = std::move(hashmap);
+              _hashmapoffset = indexoffset;
+              _nexthashmapoffset = indexoffset + index_header.header.length.value();
+              if (replay_if_corrupt)
+                all_known_good_indices.push_back(std::make_pair(indexoffset, index_header.header.length.value()));
+            }
+            else
+            {
+#ifdef DEBUG_PRINTING
+              std::cout << "Index with invalid hash at offset " << indexoffset << " length " << index_header.header.length.value() << ", ignoring" << std::endl;
+#endif
+            }
+            indexoffset += index_header.header.length.value();
           }
           else
           {
 #ifdef DEBUG_PRINTING
-            std::cout << "Index with invalid hash at offset " << indexoffset << ", ignoring" << std::endl;
+            std::cout << "Index with impossible length " << index_header.header.length.value() << " at offset " << indexoffset << ", ignoring and beginning 32 byte scan" << std::endl;
 #endif
+            indexoffset += 32;
           }
-          indexoffset += index_header.header.length.value();
-        }
-        catch (...)
-        {
-          // If we failed to load the hashmap, assume it's a corrupted record
-#ifdef DEBUG_PRINTING
-          std::cout << "Index with impossible length at offset " << indexoffset << ", ignoring" << std::endl;
-#endif
-          indexoffset += 32;
         }
       }
+      if (!replay_if_corrupt)
+        return true;
+
+      // TODO FIXME: Make sure every item in this chosen index exists AND has the correct hash in the blob store
+      // If he doesn't, walk backwards along all_known_good_indices until we find one which does
+
+      // If there was garbage at the end of the index file, we will have replayed and our last known good index
+      // will be somewhere before the end of the index file
+      if (_nexthashmapoffset < indexfilelen)
+      {
+#ifdef DEBUG_PRINTING
+        std::cerr << "WARNING: Chosen valid index at offset " << _hashmapoffset << " has invalid data from offset " << _nexthashmapoffset << " to offset " << indexfilelen << std::endl;
+#endif
+        _nexthashmapoffset = indexfilelen;
+        return false;
+      }
+      return true;
     }
+    // Returns false if failed to store because became stale
     // TODO Make this asynchronous
     bool store(afio::handle_ptr &appendh, afio::handle_ptr &rwh)
     {
@@ -539,16 +565,26 @@ namespace transactional_key_store
       std::vector<afio::asio::const_buffer> buffers;
       buffers.reserve(2);
       buffers.push_back(afio::asio::const_buffer(&index_header, sizeof(index_header)));
-      buffers.push_back(afio::asio::const_buffer(_hashmap.raw_buffer().first, bytes - headerbytes));
+      buffers.push_back(afio::asio::const_buffer(_hashmap.raw_buffer().first, bytes - sizeof(index_header)));
 
       len = appendh->lstat(afio::metadata_flags::size).st_size;
       // Avoid a wasted write if possible
       if (len > _nexthashmapoffset)
         return false;
       afio::write(appendh, buffers, 0);
-      return _nexthashmapoffset == _find_record<ondisk::index_record<Policy>>(rwh, [&index_header](const ondisk::index_record<Policy> &thisheader, afio::off_t thisoffset, afio::off_t length) {
-        return index_header.header.hash == thisheader.header.hash;
-      }, _nexthashmapoffset);
+      if(_nexthashmapoffset == _find_record<ondisk::index_record<Policy>>(rwh, [&index_header](const ondisk::index_record<Policy> &thisheader, afio::off_t thisoffset, afio::off_t length) {
+          return index_header.header.hash == thisheader.header.hash;
+        }, _nexthashmapoffset))
+      {
+        // Update the hint at the beginning of the file. We don't care if this is racy because
+        // the index load routine will skip forward if needed.
+        ondisk::file_header file_header;
+        afio::read(rwh, file_header, 0);
+        file_header.index_offset_begin = _nexthashmapoffset;
+        afio::write(rwh, file_header, 0);
+        return true;
+      }
+      return false;
     }
   };
 
@@ -557,17 +593,56 @@ namespace transactional_key_store
     // TODO: Could stop this blob's age being refreshed to keep it from being garbage collected
   }
 
-  future<void> blob_reference::load(buffers_type buffers)
+  // TODO Make this asynchronous
+  future<buffers_type> blob_reference::read(buffers_type buffers, afio::off_t offset) noexcept
   {
-    return future<void>();
+    try
+    {
+      if ((afio::off_t)-1==_offset || offset >= _length)
+        return make_errored_future<buffers_type>(EINVAL);
+      afio::off_t totalbytes = 0;
+      for (auto &b : buffers)
+        totalbytes += b.second;
+      while (offset + totalbytes > _length)
+      {
+        afio::off_t togo = offset + totalbytes - _length;
+        // Need to chop end off buffers
+        if (togo >= buffers.back().second)
+        {
+          totalbytes -= buffers.back().second;
+          buffers.pop_back();
+        }
+        else
+        {
+          buffers.back().second -= togo;
+          totalbytes -= togo;
+        }
+      }
+      if (buffers.empty())
+        return make_errored_future<buffers_type>(EINVAL);
+      std::vector<afio::asio::mutable_buffer> buffers_;
+      buffers_.reserve(buffers.size());
+      for (auto &i : buffers)
+        buffers_.push_back(afio::asio::mutable_buffer(i.first, i.second));
+      afio::error_code ec;
+      afio::read(ec, _ds.p->_small_blob_store, buffers_, _offset + sizeof(ondisk::small_blob_record) + offset);
+      return ec ? future<buffers_type>(ec) : future<buffers_type>(buffers);
+    }
+    catch (...)
+    {
+      return future<buffers_type>(std::current_exception());
+    }
   }
 
-  //future<std::shared_ptr<const_buffers_type>> blob_reference::map() noexcept
+  future<std::shared_ptr<const_buffers_type>> blob_reference::map(afio::off_t offset, afio::off_t length) noexcept
+  {
+    return future<std::shared_ptr<const_buffers_type>>();
+  }
 
   data_store::data_store(size_t flags, filesystem::path path) : p(new data_store_private)
   {
     // Make a dispatcher for the local filesystem URI, masking out write flags on all operations if not writeable
-    p->_dispatcher=afio::make_dispatcher("file:///", afio::file_flags::none, !(flags & writeable) ? afio::file_flags::write : afio::file_flags::none).get();
+    p->_dispatcher=afio::make_dispatcher("file:///", afio::file_flags::none, !(flags & writeable) ? afio::file_flags::write|afio::file_flags::append|afio::file_flags::create : afio::file_flags::none).get();
     // Set the dispatcher for this thread, and create/open a handle to the store directory
     afio::current_dispatcher_guard h(p->_dispatcher);
     auto dirh(afio::dir(std::move(path), afio::file_flags::create));  // throws if there was an error
@@ -575,7 +650,7 @@ namespace transactional_key_store
     p->_blob_index_append = afio::file(dirh, "blob_index", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
     p->_blob_index = afio::file(dirh, "blob_index", afio::file_flags::read_write);                                // throws if there was an error
     // Is this store just created?
-    if (!p->_blob_index_append->lstat(afio::metadata_flags::size).st_size)
+    if (!p->_blob_index_append->lstat(afio::metadata_flags::size).st_size && !!(flags & writeable))
     {
       char buffer[96];
       memset(buffer, 0, sizeof(buffer));
@@ -595,15 +670,6 @@ namespace transactional_key_store
     // The small blob store keeps non-memory mappable blobs at 32 byte alignments
     p->_small_blob_store_append=afio::file(dirh, "small_blob_store", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
     p->_small_blob_store=afio::file(dirh, "small_blob_store", afio::file_flags::read_write);          // throws if there was an error
-    // Is this store just created?
-    if(!p->_small_blob_store_append->lstat(afio::metadata_flags::size).st_size)
-    {
-      char buffer[32];
-      memset(buffer, 0, sizeof(buffer));
-      ondisk::file_header *header=(ondisk::file_header *) buffer;
-      // This is racy, but the file format doesn't care
-      afio::write(p->_small_blob_store_append, buffer, 32, 0);
-    }
 #if 0
     // The large blob store keeps memory mappable blobs at 4Kb alignments
     // TODO
@@ -611,17 +677,21 @@ namespace transactional_key_store
     // The index is where we keep the map of keys to blobs
     p->_index_store_append=afio::file(dirh, "index", afio::file_flags::create | afio::file_flags::append);  // throws if there was an error
     p->_index_store=afio::file(dirh, "index", afio::file_flags::read_write);          // throws if there was an error
-    // Is this store just created?
-    if(!p->_index_store_append->lstat(afio::metadata_flags::size).st_size)
-    {
-      ondisk_file_header header;
-      header.length=32;
-      header.index_offset_begin=32;
-      header.time_count=0;
-      // This is racy, but the file format doesn't care
-      afio::write(_index_store_append, header, 0);
-    }
 #endif
+
+    if (flags & writeable)
+    {
+      // Decide if the index is dirty, and if so restore to last known good.
+      index<ondisk::BlobKeyPolicy> blobindex;
+      if (!blobindex.load(p->_blob_index, true))
+      {
+        // Index loaded was not last index, so restore last good index
+        blobindex.store(p->_blob_index_append, p->_blob_index);
+#ifdef DEBUG_PRINTING
+        std::cerr << "NOTE: Replayed dirty small blob index and wrote last good index from history" << std::endl;
+#endif
+      }
+    }
   }
 
   future<std::vector<blob_reference>> data_store::store_blobs(hash_kind_type hash_type, std::vector<const_buffers_type> buffers) noexcept
@@ -677,7 +747,6 @@ namespace transactional_key_store
       ret[n]._offset=(sbslen = _find_record<ondisk::small_blob_record>(p->_small_blob_store, [&header](const ondisk::small_blob_record &thisheader, afio::off_t thisindex, afio::off_t length) {
         return header == thisheader;
       }, sbslen));
-      assert(ret[n]._offset);
     }
 
     // Load latest blobindex, add the new blobs and write out
@@ -691,7 +760,9 @@ namespace transactional_key_store
       blobindex.load(p->_blob_index);
       blobindex.insert(newitems);
     } while (!blobindex.store(p->_blob_index_append, p->_blob_index));
+
     // TODO: Cache blobindex
+    // TODO: Deallocate any gaps which exceed 4Kb
 
     return future<std::vector<blob_reference>>(std::move(ret));
   }

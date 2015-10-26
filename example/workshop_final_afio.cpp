@@ -83,6 +83,8 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store an
 {
   using namespace BOOST_AFIO_V2_NAMESPACE;
   using namespace transactional_key_store;
+
+  // Make sure incremental hashing is working
   char buffer[40] = { 0x20 };
   hash_value_type hash1, hash2;
   SpookyHash::Hash128(buffer, 40, hash1._uint64 + 0, hash1._uint64 + 1);
@@ -95,34 +97,60 @@ BOOST_AFIO_AUTO_TEST_CASE(workshop_blob_store_load, "Tests that one can store an
 
   filesystem::remove_all("store");
   data_store ds(data_store::writeable);
-  std::string a("Niall"), b("Douglas"), c("Clara");
+
+  // Store four blobs, with one hopefully deduplicated on physical storage
+  std::string a("Niall"), b("Douglas"), c("Clara"), d("Niall");
   auto refs = ds.store_blobs(hash_kind_type::fast, {
-    { std::make_pair(a.c_str(), a.size()) },
-    { std::make_pair(b.c_str(), b.size()) },
-    { std::make_pair(c.c_str(), c.size()) }
+    { std::make_pair(a.c_str(), a.size() + 1) },
+    { std::make_pair(b.c_str(), b.size() + 1) },
+    { std::make_pair(c.c_str(), c.size() + 1) },
+    { std::make_pair(d.c_str(), d.size() + 1) }
   }).get();
+  // Make sure the references returned match what was stored
   auto &aref = refs[0];
   auto &bref = refs[1];
   auto &cref = refs[2];
-  BOOST_CHECK(aref.size() == a.size());
-  BOOST_CHECK(bref.size() == b.size());
-  BOOST_CHECK(cref.size() == c.size());
+  auto &dref = refs[3];
+  BOOST_CHECK(aref.size() == a.size() + 1);
+  BOOST_CHECK(bref.size() == b.size() + 1);
+  BOOST_CHECK(cref.size() == c.size() + 1);
+  BOOST_CHECK(dref.size() == d.size() + 1);
+  // A and D have the same value, therefore their references should compare equal
+  BOOST_CHECK(aref == dref);
   std::cout << "A: "; aref._debugprint(std::cout) << std::endl;
   std::cout << "B: "; bref._debugprint(std::cout) << std::endl;
   std::cout << "C: "; cref._debugprint(std::cout) << std::endl;
+  std::cout << "D: "; dref._debugprint(std::cout) << std::endl;
 
+  // Look up each of the references and make sure they find the correct content
   auto _aref = ds.find_blob(hash_kind_type::fast, aref.hash_value()).get();
   auto _bref = ds.find_blob(hash_kind_type::fast, bref.hash_value()).get();
   auto _cref = ds.find_blob(hash_kind_type::fast, cref.hash_value()).get();
+  auto _dref = ds.find_blob(hash_kind_type::fast, dref.hash_value()).get();
   BOOST_CHECK(aref.hash_value() == _aref.hash_value());
   BOOST_CHECK(bref.hash_value() == _bref.hash_value());
   BOOST_CHECK(cref.hash_value() == _cref.hash_value());
-  std::cout << "A': "; _aref._debugprint(std::cout) << std::endl;
-  std::cout << "B': "; _bref._debugprint(std::cout) << std::endl;
-  std::cout << "C': "; _cref._debugprint(std::cout) << std::endl;
+  BOOST_CHECK(dref.hash_value() == _dref.hash_value());
+  char a2[8], b2[8], c2[8], d2[8];
+  auto aread = _aref.read({ std::make_pair(a2, sizeof(a2)) }).get();
+  auto bread = _bref.read({ std::make_pair(b2, sizeof(b2)) }).get();
+  auto cread = _cref.read({ std::make_pair(c2, sizeof(c2)) }).get();
+  auto dread = _dref.read({ std::make_pair(d2, sizeof(d2)) }).get();
+  BOOST_CHECK(a == a2);
+  BOOST_CHECK(b == b2);
+  BOOST_CHECK(c == c2);
+  BOOST_CHECK(d == d2);
+  // Make sure the returned buffers were correctly clamped
+  BOOST_CHECK(aread.front().second == a.size() + 1);
+  BOOST_CHECK(bread.front().second == b.size() + 1);
+  BOOST_CHECK(cread.front().second == c.size() + 1);
+  BOOST_CHECK(dread.front().second == d.size() + 1);
+  std::cout << "A': "; _aref._debugprint(std::cout) << " = " << a2 << std::endl;
+  std::cout << "B': "; _bref._debugprint(std::cout) << " = " << b2 << std::endl;
+  std::cout << "C': "; _cref._debugprint(std::cout) << " = " << c2 << std::endl;
+  std::cout << "D': "; _dref._debugprint(std::cout) << " = " << d2 << std::endl;
 
-  // TODO: blob_reference load(), map()
-
+  // TODO: blob_reference map()
 }
 #endif
 

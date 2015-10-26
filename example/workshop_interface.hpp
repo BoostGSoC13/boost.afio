@@ -42,7 +42,7 @@ namespace transactional_key_store
     afio::off_t _length;
     afio::off_t _offset;
     std::shared_ptr<const_buffers_type> _mapping;
-    constexpr blob_reference(data_store &ds) noexcept : _ds(ds), _hash_kind(hash_kind_type::unknown), _length(0), _offset(0) { }
+    constexpr blob_reference(data_store &ds) noexcept : _ds(ds), _hash_kind(hash_kind_type::unknown), _length(0), _offset((afio::off_t)-1) { }
     constexpr blob_reference(data_store &ds, hash_kind_type hash_type, hash_value_type hash, afio::off_t length, afio::off_t offset) noexcept : _ds(ds), _hash_kind(hash_type), _hash(hash), _length(length), _offset(offset) { }
   public:
     ~blob_reference();
@@ -63,11 +63,11 @@ namespace transactional_key_store
     //! Length of blob
     constexpr afio::off_t size() const noexcept { return _length; }
 
-    //! Reads the blob into the supplied scatter buffers. Throws invalid_argument if all the buffers sizes are less than blob size.
-    future<void> load(buffers_type buffers);
+    //! Reads the blob into the supplied scatter buffers, returning the buffers actually scattered into.
+    future<buffers_type> read(buffers_type buffers, afio::off_t offset = 0) noexcept;
 
     //! Maps the blob into memory, returning a shared set of scattered buffers
-    future<std::shared_ptr<const_buffers_type>> map() noexcept;
+    future<std::shared_ptr<const_buffers_type>> map(afio::off_t offset = 0, afio::off_t length = (afio::off_t) - 1) noexcept;
 
     std::ostream &_debugprint(std::ostream &s) const
     {
@@ -141,6 +141,7 @@ namespace transactional_key_store
   //! Implements a late durable ACID key-value blob store
   class data_store
   {
+    friend class blob_reference;
     struct data_store_private;
     std::unique_ptr<data_store_private> p;
   public:
@@ -154,7 +155,7 @@ namespace transactional_key_store
     //! Open a data store at path with disposition flags
     data_store(size_t flags = 0, filesystem::path path = "store");
 
-    //! Store blobs
+    //! Store blobs. Same content blobs MAY get coalesced into the same physical storage.
     future<std::vector<blob_reference>> store_blobs(hash_kind_type hash_type, std::vector<const_buffers_type> buffers) noexcept;
 
     //! Find a blob
