@@ -21,7 +21,7 @@ namespace {
 
     // Keep memory buffers around
     // A special allocator of highly efficient file i/o memory
-    typedef std::vector<char, utils::file_buffer_allocator<char>> file_buffer_type;
+    typedef std::vector<char, utils::page_allocator<char>> file_buffer_type;
     static std::vector<std::unique_ptr<file_buffer_type>> buffers;
 
     // Parallel copy files in sources into dest, concatenating
@@ -142,7 +142,7 @@ int main(int argc, const char *argv[])
         {
             std::cout << "\r" << (100*written)/totalbytes << "% complete (" << written
                 << " out of " << totalbytes << " @ " << (written/chrono::duration_cast<secs_type>(
-                    chrono::steady_clock::now()-begin).count()/1024/1024) << "Mb/sec) ...";
+                    chrono::steady_clock::now()-begin).count()/1024/1024) << "Mb/sec) ..." << std::flush;
         }
         // Retrieve any errors
         h.get();

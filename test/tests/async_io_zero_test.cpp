@@ -12,30 +12,40 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
     auto dispatcher = make_dispatcher().get();
     std::cout << "\n\nTesting async range content zeroing of sparse and compressed files:\n";
     {
+      bool compressed_file_support = true;
       // Create a 1Mb file
       auto mkdir(dispatcher->dir(path_req("testdir", file_flags::create)));
       auto mkfilesp(dispatcher->file(path_req::relative(mkdir, "sparse", file_flags::create | file_flags::read_write)));
       auto mkfilec(dispatcher->file(path_req::relative(mkdir, "compressed", file_flags::create | file_flags::create_compressed | file_flags::read_write)));
+      // FAT32 or ReFS will error out on compressed file creation
+      mkfilec.wait();
+      if (mkfilec.has_error())
+      {
+        mkfilec = future<>();
+        compressed_file_support = false;
+      }
       auto resizefilesp(dispatcher->truncate(mkfilesp, buffer.size()));
-      auto resizefilec(dispatcher->truncate(mkfilec, buffer.size()));
+      auto resizefilec(compressed_file_support ? dispatcher->truncate(mkfilec, buffer.size()) : mkfilec);
       auto writefilesp(dispatcher->write(make_io_req(resizefilesp, buffer, 0)));
-      auto writefilec(dispatcher->write(make_io_req(resizefilec, buffer, 0)));
+      auto writefilec(compressed_file_support ? dispatcher->write(make_io_req(resizefilec, buffer, 0)) : resizefilec);
       // Need to fsync to work around lazy or delayed allocation
       auto syncfilesp1(dispatcher->sync(writefilesp));
-      auto syncfilec1(dispatcher->sync(writefilec));
-      BOOST_REQUIRE_NO_THROW(when_all_p(mkdir, mkfilesp, mkfilec, resizefilesp, resizefilec, writefilesp, writefilec, syncfilesp1, syncfilec1).get());
-      
+      auto syncfilec1(compressed_file_support ? dispatcher->sync(writefilec) : writefilec);
+      BOOST_REQUIRE_NO_THROW(when_all_p(mkdir, mkfilesp, resizefilesp, writefilesp, syncfilesp1).get());
+      if(compressed_file_support)
+        BOOST_REQUIRE_NO_THROW(when_all_p(mkfilec, resizefilec, writefilec, syncfilec1).get());
+
       // Verify they really does consume 1Mb of disc space
       stat_t beforezerostatsp=mkfilesp->lstat(metadata_flags::All);
-      stat_t beforezerostatc=mkfilec->lstat(metadata_flags::All);
+      stat_t beforezerostatc= compressed_file_support ? mkfilec->lstat(metadata_flags::All) : stat_t();
       BOOST_REQUIRE(beforezerostatsp.st_size==buffer.size());
-      BOOST_REQUIRE(beforezerostatc.st_size==buffer.size());
+      if(compressed_file_support) BOOST_REQUIRE(beforezerostatc.st_size==buffer.size());
       if(beforezerostatsp.st_allocated<buffer.size())
       {
         BOOST_WARN_MESSAGE(false, "The sparse file allocation is smaller than expected, is this file system compressed?");
         std::cout << "WARNING: The sparse file allocation is smaller than expected, is this file system compressed? allocated=" << beforezerostatsp.st_allocated << "." << std::endl;
       }
-      if(beforezerostatc.st_compressed)
+      if(compressed_file_support && beforezerostatc.st_compressed)
       {
         std::cout << "The compressed file consumes " << beforezerostatc.st_allocated << " bytes on disc for " << beforezerostatc.st_size << " bytes." << std::endl;
       }
@@ -55,10 +65,11 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       for(auto &i : buffer2)
         if(i) { allzero=false; break; }
       BOOST_CHECK(allzero);
-      auto punchholec(dispatcher->zero(writefilec, {{0, buffer2.size()}, {buffer.size()/2, buffer2.size()}}));
-      auto syncfilec2(dispatcher->sync(punchholec));
-      auto readfilec1(dispatcher->read(make_io_req(syncfilec2, buffer2, 0)));
-      BOOST_CHECK_NO_THROW(when_all_p(punchholec, syncfilec2, readfilec1).get());
+      auto punchholec(compressed_file_support ? dispatcher->zero(writefilec, {{0, buffer2.size()}, {buffer.size()/2, buffer2.size()}}) : writefilec);
+      auto syncfilec2(compressed_file_support ? dispatcher->sync(punchholec) : punchholec);
+      auto readfilec1(compressed_file_support ? dispatcher->read(make_io_req(syncfilec2, buffer2, 0)) : syncfilec2);
+      if(compressed_file_support)
+        BOOST_CHECK_NO_THROW(when_all_p(punchholec, syncfilec2, readfilec1).get());
       allzero = true;
       for(auto &i : buffer2)
         if(i) { allzero = false; break; }
@@ -69,11 +80,13 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
 
       // Verify they now consumes less than 1Mb of disc space
       stat_t afterzerostatsp=mkfilesp->lstat(metadata_flags::All);
-      stat_t afterzerostatc=mkfilec->lstat(metadata_flags::All);
+      stat_t afterzerostatc=compressed_file_support ? mkfilec->lstat(metadata_flags::All) : stat_t();
       BOOST_REQUIRE(afterzerostatsp.st_size==buffer.size());
-      BOOST_REQUIRE(afterzerostatc.st_size==buffer.size());
+      if(compressed_file_support)
+        BOOST_REQUIRE(afterzerostatc.st_size==buffer.size());
       std::cout << "The sparse file now consumes " << afterzerostatsp.st_allocated << " bytes on disc for " << afterzerostatsp.st_size << " bytes." << std::endl;
-      std::cout << "The compressed file now consumes " << afterzerostatc.st_allocated << " bytes on disc for " << afterzerostatc.st_size << " bytes." << std::endl;
+      if(compressed_file_support)
+        std::cout << "The compressed file now consumes " << afterzerostatc.st_allocated << " bytes on disc for " << afterzerostatc.st_size << " bytes." << std::endl;
       if(afterzerostatsp.st_allocated==buffer.size())
       {
         BOOST_WARN_MESSAGE(false, "This filing system does not support sparse files, so skipping some tests.");
@@ -105,10 +118,12 @@ BOOST_AFIO_AUTO_TEST_CASE(async_io_zero, "Tests async range content zeroing of s
       }
 
       auto delfilesp(dispatcher->rmfile(readfilesp1));
-      auto delfilec(dispatcher->rmfile(readfilec1));
+      auto delfilec(compressed_file_support ? dispatcher->rmfile(readfilec1) : readfilec1);
       auto closefilesp=dispatcher->close(delfilesp);
-      auto closefilec=dispatcher->close(delfilec);
-      BOOST_CHECK_NO_THROW(when_all_p(closefilesp, closefilec, delfilesp, delfilec).get());
+      auto closefilec= compressed_file_support ? dispatcher->close(delfilec) : delfilec;
+      BOOST_CHECK_NO_THROW(when_all_p(closefilesp, delfilesp).get());
+      if(compressed_file_support)
+        BOOST_CHECK_NO_THROW(when_all_p(closefilec, delfilec).get());
       auto deldir(dispatcher->rmdir(mkdir));
       BOOST_CHECK_NO_THROW(when_all_p(deldir).wait());  // virus checkers sometimes make this spuriously fail
     }

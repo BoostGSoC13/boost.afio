@@ -255,9 +255,10 @@ public:
         // Now we have an open directory handle, schedule an enumeration
         auto enumeration=dispatcher->enumerate(enumerate_req(
             dispatcher->op_from_scheduled_id(id), metadata_flags::size, 1000));
+        future<> enumeration_op(enumeration);
         auto listing=std::make_shared<future<std::pair<std::vector<directory_entry>, 
             bool>>>(std::move(enumeration));
-        auto enumeration_done=dispatcher->completion(enumeration, 
+        auto enumeration_done=dispatcher->completion(enumeration_op, 
             make_pair(async_op_flags::none,
                 std::function<dispatcher::completion_t>(
                     std::bind(&find_in_files::dir_enumerated, this, 

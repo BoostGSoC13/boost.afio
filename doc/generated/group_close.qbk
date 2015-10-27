@@ -87,7 +87,7 @@ Synchronous file or directory handle close after a preceding operation.
 Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by [^`__afio_handle__`]. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``handle_ptr close(future<> _precondition)``
+``void close(future<> _precondition)``
 
 [heading Parameters]
 
@@ -96,9 +96,6 @@ Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcac
 [[future<>] [] [_precondition] [The precondition to use.]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`
@@ -121,7 +118,7 @@ Synchronous file or directory handle close after a preceding operation.
 Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcache() is true as those cannot be explicitly closed. Note that failure to explicitly schedule closing a file handle using this call means it will be [*synchronously] closed on last reference count by [^`__afio_handle__`]. This can consume considerable time, especially if SyncOnClose is enabled.
 
 [heading Synopsis]
-``handle_ptr close(error_code & _ec, future<> _precondition)``
+``void close(error_code & _ec, future<> _precondition)``
 
 [heading Parameters]
 
@@ -131,9 +128,6 @@ Note this is ignored for handles where available\u005fto\u005fdirectory\u005fcac
 [[future<>] [] [_precondition] [The precondition to use.]]
 ]
 
-
-[heading Returns]
-A handle with outcome. 
 
 [heading Header]
 `#include <boost/afio/v2/afio.hpp>`

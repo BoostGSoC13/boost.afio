@@ -203,7 +203,7 @@ public:
         {
             if(_p->done)
             {
-              std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl;
+              BOOST_AFIO_LOG_FATAL_EXIT(detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl);
               BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after stl_future set."));
             }
             if(_p->autoset && !_p->done) 
@@ -237,7 +237,7 @@ public:
         {
             if(_p->done)
             {
-              std::cerr << detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl;
+              BOOST_AFIO_LOG_FATAL_EXIT(detail::output_exception_info << " thrown up to enqueued_task<> after stl_future set." << std::endl);
               BOOST_AFIO_THROW_FATAL(std::runtime_error("Exception thrown up to enqueued_task<> after stl_future set."));
             }
             if(_p->autoset && !_p->done)
@@ -303,7 +303,7 @@ class std_thread_pool : public thread_source {
             }
             catch(...)
             {
-                std::cerr << "WARNING: ASIO exits via " << detail::output_exception_info << " which shouldn't happen." << std::endl;
+              BOOST_AFIO_LOG_FATAL_EXIT("WARNING: ASIO exits via " << detail::output_exception_info << " which shouldn't happen." << std::endl);
             }
         }
     };
@@ -2413,9 +2413,9 @@ URIs currently supported by AFIO:
 }
 */
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri="file : / / /", file_flags flagsforce = file_flags::none, file_flags flagsmask = file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<dispatcher_ptr> make_dispatcher(std::string uri="file : / / /", file_flags flagsforce = file_flags::none, file_flags flagsmask = file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
 #else
-BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC monad<dispatcher_ptr> make_dispatcher(std::string uri="file:///", file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
+BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<dispatcher_ptr> make_dispatcher(std::string uri="file:///", file_flags flagsforce=file_flags::none, file_flags flagsmask=file_flags::none, std::shared_ptr<thread_source> threadpool = process_threadpool()) noexcept;
 #endif
 
 namespace detail
@@ -2493,7 +2493,7 @@ namespace detail
             state->in.push_back(first->h);
         auto ret=state->out.get_future();
         process_threadpool()->enqueue([BOOST_AFIO_LAMBDA_MOVE_CAPTURE(state)]{ when_any_ops_do<rethrow>(std::move(state)); });
-        return std::move(ret);
+        return ret;
     }
 #else
     // Without wait_for_any, schedule a completion onto every op and the first to fire wins
@@ -3532,7 +3532,8 @@ inline future<> dispatcher::completion(const future<> &req, const std::pair<asyn
     r.reserve(1); i.reserve(1);
     r.push_back(req);
     i.push_back(callback);
-    return std::move(completion(r, i).front());
+    auto ret(std::move(completion(r, i).front()));
+    return ret;
 }
 #endif
 inline future<> dispatcher::completion(const future<> &req, const std::pair<async_op_flags, std::function<dispatcher::completion_t>> &callback)
@@ -3542,7 +3543,8 @@ inline future<> dispatcher::completion(const future<> &req, const std::pair<asyn
     r.reserve(1); i.reserve(1);
     r.push_back(req);
     i.push_back(callback);
-    return std::move(completion(r, i).front());
+    auto ret(std::move(completion(r, i).front()));
+    return ret;
 }
 namespace detail {
     template<class tasktype> std::pair<bool, handle_ptr> doCall(size_t, future<> _, std::shared_ptr<tasktype> c)
@@ -3579,7 +3581,8 @@ template<class R> inline future<R> dispatcher::call(const future<> &req, std::fu
     i.reserve(1); c.reserve(1);
     i.push_back(req);
     c.push_back(std::move(callback));
-    return std::move(call(i, c).front());
+    auto ret(std::move(call(i, c).front()));
+    return ret;
 }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -3597,55 +3600,63 @@ inline future<> dispatcher::adopt(handle_ptr h)
     std::vector<handle_ptr> i;
     i.reserve(1);
     i.push_back(std::move(h));
-    return std::move(adopt(i).front());
+    auto ret(std::move(adopt(i).front()));
+    return ret;
 }
 inline future<> dispatcher::dir(const path_req &req)
 {
     std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(dir(i).front());
+    auto ret(std::move(dir(i).front()));
+    return ret;
 }
 inline future<> dispatcher::rmdir(const path_req &req)
 {
     std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(rmdir(i).front());
+    auto ret(std::move(rmdir(i).front()));
+    return ret;
 }
 inline future<> dispatcher::file(const path_req &req)
 {
     std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(file(i).front());
+    auto ret(std::move(file(i).front()));
+    return ret;
 }
 inline future<> dispatcher::rmfile(const path_req &req)
 {
     std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(rmfile(i).front());
+    auto ret(std::move(rmfile(i).front()));
+    return ret;
 }
 inline future<> dispatcher::symlink(const path_req &req, const future<> &target)
 {
     std::vector<path_req> i(1, req);
     std::vector<future<>> t(1, target);
-    return std::move(symlink(i, t).front());
+    auto ret(std::move(symlink(i, t).front()));
+    return ret;
 }
 inline future<> dispatcher::rmsymlink(const path_req &req)
 {
     std::vector<path_req> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(rmsymlink(i).front());
+    auto ret(std::move(rmsymlink(i).front()));
+    return ret;
 }
 inline future<> dispatcher::sync(const future<> &req)
 {
     std::vector<future<>> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(sync(i).front());
+    auto ret(std::move(sync(i).front()));
+    return ret;
 }
 inline future<> dispatcher::zero(const future<> &req, const std::vector<std::pair<off_t, off_t>> &ranges)
 {
@@ -3655,14 +3666,16 @@ inline future<> dispatcher::zero(const future<> &req, const std::vector<std::pai
     i.push_back(req);
     r.reserve(1);
     r.push_back(ranges);
-    return std::move(zero(i, r).front());
+    auto ret(std::move(zero(i, r).front()));
+    return ret;
 }
 inline future<> dispatcher::close(const future<> &req)
 {
     std::vector<future<>> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(close(i).front());
+    auto ret(std::move(close(i).front()));
+    return ret;
 }
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 inline future<> dispatcher::read(const detail::io_req_impl<false> &req)
@@ -3670,14 +3683,16 @@ inline future<> dispatcher::read(const detail::io_req_impl<false> &req)
     std::vector<detail::io_req_impl<false>> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(read(i).front());
+    auto ret(std::move(read(i).front()));
+    return ret;
 }
 inline future<> dispatcher::write(const detail::io_req_impl<true> &req)
 {
     std::vector<detail::io_req_impl<true>> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(write(i).front());
+    auto ret(std::move(write(i).front()));
+    return ret;
 }
 #endif
 template<class T> inline std::vector<future<>> dispatcher::read(const std::vector<io_req<T>> &ops)
@@ -3696,21 +3711,24 @@ inline future<> dispatcher::truncate(const future<> &op, off_t newsize)
     o.push_back(op);
     i.reserve(1);
     i.push_back(newsize);
-    return std::move(truncate(o, i).front());
+    auto ret(std::move(truncate(o, i).front()));
+    return ret;
 }
 inline future<std::pair<std::vector<directory_entry>, bool>> dispatcher::enumerate(const enumerate_req &req)
 {
     std::vector<enumerate_req> i;
     i.reserve(1);
     i.push_back(req);
-    return std::move(enumerate(i).front());
+    auto ret(std::move(enumerate(i).front()));
+    return ret;
 }
 inline future<std::vector<std::pair<off_t, off_t>>> dispatcher::extents(const future<> &op)
 {
     std::vector<future<>> o;
     o.reserve(1);
     o.push_back(op);
-    return std::move(extents(o).front());
+    auto ret(std::move(extents(o).front()));
+    return ret;
 }
 inline future<statfs_t> dispatcher::statfs(const future<> &op, const fs_metadata_flags &req)
 {
@@ -3720,7 +3738,8 @@ inline future<statfs_t> dispatcher::statfs(const future<> &op, const fs_metadata
   o.push_back(op);
   i.reserve(1);
   i.push_back(req);
-  return std::move(statfs(o, i).front());
+  auto ret(std::move(statfs(o, i).front()));
+  return ret;
 }
 inline future<> dispatcher::depends(future<> precondition, future<> op)
 {
@@ -3731,7 +3750,8 @@ inline future<> dispatcher::depends(future<> precondition, future<> op)
     r.reserve(1); i.reserve(1);
     r.push_back(precondition);
     i.push_back(std::move(callback));
-    return std::move(completion(r, i).front());
+    auto ret(std::move(completion(r, i).front()));
+    return ret;
 }
 
 namespace detail
@@ -3752,7 +3772,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->dir(std::vector<path_req>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->dir(std::vector<path_req>(1, std::move(req))).front()));
+      return ret;
     }
   };
   template<class T> struct async_rmdir
@@ -3771,7 +3792,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->rmdir(std::vector<path_req>(1, std::move(req))).front()));
+      return ret;
     }
   };
   template<class T> struct async_file
@@ -3790,7 +3812,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->file(std::vector<path_req>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->file(std::vector<path_req>(1, std::move(req))).front()));
+      return ret;
     }
   };
   template<class T> struct async_rmfile
@@ -3809,7 +3832,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->rmfile(std::vector<path_req>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->rmfile(std::vector<path_req>(1, std::move(req))).front()));
+      return ret;
     }
   };
   template<class T> struct async_symlink
@@ -3829,7 +3853,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->symlink(std::vector<path_req>(1, std::move(req)), std::vector<future<>>(1, std::move(target))).front());
+      auto ret(std::move(dispatcher->symlink(std::vector<path_req>(1, std::move(req)), std::vector<future<>>(1, std::move(target))).front()));
+      return ret;
     }
   };
   template<class T> struct async_rmsymlink
@@ -3848,7 +3873,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->rmsymlink(std::vector<path_req>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->rmsymlink(std::vector<path_req>(1, std::move(req))).front()));
+      return ret;
     }
   };
   struct async_sync
@@ -3858,7 +3884,8 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->sync(std::vector<future<>>(1, std::move(f))).front());
+      auto ret(std::move(dispatcher->sync(std::vector<future<>>(1, std::move(f))).front()));
+      return ret;
     }
   };
   struct async_close
@@ -3868,7 +3895,8 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->close(std::vector<future<>>(1, std::move(f))).front());
+      auto ret(std::move(dispatcher->close(std::vector<future<>>(1, std::move(f))).front()));
+      return ret;
     }
   };
   struct async_read
@@ -3886,7 +3914,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->read(std::vector<io_req_impl<false>>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->read(std::vector<io_req_impl<false>>(1, std::move(req))).front()));
+      return ret;
     }
   };
   struct async_write
@@ -3904,7 +3933,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->write(std::vector<io_req_impl<true>>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->write(std::vector<io_req_impl<true>>(1, std::move(req))).front()));
+      return ret;
     }
   };
   struct async_truncate
@@ -3916,7 +3946,8 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->truncate(std::vector<future<>>(1, std::move(f)), std::vector<off_t>(1, _size)).front());
+      auto ret(std::move(dispatcher->truncate(std::vector<future<>>(1, std::move(f)), std::vector<off_t>(1, _size)).front()));
+      return ret;
     }
   };
   struct async_enumerate
@@ -3937,7 +3968,8 @@ namespace detail
       if (!req.validate())
         BOOST_AFIO_THROW(std::invalid_argument("Inputs are invalid."));
 #endif
-      return std::move(dispatcher->enumerate(std::vector<enumerate_req>(1, std::move(req))).front());
+      auto ret(std::move(dispatcher->enumerate(std::vector<enumerate_req>(1, std::move(req))).front()));
+      return ret;
     }
   };
   struct async_zero
@@ -3949,7 +3981,8 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->zero(std::vector<future<>>(1, std::move(f)), std::vector<std::vector<std::pair<off_t, off_t>>>(1, std::move(ranges))).front());
+      auto ret(std::move(dispatcher->zero(std::vector<future<>>(1, std::move(f)), std::vector<std::vector<std::pair<off_t, off_t>>>(1, std::move(ranges))).front()));
+      return ret;
     }
   };
   struct async_extents
@@ -3959,7 +3992,8 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->extents(std::vector<future<>>(1, std::move(f))).front());
+      auto ret(std::move(dispatcher->extents(std::vector<future<>>(1, std::move(f))).front()));
+      return ret;
     }
   };
   struct async_statfs
@@ -3971,7 +4005,8 @@ namespace detail
       dispatcher *dispatcher = f.parent();
       if (!dispatcher)
         dispatcher = current_dispatcher().get();
-      return std::move(dispatcher->statfs(std::vector<future<>>(1, std::move(f)), std::vector<fs_metadata_flags>(1, req)).front());
+      auto ret(std::move(dispatcher->statfs(std::vector<future<>>(1, std::move(f)), std::vector<fs_metadata_flags>(1, req)).front()));
+      return ret;
     }
   };
   template<class T> struct _is_not_handle : public std::true_type { };
@@ -4171,7 +4206,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
-\return A handle to the directory.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
 \param _flags The flags to use.
@@ -4186,9 +4220,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmdir(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous directory deletion after an optional precondition.
 
@@ -4196,7 +4230,6 @@ template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path =
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
-\return A handle to the directory.
 \param _path The filing system path to use.
 \param _flags The flags to use.
 \ingroup rmdir
@@ -4208,9 +4241,9 @@ template<class T=path> inline handle_ptr rmdir(future<> _precondition, T _path =
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmdir(T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle();
+  detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
 /*! \brief Synchronous directory deletion after an optional precondition.
 
@@ -4218,7 +4251,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to use.
-\return A handle to the directory.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to use.
@@ -4234,9 +4266,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmdir(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmdir(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  detail::async_rmdir<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous directory deletion after an optional precondition.
 
@@ -4256,9 +4288,9 @@ template<class T=path> inline handle_ptr rmdir(error_code &_ec, future<> _precon
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmdir(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmdir(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  detail::async_rmdir<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 /*! \brief Asynchronous file creation and open after an optional precondition.
@@ -4455,7 +4487,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4470,9 +4501,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmfile(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file deletion after an optional precondition.
 
@@ -4480,7 +4511,6 @@ template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path 
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
 \ingroup rmfile
@@ -4492,9 +4522,9 @@ template<class T=path> inline handle_ptr rmfile(future<> _precondition, T _path 
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmfile(T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle();
+  detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
 /*! \brief Synchronous file deletion after an optional precondition.
 
@@ -4502,7 +4532,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
@@ -4518,9 +4547,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmfile(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  detail::async_rmfile<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous file deletion after an optional precondition.
 
@@ -4528,7 +4557,6 @@ template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _preco
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the file.
 \param _ec Error code to set.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4541,9 +4569,9 @@ template<class T=path> inline handle_ptr rmfile(error_code &_ec, future<> _preco
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmfile(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmfile(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  detail::async_rmfile<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 
@@ -4747,7 +4775,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4762,9 +4789,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmsymlink(future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous symlink deletion after an optional precondition.
 
@@ -4772,7 +4799,6 @@ template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _pa
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
 \ingroup rmsymlink
@@ -4784,9 +4810,9 @@ template<class T=path> inline handle_ptr rmsymlink(future<> _precondition, T _pa
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmsymlink(T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle();
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle();
 }
 /*! \brief Synchronous symlink deletion after an optional precondition.
 
@@ -4794,7 +4820,6 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param _path The filing system path to be used.
@@ -4810,9 +4835,9 @@ template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::v
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
+template<class T=path> inline void rmsymlink(error_code &_ec, future<> _precondition, T _path = path(), file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous symlink deletion after an optional precondition.
 
@@ -4820,7 +4845,6 @@ template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _pr
 \ntkernelnamespacenote
 
 \tparam "class T" The type of path to be used.
-\return A handle to the symlink.
 \param _ec Error code to set.
 \param _path The filing system path to be used.
 \param _flags The flags to be used.
@@ -4833,9 +4857,9 @@ template<class T=path> inline handle_ptr rmsymlink(error_code &_ec, future<> _pr
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline handle_ptr rmsymlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
+template<class T, typename = typename std::enable_if<detail::is_not_handle<T>::value>::type> inline void rmsymlink(error_code &_ec, T _path, file_flags _flags = file_flags::none)
 {
-  return detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
+  detail::async_rmsymlink<T>(std::move(_path), _flags)(future<>()).get_handle(_ec);
 }
 
 
@@ -4858,7 +4882,6 @@ inline future<> async_sync(future<> _precondition)
 
 \docs_sync
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \ingroup sync
 \qbk{distinguish, throwing}
@@ -4866,14 +4889,13 @@ inline future<> async_sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr sync(future<> _precondition)
+inline void sync(future<> _precondition)
 {
-  return detail::async_sync()(std::move(_precondition)).get_handle();
+  detail::async_sync()(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous content synchronisation with physical storage after a preceding operation.
 
 \docs_sync
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \ingroup sync
@@ -4882,9 +4904,9 @@ inline handle_ptr sync(future<> _precondition)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr sync(error_code &_ec, future<> _precondition)
+inline void sync(error_code &_ec, future<> _precondition)
 {
-  return detail::async_sync()(std::move(_precondition)).get_handle(_ec);
+  detail::async_sync()(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -4908,7 +4930,6 @@ inline future<> async_zero(future<> _precondition, std::vector<std::pair<off_t, 
 
 \docs_zero
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param ranges A sequence of extents to zero and deallocate
 \ingroup zero
@@ -4917,15 +4938,14 @@ inline future<> async_zero(future<> _precondition, std::vector<std::pair<off_t, 
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline handle_ptr zero(future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline void zero(future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
-  return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle();
+  detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous zeroing and deallocation of physical storage ("hole punching") after a preceding operation.
 
 \docs_zero
 
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param ranges A sequence of extents to zero and deallocate
@@ -4935,9 +4955,9 @@ inline handle_ptr zero(future<> _precondition, std::vector<std::pair<off_t, off_
 \exceptionmodelfree
 \qexample{extents_example}
 */
-inline handle_ptr zero(error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
+inline void zero(error_code &_ec, future<> _precondition, std::vector<std::pair<off_t, off_t>> ranges)
 {
-  return detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle(_ec);
+  detail::async_zero(std::move(ranges))(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -4960,7 +4980,6 @@ inline future<> async_close(future<> _precondition)
 
 \docs_close
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \ingroup close
 \qbk{distinguish, throwing}
@@ -4968,15 +4987,14 @@ inline future<> async_close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline handle_ptr close(future<> _precondition)
+inline void close(future<> _precondition)
 {
-  return detail::async_close()(std::move(_precondition)).get_handle();
+  detail::async_close()(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file or directory handle close after a preceding operation.
 
 \docs_close
 
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \ingroup close
@@ -4985,9 +5003,9 @@ inline handle_ptr close(future<> _precondition)
 \exceptionmodelfree
 \qexample{filedir_example}
 */
-inline handle_ptr close(error_code &_ec, future<> _precondition)
+inline void close(error_code &_ec, future<> _precondition)
 {
-  return detail::async_close()(std::move(_precondition)).get_handle(_ec);
+  detail::async_close()(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5038,7 +5056,6 @@ template<class T> inline future<> async_read(future<> _precondition, T &&v, size
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
@@ -5048,9 +5065,9 @@ template<class T> inline future<> async_read(future<> _precondition, T &&v, size
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _where)
+template<class T> inline void read(future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
+  detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data read after a preceding operation, where offset and total data read must not exceed the present file size.
 
@@ -5058,7 +5075,6 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _w
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
@@ -5069,9 +5085,9 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, off_t _w
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void read(future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
+  detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data read after a preceding operation, where offset and total data read must not exceed the present file size.
 
@@ -5079,7 +5095,6 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5090,9 +5105,9 @@ template<class T> inline handle_ptr read(future<> _precondition, T &&v, size_t _
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline void read(error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_read(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous data read after a preceding operation, where offset and total data read must not exceed the present file size.
 
@@ -5100,7 +5115,6 @@ template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5112,9 +5126,9 @@ template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr read(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void read(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_read(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5165,7 +5179,6 @@ template<class T> inline future<> async_write(future<> _precondition, T &&v, siz
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _where The file offset to do the i/o
@@ -5175,9 +5188,9 @@ template<class T> inline future<> async_write(future<> _precondition, T &&v, siz
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _where)
+template<class T> inline void write(future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
+  detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size.
 
@@ -5185,7 +5198,6 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
 \param _length The length of the item
@@ -5196,9 +5208,9 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, off_t _
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void write(future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
+  detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size.
 
@@ -5206,7 +5218,6 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t 
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5217,9 +5228,9 @@ template<class T> inline handle_ptr write(future<> _precondition, T &&v, size_t 
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(error_code &_ec, future<> _precondition, T &&v, off_t _where)
+template<class T> inline void write(error_code &_ec, future<> _precondition, T &&v, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_write(std::forward<T>(v), _where)(std::move(_precondition)).get_handle(_ec);
 }
 /*! \brief Synchronous data write after a preceding operation, where offset and total data written must not exceed the present file size.
 
@@ -5227,7 +5238,6 @@ template<class T> inline handle_ptr write(error_code &_ec, future<> _preconditio
 \direct_io_note
 
 \tparam "class T" Any type.
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param v Some item understood by `to_asio_buffers()`
@@ -5239,9 +5249,9 @@ template<class T> inline handle_ptr write(error_code &_ec, future<> _preconditio
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-template<class T> inline handle_ptr write(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
+template<class T> inline void write(error_code &_ec, future<> _precondition, T &&v, size_t _length, off_t _where)
 {
-  return detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
+  detail::async_write(std::forward<T>(v), _length, _where)(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5265,7 +5275,6 @@ inline future<> async_truncate(future<> _precondition, off_t newsize)
 
 \docs_truncate
 
-\return A handle with outcome.
 \param _precondition The precondition to use.
 \param newsize The new size for the file.
 \ingroup truncate
@@ -5274,15 +5283,14 @@ inline future<> async_truncate(future<> _precondition, off_t newsize)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr truncate(future<> _precondition, off_t newsize)
+inline void truncate(future<> _precondition, off_t newsize)
 {
-  return detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
+  auto h=detail::async_truncate(newsize)(std::move(_precondition)).get_handle();
 }
 /*! \brief Synchronous file length truncation after a preceding operation.
 
 \docs_truncate
 
-\return A handle with outcome.
 \param _ec Error code to set.
 \param _precondition The precondition to use.
 \param newsize The new size for the file.
@@ -5292,9 +5300,9 @@ inline handle_ptr truncate(future<> _precondition, off_t newsize)
 \exceptionmodelfree
 \qexample{readwrite_example}
 */
-inline handle_ptr truncate(error_code &_ec, future<> _precondition, off_t newsize)
+inline void truncate(error_code &_ec, future<> _precondition, off_t newsize)
 {
-  return detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
+  auto h=detail::async_truncate(newsize)(std::move(_precondition)).get_handle(_ec);
 }
 
 
@@ -5745,7 +5753,7 @@ namespace utils
   */
   BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::vector<size_t> page_sizes(bool only_actually_available = true) noexcept;
 
-  /*! \brief Returns a reasonable default size for file_buffer_allocator, typically the closest page size from
+  /*! \brief Returns a reasonable default size for page_allocator, typically the closest page size from
   page_sizes() to 1Mb.
 
   \return A value of a TLB large page size close to 1Mb.
@@ -6201,7 +6209,7 @@ namespace utils
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC large_page_allocation allocate_large_pages(size_t bytes);
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC void deallocate_large_pages(void *p, size_t bytes);
   }
-  /*! \class file_buffer_allocator
+  /*! \class page_allocator
   \brief An STL allocator which allocates large TLB page memory.
   \ingroup utils
 
@@ -6220,7 +6228,7 @@ namespace utils
   page size, so if the large page size were 2Mb and you allocate 2Mb + 1 byte, 4Mb is actually consumed.
   */
   template <typename T>
-  class file_buffer_allocator
+  class page_allocator
   {
   public:
       typedef T         value_type;
@@ -6234,13 +6242,13 @@ namespace utils
       typedef std::true_type is_always_equal;
 
       template <class U>
-      struct rebind { typedef file_buffer_allocator<U> other; };
+      struct rebind { typedef page_allocator<U> other; };
 
-      file_buffer_allocator() noexcept
+      page_allocator() noexcept
       {}
 
       template <class U>
-      file_buffer_allocator(const file_buffer_allocator<U>&) noexcept
+      page_allocator(const page_allocator<U>&) noexcept
       {}
 
       size_type
@@ -6284,7 +6292,7 @@ namespace utils
       { p->~U(); }
   };
   template <>
-  class file_buffer_allocator<void>
+  class page_allocator<void>
   {
   public:
       typedef void         value_type;
@@ -6294,9 +6302,9 @@ namespace utils
       typedef std::true_type is_always_equal;
 
       template <class U>
-      struct rebind { typedef file_buffer_allocator<U> other; };
+      struct rebind { typedef page_allocator<U> other; };
   };
-  template<class T, class U> inline bool operator==(const file_buffer_allocator<T> &, const file_buffer_allocator<U> &) noexcept { return true; }
+  template<class T, class U> inline bool operator==(const page_allocator<T> &, const page_allocator<U> &) noexcept { return true; }
 }
 
 

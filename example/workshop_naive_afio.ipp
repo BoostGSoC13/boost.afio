@@ -1,7 +1,7 @@
 //[workshop_naive_afio_interface
 namespace afio = BOOST_AFIO_V2_NAMESPACE;
 namespace filesystem = BOOST_AFIO_V2_NAMESPACE::filesystem;
-using BOOST_MONAD_V1_NAMESPACE::monad;
+using BOOST_OUTCOME_V1_NAMESPACE::outcome;
 
 class data_store
 {
@@ -13,9 +13,9 @@ public:
   // Type used for write streams
   using ostream = std::shared_ptr<std::ostream>;
   // Type used for lookup
-  using lookup_result_type = monad<istream>;
+  using lookup_result_type = outcome<istream>;
   // Type used for write
-  using write_result_type = monad<ostream>;
+  using write_result_type = outcome<ostream>;
 
   // Disposition flags
   static constexpr size_t writeable = (1<<0);
@@ -24,20 +24,20 @@ public:
   data_store(size_t flags = 0, afio::path path = "store");
   
   // Look up item named name for reading, returning a std::istream for the item if it exists
-  monad<istream> lookup(std::string name) noexcept;
+  outcome<istream> lookup(std::string name) noexcept;
   // Look up item named name for writing, returning an ostream for that item
-  monad<ostream> write(std::string name) noexcept;
+  outcome<ostream> write(std::string name) noexcept;
 };
 //]
 
 //[workshop_naive_afio2]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-using BOOST_MONAD_V1_NAMESPACE::empty;
+using BOOST_OUTCOME_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
 // A special allocator of highly efficient file i/o memory
-using file_buffer_type = std::vector<char, afio::utils::file_buffer_allocator<char>>;
+using file_buffer_type = std::vector<char, afio::utils::page_allocator<char>>;
 
 // An iostream which reads directly from a memory mapped AFIO file
 struct idirectstream : public std::istream
@@ -156,7 +156,7 @@ struct odirectstream : public std::ostream
 
 //[workshop_naive_afio1]
 namespace asio = BOOST_AFIO_V2_NAMESPACE::asio;
-using BOOST_MONAD_V1_NAMESPACE::empty;
+using BOOST_OUTCOME_V1_NAMESPACE::empty;
 using BOOST_AFIO_V2_NAMESPACE::error_code;
 using BOOST_AFIO_V2_NAMESPACE::generic_category;
 
@@ -178,7 +178,7 @@ data_store::data_store(size_t flags, afio::path path)
   _store=afio::dir(std::move(path), afio::file_flags::create);  // throws if there was an error
 }
 
-monad<data_store::istream> data_store::lookup(std::string name) noexcept
+outcome<data_store::istream> data_store::lookup(std::string name) noexcept
 {
   if(!is_valid_name(name))
     return error_code(EINVAL, generic_category());
@@ -208,7 +208,7 @@ monad<data_store::istream> data_store::lookup(std::string name) noexcept
   }
 }
 
-monad<data_store::ostream> data_store::write(std::string name) noexcept
+outcome<data_store::ostream> data_store::write(std::string name) noexcept
 {
   if(!is_valid_name(name))
     return error_code(EINVAL, generic_category());
@@ -226,7 +226,7 @@ monad<data_store::ostream> data_store::write(std::string name) noexcept
     if(ec)
       return ec;
     // Create an ostream which directly uses the mapped file.
-    return monad<data_store::ostream>(std::make_shared<odirectstream>(std::move(h)));
+    return outcome<data_store::ostream>(std::make_shared<odirectstream>(std::move(h)));
   }
   catch (...)
   {
