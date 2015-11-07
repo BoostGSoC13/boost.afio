@@ -30,7 +30,11 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "../test/test_functions.hpp"
+#include <vector>
+#include <regex>
+#include <thread>
 
+namespace afio = boost::afio;
 namespace filesystem = boost::afio::filesystem;
 
 #ifdef WIN32
@@ -62,16 +66,22 @@ public:
 };
 #endif
 
-constexpr unsigned flag_append = 1;
-constexpr unsigned flag_direct = 2;
-constexpr unsigned flag_sync = 4;
+constexpr unsigned mode_read = 0;
+constexpr unsigned mode_write = 1;
+constexpr unsigned mode_append = 2;
+constexpr unsigned flag_direct = 1;
+constexpr unsigned flag_sync = 2;
+constexpr unsigned flags_max = 4;
 
-static handle createfile(filesystem::path path, unsigned flags)
+static handle createfile(filesystem::path path, unsigned mode, unsigned flags)
 {
 #ifdef WIN32
-  return handle(path, [flags](filesystem::path path)
+  return handle(path, [mode, flags](filesystem::path path)
   {
-    DWORD access = !!(flags & flag_append) ? FILE_APPEND_DATA : (GENERIC_READ | GENERIC_WRITE);
+    DWORD access = 0;
+    if (mode_append == mode) access = FILE_APPEND_DATA;
+    else if (mode_write == mode) access = GENERIC_WRITE|GENERIC_READ;
+    else access = GENERIC_READ;
     DWORD attribs = FILE_ATTRIBUTE_TEMPORARY;
     if (!!(flags & flag_direct)) attribs |= FILE_FLAG_NO_BUFFERING;
     if (!!(flags & flag_sync)) attribs |= FILE_FLAG_WRITE_THROUGH;
@@ -79,9 +89,12 @@ static handle createfile(filesystem::path path, unsigned flags)
     return CreateFile(path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, attribs, NULL);
   });
 #else
-  return handle(path, [flags](filesystem::path path)
+  return handle(path, [mode, flags](filesystem::path path)
   {
-    int attribs = !!(flags & flag_append) ? O_APPEND : O_RDWR;
+    int attribs = 0;
+    if (mode_append == mode) attribs = O_APPEND;
+    else if (mode_write == mode) attribs = O_RDWR;
+    else atrribs = O_RDONLY;
     attribs |= O_CREAT;
     if (!!(flags & flag_direct)) attribs |= O_DIRECT;
     if (!!(flags & flag_sync)) attribs |= O_SYNC;
@@ -90,7 +103,89 @@ static handle createfile(filesystem::path path, unsigned flags)
 #endif
 }
 
-int main(void)
+static struct storage_profile
 {
+  template<class T> struct item
+  {
+    const char *name;
+    T value;
+    constexpr item(const char *_name, T _value) : name(_name), value(_value) { }
+  };
+  item<afio::off_t> max_atomic_write = { "concurrency:atomicity:max_atomic_write" };
+} profile[flags_max];
+
+int main(int argc, char *argv[])
+{
+  std::regex torun;
+  bool regexvalid = false;
+  unsigned torunflags = 0;
+  if (argc > 1)
+  {
+    try
+    {
+      torun.assign(argv[1]);
+      regexvalid = true;
+    }
+    catch (...) {}
+  }
+  if (!regexvalid)
+  {
+    std::cerr << "Usage: " << argv[0] << " <regex for tests to run> [<flags>]" << std::endl;
+    return 1;
+  }
+
+  for (unsigned flags = 0; flags <= torunflags; flags++)
+  {
+    if (!flags || !!(flags & torunflags))
+    {
+      // Figure out what the maximum atomic write is
+      if (std::regex_match(profile[0].max_atomic_write.name, torun))
+      {
+        using off_t = afio::off_t;
+        for (off_t size = !!(flags & flag_direct) ? 512 : 64; size <= 16 * 1024 * 1024; size = size * 2)
+        {
+          // Create two concurrent writer threads
+          std::vector<std::thread> writers;
+          std::atomic<bool> done;
+          for (char no = '1'; no <= '2'; no++)
+            writers.push_back([size, flags, no, &done] {
+            std::vector<char> buffer(no, size);
+            handle h(createfile("temp", mode_write, flags));
+            while (!done)
+            {
+              h->write(buffer.data(), size);
+            }
+          });
+          // Repeatedly read from the file and check for torn writes
+          std::vector<char> buffer(no, size);
+          handle h(createfile("temp", mode_read, flags));
+          bool failed = false;
+          for (size_t transitions = 0; transitions < 1000 && !failed; transitions++)
+          {
+            h->read(buffer.data(), size);
+            const size_t *data = (size_t *)buffer.data(), *end=(size_t *)(buffer.data()+size);
+            for (const size_t *d = data; d < end; d++)
+            {
+              if (*d != *data)
+              {
+                failed = true;
+                break;
+              }
+            }
+          }
+          if (!failed)
+            profile[flags].max_atomic_write.value = size;
+          done = true;
+          for (char no = '1'; no <= '2'; no++)
+            writers.join();
+          if (failed)
+            break;
+        }
+      }
+    }
+  }
+
+  // Write out profile as YAML
+  todo;
   return 0;
 }
