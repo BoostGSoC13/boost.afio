@@ -103,13 +103,14 @@ static handle createfile(filesystem::path path, unsigned mode, unsigned flags)
 #endif
 }
 
+template<class T> constexpr T default_value() { return T{}; }
 static struct storage_profile
 {
   template<class T> struct item
   {
     const char *name;
     T value;
-    constexpr item(const char *_name, T _value) : name(_name), value(_value) { }
+    constexpr item(const char *_name, T _value=default_value<T>()) : name(_name), value(_value) { }
   };
   item<afio::off_t> max_atomic_write = { "concurrency:atomicity:max_atomic_write" };
 } profile[flags_max];
