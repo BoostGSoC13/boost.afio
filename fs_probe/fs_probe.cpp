@@ -33,38 +33,13 @@ DEALINGS IN THE SOFTWARE.
 #include <vector>
 #include <regex>
 #include <thread>
+#include <tuple>
 
 namespace afio = boost::afio;
 namespace filesystem = boost::afio::filesystem;
-
-#ifdef WIN32
-class handle
-{
-  HANDLE _v;
-public:
-  template<class U> handle(filesystem::path path, U &&f) : _v(f(path)) { if (INVALID_HANDLE_VALUE == v) throw std::runtime_error("Bad handle"); }
-  ~handle()
-  {
-    if (_v) CloseHandle(_v);
-  }
-};
-#else
-class handle
-{
-  filesystem::path _path;
-  int _v;
-public:
-  template<class U> handle(filesystem::path path, U &&f) : _path(path), _v(f(path)) { if (-1 == v) throw std::runtime_error("Bad handle"); }
-  ~handle()
-  {
-    if (_v)
-    {
-      ::unlink(path.c_str());
-      ::close(_v);
-    }
-  }
-};
-#endif
+using boost::afio::result;
+using boost::afio::make_ready_result;
+using boost::afio::make_errored_result;
 
 constexpr unsigned mode_read = 0;
 constexpr unsigned mode_write = 1;
@@ -73,35 +48,236 @@ constexpr unsigned flag_direct = 1;
 constexpr unsigned flag_sync = 2;
 constexpr unsigned flags_max = 4;
 
-static handle createfile(filesystem::path path, unsigned mode, unsigned flags)
+class handle;
+
+class io_service
 {
+public:
+  //! Creates an i/o service for the calling thread
+  constexpr io_service() { }
+  io_service(io_service &&) = delete;
+  io_service &operator=(io_service &&) = delete;
+  virtual ~io_service() {}
+
+  //! The file extent type used by this i/o service
+  using extent_type = unsigned long long;
+  //! The memory extent type used by this i/o service
+  using size_type = size_t;
+  //! The scatter buffer type used by this i/o service
+  using buffer_type = std::pair<char *, size_type>;
+  //! The gather buffer type used by this i/o service
+  using const_buffer_type = std::pair<const char *, size_type>;
+  //! The scatter buffers type used by this i/o service
+  using buffers_type = std::vector<buffer_type>;
+  //! The gather buffers type used by this i/o service
+  using const_buffers_type = std::vector<const_buffer_type>;
+  //! The i/o request type used by this i/o service
+  template<class T> struct io_request
+  {
+    T buffers;
+    extent_type offset;
+    constexpr io_request() : buffers(), offset(0) { }
+    constexpr io_request(T _buffers, extent_type _offset) : buffers(std::move(_buffers)), offset(_offset) { }
+  };
+  //! The i/o result type used by this i/o service
+  template<class T> struct io_result : public result<T>
+  {
+    size_type _bytes_transferred;
+    constexpr io_result() noexcept : _bytes_transferred(0) { }
+    io_result(const io_result &) = default;
+    io_result(io_result &&) = default;
+    io_result &operator=(const io_result &) = default;
+    io_result &operator=(io_result &&) = default;
+    io_result(T _buffers) : result<T>(std::move(_buffers)), _bytes_transferred(0)
+    {
+      for (auto &i : value())
+        _bytes_transferred += i.second;
+    }
+    io_result(result<T> v) noexcept : result<T>(std::move(v)), _bytes_transferred(0) { }
+    //! Returns bytes transferred
+    size_type bytes_transferred() const noexcept { return _bytes_transferred; }
+  };
+
+  /*! Runs the i/o service for the thread owning this i/o service. Returns true if more
+  work remains and we just handled an i/o; false if there is no more work; ETIMEDOUT if
+  the deadline passed; any other errno error code.
+  */
+  virtual result<bool> run_until(const std::chrono::system_clock::time_point *deadline) noexcept = 0;
+  //! \overload
+  result<bool> run() noexcept { return run_until(nullptr); }
+};
+
+// A delete on close handle object
+class handle : std::enable_shared_from_this<handle>
+{
+  io_service *_service;
+  filesystem::path _path;
+  handle(io_service *service, filesystem::path path) : _service(service), _path(std::move(path)) { }
+public:
+  //! The file extent type used by this i/o service
+  using extent_type = io_service::extent_type;
+  //! The memory extent type used by this i/o service
+  using size_type = io_service::size_type;
+  //! The scatter buffer type used by this i/o service
+  using buffer_type = io_service::buffer_type;
+  //! The gather buffer type used by this i/o service
+  using const_buffer_type = io_service::const_buffer_type;
+  //! The scatter buffers type used by this i/o service
+  using buffers_type = io_service::buffers_type;
+  //! The gather buffers type used by this i/o service
+  using const_buffers_type = io_service::const_buffers_type;
+  //! The i/o request type used by this i/o service
+  template<class T> using io_request = io_service::io_request<T>;
+  //! The i/o result type used by this i/o service
+  template<class T> using io_result = io_service::io_result<T>;
+
+  handle(handle &&o) noexcept : _service(o._service), _path(std::move(o._path)), _v(std::move(o._v))
+  {
+    o._service = nullptr;
+    o._v = 0;
+  }
+  handle &operator=(handle &&o) noexcept
+  {
+    this->~handle();
+    new(this) handle(std::move(o));
+    return *this;
+  }
+private:
+  using shared_size_type = size_type;
 #ifdef WIN32
-  return handle(path, [mode, flags](filesystem::path path)
+  HANDLE _v;
+public:
+  //! Create a handle opening access to a file on path managed using i/o service service
+  static result<handle> create(io_service &service, filesystem::path path, unsigned mode, unsigned flags) noexcept
   {
     DWORD access = 0;
     if (mode_append == mode) access = FILE_APPEND_DATA;
-    else if (mode_write == mode) access = GENERIC_WRITE|GENERIC_READ;
+    else if (mode_write == mode) access = GENERIC_WRITE | GENERIC_READ;
     else access = GENERIC_READ;
-    DWORD attribs = FILE_ATTRIBUTE_TEMPORARY;
+    DWORD attribs = FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_OVERLAPPED;
     if (!!(flags & flag_direct)) attribs |= FILE_FLAG_NO_BUFFERING;
     if (!!(flags & flag_sync)) attribs |= FILE_FLAG_WRITE_THROUGH;
     attribs |= FILE_FLAG_DELETE_ON_CLOSE;
-    return CreateFile(path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, attribs, NULL);
-  });
+    result<handle> ret(handle(&service, std::move(path)));
+    if (INVALID_HANDLE_VALUE == (ret.value()._v = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, (mode_write == mode) ? OPEN_ALWAYS : OPEN_EXISTING, attribs, NULL)))
+      return make_errored_result<handle>(GetLastError());
+    return ret;
+  }
+  ~handle()
+  {
+    if (_v) CloseHandle(_v);
+  }
 #else
-  return handle(path, [mode, flags](filesystem::path path)
+  int _v;
+public:
+  //! Create a handle opening access to a file on path managed using i/o service service
+  static result<handle> create(io_service &service, filesystem::path path, unsigned mode, unsigned flags) noexcept
   {
     int attribs = 0;
     if (mode_append == mode) attribs = O_APPEND;
-    else if (mode_write == mode) attribs = O_RDWR;
+    else if (mode_write == mode) attribs = O_RDWR | O_CREAT;
     else atrribs = O_RDONLY;
-    attribs |= O_CREAT;
     if (!!(flags & flag_direct)) attribs |= O_DIRECT;
     if (!!(flags & flag_sync)) attribs |= O_SYNC;
-    return ::open(path.c_str(), attribs, 0x1b0/*660*/);
-  });
+    result<handle> ret(handle(&service, std::move(path)));
+    if (-1 == (ret.value()._v = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
+      return make_errored_result<handle>(errno);
+    return ret;
+  }
+  ~handle()
+  {
+    if (_v)
+    {
+      ::unlink(_path.c_str());
+      ::close(_v);
+    }
+  }
 #endif
-}
+private:
+  template<class U> struct _io_state_type
+  {
+    io_result<buffers_type> result;
+    U completion;
+    shared_size_type items_to_go;
+    constexpr _io_state_type(U &&f, size_type _items_to_go) : completion(std::forward<U>(f)), items_to_go(_items_to_go) { }
+  };
+  struct _char_array_deleter { template<class U> void operator()(U *_ptr) const { _ptr->~U(); char *ptr = (char *)_ptr; delete[] ptr; } };
+  template<class U> using _io_state_ptr = std::unique_ptr<_io_state_type<U>, _char_array_deleter>;
+  template<class U> _io_state_ptr<U> _begin_read(io_request<buffers_type> reqs, U &&completion, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept
+  {
+#ifdef WIN32
+    struct state_type : public _io_state_type<U>
+    {
+      OVERLAPPED ols[1];
+    } *state;
+    extent_type offset = reqs.offset;
+    size_t statelen = sizeof(state_type)+(reqs.buffers.size()-1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
+    _io_state_ptr<U> _state((_io_state_type<U> *) new char[statelen]);
+    memset((state=(state_type *) _state.get()), 0, statelen);
+    new(state.get()) _io_state_type<U>(std::forward<U>(completion), items);
+    LPOVERLAPPED_COMPLETION_ROUTINE ocr = [](DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol) {
+      state_type *state = (state_type *)ol->hEvent;
+      if (state->result)
+      {
+        if (errcode)
+          state->result = make_errored_result<buffers_type>(errcode);
+        else
+        {
+          // Figure out which i/o I am and update the buffer in question
+          size_t idx = ol - state->ols;
+          state->result.value()[idx].second = bytes_transferred;
+        }
+      }
+      // Are we done?
+      if (!--state->items_to_go)
+        state->completion(state);
+    };
+    state->result = make_ready_result();
+    buffers_type &out = state->result.value();
+    out.reserve(items);
+    for (size_t n = 0; n < items; n++)
+    {
+      LPOVERLAPPED ol = state->ols + n;
+      ol->Offset = offset & 0xffffffff;
+      ol->OffsetHigh = (offset >> 32) & 0xffffffff;
+      // Use the unused hEvent member to pass through the state
+      ol->hEvent = (HANDLE)state;
+      out.push_back(reqs.buffers[n]);
+      if (!ReadFileEx(_v, reqs.buffers[n].first, reqs.buffers[n].second, ol))
+      {
+        state->result = make_errored_result<buffers_type>(GetLastError());
+        if (!n)
+          state->completion(state);
+        return _state;
+      }
+      offset += reqs.buffers[n].second;
+    }
+    return _state;
+#else
+#error todo
+#endif
+  }
+public:
+  //! Scatter read buffers from an offset into the open file. Note buffers returned may not be buffers input!
+  io_result<buffers_type> read(io_request<buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept
+  {
+    io_result<buffers_type> ret;
+    auto io_state(_begin_read(std::move(reqs), [&ret](auto *state) {
+      ret = std::move(state->result);
+    }, deadline));
+    // While i/o is not done pump i/o completion
+    while(!ret)
+    {
+      auto t(_service->run_until(deadline));
+      if (!t)
+      {
+        fixme need to either cancel i/o or keep state and buffers around (cancelling is better)
+        return make_errored_result<buffers_type>(t.get_error());
+      }
+    }
+    return ret;
+  }
+};
 
 template<class T> constexpr T default_value() { return T{}; }
 static struct storage_profile
