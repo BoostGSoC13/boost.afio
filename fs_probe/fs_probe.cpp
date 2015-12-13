@@ -337,8 +337,8 @@ public:
     DWORD attribs = FILE_FLAG_OVERLAPPED;
     if (!!(flags & flag_direct)) attribs |= FILE_FLAG_NO_BUFFERING;
     if (!!(flags & flag_sync)) attribs |= FILE_FLAG_WRITE_THROUGH;
-    if(flags & flag_delete_on_close)
-      attribs |= FILE_FLAG_DELETE_ON_CLOSE;
+    //if(flags & flag_delete_on_close)
+    //  attribs |= FILE_FLAG_DELETE_ON_CLOSE;
     result<handle> ret(handle(&service, std::move(path), flags));
     if (INVALID_HANDLE_VALUE == (ret.value()._v = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, creation, attribs, NULL)))
       return make_errored_result<handle>(GetLastError());
@@ -402,7 +402,7 @@ private:
     CompletionRoutine completion;
     size_t items;
     shared_size_type items_to_go;
-    constexpr _io_state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : parent(_parent), result(make_result<BuffersType>()), completion(std::forward<CompletionRoutine>(f)), items(_items), items_to_go(0) { }
+    constexpr _io_state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : parent(_parent), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)), items(_items), items_to_go(0) { }
     virtual ~_io_state_type()
     {
       // i/o pending is very bad, this should never happen
@@ -451,24 +451,28 @@ private:
     memset((state=(state_type *) mem), 0, statelen);
     new(state) state_type(this, std::forward<CompletionRoutine>(completion), items);
     // To be called once each buffer is read
-    LPOVERLAPPED_COMPLETION_ROUTINE ocr = [](DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol) {
-      state_type *state = (state_type *)ol->hEvent;
-      ol->hEvent = nullptr;
-      if (state->result)
+    struct handle_completion
+    {
+      static VOID CALLBACK Do(DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol)
       {
-        if (errcode)
-          state->result = make_errored_result<BuffersType>(errcode);
-        else
+        state_type *state = (state_type *)ol->hEvent;
+        ol->hEvent = nullptr;
+        if (state->result)
         {
-          // Figure out which i/o I am and update the buffer in question
-          size_t idx = ol - state->ols;
-          state->result.value()[idx].second = bytes_transferred;
+          if (errcode)
+            state->result = make_errored_result<BuffersType>(errcode);
+          else
+          {
+            // Figure out which i/o I am and update the buffer in question
+            size_t idx = ol - state->ols;
+            state->result.value()[idx].second = bytes_transferred;
+          }
         }
+        state->parent->service()->_work_done();
+        // Are we done?
+        if (!--state->items_to_go)
+          state->completion(state);
       }
-      state->parent->service()->_work_done();
-      // Are we done?
-      if (!--state->items_to_go)
-        state->completion(state);
     };
     // Noexcept move the buffers from req into result
     BuffersType &out = state->result.value();
@@ -482,7 +486,7 @@ private:
       ol->hEvent = (HANDLE)state;
       offset += out[n].second;
       ++state->items_to_go;
-      if (!(IORoutine)(_v, out[n].first, out[n].second, ol, ocr))
+      if (!(IORoutine)(_v, out[n].first, out[n].second, ol, handle_completion::Do))
       {
         --state->items_to_go;
         state->result = make_errored_result<BuffersType>(GetLastError());
@@ -595,7 +599,7 @@ static struct storage_profile
 
 int main(int argc, char *argv[])
 {
-  std::regex torun;
+  std::regex torun(".*");
   bool regexvalid = false;
   unsigned torunflags = 0;
   if (argc > 1)
@@ -606,15 +610,16 @@ int main(int argc, char *argv[])
       regexvalid = true;
     }
     catch (...) {}
-  }
-  if (!regexvalid)
-  {
-    std::cerr << "Usage: " << argv[0] << " <regex for tests to run> [<flags>]" << std::endl;
-    return 1;
+    if (argc > 2)
+      torunflags = atoi(argv[2]);
+    if (!regexvalid)
+    {
+      std::cerr << "Usage: " << argv[0] << " <regex for tests to run> [<flags>]" << std::endl;
+      return 1;
+    }
   }
 
-  std::fstream results("fs_probe_results.yaml");
-  results.seekp(0, std::ios::end);
+  std::ofstream results("fs_probe_results.yaml", std::ios::app);
   {
     std::time_t t = std::time(nullptr);
     results << "---\ntimestamp: " << std::put_time(std::gmtime(&t), "%F %T %z") << std::endl;
@@ -631,7 +636,7 @@ int main(int argc, char *argv[])
         {
           // Create two concurrent writer threads
           std::vector<std::thread> writers;
-          std::atomic<bool> done;
+          std::atomic<size_t> done(2);
           for (char no = '1'; no <= '2'; no++)
             writers.push_back(std::thread([size, flags, no, &done] {
             io_service service;
@@ -644,11 +649,16 @@ int main(int argc, char *argv[])
             auto h(std::move(_h.get()));
             std::vector<char> buffer(size, no);
             handle::io_request<handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+            --done;
+            while (done)
+              std::this_thread::yield();
             while (!done)
             {
               h.write(reqs);
             }
           }));
+          while (done)
+            std::this_thread::yield();
           // Repeatedly read from the file and check for torn writes
           io_service service;
           auto _h(handle::create(service, "temp", mode::read, creation::open, flags | flag_delete_on_close | flag_no_race_protection));
@@ -661,6 +671,7 @@ int main(int argc, char *argv[])
           std::vector<char> buffer(size, 0);
           handle::io_request<handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
           bool failed = false;
+          std::cout << "Testing atomicity of writes of " << size << " bytes ..." << std::endl;
           for (size_t transitions = 0; transitions < 1000 && !failed; transitions++)
           {
             h.read(reqs);
