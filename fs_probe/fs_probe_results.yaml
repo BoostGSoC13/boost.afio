@@ -1,0 +1,22 @@
+---
+timestamp: 2015-12-13 13:52:40 -0000
+direct=0 sync=0:
+    concurrency:
+        atomicity:
+            min_atomic_write: 1
+            max_atomic_write: 1
+direct=1 sync=0:
+    concurrency:
+        atomicity:
+            min_atomic_write: 512
+            max_atomic_write: 4096
+direct=0 sync=1:
+    concurrency:
+        atomicity:
+            min_atomic_write: 1
+            max_atomic_write: 1
+direct=1 sync=1:
+    concurrency:
+        atomicity:
+            min_atomic_write: 512
+            max_atomic_write: 16384

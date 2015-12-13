@@ -486,7 +486,7 @@ private:
       ol->hEvent = (HANDLE)state;
       offset += out[n].second;
       ++state->items_to_go;
-      if (!(IORoutine)(_v, out[n].first, out[n].second, ol, handle_completion::Do))
+      if (!ioroutine(_v, out[n].first, (DWORD) out[n].second, ol, handle_completion::Do))
       {
         --state->items_to_go;
         state->result = make_errored_result<BuffersType>(GetLastError());
@@ -511,7 +511,7 @@ public:
     io_result<buffers_type> ret;
     auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
       ret = std::move(state->result);
-    }, &ReadFileEx, deadline));
+    }, ReadFileEx, deadline));
     BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
     // While i/o is not done pump i/o completion
@@ -532,7 +532,7 @@ public:
     io_result<const_buffers_type> ret;
     auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
       ret = std::move(state->result);
-    }, &WriteFileEx, deadline));
+    }, WriteFileEx, deadline));
     BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
     // While i/o is not done pump i/o completion
@@ -544,6 +544,20 @@ public:
         return make_errored_result<const_buffers_type>(t.get_error());
     }
     return ret;
+  }
+  /*! Resize a file to the given extent
+  */
+  result<extent_type> truncate(extent_type newsize) noexcept
+  {
+#ifdef WIN32
+    FILE_END_OF_FILE_INFO feofi;
+    feofi.EndOfFile.QuadPart = newsize;
+    if (!SetFileInformationByHandle(_v, FileEndOfFileInfo, &feofi, sizeof(feofi)))
+      return make_errored_result<extent_type>(GetLastError());
+    return newsize;
+#else
+#error todo
+#endif
   }
 };
 
@@ -558,10 +572,11 @@ static struct storage_profile
     constexpr item(const char *_name, T _value=default_value<T>()) : name(_name), value(_value) { }
   };
 
-  void write(size_t indent, std::ostream &out) const
+  void write(size_t _indent, std::ostream &out) const
   {
     std::vector<std::string> lastsection;
-    auto print = [indent, &out, &lastsection](auto &i) mutable {
+    auto print = [_indent, &out, &lastsection](auto &i) {
+      size_t indent = _indent;
       if (i.value != default_value<decltype(i.value)>())
       {
         std::vector<std::string> thissection;
@@ -587,8 +602,10 @@ static struct storage_profile
         lastsection = std::move(thissection);
       }
     };
+    print(min_atomic_write);
     print(max_atomic_write);
   }
+  item<io_service::extent_type> min_atomic_write = { "concurrency:atomicity:min_atomic_write" };
   item<io_service::extent_type> max_atomic_write = { "concurrency:atomicity:max_atomic_write" };
 } profile[permute_flags_max];
 
@@ -596,7 +613,7 @@ int main(int argc, char *argv[])
 {
   std::regex torun(".*");
   bool regexvalid = false;
-  unsigned torunflags = 0;
+  unsigned torunflags = permute_flags_max-1;
   if (argc > 1)
   {
     try
@@ -623,11 +640,12 @@ int main(int argc, char *argv[])
   {
     if (!flags || !!(flags & torunflags))
     {
-      // Figure out what the maximum atomic write is
-      if (std::regex_match(profile[0].max_atomic_write.name, torun))
+      // Figure out what the minimum atomic write is
+      if (std::regex_match(profile[0].min_atomic_write.name, torun))
       {
         using off_t = io_service::extent_type;
-        for (off_t size = !!(flags & flag_direct) ? 512 : 64; size <= 16 * 1024 * 1024; size = size * 2)
+        profile[flags].max_atomic_write.value = 1;
+        for (off_t size = !!(flags & flag_direct) ? 512 : 64; size <= 1 * 1024 * 1024 && size<profile[flags].min_atomic_write.value; size = size * 2)
         {
           // Create two concurrent writer threads
           std::vector<std::thread> writers;
@@ -644,6 +662,9 @@ int main(int argc, char *argv[])
             auto h(std::move(_h.get()));
             std::vector<char> buffer(size, no);
             handle::io_request<handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+            // Preallocate space before testing
+            h.truncate(size);
+            h.write(reqs);
             --done;
             while (done)
               std::this_thread::yield();
@@ -666,8 +687,8 @@ int main(int argc, char *argv[])
           std::vector<char> buffer(size, 0);
           handle::io_request<handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
           bool failed = false;
-          std::cout << "Testing atomicity of writes of " << size << " bytes ..." << std::endl;
-          for (size_t transitions = 0; transitions < 1000 && !failed; transitions++)
+          std::cout << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync)<< " testing atomicity of writes of " << size << " bytes ..." << std::endl;
+          for (size_t transitions = 0; transitions < 10000; transitions++)
           {
             h.read(reqs);
             const size_t *data = (size_t *)buffer.data(), *end=(size_t *)(buffer.data()+size);
@@ -676,27 +697,37 @@ int main(int argc, char *argv[])
               if (*d != *data)
               {
                 failed = true;
+                off_t failedat = d - data;
+                if (failedat < profile[flags].min_atomic_write.value)
+                {
+                  std::cout << "  Torn write at offset " << failedat << std::endl;
+                  profile[flags].min_atomic_write.value = failedat;
+                }
                 break;
               }
             }
           }
           if (!failed)
-            profile[flags].max_atomic_write.value = size;
+          {
+            if (size > profile[flags].max_atomic_write.value)
+              profile[flags].max_atomic_write.value = size;
+          }
           done = true;
           for (auto &writer : writers)
             writer.join();
           if (failed)
             break;
         }
-        
-        // Write out results for this combination of flags
-        std::cout << "\ndirect=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
-        profile[flags].write(0, std::cout);
-        std::cout.flush();
-        results << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
-        profile[flags].write(0, results);
-        results.flush();
+        if (profile[flags].min_atomic_write.value > profile[flags].max_atomic_write.value)
+          profile[flags].min_atomic_write.value = profile[flags].max_atomic_write.value;
       }
+      // Write out results for this combination of flags
+      std::cout << "\ndirect=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
+      profile[flags].write(0, std::cout);
+      std::cout.flush();
+      results << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
+      profile[flags].write(0, results);
+      results.flush();
     }
   }
 
