@@ -575,20 +575,15 @@ static struct storage_profile
           }
         }
         std::string name(s, e - s);
-        out << std::string(indent, ' ');
         for (size_t n = 0; n < thissection.size(); n++)
         {
-          if (n < lastsection.size() && thissection[n] == lastsection[n])
+          indent += 4;
+          if (n >= lastsection.size() || thissection[n] != lastsection[n])
           {
-            out << "    ";
-            indent += 4;
-          }
-          else
-          {
-            out << thissection[n] << ":\n" << std::string(indent, ' ');
+            out << std::string(indent, ' ') << thissection[n] << ":\n";
           }
         }
-        out << name << ":" << i.value;
+        out << std::string(indent+4, ' ') << name << ": " << i.value << "\n";
         lastsection = std::move(thissection);
       }
     };
@@ -695,11 +690,11 @@ int main(int argc, char *argv[])
         }
         
         // Write out results for this combination of flags
-        std::cout << "\ndirect=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":";
-        profile[flags].write(4, std::cout);
+        std::cout << "\ndirect=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
+        profile[flags].write(0, std::cout);
         std::cout.flush();
-        results << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":";
-        profile[flags].write(4, results);
+        results << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
+        profile[flags].write(0, results);
         results.flush();
       }
     }
