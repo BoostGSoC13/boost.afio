@@ -561,54 +561,6 @@ public:
   }
 };
 
-template<class T> constexpr T default_value() { return T{}; }
-template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type)-1; }
-static struct storage_profile
-{
-  template<class T> struct item
-  {
-    const char *name;
-    T value;
-    constexpr item(const char *_name, T _value=default_value<T>()) : name(_name), value(_value) { }
-  };
-
-  void write(size_t _indent, std::ostream &out) const
-  {
-    std::vector<std::string> lastsection;
-    auto print = [_indent, &out, &lastsection](auto &i) {
-      size_t indent = _indent;
-      if (i.value != default_value<decltype(i.value)>())
-      {
-        std::vector<std::string> thissection;
-        const char *s, *e;
-        for (s = i.name, e=i.name; *e; e++)
-        {
-          if (*e == ':')
-          {
-            thissection.push_back(std::string(s, e - s));
-            s = e + 1;
-          }
-        }
-        std::string name(s, e - s);
-        for (size_t n = 0; n < thissection.size(); n++)
-        {
-          indent += 4;
-          if (n >= lastsection.size() || thissection[n] != lastsection[n])
-          {
-            out << std::string(indent, ' ') << thissection[n] << ":\n";
-          }
-        }
-        out << std::string(indent+4, ' ') << name << ": " << i.value << "\n";
-        lastsection = std::move(thissection);
-      }
-    };
-    print(min_atomic_write);
-    print(max_atomic_write);
-  }
-  item<io_service::extent_type> min_atomic_write = { "concurrency:atomicity:min_atomic_write" };
-  item<io_service::extent_type> max_atomic_write = { "concurrency:atomicity:max_atomic_write" };
-} profile[permute_flags_max];
-
 int main(int argc, char *argv[])
 {
   std::regex torun(".*");
