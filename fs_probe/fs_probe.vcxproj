@@ -24,6 +24,12 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\include;..\asio\asio\include</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\config.hpp" />
+    <ClInclude Include="include\io_service.hpp" />
+    <ClInclude Include="include\storage_profile.hpp" />
+    <ClInclude Include="include\windows.hpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4FCBD8AB-30CB-41C9-91C9-E74B9DEB1495}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>

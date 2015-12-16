@@ -2,8 +2,6 @@
 A profile of an OS and filing system
 (C) 2015 Niall Douglas http://www.nedprod.com/
 File Created: Dec 2015
-
-
 Boost Software License - Version 1.0 - August 17th, 2003
 
 Permission is hereby granted, free of charge, to any person or organization
@@ -29,55 +27,57 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef BOOST_AFIO_FS_PROBE_STORAGE_PROFILE_H
-#define BOOST_AFIO_FS_PROBE_STORAGE_PROFILE_H
+#ifndef BOOST_AFIO_STORAGE_PROFILE_H
+#define BOOST_AFIO_STORAGE_PROFILE_H
 
-namespace boost {
-  namespace afio {
-    namespace storage_profile {
+#include "io_service.hpp"
 
-      //! Specialise for a different default value for T
-      template<class T> constexpr T default_value() { return T{}; }
-      template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) - 1; }
+BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-      //! A (possibly incomplet) profile of storage
-      struct storage_profile
+namespace storage_profile {
+
+  //! Specialise for a different default value for T
+  template<class T> constexpr T default_value() { return T{}; }
+  template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) - 1; }
+
+  //! A (possibly incomplet) profile of storage
+  struct storage_profile
+  {
+    //! A tag-value item in the storage profile.
+    template<class T> struct item
+    {
+      const char *name;         //!< The name of the item in colon delimited category format
+      const char *description;  //!< Some description of the item
+      T value;                  //!< The storage of the item
+      char _padding[64 - sizeof(const char *) * 2 - sizeof(T)];
+      constexpr item(const char *_name, const char *_desc = nullptr, T _value = default_value<T>()) : name(_name), description(_description), value(_value)
       {
-        //! A tag-value item in the storage profile.
-        template<class T> struct item
-        {
-          const char *name;         //!< The name of the item in colon delimited category format
-          const char *description;  //!< Some description of the item
-          T value;                  //!< The storage of the item
-          char _padding[64 - sizeof(const char *)*2 - sizeof(T)];
-          constexpr item(const char *_name, const char *_desc=nullptr, T _value = default_value<T>()) : name(_name), description(_description), value(_value)
-          {
-            static_assert(sizeof(*this) == 64);
-          }
-        };
+        static_assert(sizeof(*this) == 64);
+      }
+    };
 
-        //! Write the storage profile as YAML to out with the given indentation
-        void write(std::ostream &out, size_t _indent=0) const;
+    //! Write the storage profile as YAML to out with the given indentation
+    void write(std::ostream &out, size_t _indent = 0) const;
 
-        // System characteristics
-        item<std::string> os_name = { "system:os:name" };                       // e.g. Microsoft Windows NT
-        item<std::string> os_ver = { "system:os:ver" };                         // e.g. 10.0.10240
-        item<std::string> cpu_name = { "system:cpu:name" };                     // e.g. Intel Haswell
-        item<std::string> cpu_architecture = { "system:cpu:architecture" };     // e.g. x64
-        item<unsigned> cpu_physical_cores = { "system:cpu:physical_cores" };
-        item<unsigned> mem_quantity = { "system:mem:quantity" };
-        item<float> mem_in_use = { "system:mem:in_use" };                       // not including caches etc.
-        item<unsigned> mem_max_bandwidth = { "system:mem:max_bandwidth" };      // of main memory (sequentially accessed)
-        item<unsigned> mem_min_bandwidth = { "system:mem:min_bandwidth" };      // of main memory (randomly accessed in 4Kb chunks, not sequentially)
+    // System characteristics
+    item<std::string> os_name = { "system:os:name" };                       // e.g. Microsoft Windows NT
+    item<std::string> os_ver = { "system:os:ver" };                         // e.g. 10.0.10240
+    item<std::string> cpu_name = { "system:cpu:name" };                     // e.g. Intel Haswell
+    item<std::string> cpu_architecture = { "system:cpu:architecture" };     // e.g. x64
+    item<unsigned> cpu_physical_cores = { "system:cpu:physical_cores" };
+    item<unsigned> mem_quantity = { "system:mem:quantity" };
+    item<float> mem_in_use = { "system:mem:in_use" };                       // not including caches etc.
+    item<unsigned> mem_max_bandwidth = { "system:mem:max_bandwidth" };      // of main memory (sequentially accessed)
+    item<unsigned> mem_min_bandwidth = { "system:mem:min_bandwidth" };      // of main memory (randomly accessed in 4Kb chunks, not sequentially)
 
-        // Storage characteristics
-        item<std::string> device_name = { "storage:device:name" };              // e.g. WDC WD30EFRX-68EUZN0
-        item<unsigned> device_min_io_size = { "storage:device:min_io_size" };   // e.g. 4096
-        item<io_service::extent_type> device_size = { "storage:device:size" };
+    // Storage characteristics
+    item<std::string> device_name = { "storage:device:name" };              // e.g. WDC WD30EFRX-68EUZN0
+    item<unsigned> device_min_io_size = { "storage:device:min_io_size" };   // e.g. 4096
+    item<io_service::extent_type> device_size = { "storage:device:size" };
 
-        // Filing system characteristics
-        item<std::string> fs_name = { "storage:fs:name" };
-        item<std::string> fs_config = { "storage:fs:config" };  // POSIX mount options, ZFS pool properties etc
+    // Filing system characteristics
+    item<std::string> fs_name = { "storage:fs:name" };
+    item<std::string> fs_config = { "storage:fs:config" };  // POSIX mount options, ZFS pool properties etc
 //        item<std::string> fs_ffeatures = { "storage:fs:features" };  // Standardised features???
         item<io_service::extent_type> fs_size = { "storage:fs:size" };
         item<float> fs_in_use = { "storage:fs:in_use" };
@@ -93,70 +93,69 @@ namespace boost {
         };
       };
 
-      /* YAML's syntax is amazingly powerful ... we can express a map
-      of a map to a map using this syntax:
+  /* YAML's syntax is amazingly powerful ... we can express a map
+  of a map to a map using this syntax:
 
-      ?
-      direct: 0
-      sync: 0
-      :
-      concurrency:
-      atomicity:
-      min_atomic_write: 1
-      max_atomic_write: 1
+  ?
+  direct: 0
+  sync: 0
+  :
+  concurrency:
+  atomicity:
+  min_atomic_write: 1
+  max_atomic_write: 1
 
-      Some YAML parsers appear to accept this more terse form too:
+  Some YAML parsers appear to accept this more terse form too:
 
-      {direct: 0, sync: 0}:
-      concurrency:
-      atomicity:
-      min_atomic_write: 1
-      max_atomic_write: 1
+  {direct: 0, sync: 0}:
+  concurrency:
+  atomicity:
+  min_atomic_write: 1
+  max_atomic_write: 1
 
-      We don't do any of this as some YAML parsers are basically JSON parsers with
-      some rules relaxed. We just use:
+  We don't do any of this as some YAML parsers are basically JSON parsers with
+  some rules relaxed. We just use:
 
-      direct=0 sync=0:
-      concurrency:
-      atomicity:
-      min_atomic_write: 1
-      max_atomic_write: 1
-      */
-      void write(size_t _indent, std::ostream &out) const
+  direct=0 sync=0:
+  concurrency:
+  atomicity:
+  min_atomic_write: 1
+  max_atomic_write: 1
+  */
+  void write(size_t _indent, std::ostream &out) const
+  {
+    std::vector<std::string> lastsection;
+    auto print = [_indent, &out, &lastsection](auto &i) {
+      size_t indent = _indent;
+      if (i.value != default_value<decltype(i.value)>())
       {
-        std::vector<std::string> lastsection;
-        auto print = [_indent, &out, &lastsection](auto &i) {
-          size_t indent = _indent;
-          if (i.value != default_value<decltype(i.value)>())
+        std::vector<std::string> thissection;
+        const char *s, *e;
+        for (s = i.name, e = i.name; *e; e++)
+        {
+          if (*e == ':')
           {
-            std::vector<std::string> thissection;
-            const char *s, *e;
-            for (s = i.name, e = i.name; *e; e++)
-            {
-              if (*e == ':')
-              {
-                thissection.push_back(std::string(s, e - s));
-                s = e + 1;
-              }
-            }
-            std::string name(s, e - s);
-            for (size_t n = 0; n < thissection.size(); n++)
-            {
-              indent += 4;
-              if (n >= lastsection.size() || thissection[n] != lastsection[n])
-              {
-                out << std::string(indent, ' ') << thissection[n] << ":\n";
-              }
-            }
-            out << std::string(indent + 4, ' ') << name << ": " << i.value << "\n";
-            lastsection = std::move(thissection);
+            thissection.push_back(std::string(s, e - s));
+            s = e + 1;
           }
-        };
-        print(min_atomic_write);
-        print(max_atomic_write);
+        }
+        std::string name(s, e - s);
+        for (size_t n = 0; n < thissection.size(); n++)
+        {
+          indent += 4;
+          if (n >= lastsection.size() || thissection[n] != lastsection[n])
+          {
+            out << std::string(indent, ' ') << thissection[n] << ":\n";
+          }
+        }
+        out << std::string(indent + 4, ' ') << name << ": " << i.value << "\n";
+        lastsection = std::move(thissection);
       }
-    }
+    };
+    print(min_atomic_write);
+    print(max_atomic_write);
   }
-}
+
+BOOST_AFIO_V2_NAMESPACE_END
 
 #endif
