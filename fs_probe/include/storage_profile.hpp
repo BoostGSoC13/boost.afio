@@ -41,7 +41,7 @@ namespace storage_profile {
   template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) - 1; }
 
   //! A (possibly incomplet) profile of storage
-  struct storage_profile
+  struct BOOST_AFIO_DECL storage_profile
   {
     //! A tag-value item in the storage profile.
     template<class T> struct item

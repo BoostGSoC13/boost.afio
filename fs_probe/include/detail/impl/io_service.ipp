@@ -30,7 +30,89 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "../../io_service.hpp"
+#ifdef WIN32
+# include "../windows.hpp"
+#else
+# include <pthread.h>
+#endif
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
+
+io_service::io_service() : _work_queued(0)
+{
+#ifdef WIN32
+  if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &_threadh, 0, false, DUPLICATE_SAME_ACCESS))
+    throw std::runtime_error("Failed to create creating thread handle");
+  _threadid = GetCurrentThreadId();
+#else
+  _threadh = pthread_self();
+#endif
+}
+
+io_service::~io_service()
+{
+  if (_work_queued)
+  {
+    std::cerr << "WARNING: ~io_service() sees work still queued, blocking until no work queued" << std::endl;
+    while (_work_queued)
+      std::this_thread::yield();
+  }
+#ifdef WIN32
+  CloseHandle(_threadh);
+#endif
+}
+
+result<bool> io_service::run_until(const std::chrono::system_clock::time_point *deadline) noexcept
+{
+  if (!_work_queued)
+    return false;
+#ifdef WIN32
+  if (GetCurrentThreadId() != _threadid)
+    return make_errored_result<bool>(EOPNOTSUPP);
+  std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+  DWORD tosleep = INFINITE;
+  if (deadline)
+  {
+    auto _tosleep = std::chrono::duration_cast<std::chrono::milliseconds>(*deadline - now).count();
+    if (_tosleep <= 0)
+      _tosleep = 0;
+    tosleep = (DWORD)_tosleep;
+  }
+  // Execute any APCs queued to this thread
+  if (!SleepEx(tosleep, true))
+  {
+    auto _tosleep = std::chrono::duration_cast<std::chrono::milliseconds>(*deadline - now).count();
+    if (_tosleep <= 0)
+      return make_errored_result<bool>(ETIMEDOUT);
+  }
+#else
+  if (pthread_self() != _threadh)
+    return make_errored_result<bool>(EOPNOTSUPP);
+#error todo
+#endif
+  return _work_queued != 0;
+}
+
+void io_service::post(detail::function_ptr<void(io_service *)> &&f)
+{
+  void *data = nullptr;
+  {
+    post_info pi(this, std::move(f));
+    std::lock_guard<decltype(_posts_lock)> g(_posts_lock);
+    _posts.push_back(std::move(pi));
+    data = (void *)&_posts.back();
+  }
+#ifdef WIN32
+  PAPCFUNC apcf = [](ULONG_PTR data) {
+    post_info *pi = (post_info *)data;
+    pi->f(pi->service);
+    pi->service->_post_done(pi);
+  };
+  if (QueueUserAPC(apcf, _threadh, (ULONG_PTR)data))
+    _work_enqueued();
+#else
+#error todo
+#endif
+}
 
 BOOST_AFIO_V2_NAMESPACE_END
