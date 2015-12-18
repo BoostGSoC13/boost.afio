@@ -29,22 +29,14 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-// I absolutely require min Win32 API to be Vista
-#define WINVER 0x0600
-#define _WIN32_WINNT 0x0600
+#include "include/handle.hpp"
+#include "include/storage_profile.hpp"
 
-#define _CRT_SECURE_NO_WARNINGS
-
-#include "../test/afio_pch.hpp"
-#include <vector>
-#include <deque>
 #include <regex>
-#include <thread>
-#include <tuple>
-#include <iomanip>
-#undef _threadid
 
-constexpr unsigned permute_flags_max = 4;
+using namespace BOOST_AFIO_V2_NAMESPACE;
+
+constexpr unsigned permute_flags_max = handle::flags_max;
 
 int main(int argc, char *argv[])
 {

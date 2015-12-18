@@ -40,13 +40,11 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 class BOOST_AFIO_DECL handle
 {
   io_service *_service;
-  filesystem::path _path;
+  path _path;
   unsigned _flags;
-  handle(io_service *service, filesystem::path path, unsigned flags) : _service(service), _path(std::move(path)), _flags(flags) { }
-  // Called when a copy construction occurs
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _copy_construct(const handle &dest) const {}
+  handle(io_service *service, path path, unsigned flags) : _service(service), _path(std::move(path)), _flags(flags) { }
   // Called when a move construction occurs
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _move_construct(handle &dest) noexcept && {}
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _move_construct(handle &dest) && noexcept {}
 public:
   //! The file extent type used by this i/o service
   using extent_type = io_service::extent_type;
@@ -81,30 +79,26 @@ public:
     truncate
   };
   //! Will i/o bypass the kernel's page cache and go straight to the device?
-  constexpr unsigned flag_direct = (1 << 0);
+  static constexpr unsigned flag_direct = (1 << 0);
   //! Will kernel caching of i/o be write through rather than write back?
-  constexpr unsigned flag_sync = (1 << 1);
+  static constexpr unsigned flag_sync = (1 << 1);
   //! Maximum flags for this io_service
-  constexpr unsigned flags_max = (1 << 2);
+  static constexpr unsigned flags_max = (1 << 2);
 
   //! Create a handle opening access to a file on path managed using i/o service service
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<handle> create(io_service &service, filesystem::path path, mode _mode = mode::read, creation _creation = creation::open, unsigned flags = 0) noexcept;
+  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<handle> create(io_service &service, path _path, mode _mode = mode::read, creation _creation = creation::open, unsigned flags = 0) noexcept;
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle();
-  //! Copy the handle
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC handle(const handle &o);
+  //! Clone this handle (copy constructor is disabled to avoid accidental copying)
+  result<handle> clone() const noexcept;
+  handle(const handle &o) = delete;
+  handle &operator=(const handle &o) = delete;
   //! Move the handle
   handle(handle &&o) noexcept : _service(o._service), _path(std::move(o._path)), _flags(o._flags), _v(std::move(o._v))
   {
-    o._move_construct(*this);
+    std::move(o)._move_construct(*this);
     o._service = nullptr;
     o._flags = 0;
     o._v = 0;
-  }
-  handle &operator=(const handle &o)
-  {
-    this->~handle();
-    new(this) handle(o);
-    return *this;
   }
   handle &operator=(handle &&o) noexcept
   {
@@ -114,13 +108,15 @@ public:
   }
   //! The i/o service this handle is attached to
   io_service *service() const noexcept { return _service; }
-private:
+protected:
   using shared_size_type = size_type;
 #ifdef WIN32
   win::handle _v;
 #else
   int _v;
 #endif
+  // Holds state for an i/o in progress. Likely will be subclassed with platform specific state.
+  // Note this is allocated using malloc not new to avoid memory zeroing, and therefore it has a custom deleter.
   template<class CompletionRoutine, class BuffersType> struct _io_state_type
   {
     handle *parent;
@@ -129,162 +125,70 @@ private:
     size_t items;
     shared_size_type items_to_go;
     constexpr _io_state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : parent(_parent), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)), items(_items), items_to_go(0) { }
-    virtual ~_io_state_type()
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~_io_state_type()
     {
-      // i/o pending is very bad, this should never happen
+      // i/o still pending is very bad, this should never happen
       assert(!items_to_go);
       if (items_to_go)
       {
-        std::cerr << "FATAL: io_state destructed while i/o still in flight, the derived class should never allow this." << std::endl;
+        BOOST_AFIO_LOG_FATAL_EXIT("FATAL: io_state destructed while i/o still in flight, the derived class should never allow this." << std::endl);
         abort();
       }
     }
   };
   struct _io_state_deleter { template<class U> void operator()(U *_ptr) const { _ptr->~U(); char *ptr = (char *)_ptr; ::free(ptr); } };
-  template<class CompletionRoutine, class BuffersType> using _io_state_ptr = std::unique_ptr<_io_state_type<CompletionRoutine, BuffersType>, _io_state_deleter>;
-  template<class CompletionRoutine, class BuffersType, class IORoutine> result<_io_state_ptr<CompletionRoutine, BuffersType>> _begin_io(io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept
-  {
-#ifdef WIN32
-    // Need to keep a set of OVERLAPPED matching the scatter-gather buffers
-    struct state_type : public _io_state_type<CompletionRoutine, BuffersType>
-    {
-      OVERLAPPED ols[1];
-      state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, std::forward<CompletionRoutine>(f), _items) { }
-      virtual ~state_type() override final
-      {
-        // Do we need to cancel pending i/o?
-        if (items_to_go)
-        {
-          for (size_t n = 0; n < items; n++)
-          {
-            // If this is non-zero, probably this i/o still in flight
-            if (ols[n].hEvent)
-              CancelIoEx(parent->_v, ols + n);
-          }
-          // Pump the i/o service until all pending i/o is completed
-          while (items_to_go)
-            parent->service()->run();
-        }
-      }
-    } *state;
-    extent_type offset = reqs.offset;
-    size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
-    using return_type = _io_state_ptr<CompletionRoutine, BuffersType>;
-    void *mem = ::malloc(statelen);
-    if (!mem)
-      return make_errored_result<return_type>(ENOMEM);
-    return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
-    memset((state = (state_type *)mem), 0, statelen);
-    new(state) state_type(this, std::forward<CompletionRoutine>(completion), items);
-    // To be called once each buffer is read
-    struct handle_completion
-    {
-      static VOID CALLBACK Do(DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol)
-      {
-        state_type *state = (state_type *)ol->hEvent;
-        ol->hEvent = nullptr;
-        if (state->result)
-        {
-          if (errcode)
-            state->result = make_errored_result<BuffersType>(errcode);
-          else
-          {
-            // Figure out which i/o I am and update the buffer in question
-            size_t idx = ol - state->ols;
-            state->result.value()[idx].second = bytes_transferred;
-          }
-        }
-        state->parent->service()->_work_done();
-        // Are we done?
-        if (!--state->items_to_go)
-          state->completion(state);
-      }
-    };
-    // Noexcept move the buffers from req into result
-    BuffersType &out = state->result.value();
-    out = std::move(reqs.buffers);
-    for (size_t n = 0; n < items; n++)
-    {
-      LPOVERLAPPED ol = state->ols + n;
-      ol->Offset = offset & 0xffffffff;
-      ol->OffsetHigh = (offset >> 32) & 0xffffffff;
-      // Use the unused hEvent member to pass through the state
-      ol->hEvent = (HANDLE)state;
-      offset += out[n].second;
-      ++state->items_to_go;
-      if (!ioroutine(_v, out[n].first, (DWORD)out[n].second, ol, handle_completion::Do))
-      {
-        --state->items_to_go;
-        state->result = make_errored_result<BuffersType>(GetLastError());
-        // Fire completion now if we didn't schedule anything
-        if (!n)
-          state->completion(state);
-        return _state;
-      }
-      service()->_work_enqueued();
-    }
-    return _state;
-#else
-#error todo
-#endif
-  }
 public:
-  /*! Scatter read buffers from an offset into the open file. Note buffers returned may not be buffers input,
-  and the deadline is a best effort deadline, if i/o takes long to cancel it may be significantly late.
+  /*! Smart pointer to state of an i/o in progress. Destroying this before an i/o has completed
+  is <b>blocking</b> because the i/o must be cancelled before the destructor can safely exit.
   */
-  io_result<buffers_type> read(io_request<buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept
-  {
-    io_result<buffers_type> ret;
-    auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
-      ret = std::move(state->result);
-    }, ReadFileEx, deadline));
-    BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
+  template<class CompletionRoutine, class BuffersType> using io_state_ptr = std::unique_ptr<_io_state_type<CompletionRoutine, BuffersType>, _io_state_deleter>;
+protected:
+  template<class CompletionRoutine, class BuffersType, class IORoutine>
+  result<io_state_ptr<CompletionRoutine, BuffersType>>
+    _begin_io(io_request<BuffersType> reqs,
+      CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
+public:
+  /*! \brief Schedule a read to occur asynchronously.
 
-    // While i/o is not done pump i/o completion
-    while (!ret)
-    {
-      auto t(_service->run_until(deadline));
-      // If i/o service pump failed or timed out, cancel outstanding i/o and return
-      if (!t)
-        return make_errored_result<buffers_type>(t.get_error());
-    }
-    return ret;
-  }
-  /*! Gather write buffers to an offset into the open file. Note buffers returned may not be buffers input,
-  and the deadline is a best effort deadline, if i/o takes long to cancel it may be significantly late.
+  \return Either an io_state_ptr to the i/o in progress, or an error code.
+  \param reqs A scatter-gather and offset request.
+  \param completion A callable to call upon i/o completion. Spec is void(handle *, io_result<buffers_type> &).
+  Note that buffers returned may not be buffers input.
   */
-  io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept
-  {
-    io_result<const_buffers_type> ret;
-    auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
-      ret = std::move(state->result);
-    }, WriteFileEx, deadline));
-    BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
+  template<class CompletionRoutine> result<io_state_ptr<CompletionRoutine, buffers_type>> async_read(io_request<buffers_type> reqs, CompletionRoutine &&completion) noexcept;
 
-    // While i/o is not done pump i/o completion
-    while (!ret)
-    {
-      auto t(_service->run_until(deadline));
-      // If i/o service pump failed or timed out, cancel outstanding i/o and return
-      if (!t)
-        return make_errored_result<const_buffers_type>(t.get_error());
-    }
-    return ret;
-  }
-  /*! Resize a file to the given extent
+  /*! \brief Schedule a write to occur asynchronously.
+
+  \return Either an io_state_ptr to the i/o in progress, or an error code.
+  \param reqs A scatter-gather and offset request.
+  \param completion A callable to call upon i/o completion. Spec is void(handle *, io_result<const_buffers_type> &).
+  Note that buffers returned may not be buffers input.
   */
-  result<extent_type> truncate(extent_type newsize) noexcept
-  {
-#ifdef WIN32
-    FILE_END_OF_FILE_INFO feofi;
-    feofi.EndOfFile.QuadPart = newsize;
-    if (!SetFileInformationByHandle(_v, FileEndOfFileInfo, &feofi, sizeof(feofi)))
-      return make_errored_result<extent_type>(GetLastError());
-    return newsize;
-#else
-#error todo
-#endif
-  }
+  template<class CompletionRoutine> result<io_state_ptr<CompletionRoutine, const_buffers_type>> async_write(io_request<const_buffers_type> reqs, CompletionRoutine &&completion) noexcept;
+
+  /*! \brief Read data from the open file.
+
+  \return The buffers read, which may not be the buffers input.
+  \param reqs A scatter-gather and offset request.
+  \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
+  Note function may return significantly after this deadline if the i/o takes long to cancel.
+  */
+  io_result<buffers_type> read(io_request<buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept;
+
+  /*! \brief Write data to the open file.
+
+  \return The buffers written, which may not be the buffers input.
+  \param reqs A scatter-gather and offset request.
+  \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
+  Note function may return significantly after this deadline if the i/o takes long to cancel.
+  */
+  io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept;
+
+  /*! Resize the current maximum permitted extent of the file to the given extent. Note that
+  on extents based filing systems this will succeed even if there is insufficient free space
+  on the storage medium.
+  */
+  result<extent_type> truncate(extent_type newsize) noexcept;
 };
 
 

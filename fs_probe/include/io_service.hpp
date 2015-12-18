@@ -38,8 +38,11 @@ DEALINGS IN THE SOFTWARE.
 #include <utility>
 #include <vector>
 
+# undef _threadid  // windows macro splosh sigh
+
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
+class io_service;
 class BOOST_AFIO_DECL io_service
 {
 public:

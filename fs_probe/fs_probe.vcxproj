@@ -26,9 +26,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\config.hpp" />
+    <ClInclude Include="include\detail\windows.hpp" />
+    <ClInclude Include="include\handle.hpp" />
     <ClInclude Include="include\io_service.hpp" />
+    <ClInclude Include="include\lockable_handle.hpp" />
     <ClInclude Include="include\storage_profile.hpp" />
-    <ClInclude Include="include\windows.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="include\detail\impl\handle.ipp" />
+    <None Include="include\detail\impl\io_service.ipp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4FCBD8AB-30CB-41C9-91C9-E74B9DEB1495}</ProjectGuid>

@@ -38,7 +38,7 @@ DEALINGS IN THE SOFTWARE.
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-static result<handle> handle::create(io_service &service, filesystem::path path, mode _mode, creation _creation, unsigned flags) noexcept
+result<handle> handle::create(io_service &service, path _path, mode _mode, creation _creation, unsigned flags) noexcept
 {
 #ifdef WIN32
   DWORD access = GENERIC_READ;
@@ -69,7 +69,7 @@ static result<handle> handle::create(io_service &service, filesystem::path path,
   if (!!(flags & flag_sync)) attribs |= FILE_FLAG_WRITE_THROUGH;
   //if(flags & flag_delete_on_close)
   //  attribs |= FILE_FLAG_DELETE_ON_CLOSE;
-  result<handle> ret(handle(&service, std::move(path), flags));
+  result<handle> ret(handle(&service, std::move(_path), flags));
   if (INVALID_HANDLE_VALUE == (ret.value()._v = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, creation, attribs, NULL)))
     return make_errored_result<handle>(GetLastError());
   return ret;
@@ -98,14 +98,14 @@ static result<handle> handle::create(io_service &service, filesystem::path path,
   }
   if (!!(flags & flag_direct)) attribs |= O_DIRECT;
   if (!!(flags & flag_sync)) attribs |= O_SYNC;
-  result<handle> ret(handle(&service, std::move(path), flags));
+  result<handle> ret(handle(&service, std::move(_path), flags));
   if (-1 == (ret.value()._v = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
     return make_errored_result<handle>(errno);
   return ret;
 #endif
 }
 
-~handle()
+handle::~handle()
 {
   if (_v)
   {
@@ -119,13 +119,169 @@ static result<handle> handle::create(io_service &service, filesystem::path path,
   }
 }
 
-handle::handle(const handle &o) : _service(o._service), _path(o._path), _flags(o._flags), _v(0)
+result<handle> handle::clone() const noexcept
+{
+  result<handle> ret(handle(_service, _path, _flags));
+#ifdef WIN32
+  if (!DuplicateHandle(GetCurrentProcess(), _v, GetCurrentProcess(), &ret.value()._v, 0, false, DUPLICATE_SAME_ACCESS))
+    return make_errored_result<handle>(GetLastError());
+#else
+  if (-1 == (ret.value()._v = ::dup(_v)))
+    return make_errored_result<handle>(errno);
+#endif
+  return ret;
+}
+
+template<class CompletionRoutine, class BuffersType, class IORoutine> result<handle::io_state_ptr<CompletionRoutine, BuffersType>> handle::_begin_io(handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
 {
 #ifdef WIN32
-  DuplicateHandle();
+  // Need to keep a set of OVERLAPPED matching the scatter-gather buffers
+  struct state_type : public _io_state_type<CompletionRoutine, BuffersType>
+  {
+    OVERLAPPED ols[1];
+    state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, std::forward<CompletionRoutine>(f), _items) { }
+    virtual ~state_type() override final
+    {
+      // Do we need to cancel pending i/o?
+      if (items_to_go)
+      {
+        for (size_t n = 0; n < items; n++)
+        {
+          // If this is non-zero, probably this i/o still in flight
+          if (ols[n].hEvent)
+            CancelIoEx(parent->_v, ols + n);
+        }
+        // Pump the i/o service until all pending i/o is completed
+        while (items_to_go)
+          parent->service()->run();
+      }
+    }
+  } *state;
+  extent_type offset = reqs.offset;
+  size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
+  using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
+  void *mem = ::malloc(statelen);
+  if (!mem)
+    return make_errored_result<return_type>(ENOMEM);
+  return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
+  memset((state = (state_type *)mem), 0, statelen);
+  new(state) state_type(this, std::forward<CompletionRoutine>(completion), items);
+  // To be called once each buffer is read
+  struct handle_completion
+  {
+    static VOID CALLBACK Do(DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol)
+    {
+      state_type *state = (state_type *)ol->hEvent;
+      ol->hEvent = nullptr;
+      if (state->result)
+      {
+        if (errcode)
+          state->result = make_errored_result<BuffersType>(errcode);
+        else
+        {
+          // Figure out which i/o I am and update the buffer in question
+          size_t idx = ol - state->ols;
+          state->result.value()[idx].second = bytes_transferred;
+        }
+      }
+      state->parent->service()->_work_done();
+      // Are we done?
+      if (!--state->items_to_go)
+        state->completion(state);
+    }
+  };
+  // Noexcept move the buffers from req into result
+  BuffersType &out = state->result.value();
+  out = std::move(reqs.buffers);
+  for (size_t n = 0; n < items; n++)
+  {
+    LPOVERLAPPED ol = state->ols + n;
+    ol->Offset = offset & 0xffffffff;
+    ol->OffsetHigh = (offset >> 32) & 0xffffffff;
+    // Use the unused hEvent member to pass through the state
+    ol->hEvent = (HANDLE)state;
+    offset += out[n].second;
+    ++state->items_to_go;
+    if (!ioroutine(_v, out[n].first, (DWORD)out[n].second, ol, handle_completion::Do))
+    {
+      --state->items_to_go;
+      state->result = make_errored_result<BuffersType>(GetLastError());
+      // Fire completion now if we didn't schedule anything
+      if (!n)
+        state->completion(state);
+      return _state;
+    }
+    service()->_work_enqueued();
+  }
+  return _state;
 #else
+#error todo
 #endif
-  o._copy_construct(*this);
+}
+
+template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::buffers_type>> handle::async_read(handle::io_request<handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
+{
+  return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
+    completion(state->parent, state->result);
+  }, ReadFileEx);
+}
+
+template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::const_buffers_type>> handle::async_write(handle::io_request<handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
+{
+  return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
+    completion(state->parent, state->result);
+  }, WriteFileEx);
+}
+
+handle::io_result<handle::buffers_type> handle::read(handle::io_request<handle::buffers_type> reqs, const std::chrono::system_clock::time_point *deadline) noexcept
+{
+  io_result<buffers_type> ret;
+  auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
+    ret = std::move(state->result);
+  }, ReadFileEx, deadline));
+  BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
+
+  // While i/o is not done pump i/o completion
+  while (!ret)
+  {
+    auto t(_service->run_until(deadline));
+    // If i/o service pump failed or timed out, cancel outstanding i/o and return
+    if (!t)
+      return make_errored_result<buffers_type>(t.get_error());
+  }
+  return ret;
+}
+
+handle::io_result<handle::const_buffers_type> handle::write(handle::io_request<handle::const_buffers_type> reqs, const std::chrono::system_clock::time_point *deadline) noexcept
+{
+  io_result<const_buffers_type> ret;
+  auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
+    ret = std::move(state->result);
+  }, WriteFileEx, deadline));
+  BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
+
+  // While i/o is not done pump i/o completion
+  while (!ret)
+  {
+    auto t(_service->run_until(deadline));
+    // If i/o service pump failed or timed out, cancel outstanding i/o and return
+    if (!t)
+      return make_errored_result<const_buffers_type>(t.get_error());
+  }
+  return ret;
+}
+
+result<handle::extent_type> handle::truncate(handle::extent_type newsize) noexcept
+{
+#ifdef WIN32
+  FILE_END_OF_FILE_INFO feofi;
+  feofi.EndOfFile.QuadPart = newsize;
+  if (!SetFileInformationByHandle(_v, FileEndOfFileInfo, &feofi, sizeof(feofi)))
+    return make_errored_result<extent_type>(GetLastError());
+  return newsize;
+#else
+#error todo
+#endif
 }
 
 BOOST_AFIO_V2_NAMESPACE_END

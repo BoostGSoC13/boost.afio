@@ -269,11 +269,13 @@ BOOST_AFIO_V2_NAMESPACE_END
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 using std::to_string;
+#ifdef WIN32
 namespace win
 {
   using handle = void *;
   using dword = unsigned long;
 }
+#endif
 
 // The C++ 11 runtime is much better at exception state than Boost so no choice here
 using std::make_exception_ptr;
@@ -289,6 +291,9 @@ namespace detail
   using boost::outcome::detail::make_function_ptr;
   using boost::outcome::detail::emplace_function_ptr;
 }
+
+// Temporary in lieu of afio::path
+using stl1z::filesystem::path;
 
 BOOST_AFIO_V2_NAMESPACE_END
 #endif
@@ -369,6 +374,7 @@ BOOST_AFIO_V2_NAMESPACE_END
 #endif
 
 #ifndef BOOST_AFIO_LOG_FATAL_EXIT
+#include <iostream>
 #define BOOST_AFIO_LOG_FATAL_EXIT(expr) std::cerr << expr
 #endif
 
