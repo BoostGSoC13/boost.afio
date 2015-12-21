@@ -32,7 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BOOST_AFIO_IO_SERVICE_H
 #define BOOST_AFIO_IO_SERVICE_H
 
-#include "config.hpp"
+#include "deadline.h"
 
 #include <deque>
 #include <utility>
@@ -143,9 +143,9 @@ public:
   the deadline passed; EOPNOTSUPP if you try to call it from a non-owning thread; EINVAL
   if deadline is invalid.
   */
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<bool> run_until(const std::chrono::system_clock::time_point *deadline) noexcept;
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<bool> run_until(deadline d) noexcept;
   //! \overload
-  result<bool> run() noexcept { return run_until(nullptr); }
+  result<bool> run() noexcept { return run_until(deadline()); }
 
 private:
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void post(detail::function_ptr<void(io_service *)> &&f);

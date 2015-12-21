@@ -38,17 +38,22 @@ DEALINGS IN THE SOFTWARE.
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-result<handle> handle::create(io_service &service, path _path, mode _mode, creation _creation, unsigned flags) noexcept
+result<handle> handle::create(io_service &service, handle::path_type _path, handle::mode _mode, handle::creation _creation, handle::caching _caching, unsigned flags) noexcept
 {
 #ifdef WIN32
-  DWORD access = GENERIC_READ;
+  DWORD access = 0;
   switch (_mode)
   {
-  case mode::append:
-    access = FILE_APPEND_DATA;
+  case mode::unchanged:
+    return make_errored_result<handle>(EINVAL);
+  case mode::read:
+    access = GENERIC_READ;
     break;
   case mode::write:
     access = GENERIC_WRITE | GENERIC_READ;
+    break;
+  case mode::append:
+    access = FILE_APPEND_DATA;
     break;
   }
   DWORD creation = OPEN_EXISTING;
@@ -65,18 +70,43 @@ result<handle> handle::create(io_service &service, path _path, mode _mode, creat
     break;
   }
   DWORD attribs = FILE_FLAG_OVERLAPPED;
-  if (!!(flags & flag_direct)) attribs |= FILE_FLAG_NO_BUFFERING;
-  if (!!(flags & flag_sync)) attribs |= FILE_FLAG_WRITE_THROUGH;
-  //if(flags & flag_delete_on_close)
-  //  attribs |= FILE_FLAG_DELETE_ON_CLOSE;
-  result<handle> ret(handle(&service, std::move(_path), flags));
+  switch (_caching)
+  {
+  case caching::unchanged:
+    return make_errored_result<handle>(EINVAL);
+  case caching::none:
+      attribs |= FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH;
+      break;
+    case caching::metadata:
+      attribs |= FILE_FLAG_NO_BUFFERING;
+      break;
+    case caching::reads:
+      attribs |= FILE_FLAG_WRITE_THROUGH;
+      break;
+    case caching::reads_and_metadata:
+    case caching::write_soon:
+    case caching::write_later:
+    case caching::write_on_close:
+      break;
+    case caching::write_latest:
+      attribs |= FILE_ATTRIBUTE_TEMPORARY;
+      break;
+  }
+  if(flags & flag_delete_on_close)
+    attribs |= FILE_FLAG_DELETE_ON_CLOSE;
+  result<handle> ret(handle(&service, std::move(_path), _mode, _caching, flags));
   if (INVALID_HANDLE_VALUE == (ret.value()._v = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, creation, attribs, NULL)))
     return make_errored_result<handle>(GetLastError());
   return ret;
 #else
-  int attribs = O_RDONLY;
+  int attribs = 0;
   switch (_mode)
   {
+  case mode::unchanged:
+    return make_errored_result<handle>(EINVAL);
+  case mode::read:
+    attribs = O_RDONLY;
+    break;
   case mode::write:
     attribs = O_RDWR;
     break;
@@ -96,9 +126,27 @@ result<handle> handle::create(io_service &service, path _path, mode _mode, creat
     attribs |= O_TRUNC;
     break;
   }
-  if (!!(flags & flag_direct)) attribs |= O_DIRECT;
-  if (!!(flags & flag_sync)) attribs |= O_SYNC;
-  result<handle> ret(handle(&service, std::move(_path), flags));
+  switch (_caching)
+  {
+  case caching::unchanged:
+    return make_errored_result<handle>(EINVAL);
+  case caching::none:
+    attribs |= O_SYNC | O_DIRECT;
+    break;
+  case caching::metadata:
+    attribs |= O_DIRECT;
+    break;
+  case caching::reads:
+    attribs |= O_SYNC;
+    break;
+  case caching::reads_and_metadata:
+  case caching::write_soon:
+  case caching::write_later:
+  case caching::write_on_close:
+  case caching::write_latest:
+    break;
+  }
+  result<handle> ret(handle(&service, std::move(_path), _mode, _caching, flags));
   if (-1 == (ret.value()._v = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
     return make_errored_result<handle>(errno);
   return ret;
@@ -109,6 +157,25 @@ handle::~handle()
 {
   if (_v)
   {
+    switch (_caching)
+    {
+    case caching::none:
+    case caching::metadata:
+    case caching::reads:
+    case caching::reads_and_metadata:
+      break;
+    case caching::write_soon:
+    case caching::write_later:
+    case caching::write_on_close:
+#ifdef WIN32
+      FlushFileBuffers(_v);
+#else
+      fsync(_v);
+#endif
+      break;
+    case caching::write_latest:
+      break;
+    }
 #ifdef WIN32
     CloseHandle(_v);
     _v = nullptr;
@@ -119,12 +186,26 @@ handle::~handle()
   }
 }
 
-result<handle> handle::clone() const noexcept
+result<handle> handle::clone(io_service &service, mode mode, caching caching, unsigned flags) const noexcept
 {
-  result<handle> ret(handle(_service, _path, _flags));
+  result<handle> ret(handle(service, _path, _mode, _caching, _flags));
 #ifdef WIN32
   if (!DuplicateHandle(GetCurrentProcess(), _v, GetCurrentProcess(), &ret.value()._v, 0, false, DUPLICATE_SAME_ACCESS))
     return make_errored_result<handle>(GetLastError());
+  switch (mode)
+  {
+  case mode::unchanged:
+    return make_errored_result<handle>(EINVAL);
+  case mode::read:
+    attribs = O_RDONLY;
+    break;
+  case mode::write:
+    attribs = O_RDWR;
+    break;
+  case mode::append:
+    attribs = O_APPEND;
+    break;
+  }
 #else
   if (-1 == (ret.value()._v = ::dup(_v)))
     return make_errored_result<handle>(errno);
@@ -219,6 +300,52 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<han
 #endif
 }
 
+void handle::_write_flush() noexcept
+{
+  switch (_caching)
+  {
+  case caching::none:
+  case caching::metadata:
+  case caching::reads:
+    break;
+  case caching::reads_and_metadata:
+#ifdef WIN32
+    FlushFileBuffers(_v);
+#else
+    aio_fsync(O_DSYNC, ...);
+#endif
+    break;
+  case caching::write_soon:
+  case caching::write_later:
+  case caching::write_on_close:
+  case caching::write_latest:
+    break;
+  }
+}
+
+void handle::_metadata_flush() noexcept
+{
+  switch (_caching)
+  {
+  case caching::none:
+  case caching::metadata:
+  case caching::reads:
+    break;
+  case caching::reads_and_metadata:
+#ifdef WIN32
+    FlushFileBuffers(_v);
+#else
+    aio_fsync(O_SYNC, ...);
+#endif
+    break;
+  case caching::write_soon:
+  case caching::write_later:
+  case caching::write_on_close:
+  case caching::write_latest:
+    break;
+  }
+}
+
 template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::buffers_type>> handle::async_read(handle::io_request<handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
   return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
@@ -229,22 +356,23 @@ template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine,
 template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::const_buffers_type>> handle::async_write(handle::io_request<handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
   return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
+    state->parent->_write_flush();
     completion(state->parent, state->result);
   }, WriteFileEx);
 }
 
-handle::io_result<handle::buffers_type> handle::read(handle::io_request<handle::buffers_type> reqs, const std::chrono::system_clock::time_point *deadline) noexcept
+handle::io_result<handle::buffers_type> handle::read(handle::io_request<handle::buffers_type> reqs, deadline d) noexcept
 {
   io_result<buffers_type> ret;
   auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
     ret = std::move(state->result);
-  }, ReadFileEx, deadline));
+  }, ReadFileEx));
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
   // While i/o is not done pump i/o completion
   while (!ret)
   {
-    auto t(_service->run_until(deadline));
+    auto t(_service->run_until(d));
     // If i/o service pump failed or timed out, cancel outstanding i/o and return
     if (!t)
       return make_errored_result<buffers_type>(t.get_error());
@@ -252,18 +380,19 @@ handle::io_result<handle::buffers_type> handle::read(handle::io_request<handle::
   return ret;
 }
 
-handle::io_result<handle::const_buffers_type> handle::write(handle::io_request<handle::const_buffers_type> reqs, const std::chrono::system_clock::time_point *deadline) noexcept
+handle::io_result<handle::const_buffers_type> handle::write(handle::io_request<handle::const_buffers_type> reqs, deadline d) noexcept
 {
   io_result<const_buffers_type> ret;
   auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
+    state->parent->_write_flush();
     ret = std::move(state->result);
-  }, WriteFileEx, deadline));
+  }, WriteFileEx));
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
   // While i/o is not done pump i/o completion
   while (!ret)
   {
-    auto t(_service->run_until(deadline));
+    auto t(_service->run_until(d));
     // If i/o service pump failed or timed out, cancel outstanding i/o and return
     if (!t)
       return make_errored_result<const_buffers_type>(t.get_error());
@@ -278,6 +407,7 @@ result<handle::extent_type> handle::truncate(handle::extent_type newsize) noexce
   feofi.EndOfFile.QuadPart = newsize;
   if (!SetFileInformationByHandle(_v, FileEndOfFileInfo, &feofi, sizeof(feofi)))
     return make_errored_result<extent_type>(GetLastError());
+  _metadata_flush();
   return newsize;
 #else
 #error todo

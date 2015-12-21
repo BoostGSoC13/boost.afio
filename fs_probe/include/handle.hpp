@@ -39,61 +39,77 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 //! A handle to an open file
 class BOOST_AFIO_DECL handle
 {
-  io_service *_service;
-  path _path;
-  unsigned _flags;
-  handle(io_service *service, path path, unsigned flags) : _service(service), _path(std::move(path)), _flags(flags) { }
-  // Called when a move construction occurs
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _move_construct(handle &dest) && noexcept {}
 public:
-  //! The file extent type used by this i/o service
+  //! The path type used by this handle
+  using path_type = path;
+  //! The file extent type used by this handle
   using extent_type = io_service::extent_type;
-  //! The memory extent type used by this i/o service
+  //! The memory extent type used by this handle
   using size_type = io_service::size_type;
-  //! The scatter buffer type used by this i/o service
+  //! The scatter buffer type used by this handle
   using buffer_type = io_service::buffer_type;
-  //! The gather buffer type used by this i/o service
+  //! The gather buffer type used by this handle
   using const_buffer_type = io_service::const_buffer_type;
-  //! The scatter buffers type used by this i/o service
+  //! The scatter buffers type used by this handle
   using buffers_type = io_service::buffers_type;
-  //! The gather buffers type used by this i/o service
+  //! The gather buffers type used by this handle
   using const_buffers_type = io_service::const_buffers_type;
-  //! The i/o request type used by this i/o service
+  //! The i/o request type used by this handle
   template<class T> using io_request = io_service::io_request<T>;
-  //! The i/o result type used by this i/o service
+  //! The i/o result type used by this handle
   template<class T> using io_result = io_service::io_result<T>;
 
   //! The behaviour of the handle: does it read, read and write, or atomic append?
-  enum class mode
+  enum class mode : unsigned char
   {
-    read = 0,
+    unchanged=0,
+    none,
+    read,
     write,
-    append
+    append              //!< All mainstream OSs and CIFS guarantee this is atomic with respect to all other appenders
   };
   //! On opening, do we also create a new file or truncate an existing one?
-  enum class creation
+  enum class creation : unsigned char
   {
-    open = 0,
+    open_existing = 0,
     only_if_not_exist,
     if_needed,
-    truncate
+    truncate            //!< Atomically truncate on open, leaving creation date unmodified.
   };
-  //! Will i/o bypass the kernel's page cache and go straight to the device?
-  static constexpr unsigned flag_direct = (1 << 0);
-  //! Will kernel caching of i/o be write through rather than write back?
-  static constexpr unsigned flag_sync = (1 << 1);
-  //! Maximum flags for this io_service
-  static constexpr unsigned flags_max = (1 << 2);
-
+  //! How the handle's i/o will be cached by the OS kernel
+  enum class caching : unsigned char
+  {
+    unchanged=0,
+    none,                 //!< No caching whatsoever (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work.
+    metadata,             //!< Try to avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
+    reads,                //!< Cache reads, writes do not complete until reaching storage (<tt>O_SYNC</tt>).
+    reads_and_metadata,   //!< Cache reads and writes of metadata, but not writes of data (<tt>fdatasync()</tt> after every write and <tt>fsync()</tt> after every metadata change, not completing until done).
+    write_soon,           //!< Cache reads and writes of data and metadata, but send writes to storage immediately (<tt>fdatasync()</tt> after every write and <tt>fsync()</tt> after every metadata change but completing before sync).
+    write_later,          //!< Cache reads and writes of data and metadata, but send writes to storage at some point when the kernel decides.
+    write_on_close,       //!< Cache reads and writes of data and metadata, but send writes to storage when the handle is closed/destroyed (<tt>fsync()</tt> on close/destruction if any modification was made).
+    write_latest          //!< Cache reads and writes of data and metadata, but only send any writes at all to storage on last handle close in the system or if memory becomes tight (Windows only).
+  };
+  //! Delete the file on last handle close
+  static constexpr unsigned flag_delete_on_close = (1 << 0);
+protected:
+  io_service *_service;
+  path_type _path;
+  mode _mode;
+  caching _caching;
+  unsigned _flags;
+  handle(io_service *service, path_type path, mode mode, caching caching, unsigned flags) : _service(service), _path(std::move(path)), _mode(mode), _caching(caching), _flags(flags) { }
+  // Called when a move construction occurs
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _move_construct(handle &dest) && noexcept {}
+public:
   //! Create a handle opening access to a file on path managed using i/o service service
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<handle> create(io_service &service, path _path, mode _mode = mode::read, creation _creation = creation::open, unsigned flags = 0) noexcept;
+  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<handle> create(io_service &service, path _path, mode _mode = mode::read, creation _creation = creation::open_existing, caching _caching = caching::write_later, unsigned flags = 0) noexcept;
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle();
   //! Clone this handle (copy constructor is disabled to avoid accidental copying)
-  result<handle> clone() const noexcept;
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<handle> clone(io_service &service, mode _mode=mode::unchanged, caching _caching=caching::unchanged, unsigned _flags=(unsigned)-1) const noexcept;
   handle(const handle &o) = delete;
   handle &operator=(const handle &o) = delete;
   //! Move the handle
-  handle(handle &&o) noexcept : _service(o._service), _path(std::move(o._path)), _flags(o._flags), _v(std::move(o._v))
+  handle(handle &&o) noexcept : _service(o._service), _path(std::move(o._path)), _mode(o._mode), _caching(o._caching), _flags(o._flags), _v(std::move(o._v))
   {
     std::move(o)._move_construct(*this);
     o._service = nullptr;
@@ -108,6 +124,26 @@ public:
   }
   //! The i/o service this handle is attached to
   io_service *service() const noexcept { return _service; }
+  //! The path this handle refers to
+  path_type path() const noexcept { return _path; }
+  //! True if the handle is readable
+  bool is_readable() const noexcept { return _mode == mode::read || _mode==mode::write; }
+  //! True if the handle is writable
+  bool is_writable() const noexcept { return _mode == mode::write || _mode == mode::append; }
+  //! True if the handle is append only
+  bool is_append_only() const noexcept { return _mode == mode::append; }
+
+  //! Kernel cache strategy used by this handle
+  caching kernel_caching() const noexcept { return _caching; }
+  //! True if the handle needs 4Kb aligned i/o
+  bool needs_aligned_io() const noexcept { return _caching == caching::none || _caching==caching::metadata; }
+  //! True if the handle uses the kernel page cache for reads
+  bool are_reads_from_cache() const noexcept { return _caching == caching::write_back || _caching == caching::write_through; }
+  //! True if writes are safe on completion
+  bool are_writes_durable() const noexcept { return _caching == caching::none || _caching == caching::write_through; }
+
+  //! The flags this handle was opened with
+  unsigned flags() const noexcept { return _flags; }
 protected:
   using shared_size_type = size_type;
 #ifdef WIN32
@@ -147,6 +183,8 @@ protected:
   result<io_state_ptr<CompletionRoutine, BuffersType>>
     _begin_io(io_request<BuffersType> reqs,
       CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
+  void _write_flush() noexcept;
+  void _metadata_flush() noexcept;
 public:
   /*! \brief Schedule a read to occur asynchronously.
 
@@ -173,7 +211,7 @@ public:
   \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
   Note function may return significantly after this deadline if the i/o takes long to cancel.
   */
-  io_result<buffers_type> read(io_request<buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept;
+  io_result<buffers_type> read(io_request<buffers_type> reqs, deadline d = deadline()) noexcept;
 
   /*! \brief Write data to the open file.
 
@@ -182,7 +220,7 @@ public:
   \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
   Note function may return significantly after this deadline if the i/o takes long to cancel.
   */
-  io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, const std::chrono::system_clock::time_point *deadline = nullptr) noexcept;
+  io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, deadline d = deadline()) noexcept;
 
   /*! Resize the current maximum permitted extent of the file to the given extent. Note that
   on extents based filing systems this will succeed even if there is insufficient free space

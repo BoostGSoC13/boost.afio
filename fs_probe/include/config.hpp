@@ -265,6 +265,8 @@ using BOOST_OUTCOME_V1_NAMESPACE::monad_errc;
 using BOOST_OUTCOME_V1_NAMESPACE::monad_category;
 BOOST_AFIO_V2_NAMESPACE_END
 
+#include <time.h>  // for struct timespec
+
 // Direct aliasing into the AFIO namespace
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 BOOST_AFIO_V2_NAMESPACE_BEGIN

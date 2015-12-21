@@ -32,11 +32,15 @@ DEALINGS IN THE SOFTWARE.
 #include "include/handle.hpp"
 #include "include/storage_profile.hpp"
 
+#include <fstream>
+#include <iomanip>
 #include <regex>
 
 using namespace BOOST_AFIO_V2_NAMESPACE;
 
-constexpr unsigned permute_flags_max = handle::flags_max;
+constexpr unsigned permute_flags_max = 4;
+
+static storage_profile::storage_profile profile[permute_flags_max];
 
 int main(int argc, char *argv[])
 {
@@ -69,93 +73,44 @@ int main(int argc, char *argv[])
   {
     if (!flags || !!(flags & torunflags))
     {
-      // Figure out what the minimum atomic write is
-      if (std::regex_match(profile[0].min_atomic_write.name, torun))
+      io_service service;
+      handle::caching strategy=handle::caching::write_later;
+      switch (flags)
       {
-        using off_t = io_service::extent_type;
-        profile[flags].max_atomic_write.value = 1;
-        for (off_t size = !!(flags & flag_direct) ? 512 : 64; size <= 1 * 1024 * 1024 && size<profile[flags].min_atomic_write.value; size = size * 2)
+      case 1:
+        strategy = handle::caching::metadata;
+        break;
+      case 2:
+        strategy = handle::caching::reads;
+        break;
+      case 3:
+        strategy = handle::caching::none;
+        break;
+      }
+      auto _testfile(handle::create(service, "test", handle::mode::write, handle::creation::if_needed, strategy));
+      if (!_testfile)
+      {
+        std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
+        continue;
+      }
+      handle testfile(std::move(_testfile.get()));
+      for (auto &test : profile[flags])
+      {
+        if (std::regex_match(test.name, torun))
         {
-          // Create two concurrent writer threads
-          std::vector<std::thread> writers;
-          std::atomic<size_t> done(2);
-          for (char no = '1'; no <= '2'; no++)
-            writers.push_back(std::thread([size, flags, no, &done] {
-            io_service service;
-            auto _h(handle::create(service, "temp", mode::write, creation::if_needed, flags | flag_delete_on_close | flag_no_race_protection));
-            if (!_h)
-            {
-              std::cerr << "FATAL ERROR: Could not open work file due to " << _h.get_error().message() << std::endl;
-              abort();
-            }
-            auto h(std::move(_h.get()));
-            std::vector<char> buffer(size, no);
-            handle::io_request<handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-            // Preallocate space before testing
-            h.truncate(size);
-            h.write(reqs);
-            --done;
-            while (done)
-              std::this_thread::yield();
-            while (!done)
-            {
-              h.write(reqs);
-            }
-          }));
-          while (done)
-            std::this_thread::yield();
-          // Repeatedly read from the file and check for torn writes
-          io_service service;
-          auto _h(handle::create(service, "temp", mode::read, creation::open, flags | flag_delete_on_close | flag_no_race_protection));
-          if (!_h)
+          auto result = test(profile[flags]);
+          if (!result)
           {
-            std::cerr << "FATAL ERROR: Could not open work file due to " << _h.get_error().message() << std::endl;
-            abort();
+            std::cerr << "ERROR running test '" << test.name << "': " << result.get_error().message() << std::endl;
           }
-          auto h(std::move(_h.get()));
-          std::vector<char> buffer(size, 0);
-          handle::io_request<handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-          bool failed = false;
-          std::cout << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync)<< " testing atomicity of writes of " << size << " bytes ..." << std::endl;
-          for (size_t transitions = 0; transitions < 10000; transitions++)
-          {
-            h.read(reqs);
-            const size_t *data = (size_t *)buffer.data(), *end=(size_t *)(buffer.data()+size);
-            for (const size_t *d = data; d < end; d++)
-            {
-              if (*d != *data)
-              {
-                failed = true;
-                off_t failedat = d - data;
-                if (failedat < profile[flags].min_atomic_write.value)
-                {
-                  std::cout << "  Torn write at offset " << failedat << std::endl;
-                  profile[flags].min_atomic_write.value = failedat;
-                }
-                break;
-              }
-            }
-          }
-          if (!failed)
-          {
-            if (size > profile[flags].max_atomic_write.value)
-              profile[flags].max_atomic_write.value = size;
-          }
-          done = true;
-          for (auto &writer : writers)
-            writer.join();
-          if (failed)
-            break;
         }
-        if (profile[flags].min_atomic_write.value > profile[flags].max_atomic_write.value)
-          profile[flags].min_atomic_write.value = profile[flags].max_atomic_write.value;
       }
       // Write out results for this combination of flags
-      std::cout << "\ndirect=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
-      profile[flags].write(0, std::cout);
+      std::cout << "\ndirect=" << !!(flags & handle::flag_direct) << " sync=" << !!(flags & handle::flag_sync) << ":\n";
+      profile[flags].write(std::cout, 0);
       std::cout.flush();
-      results << "direct=" << !!(flags & flag_direct) << " sync=" << !!(flags & flag_sync) << ":\n";
-      profile[flags].write(0, results);
+      results << "direct=" << !!(flags & handle::flag_direct) << " sync=" << !!(flags & handle::flag_sync) << ":\n";
+      profile[flags].write(results, 0);
       results.flush();
     }
   }

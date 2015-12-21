@@ -62,28 +62,52 @@ io_service::~io_service()
 #endif
 }
 
-result<bool> io_service::run_until(const std::chrono::system_clock::time_point *deadline) noexcept
+result<bool> io_service::run_until(deadline d) noexcept
 {
   if (!_work_queued)
     return false;
 #ifdef WIN32
   if (GetCurrentThreadId() != _threadid)
     return make_errored_result<bool>(EOPNOTSUPP);
-  std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-  DWORD tosleep = INFINITE;
-  if (deadline)
+  stl11::chrono::steady_clock::time_point began_steady;
+  stl11::chrono::system_clock::time_point end_utc;
+  if (d)
   {
-    auto _tosleep = std::chrono::duration_cast<std::chrono::milliseconds>(*deadline - now).count();
-    if (_tosleep <= 0)
-      _tosleep = 0;
-    tosleep = (DWORD)_tosleep;
+    if (d.steady)
+      began_steady = stl11::chrono::steady_clock::now();
+    else
+      end_utc = d.to_time_point();
+  }
+  DWORD tosleep = INFINITE;
+  if (d)
+  {
+    stl11::chrono::milliseconds ms;
+    if (d.steady)
+      ms = stl11::chrono::duration_cast<stl11::chrono::milliseconds>((began_steady + stl11::chrono::nanoseconds(d.nsecs)) - stl11::chrono::steady_clock::now());
+    else
+      ms = stl11::chrono::duration_cast<stl11::chrono::milliseconds>(end_utc - stl11::chrono::system_clock::now());
+    if (ms.count() < 0)
+      tosleep = 0;
+    else
+      tosleep = (DWORD) ms.count();
   }
   // Execute any APCs queued to this thread
   if (!SleepEx(tosleep, true))
   {
-    auto _tosleep = std::chrono::duration_cast<std::chrono::milliseconds>(*deadline - now).count();
-    if (_tosleep <= 0)
-      return make_errored_result<bool>(ETIMEDOUT);
+    // Really a timeout?
+    if (d)
+    {
+      if (d.steady)
+      {
+        if(stl11::chrono::steady_clock::now()>=(began_steady + stl11::chrono::nanoseconds(d.nsecs)))
+          return make_errored_result<bool>(ETIMEDOUT);
+      }
+      else
+      {
+        if(stl11::chrono::system_clock::now()>=end_utc)
+          return make_errored_result<bool>(ETIMEDOUT);
+      }
+    }
   }
 #else
   if (pthread_self() != _threadh)
