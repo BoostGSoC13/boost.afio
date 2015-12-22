@@ -81,9 +81,9 @@ namespace storage_profile
     callable impl;
     T value;                  //!< The storage of the item
     char _padding[item_size - sizeof(item_base) - sizeof(callable) - sizeof(T)];
-    constexpr item(const char *_name, callable c, const char *_desc = nullptr, T _value = default_value<T>()) : item_base(_name, _desc, map_to_storage_type<T>()), impl(c), value(_value)
+    constexpr item(const char *_name, callable c, const char *_desc = nullptr, T _value = default_value<T>()) : item_base(_name, _desc, map_to_storage_type<T>()), impl(c), value(_value), _padding{ 0 }
     {
-      static_assert(sizeof(*this) == item_size);
+      static_assert(sizeof(*this) == item_size, "");
     }
     //! Clear this item, returning value to default
     void clear() { value = default_value<T>(); }
@@ -111,8 +111,6 @@ namespace storage_profile
     {
       switch (type)
       {
-      case storage_types::unknown:
-        throw std::invalid_argument("No type set in item");
       case storage_types::extent_type:
         return f(*static_cast<const item<io_service::extent_type> *>(static_cast<const item_base *>(this)));
       case storage_types::unsigned_int:
@@ -122,6 +120,7 @@ namespace storage_profile
       case storage_types::string:
         return f(*static_cast<const item<std::string> *>(static_cast<const item_base *>(this)));
       }
+      throw std::invalid_argument("No type set in item");
     }
     //! Set this item if its value is default
     outcome<void> operator()(storage_profile &sp) const

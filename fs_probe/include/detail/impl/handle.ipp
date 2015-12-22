@@ -77,18 +77,17 @@ result<handle> handle::create(io_service &service, handle::path_type _path, hand
   case caching::none:
       attribs |= FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH;
       break;
-    case caching::metadata:
+    case caching::only_metadata:
       attribs |= FILE_FLAG_NO_BUFFERING;
       break;
     case caching::reads:
+    case caching::reads_and_metadata:
       attribs |= FILE_FLAG_WRITE_THROUGH;
       break;
-    case caching::reads_and_metadata:
-    case caching::write_soon:
-    case caching::write_later:
-    case caching::write_on_close:
+    case caching::all:
+    case caching::safety_fsyncs:
       break;
-    case caching::write_latest:
+    case caching::maximum:
       attribs |= FILE_ATTRIBUTE_TEMPORARY;
       break;
   }
@@ -97,6 +96,8 @@ result<handle> handle::create(io_service &service, handle::path_type _path, hand
   result<handle> ret(handle(&service, std::move(_path), _mode, _caching, flags));
   if (INVALID_HANDLE_VALUE == (ret.value()._v = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, creation, attribs, NULL)))
     return make_errored_result<handle>(GetLastError());
+  if (_creation==creation::truncate && ret.value().are_safety_fsyncs_issued())
+    FlushFileBuffers(ret.value()._v);
   return ret;
 #else
   int attribs = 0;
@@ -133,22 +134,25 @@ result<handle> handle::create(io_service &service, handle::path_type _path, hand
   case caching::none:
     attribs |= O_SYNC | O_DIRECT;
     break;
-  case caching::metadata:
+  case caching::only_metadata:
     attribs |= O_DIRECT;
     break;
   case caching::reads:
     attribs |= O_SYNC;
     break;
   case caching::reads_and_metadata:
-  case caching::write_soon:
-  case caching::write_later:
-  case caching::write_on_close:
-  case caching::write_latest:
+    attribs |= O_DSYNC;
+    break;
+  case caching::all:
+  case caching::safety_fsyncs:
+  case caching::maximum:
     break;
   }
   result<handle> ret(handle(&service, std::move(_path), _mode, _caching, flags));
   if (-1 == (ret.value()._v = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
     return make_errored_result<handle>(errno);
+  if (_creation == creation::truncate && ret.value().are_safety_fsyncs_issued())
+    fsync(ret.value()._v);
   return ret;
 #endif
 }
@@ -157,24 +161,13 @@ handle::~handle()
 {
   if (_v)
   {
-    switch (_caching)
+    if(are_safety_fsyncs_issued())
     {
-    case caching::none:
-    case caching::metadata:
-    case caching::reads:
-    case caching::reads_and_metadata:
-      break;
-    case caching::write_soon:
-    case caching::write_later:
-    case caching::write_on_close:
 #ifdef WIN32
       FlushFileBuffers(_v);
 #else
       fsync(_v);
 #endif
-      break;
-    case caching::write_latest:
-      break;
     }
 #ifdef WIN32
     CloseHandle(_v);
@@ -188,27 +181,59 @@ handle::~handle()
 
 result<handle> handle::clone(io_service &service, mode mode, caching caching, unsigned flags) const noexcept
 {
-  result<handle> ret(handle(service, _path, _mode, _caching, _flags));
+  result<handle> ret(handle(&service, _path, _mode, _caching, _flags));
 #ifdef WIN32
-  if (!DuplicateHandle(GetCurrentProcess(), _v, GetCurrentProcess(), &ret.value()._v, 0, false, DUPLICATE_SAME_ACCESS))
-    return make_errored_result<handle>(GetLastError());
-  switch (mode)
+  DWORD access = 0;
+  if (mode != mode::unchanged && mode != _mode)
   {
-  case mode::unchanged:
+    switch (mode)
+    {
+    case mode::unchanged:
+      break;
+    case mode::read:
+      access = GENERIC_READ;
+      break;
+    case mode::write:
+      access = GENERIC_WRITE | GENERIC_READ;
+      break;
+    case mode::append:
+      access = FILE_APPEND_DATA;
+      break;
+    }
+  }
+  if (!DuplicateHandle(GetCurrentProcess(), _v, GetCurrentProcess(), &ret.value()._v, access, false, mode == mode::unchanged ? DUPLICATE_SAME_ACCESS : 0))
+    return make_errored_result<handle>(GetLastError());
+  if (caching != caching::unchanged && caching != _caching)
+  {
     return make_errored_result<handle>(EINVAL);
-  case mode::read:
-    attribs = O_RDONLY;
-    break;
-  case mode::write:
-    attribs = O_RDWR;
-    break;
-  case mode::append:
-    attribs = O_APPEND;
-    break;
   }
 #else
   if (-1 == (ret.value()._v = ::dup(_v)))
     return make_errored_result<handle>(errno);
+  if (mode != mode::unchanged && mode != _mode)
+  {
+    int attribs = 0;
+    if (-1 == (attribs = fcntl(ret.value()._v, F_GETFL)))
+      return make_errored_result<handle>(errno);
+    switch (mode)
+    {
+    case mode::unchanged:
+      break;
+    case mode::read:
+      return make_errored_result<handle>(EINVAL);
+    case mode::write:
+    case mode::append:
+      attribs ^= O_APPEND;
+      break;
+    }
+    if(-1==fcntl(ret.value()._v, F_SETFL, attribs))
+      return make_errored_result<handle>(errno);
+  }
+  if (caching != caching::unchanged && caching != _caching)
+  {
+    // TODO: Allow fiddling with O_DIRECT
+    return make_errored_result<handle>(EINVAL);
+  }
 #endif
   return ret;
 }
@@ -300,52 +325,6 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<han
 #endif
 }
 
-void handle::_write_flush() noexcept
-{
-  switch (_caching)
-  {
-  case caching::none:
-  case caching::metadata:
-  case caching::reads:
-    break;
-  case caching::reads_and_metadata:
-#ifdef WIN32
-    FlushFileBuffers(_v);
-#else
-    aio_fsync(O_DSYNC, ...);
-#endif
-    break;
-  case caching::write_soon:
-  case caching::write_later:
-  case caching::write_on_close:
-  case caching::write_latest:
-    break;
-  }
-}
-
-void handle::_metadata_flush() noexcept
-{
-  switch (_caching)
-  {
-  case caching::none:
-  case caching::metadata:
-  case caching::reads:
-    break;
-  case caching::reads_and_metadata:
-#ifdef WIN32
-    FlushFileBuffers(_v);
-#else
-    aio_fsync(O_SYNC, ...);
-#endif
-    break;
-  case caching::write_soon:
-  case caching::write_later:
-  case caching::write_on_close:
-  case caching::write_latest:
-    break;
-  }
-}
-
 template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::buffers_type>> handle::async_read(handle::io_request<handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
   return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
@@ -356,7 +335,6 @@ template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine,
 template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::const_buffers_type>> handle::async_write(handle::io_request<handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
   return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
-    state->parent->_write_flush();
     completion(state->parent, state->result);
   }, WriteFileEx);
 }
@@ -384,7 +362,6 @@ handle::io_result<handle::const_buffers_type> handle::write(handle::io_request<h
 {
   io_result<const_buffers_type> ret;
   auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
-    state->parent->_write_flush();
     ret = std::move(state->result);
   }, WriteFileEx));
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
@@ -407,7 +384,10 @@ result<handle::extent_type> handle::truncate(handle::extent_type newsize) noexce
   feofi.EndOfFile.QuadPart = newsize;
   if (!SetFileInformationByHandle(_v, FileEndOfFileInfo, &feofi, sizeof(feofi)))
     return make_errored_result<extent_type>(GetLastError());
-  _metadata_flush();
+  if (are_safety_fsyncs_issued())
+  {
+    FlushFileBuffers(_v);
+  }
   return newsize;
 #else
 #error todo

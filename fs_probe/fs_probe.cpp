@@ -74,17 +74,17 @@ int main(int argc, char *argv[])
     if (!flags || !!(flags & torunflags))
     {
       io_service service;
-      handle::caching strategy=handle::caching::write_later;
+      handle::caching strategy=handle::caching::all;
       switch (flags)
       {
       case 1:
-        strategy = handle::caching::metadata;
+        strategy = handle::caching::only_metadata;  // O_DIRECT
         break;
       case 2:
-        strategy = handle::caching::reads;
+        strategy = handle::caching::reads;          // O_SYNC
         break;
       case 3:
-        strategy = handle::caching::none;
+        strategy = handle::caching::none;           // O_DIRECT|O_SYNC
         break;
       }
       auto _testfile(handle::create(service, "test", handle::mode::write, handle::creation::if_needed, strategy));
@@ -106,10 +106,10 @@ int main(int argc, char *argv[])
         }
       }
       // Write out results for this combination of flags
-      std::cout << "\ndirect=" << !!(flags & handle::flag_direct) << " sync=" << !!(flags & handle::flag_sync) << ":\n";
+      std::cout << "\ndirect=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
       profile[flags].write(std::cout, 0);
       std::cout.flush();
-      results << "direct=" << !!(flags & handle::flag_direct) << " sync=" << !!(flags & handle::flag_sync) << ":\n";
+      results << "direct=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
       profile[flags].write(results, 0);
       results.flush();
     }

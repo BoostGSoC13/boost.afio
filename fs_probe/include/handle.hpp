@@ -76,21 +76,34 @@ public:
     if_needed,
     truncate            //!< Atomically truncate on open, leaving creation date unmodified.
   };
-  //! How the handle's i/o will be cached by the OS kernel
+  //! What i/o on the handle will complete immediately due to kernel caching
   enum class caching : unsigned char
   {
     unchanged=0,
-    none,                 //!< No caching whatsoever (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work.
-    metadata,             //!< Try to avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
-    reads,                //!< Cache reads, writes do not complete until reaching storage (<tt>O_SYNC</tt>).
-    reads_and_metadata,   //!< Cache reads and writes of metadata, but not writes of data (<tt>fdatasync()</tt> after every write and <tt>fsync()</tt> after every metadata change, not completing until done).
-    write_soon,           //!< Cache reads and writes of data and metadata, but send writes to storage immediately (<tt>fdatasync()</tt> after every write and <tt>fsync()</tt> after every metadata change but completing before sync).
-    write_later,          //!< Cache reads and writes of data and metadata, but send writes to storage at some point when the kernel decides.
-    write_on_close,       //!< Cache reads and writes of data and metadata, but send writes to storage when the handle is closed/destroyed (<tt>fsync()</tt> on close/destruction if any modification was made).
-    write_latest          //!< Cache reads and writes of data and metadata, but only send any writes at all to storage on last handle close in the system or if memory becomes tight (Windows only).
+    none,                 //!< No caching whatsoever, all reads and writes come from storage (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work. <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    only_metadata,        //!< Cache reads and writes of metadata but avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
+    reads,                //!< Cache reads only. Writes of data and metadata do not complete until reaching storage (<tt>O_SYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    reads_and_metadata,   //!< Cache reads and writes of metadata, but writes of data do not complete until reaching storage (<tt>O_DSYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    all,                  //!< Cache reads and writes of data and metadata so they complete immediately, sending writes to storage at some point when the kernel decides (this is the default file system caching on a system).
+    safety_fsyncs,        //!< Cache reads and writes of data and metadata so they complete immediately, but issue safety fsyncs at certain points. See documentation for <tt>flag_disable_safety_fsyncs</tt>.
+    maximum               //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight (Windows only).
   };
   //! Delete the file on last handle close
   static constexpr unsigned flag_delete_on_close = (1 << 0);
+  /*! Some kernel caching modes have unhelpfully inconsistent behaviours
+  in getting your data onto storage, so by default unless this flag is
+  specified AFIO adds extra fsyncs to the following operations for the
+  caching modes specified below:
+    * truncation of file length either explicitly or during file open.
+    * closing of the handle either explicitly or in the destructor.
+
+  This only occurs for these kernel caching modes:
+    * caching::none
+    * caching::reads
+    * caching::reads_and_metadata
+    * caching::safety_fsyncs
+  */
+  static constexpr unsigned flag_disable_safety_fsyncs = (1 << 1);
 protected:
   io_service *_service;
   path_type _path;
@@ -102,7 +115,7 @@ protected:
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _move_construct(handle &dest) && noexcept {}
 public:
   //! Create a handle opening access to a file on path managed using i/o service service
-  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<handle> create(io_service &service, path _path, mode _mode = mode::read, creation _creation = creation::open_existing, caching _caching = caching::write_later, unsigned flags = 0) noexcept;
+  static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<handle> create(io_service &service, path _path, mode _mode = mode::read, creation _creation = creation::open_existing, caching _caching = caching::all, unsigned flags = 0) noexcept;
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle();
   //! Clone this handle (copy constructor is disabled to avoid accidental copying)
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<handle> clone(io_service &service, mode _mode=mode::unchanged, caching _caching=caching::unchanged, unsigned _flags=(unsigned)-1) const noexcept;
@@ -136,11 +149,13 @@ public:
   //! Kernel cache strategy used by this handle
   caching kernel_caching() const noexcept { return _caching; }
   //! True if the handle needs 4Kb aligned i/o
-  bool needs_aligned_io() const noexcept { return _caching == caching::none || _caching==caching::metadata; }
+  bool needs_aligned_io() const noexcept { return _caching == caching::none || _caching==caching::only_metadata; }
   //! True if the handle uses the kernel page cache for reads
-  bool are_reads_from_cache() const noexcept { return _caching == caching::write_back || _caching == caching::write_through; }
-  //! True if writes are safe on completion
-  bool are_writes_durable() const noexcept { return _caching == caching::none || _caching == caching::write_through; }
+  bool are_reads_from_cache() const noexcept { return _caching != caching::none && _caching != caching::only_metadata; }
+  //! True if writes are safely on storage on completion
+  bool are_writes_durable() const noexcept { return _caching == caching::none || _caching == caching::reads || _caching==caching::reads_and_metadata; }
+  //! True if issuing safety fsyncs is on
+  bool are_safety_fsyncs_issued() const noexcept { return !(_flags & flag_disable_safety_fsyncs) && (_caching == caching::none || _caching == caching::reads || _caching == caching::reads_and_metadata || _caching == caching::safety_fsyncs); }
 
   //! The flags this handle was opened with
   unsigned flags() const noexcept { return _flags; }
@@ -183,8 +198,6 @@ protected:
   result<io_state_ptr<CompletionRoutine, BuffersType>>
     _begin_io(io_request<BuffersType> reqs,
       CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
-  void _write_flush() noexcept;
-  void _metadata_flush() noexcept;
 public:
   /*! \brief Schedule a read to occur asynchronously.
 
