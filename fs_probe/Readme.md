@@ -10,11 +10,11 @@ may not be representative of the same combination on other hardware.
 Todo:
 - [ ] C bindings for all AFIO v2 APIs
   - Every .hpp should have a corresponding .h file
+- [ ] Add monitoring of CPU usage to tests. See GetThreadTimes. Make sure
+worker thread times are added into results.
 - [ ] Output into YAML comparable hashes for OS + device + FS + flags
 so we can merge partial results for some combo into the results database.
 - [ ] Write YAML parsing tool which merges fs_probe_results.yaml into
 the results directory where flags and OS get its own directory and each YAML file
 is named FS + device e.g.
   - results/win64 direct=1 sync=0/NTFS + WDC WD30EFRX-68EUZN0
-- [ ] Add worker thread to implement caching::write_soon, he'll basically
-round robin calling fdatasync() (data) or fsync() (metadata) on files.

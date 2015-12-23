@@ -80,13 +80,13 @@ public:
   enum class caching : unsigned char
   {
     unchanged=0,
-    none,                 //!< No caching whatsoever, all reads and writes come from storage (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work. <tt>flag_disable_safety_fsyncs</tt> can be used here.
-    only_metadata,        //!< Cache reads and writes of metadata but avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
-    reads,                //!< Cache reads only. Writes of data and metadata do not complete until reaching storage (<tt>O_SYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
-    reads_and_metadata,   //!< Cache reads and writes of metadata, but writes of data do not complete until reaching storage (<tt>O_DSYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
-    all,                  //!< Cache reads and writes of data and metadata so they complete immediately, sending writes to storage at some point when the kernel decides (this is the default file system caching on a system).
-    safety_fsyncs,        //!< Cache reads and writes of data and metadata so they complete immediately, but issue safety fsyncs at certain points. See documentation for <tt>flag_disable_safety_fsyncs</tt>.
-    maximum               //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight (Windows only).
+    none=1,                 //!< No caching whatsoever, all reads and writes come from storage (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work. <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    only_metadata=2,        //!< Cache reads and writes of metadata but avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
+    reads=3,                //!< Cache reads only. Writes of data and metadata do not complete until reaching storage (<tt>O_SYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    reads_and_metadata=5,   //!< Cache reads and writes of metadata, but writes of data do not complete until reaching storage (<tt>O_DSYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    all=4,                  //!< Cache reads and writes of data and metadata so they complete immediately, sending writes to storage at some point when the kernel decides (this is the default file system caching on a system).
+    safety_fsyncs=7,        //!< Cache reads and writes of data and metadata so they complete immediately, but issue safety fsyncs at certain points. See documentation for <tt>flag_disable_safety_fsyncs</tt>.
+    maximum=6               //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight (Windows only).
   };
   //! Delete the file on last handle close
   static constexpr unsigned flag_delete_on_close = (1 << 0);
@@ -155,7 +155,7 @@ public:
   //! True if writes are safely on storage on completion
   bool are_writes_durable() const noexcept { return _caching == caching::none || _caching == caching::reads || _caching==caching::reads_and_metadata; }
   //! True if issuing safety fsyncs is on
-  bool are_safety_fsyncs_issued() const noexcept { return !(_flags & flag_disable_safety_fsyncs) && (_caching == caching::none || _caching == caching::reads || _caching == caching::reads_and_metadata || _caching == caching::safety_fsyncs); }
+  bool are_safety_fsyncs_issued() const noexcept { return !(_flags & flag_disable_safety_fsyncs) && !!(static_cast<int>(_caching)&1); }
 
   //! The flags this handle was opened with
   unsigned flags() const noexcept { return _flags; }
