@@ -32,6 +32,7 @@
     <ClInclude Include="include\io_service.hpp" />
     <ClInclude Include="include\lockable_handle.hpp" />
     <ClInclude Include="include\storage_profile.hpp" />
+    <ClInclude Include="include\utils.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\detail\impl\handle.ipp" />
