@@ -542,6 +542,7 @@ namespace windows_nt_kernel
 
 #ifdef _MSC_VER
 #pragma warning(push)
+#pragma warning(disable: 4706) // assignment within conditional
 #pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
 #endif
   static inline void doinit()

@@ -49,6 +49,8 @@
     <None Include="include\detail\impl\windows\handle.ipp" />
     <None Include="include\detail\impl\windows\io_service.ipp" />
     <None Include="include\detail\impl\windows\statfs.ipp" />
+    <None Include="include\detail\impl\windows\storage_profile.ipp" />
+    <None Include="include\detail\impl\windows\utils.ipp" />
     <None Include="Readme.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -132,7 +134,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug clang|x64'">
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -142,6 +144,7 @@
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4503;4201;4100;4127;4189;4459</DisableSpecificWarnings>
       <EnablePREfast>true</EnablePREfast>
+      <AdditionalOptions>/analyze:stacksize 102400 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug clang|x64'">
@@ -149,13 +152,14 @@
       <PreprocessorDefinitions>UNICODE=1;WIN32=1;_UNICODE=1;_WIN32=1;AFIO_STANDALONE=1;ASIO_STANDALONE=1</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
-      <WarningLevel>Level4</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <DisableSpecificWarnings>4503;4201;4100;4127;4189;4459</DisableSpecificWarnings>
-      <EnablePREfast>true</EnablePREfast>
+      <EnablePREfast>false</EnablePREfast>
       <StrictAliasing>true</StrictAliasing>
       <ExceptionHandling>Enabled</ExceptionHandling>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <CppLanguageStandard>c++1y</CppLanguageStandard>
+      <AdditionalOptions>-Wno-unused-variable %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

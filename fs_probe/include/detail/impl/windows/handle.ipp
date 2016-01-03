@@ -44,6 +44,7 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
     switch (mode)
     {
     case mode::unchanged:
+    case mode::none:
       break;
     case mode::read:
       access = GENERIC_READ;
@@ -78,6 +79,8 @@ result<file_handle> file_handle::file(io_service &service, file_handle::path_typ
   {
   case mode::unchanged:
     return make_errored_result<file_handle>(EINVAL);
+  case mode::none:
+    break;
   case mode::read:
     access = GENERIC_READ;
     nativeh.behaviour |= native_handle_type::disposition::seekable|native_handle_type::disposition::readable;
@@ -94,6 +97,8 @@ result<file_handle> file_handle::file(io_service &service, file_handle::path_typ
   DWORD creation = OPEN_EXISTING;
   switch (_creation)
   {
+  case creation::open_existing:
+    break;
   case creation::only_if_not_exist:
     creation = CREATE_NEW;
     break;
@@ -161,29 +166,28 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
     virtual ~state_type() override final
     {
       // Do we need to cancel pending i/o?
-      if (items_to_go)
+      if (this->items_to_go)
       {
-        for (size_t n = 0; n < items; n++)
+        for (size_t n = 0; n < this->items; n++)
         {
           // If this is non-zero, probably this i/o still in flight
           if (ols[n].hEvent)
-            CancelIoEx(parent->native_handle().h, ols + n);
+            CancelIoEx(this->parent->native_handle().h, ols + n);
         }
         // Pump the i/o service until all pending i/o is completed
-        while (items_to_go)
-          parent->service()->run();
+        while (this->items_to_go)
+          this->parent->service()->run();
       }
     }
   } *state;
   extent_type offset = reqs.offset;
   size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
   using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
-  void *mem = ::malloc(statelen);
+  void *mem = ::calloc(1, statelen);
   if (!mem)
     return make_errored_result<return_type>(ENOMEM);
   return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
-  memset((state = (state_type *)mem), 0, statelen);
-  new(state) state_type(this, std::forward<CompletionRoutine>(completion), items);
+  new((state = (state_type *)mem)) state_type(this, std::forward<CompletionRoutine>(completion), items);
   // To be called once each buffer is read
   struct handle_completion
   {
@@ -227,21 +231,21 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
       // Fire completion now if we didn't schedule anything
       if (!n)
         state->completion(state);
-      return _state;
+      return make_result<return_type>(std::move(_state));
     }
     service()->_work_enqueued();
   }
-  return _state;
+  return make_result<return_type>(std::move(_state));
 }
 
-template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::buffers_type>> file_handle::async_read(file_handle::io_request<handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
+template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::buffers_type>> file_handle::async_read(file_handle::io_request<file_handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
   return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
     completion(state->parent, state->result);
   }, ReadFileEx);
 }
 
-template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::const_buffers_type>> file_handle::async_write(file_handle::io_request<handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
+template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::const_buffers_type>> file_handle::async_write(file_handle::io_request<file_handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
   return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
     completion(state->parent, state->result);

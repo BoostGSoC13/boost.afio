@@ -36,14 +36,6 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace storage_profile
 {
-  enum class storage_types;
-  struct storage_profile;
-
-  //! Returns the enum matching type T
-  template<class T> constexpr storage_types map_to_storage_type() { static_assert(0==sizeof(T), "Unsupported storage_type"); }
-  //! Specialise for a different default value for T
-  template<class T> constexpr T default_value() { return T{}; }
-
   //! Types potentially storable in a storage profile
   enum class storage_types
   {
@@ -53,6 +45,13 @@ namespace storage_profile
     float_,
     string
   };
+  struct storage_profile;
+
+  //! Returns the enum matching type T
+  template<class T> constexpr storage_types map_to_storage_type() { static_assert(0 == sizeof(T), "Unsupported storage_type"); return storage_types::unknown; }
+  //! Specialise for a different default value for T
+  template<class T> constexpr T default_value() { return T{}; }
+
   template<> constexpr storage_types map_to_storage_type<io_service::extent_type>() { return storage_types::extent_type; }
   template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) - 1; }
   template<> constexpr storage_types map_to_storage_type<unsigned int>() { return storage_types::unsigned_int; }
@@ -119,6 +118,8 @@ namespace storage_profile
         return f(*static_cast<const item<float> *>(static_cast<const item_base *>(this)));
       case storage_types::string:
         return f(*static_cast<const item<std::string> *>(static_cast<const item_base *>(this)));
+      case storage_types::unknown:
+        break;
       }
       throw std::invalid_argument("No type set in item");
     }

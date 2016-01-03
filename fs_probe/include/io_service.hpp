@@ -73,12 +73,9 @@ public:
     size_type _bytes_transferred;
   public:
     constexpr io_result() noexcept : _bytes_transferred((size_type)-1) { }
-    io_result(const io_result &) = default;
-    io_result(io_result &&) = default;
+    template<class... Args> io_result(Args &&... args) : result<T>(std::forward<Args>(args)...), _bytes_transferred((size_type)-1) {}
     io_result &operator=(const io_result &) = default;
     io_result &operator=(io_result &&) = default;
-    io_result(T _buffers) noexcept : Base(std::move(_buffers)), _bytes_transferred((size_type)-1) { }
-    io_result(result<T> v) noexcept : Base(std::move(v)), _bytes_transferred((size_type)-1) { }
     //! Returns bytes transferred
     size_type bytes_transferred() noexcept
     {

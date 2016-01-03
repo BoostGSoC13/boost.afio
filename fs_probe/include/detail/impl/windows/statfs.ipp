@@ -40,7 +40,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
   windows_nt_kernel::init();
   using namespace windows_nt_kernel;
   alignas(8) fixme_path::value_type buffer[32769];
-  IO_STATUS_BLOCK isb = { -1 };
+  IO_STATUS_BLOCK isb = { {-1} };
   NTSTATUS ntstat;
   size_t ret = 0;
   if (wanted&&want::flags || wanted&&want::namemax || wanted&&want::fstypename)
@@ -50,7 +50,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
     if (STATUS_PENDING == ntstat)
       ntstat = ntwait(h.native_handle().h, isb);
     if (ntstat)
-      return make_errored_result<size_t>(ntstat);
+      return make_errored_result_nt<size_t>(ntstat);
     if (wanted&&want::flags)
     {
       f_flags.rdonly = !!(ffai->FileSystemAttributes & FILE_READ_ONLY_VOLUME);
@@ -63,8 +63,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
     if (wanted&&want::namemax) f_namemax = ffai->MaximumComponentNameLength;
     if (wanted&&want::fstypename)
     {
-      f_fstypename.resize(ffai->FileSystemNameLength / sizeof(path::value_type));
-      for (size_t n = 0; n<ffai->FileSystemNameLength / sizeof(path::value_type); n++)
+      f_fstypename.resize(ffai->FileSystemNameLength / sizeof(fixme_path::value_type));
+      for (size_t n = 0; n<ffai->FileSystemNameLength / sizeof(fixme_path::value_type); n++)
         f_fstypename[n] = (char)ffai->FileSystemName[n];
     }
   }

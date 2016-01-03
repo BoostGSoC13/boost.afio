@@ -615,4 +615,15 @@ namespace utils
 
 BOOST_AFIO_V2_NAMESPACE_END
 
+# if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
+#  define BOOST_AFIO_INCLUDED_BY_HEADER 1
+#  ifdef WIN32
+#   include "detail/impl/windows/utils.ipp"
+#  else
+#   include "detail/impl/posix/utils.ipp"
+#  endif
+#  undef BOOST_AFIO_INCLUDED_BY_HEADER
+# endif
+
+
 #endif

@@ -2,6 +2,8 @@
 A profile of an OS and filing system
 (C) 2015 Niall Douglas http://www.nedprod.com/
 File Created: Dec 2015
+
+
 Boost Software License - Version 1.0 - August 17th, 2003
 
 Permission is hereby granted, free of charge, to any person or organization
@@ -28,13 +30,13 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "../../storage_profile.hpp"
-#include "../../utils.hpp"
 
 #include <vector>
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-namespace storage_profile {
+namespace storage_profile
+{
 
   /* YAML's syntax is amazingly powerful ... we can express a map
   of a map to a map using this syntax:
@@ -98,321 +100,128 @@ namespace storage_profile {
     for (const item_erased &i : *this)
       i.invoke(print);
   }
-}
 
-namespace system
-{
-  namespace detail
+  namespace system
   {
-    // From http://burtleburtle.net/bob/rand/smallprng.html
-    typedef unsigned int  u4;
-    typedef struct ranctx { u4 a; u4 b; u4 c; u4 d; } ranctx;
+    namespace detail
+    {
+      // From http://burtleburtle.net/bob/rand/smallprng.html
+      typedef unsigned int  u4;
+      typedef struct ranctx { u4 a; u4 b; u4 c; u4 d; } ranctx;
 
 #define rot(x,k) (((x)<<(k))|((x)>>(32-(k))))
-    static u4 ranval(ranctx *x) {
-      u4 e = x->a - rot(x->b, 27);
-      x->a = x->b ^ rot(x->c, 17);
-      x->b = x->c + x->d;
-      x->c = x->d + e;
-      x->d = e + x->a;
-      return x->d;
-    }
+      static u4 ranval(ranctx *x) {
+        u4 e = x->a - rot(x->b, 27);
+        x->a = x->b ^ rot(x->c, 17);
+        x->b = x->c + x->d;
+        x->c = x->d + e;
+        x->d = e + x->a;
+        return x->d;
+      }
 #undef rot
 
-    static void raninit(ranctx *x, u4 seed) {
-      u4 i;
-      x->a = 0xf1ea5eed, x->b = x->c = x->d = seed;
-      for (i = 0; i < 20; ++i) {
-        (void)ranval(x);
-      }
-    }
-  }
-
-  // OS name, version
-  outcome<void> os(storage_profile::storage_profile &sp, handle &h) noexcept
-  {
-    try
-    {
-#ifdef WIN32
-      RTL_OSVERSIONINFOW ovi = { sizeof(RTL_OSVERSIONINFOW) };
-      // GetVersionEx() is no longer useful since Win8.1
-      using RtlGetVersion_t = LONG (*)(PRTL_OSVERSIONINFOW);
-      static RtlGetVersion_t RtlGetVersion;
-      if(!RtlGetVersion)
-        RtlGetVersion = (RtlGetVersion_t)GetProcAddress(GetModuleHandle(L"NTDLL.DLL"), "RtlGetVersion");
-      if (!RtlGetVersion)
-        return make_errored_outcome<void>(GetLastError());
-      RtlGetVersion(&ovi);
-      sp.os_name.value = "Microsoft Windows ";
-      sp.os_name.value.append(ovi.dwPlatformId == VER_PLATFORM_WIN32_NT ? "NT" : "Unknown");
-      sp.os_ver.value.append(to_string(ovi.dwMajorVersion) + "." + to_string(ovi.dwMinorVersion) + "." + to_string(ovi.dwBuildNumber));
-#else
-#error todo
-#endif
-    }
-    catch (...)
-    {
-      return std::current_exception();
-    }
-    return make_outcome<void>();
-  }
-  // CPU name, architecture, physical cores
-  outcome<void> cpu(storage_profile::storage_profile &sp, handle &h) noexcept
-  {
-    try
-    {
-#ifdef WIN32
-      SYSTEM_INFO si = { sizeof(SYSTEM_INFO) };
-      GetNativeSystemInfo(&si);
-      switch (si.wProcessorArchitecture)
-      {
-      case PROCESSOR_ARCHITECTURE_AMD64:
-        sp.cpu_name.value = sp.cpu_architecture.value = "x64";
-        break;
-      case PROCESSOR_ARCHITECTURE_ARM:
-        sp.cpu_name.value = sp.cpu_architecture.value = "ARM";
-        break;
-      case PROCESSOR_ARCHITECTURE_IA64:
-        sp.cpu_name.value = sp.cpu_architecture.value = "IA64";
-        break;
-      case PROCESSOR_ARCHITECTURE_INTEL:
-        sp.cpu_name.value = sp.cpu_architecture.value = "x86";
-        break;
-      default:
-        sp.cpu_name.value = sp.cpu_architecture.value = "unknown";
-        break;
-      }
-      {
-        DWORD size = 0;
-
-        GetLogicalProcessorInformation(NULL, &size);
-        if (ERROR_INSUFFICIENT_BUFFER != GetLastError())
-          return make_errored_outcome<void>(GetLastError());
-
-        std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(size);
-        if (GetLogicalProcessorInformation(&buffer.front(), &size) == FALSE)
-          return make_errored_outcome<void>(GetLastError());
-
-        const size_t Elements = size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
-
-        sp.cpu_physical_cores.value = 0;
-        for (size_t i = 0; i < Elements; ++i) {
-          if (buffer[i].Relationship == RelationProcessorCore)
-            ++sp.cpu_physical_cores.value;
+      static void raninit(ranctx *x, u4 seed) {
+        u4 i;
+        x->a = 0xf1ea5eed, x->b = x->c = x->d = seed;
+        for (i = 0; i < 20; ++i) {
+          (void)ranval(x);
         }
       }
-#else
-#error todo
-#endif
-#if defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-      // We can do a much better CPU name on x86/x64
-      sp.cpu_name.value.clear();
-      {
-        char buffer[62];
-        memset(buffer, 32, 62);
-        int nBuff[4];
-        __cpuid(nBuff, 0);
-        *(int*)&buffer[0] = nBuff[1];
-        *(int*)&buffer[4] = nBuff[3];
-        *(int*)&buffer[8] = nBuff[2];
+    }
+  }
 
-        // Do we have a brand string?
-        __cpuid(nBuff, 0x80000000);
-        if ((unsigned)nBuff[0] >= 0x80000004)
+  namespace concurrency
+  {
+    outcome<void> atomic_write_quantum(storage_profile &sp, handle &_srch) noexcept
+    {
+      file_handle &srch = static_cast<file_handle &>(_srch);
+      try
+      {
+        using off_t = io_service::extent_type;
+        sp.max_atomic_write.value = 1;
+        for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
         {
-          __cpuid((int*)&buffer[14], 0x80000002);
-          __cpuid((int*)&buffer[30], 0x80000003);
-          __cpuid((int*)&buffer[46], 0x80000004);
-        }
-        else
-          strcpy(&buffer[14], "unbranded");
-
-        // Trim string
-        for (size_t n = 0; n < 62; n++)
-        {
-          if (!n || buffer[n] != 32 || buffer[n - 1] != 32)
-            sp.cpu_name.value.push_back(buffer[n]);
-        }
-      }
-#endif
-    }
-    catch (...)
-    {
-      return std::current_exception();
-    }
-    return make_outcome<void>();
-  }
-  // System memory quantity, in use, max and min bandwidth
-  outcome<void> mem(storage_profile::storage_profile &sp, handle &h) noexcept
-  {
-    try
-    {
-      size_t chunksize = 256 * 1024 * 1024;
-#ifdef WIN32
-      MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
-      GlobalMemoryStatusEx(&ms);
-      sp.mem_quantity.value = (unsigned) ms.ullTotalPhys;
-      sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
-
-      if (ms.ullTotalPhys / 4 < chunksize)
-        chunksize = ms.ullTotalPhys / 4;
-#else
-      #todo
-#endif
-      std::vector<char, utils::page_allocator<char>> buffer(chunksize);
-      // Make sure all memory is really allocated first
-      memset(buffer.data(), 1, chunksize);
-
-      // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
-      auto begin = stl11::chrono::high_resolution_clock::now();
-      unsigned long long count;
-      for (count=0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
-      {
-        memset(buffer.data(), count & 0xff, chunksize);
-      }
-      sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
-
-      // Min bandwidth is randomised 4Kb copies of the same
-      detail::ranctx ctx;
-      detail::raninit(&ctx, 78);
-      begin = stl11::chrono::high_resolution_clock::now();
-      for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
-      {
-        for (size_t n = 0; n < chunksize; n += 4096)
-        {
-          auto offset = detail::ranval(&ctx)*4096;
-          offset = offset % chunksize;
-          memset(buffer.data()+offset, count & 0xff, 4096);
-        }
-      }
-      sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
-    }
-    catch (...)
-    {
-      return std::current_exception();
-    }
-    return make_outcome<void>();
-  }
-}
-namespace storage
-{
-  // Device name, size, min i/o size
-  outcome<void> device(storage_profile::storage_profile &sp, handle &h) noexcept
-  {
-    try
-    {
-#ifdef WIN32
-#else
-      #todo
-#endif
-    }
-    catch (...)
-    {
-      return std::current_exception();
-    }
-    return make_outcome<void>();
-  }
-  // FS name, config, size, in use
-  outcome<void> fs(storage_profile::storage_profile &sp, handle &h) noexcept
-  {
-    try
-    {
-#ifdef WIN32
-#else
-      #todo
-#endif
-    }
-    catch (...)
-    {
-      return std::current_exception();
-    }
-    return make_outcome<void>();
-  }
-}
-namespace concurrency
-{
-  outcome<void> atomic_write_quantum(storage_profile::storage_profile &sp, file_handle &srch) noexcept
-  {
-    try
-    {
-      using off_t = io_service::extent_type;
-      sp.max_atomic_write.value = 1;
-      for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
-      {
-        // Create two concurrent writer threads
-        std::vector<std::thread> writers;
-        std::atomic<size_t> done(2);
-        for (char no = '1'; no <= '2'; no++)
-          writers.push_back(std::thread([size, &srch, no, &done] {
-          io_service service;
-          auto _h(srch.clone(service, handle::mode::write));
-          if (!_h)
-            throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to "+_h.get_error().message());
-          file_handle h(std::move(_h.get()));
-          std::vector<char> buffer(size, no);
-          file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-          // Preallocate space before testing
-          h.truncate(size);
-          h.write(reqs);
-          --done;
+          // Create two concurrent writer threads
+          std::vector<std::thread> writers;
+          std::atomic<size_t> done(2);
+          for (char no = '1'; no <= '2'; no++)
+            writers.push_back(std::thread([size, &srch, no, &done] {
+            io_service service;
+            auto _h(srch.clone(service, handle::mode::write));
+            if (!_h)
+              throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
+            file_handle h(std::move(_h.get()));
+            std::vector<char> buffer(size, no);
+            file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+            // Preallocate space before testing
+            h.truncate(size);
+            h.write(reqs);
+            --done;
+            while (done)
+              std::this_thread::yield();
+            while (!done)
+            {
+              h.write(reqs);
+            }
+          }));
           while (done)
             std::this_thread::yield();
-          while (!done)
+          // Repeatedly read from the file and check for torn writes
+          io_service service;
+          auto _h(srch.clone(service, handle::mode::read));
+          if (!_h)
+            throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
+          file_handle h(std::move(_h.get()));
+          std::vector<char> buffer(size, 0);
+          file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+          bool failed = false;
+          std::cout << "direct=" << srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes ..." << std::endl;
+          for (size_t transitions = 0; transitions < 10000; transitions++)
           {
-            h.write(reqs);
-          }
-        }));
-        while (done)
-          std::this_thread::yield();
-        // Repeatedly read from the file and check for torn writes
-        io_service service;
-        auto _h(srch.clone(service, handle::mode::read));
-        if (!_h)
-          throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
-        file_handle h(std::move(_h.get()));
-        std::vector<char> buffer(size, 0);
-        file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-        bool failed = false;
-        std::cout << "direct=" << srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes ..." << std::endl;
-        for (size_t transitions = 0; transitions < 10000; transitions++)
-        {
-          h.read(reqs);
-          const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
-          for (const size_t *d = data; d < end; d++)
-          {
-            if (*d != *data)
+            h.read(reqs);
+            const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
+            for (const size_t *d = data; d < end; d++)
             {
-              failed = true;
-              off_t failedat = d - data;
-              if (failedat < sp.atomic_write_quantum.value)
+              if (*d != *data)
               {
-                std::cout << "  Torn write at offset " << failedat << std::endl;
-                sp.atomic_write_quantum.value = failedat;
+                failed = true;
+                off_t failedat = d - data;
+                if (failedat < sp.atomic_write_quantum.value)
+                {
+                  std::cout << "  Torn write at offset " << failedat << std::endl;
+                  sp.atomic_write_quantum.value = failedat;
+                }
+                break;
               }
-              break;
             }
           }
+          if (!failed)
+          {
+            if (size > sp.max_atomic_write.value)
+              sp.max_atomic_write.value = size;
+          }
+          done = true;
+          for (auto &writer : writers)
+            writer.join();
+          if (failed)
+            break;
         }
-        if (!failed)
-        {
-          if (size > sp.max_atomic_write.value)
-            sp.max_atomic_write.value = size;
-        }
-        done = true;
-        for (auto &writer : writers)
-          writer.join();
-        if (failed)
-          break;
+        if (sp.atomic_write_quantum.value > sp.max_atomic_write.value)
+          sp.atomic_write_quantum.value = sp.max_atomic_write.value;
       }
-      if (sp.atomic_write_quantum.value > sp.max_atomic_write.value)
-        sp.atomic_write_quantum.value = sp.max_atomic_write.value;
+      catch (...)
+      {
+        return std::current_exception();
+      }
+      return make_outcome<void>();
     }
-    catch (...)
-    {
-      return std::current_exception();
-    }
-    return make_outcome<void>();
   }
 }
 
 BOOST_AFIO_V2_NAMESPACE_END
+
+#ifdef WIN32
+#include "windows/storage_profile.ipp"
+#else
+#include "posix/storage_profile.ipp"
+#endif
