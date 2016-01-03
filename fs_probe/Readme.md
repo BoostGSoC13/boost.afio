@@ -39,3 +39,7 @@ so we can merge partial results for some combo into the results database.
 the results directory where flags and OS get its own directory and each YAML file
 is named FS + device e.g.
   - results/win64 direct=1 sync=0/NTFS + WDC WD30EFRX-68EUZN0
+- [ ] virtual handle::path_type handle::path(bool refresh=false) should be added using
+GetFinalPathNameByHandle(FILE_NAME_OPENED). VOLUME_NAME_DOS vs VOLUME_NAME_NT should
+depend on the current afio::path setting.
+

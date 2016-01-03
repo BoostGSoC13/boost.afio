@@ -144,7 +144,7 @@
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4503;4201;4100;4127;4189;4459</DisableSpecificWarnings>
       <EnablePREfast>true</EnablePREfast>
-      <AdditionalOptions>/analyze:stacksize 102400 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/analyze:stacksize 204800 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug clang|x64'">
