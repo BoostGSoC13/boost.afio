@@ -29,9 +29,9 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include "../../handle.hpp"
+#include "../../../handle.hpp"
 #ifdef WIN32
-# include "../windows.hpp"
+# include "import.hpp"
 #else
 # include <pthread.h>
 #endif

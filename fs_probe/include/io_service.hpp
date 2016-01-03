@@ -158,10 +158,14 @@ public:
 
 BOOST_AFIO_V2_NAMESPACE_END
 
-#if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
-#define BOOST_AFIO_INCLUDED_BY_HEADER 1
-#include "detail/impl/io_service.ipp"
-#undef BOOST_AFIO_INCLUDED_BY_HEADER
-#endif
+# if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
+#  define BOOST_AFIO_INCLUDED_BY_HEADER 1
+#  ifdef WIN32
+#   include "detail/impl/windows/io_service.ipp"
+#  else
+#   include "detail/impl/posix/io_service.ipp"
+#  endif
+#  undef BOOST_AFIO_INCLUDED_BY_HEADER
+# endif
 
 #endif

@@ -33,7 +33,7 @@ DEALINGS IN THE SOFTWARE.
 #define BOOST_AFIO_HEADERS_ONLY 1
 #endif
 
-#if defined(WIN32) 
+#if defined(WIN32)
 # if !defined(_WIN32_WINNT)
 #  define _WIN32_WINNT 0x0600
 # elif _WIN32_WINNT<0x0600
@@ -267,17 +267,7 @@ BOOST_AFIO_V2_NAMESPACE_END
 
 #include <time.h>  // for struct timespec
 
-// Direct aliasing into the AFIO namespace
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
 BOOST_AFIO_V2_NAMESPACE_BEGIN
-using std::to_string;
-#ifdef WIN32
-namespace win
-{
-  using handle = void *;
-  using dword = unsigned long;
-}
-#endif
 
 // The C++ 11 runtime is much better at exception state than Boost so no choice here
 using std::make_exception_ptr;
@@ -287,6 +277,7 @@ using std::system_category;
 using std::system_error;
 
 // Too darn useful
+using std::to_string;
 namespace detail
 {
   template<class F> using function_ptr = boost::outcome::detail::function_ptr<F>;
@@ -295,10 +286,52 @@ namespace detail
 }
 
 // Temporary in lieu of afio::path
-using stl1z::filesystem::path;
+using fixme_path = stl1z::filesystem::path;
+
+//! Constexpr bitwise flags support
+template<class Derived, class T = unsigned> class bitwise_flags
+{
+  T _value;
+public:
+  //! The underlying type
+  using underlying_type = T;
+  //! Default constructs to all bits zero
+  constexpr bitwise_flags() noexcept : _value(0) { }
+  //! Constructs to a predetermined value
+  explicit constexpr bitwise_flags(underlying_type _v) noexcept : _value(_v) { }
+  //! Returns the underlying value
+  explicit constexpr operator underlying_type() const noexcept { return _value; }
+  //! True if value is not all bits zero
+  explicit constexpr operator bool() const noexcept { return !!_value; }
+  //! True if value is all bits zero
+  constexpr bool operator !() const noexcept { return !_value; }
+  //! True if value has the specified bit set
+  constexpr bool operator&&(bitwise_flags o) const noexcept { return !!(_value&&o._value); }
+
+  //! Performs a bitwise NOT
+  constexpr bitwise_flags operator ~() const noexcept { return bitwise_flags(~_value); }
+  //! Performs a bitwise AND
+  constexpr bitwise_flags operator &(bitwise_flags o) const noexcept { return bitwise_flags(_value&o._value); }
+  //! Performs a bitwise AND
+  BOOST_CXX14_CONSTEXPR bitwise_flags &operator &=(bitwise_flags o) noexcept { _value &= o._value; return *this; }
+  //! Performs a bitwise OR
+  constexpr bitwise_flags operator |(bitwise_flags o) const noexcept { return bitwise_flags(_value | o._value); }
+  //! Performs a bitwise OR
+  BOOST_CXX14_CONSTEXPR bitwise_flags &operator |=(bitwise_flags o) noexcept { _value |= o._value; return *this; }
+  //! Performs a bitwise XOR
+  constexpr bitwise_flags operator ^(bitwise_flags o) const noexcept { return bitwise_flags(_value ^ o._value); }
+  //! Performs a bitwise XOR
+  BOOST_CXX14_CONSTEXPR bitwise_flags &operator ^=(bitwise_flags o) noexcept { _value ^= o._value; return *this; }
+};
+
+// Native handle support
+namespace win
+{
+  using handle = void *;
+  using dword = unsigned long;
+}
 
 BOOST_AFIO_V2_NAMESPACE_END
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Set up dll import/export options

@@ -251,7 +251,7 @@ namespace system
 #ifdef WIN32
       MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
       GlobalMemoryStatusEx(&ms);
-      sp.mem_quantity.value = ms.ullTotalPhys;
+      sp.mem_quantity.value = (unsigned) ms.ullTotalPhys;
       sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
 
       if (ms.ullTotalPhys / 4 < chunksize)
@@ -270,7 +270,7 @@ namespace system
       {
         memset(buffer.data(), count & 0xff, chunksize);
       }
-      sp.mem_max_bandwidth.value = count*chunksize / 10;
+      sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
 
       // Min bandwidth is randomised 4Kb copies of the same
       detail::ranctx ctx;
@@ -285,7 +285,7 @@ namespace system
           memset(buffer.data()+offset, count & 0xff, 4096);
         }
       }
-      sp.mem_min_bandwidth.value = count*chunksize / 10;
+      sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
     }
     catch (...)
     {
@@ -331,13 +331,13 @@ namespace storage
 }
 namespace concurrency
 {
-  outcome<void> atomic_write_quantum(storage_profile::storage_profile &sp, handle &srch) noexcept
+  outcome<void> atomic_write_quantum(storage_profile::storage_profile &sp, file_handle &srch) noexcept
   {
     try
     {
       using off_t = io_service::extent_type;
       sp.max_atomic_write.value = 1;
-      for (off_t size = srch.needs_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
+      for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
       {
         // Create two concurrent writer threads
         std::vector<std::thread> writers;
@@ -348,9 +348,9 @@ namespace concurrency
           auto _h(srch.clone(service, handle::mode::write));
           if (!_h)
             throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to "+_h.get_error().message());
-          auto h(std::move(_h.get()));
+          file_handle h(std::move(_h.get()));
           std::vector<char> buffer(size, no);
-          handle::io_request<handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+          file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
           // Preallocate space before testing
           h.truncate(size);
           h.write(reqs);
@@ -369,9 +369,9 @@ namespace concurrency
         auto _h(srch.clone(service, handle::mode::read));
         if (!_h)
           throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
-        auto h(std::move(_h.get()));
+        file_handle h(std::move(_h.get()));
         std::vector<char> buffer(size, 0);
-        handle::io_request<handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+        file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
         bool failed = false;
         std::cout << "direct=" << srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes ..." << std::endl;
         for (size_t transitions = 0; transitions < 10000; transitions++)

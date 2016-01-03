@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
         strategy = handle::caching::none;           // O_DIRECT|O_SYNC
         break;
       }
-      auto _testfile(handle::create(service, "test", handle::mode::write, handle::creation::if_needed, strategy));
+      auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::if_needed, strategy));
       if (!_testfile)
       {
         std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
