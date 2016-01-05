@@ -98,6 +98,13 @@ struct BOOST_AFIO_DECL statfs_t
     memset(this, 0xff, frontbytes);
     memset(this, 0, sizeof(f_flags));
   }
+  //! Constructs a filled instance, throwing as an exception any error which might occur
+  statfs_t(handle &h, want wanted = want::all) : statfs_t()
+  {
+    auto v(fill(h, wanted));
+    if (v.has_error())
+      throw std::system_error(v.get_error());
+  }
   //! Fills in the structure with metadata, returning number of items filled in
   BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> fill(handle &h, want wanted = want::all) noexcept;
 };

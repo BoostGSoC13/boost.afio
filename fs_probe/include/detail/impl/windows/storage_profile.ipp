@@ -30,8 +30,6 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "../../../storage_profile.hpp"
-#include "../../../statfs.hpp"
-#include "../../../utils.hpp"
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
@@ -152,70 +150,22 @@ namespace storage_profile
       }
       return make_outcome<void>();
     }
-    // System memory quantity, in use, max and min bandwidth
-    outcome<void> mem(storage_profile &sp, handle &h) noexcept
+    namespace windows
     {
-      try
+      outcome<void> _mem(storage_profile &sp, handle &h) noexcept
       {
-        size_t chunksize = 256 * 1024 * 1024;
         MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
         GlobalMemoryStatusEx(&ms);
         sp.mem_quantity.value = (unsigned)ms.ullTotalPhys;
         sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
-
-        if (ms.ullTotalPhys / 4 < chunksize)
-          chunksize = ms.ullTotalPhys / 4;
-        std::vector<char, utils::page_allocator<char>> buffer(chunksize);
-        // Make sure all memory is really allocated first
-        memset(buffer.data(), 1, chunksize);
-
-        // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
-        auto begin = stl11::chrono::high_resolution_clock::now();
-        unsigned long long count;
-        for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
-        {
-          memset(buffer.data(), count & 0xff, chunksize);
-        }
-        sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
-
-        // Min bandwidth is randomised 4Kb copies of the same
-        detail::ranctx ctx;
-        detail::raninit(&ctx, 78);
-        begin = stl11::chrono::high_resolution_clock::now();
-        for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
-        {
-          for (size_t n = 0; n < chunksize; n += 4096)
-          {
-            auto offset = detail::ranval(&ctx) * 4096;
-            offset = offset % chunksize;
-            memset(buffer.data() + offset, count & 0xff, 4096);
-          }
-        }
-        sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
+        return make_outcome<void>();
       }
-      catch (...)
-      {
-        return std::current_exception();
-      }
-      return make_outcome<void>();
     }
   }
   namespace storage
   {
     // Device name, size, min i/o size
     outcome<void> device(storage_profile &sp, handle &h) noexcept
-    {
-      try
-      {
-      }
-      catch (...)
-      {
-        return std::current_exception();
-      }
-      return make_outcome<void>();
-    }
-    // FS name, config, size, in use
-    outcome<void> fs(storage_profile &sp, handle &h) noexcept
     {
       try
       {
