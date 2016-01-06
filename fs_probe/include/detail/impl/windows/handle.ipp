@@ -218,6 +218,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
   for (size_t n = 0; n < items; n++)
   {
     LPOVERLAPPED ol = state->ols + n;
+    ol->Internal = (ULONG_PTR)-1;
     ol->Offset = offset & 0xffffffff;
     ol->OffsetHigh = (offset >> 32) & 0xffffffff;
     // Use the unused hEvent member to pass through the state

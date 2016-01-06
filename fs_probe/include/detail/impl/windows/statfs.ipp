@@ -150,7 +150,8 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
         if (memcmp(buffer2, buffer + len - pathlen, pathlen))
           continue;  // path changed
         len -= pathlen;
-        f_mntfromname.reserve(len);
+        f_mntfromname.reserve(len+3);
+        f_mntfromname.assign("\\\\.");  // win32 device escape prefix
         for (size_t n = 0; n < len; n++)
           f_mntfromname.push_back((char)buffer[n]);
         ++ret;

@@ -30,6 +30,8 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "../../../storage_profile.hpp"
+#include "../../../handle.hpp"
+#include "import.hpp"
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
@@ -164,11 +166,28 @@ namespace storage_profile
   }
   namespace storage
   {
-    // Device name, size, min i/o size
-    outcome<void> device(storage_profile &sp, handle &h) noexcept
+    // Device name, size
+    outcome<void> _device(storage_profile &sp, handle &h, std::string mntfromname) noexcept
     {
       try
       {
+        // Firstly open a handle to the volume
+        BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(*h.service(), mntfromname, handle::mode::read, handle::creation::open_existing, handle::caching::only_metadata));
+        // Now ask the volume what physical disks it spans
+        alignas(8) fixme_path::value_type buffer[32769];
+        VOLUME_DISK_EXTENTS *vde = (VOLUME_DISK_EXTENTS *)buffer;
+        OVERLAPPED ol = { (ULONG_PTR) -1 };
+        if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, nullptr, 0, vde, sizeof(buffer), nullptr, &ol))
+        {
+          if (ERROR_IO_PENDING == GetLastError())
+          {
+            NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+            if(ntstat)
+              return make_errored_outcome_nt<void>(ntstat);
+          }
+          if (ERROR_SUCCESS != GetLastError())
+            return make_errored_outcome<void>(GetLastError());
+        }
       }
       catch (...)
       {

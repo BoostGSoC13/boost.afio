@@ -182,6 +182,26 @@ namespace storage_profile
   }
   namespace storage
   {
+    // Device name, size, min i/o size
+    outcome<void> device(storage_profile &sp, handle &h) noexcept
+    {
+      try
+      {
+        statfs_t fsinfo;
+        BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize|statfs_t::want::mntfromname));
+        sp.device_min_io_size.value = fsinfo.f_iosize;
+#ifdef WIN32
+        BOOST_OUTCOME_PROPAGATE_ERROR(windows::_device(sp, h, fsinfo.f_mntfromname));
+#else
+        BOOST_OUTCOME_PROPAGATE_ERROR(posix::_device(sp, h, fsinfo.f_mntfromname));
+#endif
+      }
+      catch (...)
+      {
+        return std::current_exception();
+      }
+      return make_outcome<void>();
+    }
     // FS name, config, size, in use
     outcome<void> fs(storage_profile &sp, handle &h) noexcept
     {

@@ -154,6 +154,13 @@ namespace storage_profile
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> device(storage_profile &sp, handle &h) noexcept;
     // FS name, config, size, in use
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> fs(storage_profile &sp, handle &h) noexcept;
+#ifdef WIN32
+    namespace windows {
+#else
+    namespace posix {
+#endif
+      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _device(storage_profile &sp, handle &h, std::string mntfromname) noexcept;
+    }
   }
   namespace concurrency
   {

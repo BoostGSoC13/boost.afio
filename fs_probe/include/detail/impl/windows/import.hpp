@@ -701,10 +701,12 @@ namespace windows_nt_kernel
 
 // disable to prevent accidental usage
 template<class T> inline result<T> make_errored_result(NTSTATUS e) { static_assert(!std::is_same<T, T>::value, "Use make_errored_result_nt<T>(NTSTATUS)."); }
+template<class T> inline outcome<T> make_errored_outcome(NTSTATUS e) { static_assert(!std::is_same<T, T>::value, "Use make_errored_outcome_nt<T>(NTSTATUS)."); }
 template<class T> inline result<T> make_errored_result_nt(NTSTATUS e) { return result<T>(std::error_code(windows_nt_kernel::win32_error_from_nt_status(e), std::system_category())); }
+template<class T> inline outcome<T> make_errored_outcome_nt(NTSTATUS e) { return outcome<T>(std::error_code(windows_nt_kernel::win32_error_from_nt_status(e), std::system_category())); }
 
 // Wait for an overlapped handle to complete a specific operation
-static inline NTSTATUS ntwait(HANDLE h, windows_nt_kernel::IO_STATUS_BLOCK &isb)
+static inline NTSTATUS ntwait(HANDLE h, windows_nt_kernel::IO_STATUS_BLOCK &isb) noexcept
 {
   windows_nt_kernel::init();
   using namespace windows_nt_kernel;
@@ -715,6 +717,7 @@ static inline NTSTATUS ntwait(HANDLE h, windows_nt_kernel::IO_STATUS_BLOCK &isb)
   } while (isb.Status==-1);
   return isb.Status;
 }
+static inline NTSTATUS ntwait(HANDLE h, OVERLAPPED &ol) noexcept { return ntwait(h, reinterpret_cast<windows_nt_kernel::IO_STATUS_BLOCK &>(ol)); }
 
 #if 0
 static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, metadata_flags wanted)
