@@ -126,13 +126,15 @@ public:
   using size_type = io_service::size_type;
 
   //! The behaviour of the handle: does it read, read and write, or atomic append?
-  enum class mode : unsigned char
+  enum class mode : unsigned char  // bit 0 set means writable
   {
     unchanged = 0,
-    none,
-    read,
-    write,
-    append              //!< All mainstream OSs and CIFS guarantee this is atomic with respect to all other appenders
+    none=2,             //!< No ability to read or write anything, but can synchronise (SYNCHRONIZE or 0)
+    attr_read=4,        //!< Ability to read attributes (FILE_READ_ATTRIBUTES|SYNCHRONIZE or O_RDONLY)
+    attr_write=5,       //!< Ability to read attributes (FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES|SYNCHRONIZE or O_RDONLY)
+    read=6,             //!< Ability to read (READ_CONTROL|FILE_READ_DATA|FILE_READ_ATTRIBUTES|FILE_READ_EA|SYNCHRONISE or O_RDONLY)
+    write=7,            //!< Ability to write (READ_CONTROL|FILE_READ_DATA|FILE_READ_ATTRIBUTES|FILE_READ_EA|FILE_WRITE_DATA|FILE_WRITE_ATTRIBUTES|FILE_WRITE_EA|FILE_APPEND_DATA|SYNCHRONISE or O_RDWR)
+    append=9            //!< All mainstream OSs and CIFS guarantee this is atomic with respect to all other appenders (FILE_APPEND_DATA|SYNCHRONISE or O_APPEND)
   };
   //! On opening, do we also create a new file or truncate an existing one?
   enum class creation : unsigned char
@@ -143,7 +145,7 @@ public:
     truncate            //!< Atomically truncate on open, leaving creation date unmodified.
   };
   //! What i/o on the handle will complete immediately due to kernel caching
-  enum class caching : unsigned char
+  enum class caching : unsigned char  // bit 0 set means safety fsyncs enabled
   {
     unchanged=0,
     none=1,                 //!< No caching whatsoever, all reads and writes come from storage (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work. <tt>flag_disable_safety_fsyncs</tt> can be used here.
@@ -152,7 +154,7 @@ public:
     reads_and_metadata=5,   //!< Cache reads and writes of metadata, but writes of data do not complete until reaching storage (<tt>O_DSYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
     all=4,                  //!< Cache reads and writes of data and metadata so they complete immediately, sending writes to storage at some point when the kernel decides (this is the default file system caching on a system).
     safety_fsyncs=7,        //!< Cache reads and writes of data and metadata so they complete immediately, but issue safety fsyncs at certain points. See documentation for <tt>flag_disable_safety_fsyncs</tt>.
-    maximum=6               //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight (Windows only).
+    temporary=6             //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight as this file is expected to be temporary (Windows only).
   };
   //! Bitwise flags which can be specified
   struct flag : bitwise_flags<flag>

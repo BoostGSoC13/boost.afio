@@ -189,7 +189,7 @@ namespace storage_profile
       {
         statfs_t fsinfo;
         BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize|statfs_t::want::mntfromname));
-        sp.device_min_io_size.value = fsinfo.f_iosize;
+        sp.device_min_io_size.value = (unsigned) fsinfo.f_iosize;
 #ifdef WIN32
         BOOST_OUTCOME_PROPAGATE_ERROR(windows::_device(sp, h, fsinfo.f_mntfromname));
 #else

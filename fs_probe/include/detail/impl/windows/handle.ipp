@@ -74,23 +74,29 @@ result<file_handle> file_handle::file(io_service &service, file_handle::path_typ
 {
   result<file_handle> ret(file_handle(&service, std::move(_path), native_handle_type(), _caching, flags));
   native_handle_type &nativeh = ret.get()._v;
-  DWORD access = 0;
+  DWORD access = SYNCHRONIZE;
   switch (_mode)
   {
   case mode::unchanged:
     return make_errored_result<file_handle>(EINVAL);
   case mode::none:
     break;
+  case mode::attr_read:
+    access |= FILE_READ_ATTRIBUTES;
+    break;
+  case mode::attr_write:
+    access |= FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES;
+    break;
   case mode::read:
-    access = GENERIC_READ;
+    access |= GENERIC_READ;
     nativeh.behaviour |= native_handle_type::disposition::seekable|native_handle_type::disposition::readable;
     break;
   case mode::write:
-    access = GENERIC_WRITE | GENERIC_READ;
+    access |= GENERIC_WRITE | GENERIC_READ;
     nativeh.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
     break;
   case mode::append:
-    access = FILE_APPEND_DATA;
+    access |= FILE_APPEND_DATA;
     nativeh.behaviour |= native_handle_type::disposition::writable|native_handle_type::disposition::append_only;
     break;
   }
@@ -130,7 +136,7 @@ result<file_handle> file_handle::file(io_service &service, file_handle::path_typ
     case caching::all:
     case caching::safety_fsyncs:
       break;
-    case caching::maximum:
+    case caching::temporary:
       attribs |= FILE_ATTRIBUTE_TEMPORARY;
       break;
   }

@@ -39,6 +39,9 @@ DEALINGS IN THE SOFTWARE.
 # elif _WIN32_WINNT<0x0600
 #  error _WIN32_WINNT must at least be set to Windows Vista for Boost AFIO to work
 # endif
+# if defined(NTDDI_VERSION) && NTDDI_VERSION < 0x06000000
+#  error NTDDI_VERSION must at least be set to Windows Vista for Boost AFIO to work
+# endif
 #endif
 
 // Pull in detection of __MINGW64_VERSION_MAJOR

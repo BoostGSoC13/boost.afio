@@ -33,6 +33,8 @@ DEALINGS IN THE SOFTWARE.
 #include "../../../handle.hpp"
 #include "import.hpp"
 
+#include <winioctl.h>
+
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace storage_profile
@@ -166,34 +168,96 @@ namespace storage_profile
   }
   namespace storage
   {
-    // Device name, size
-    outcome<void> _device(storage_profile &sp, handle &h, std::string mntfromname) noexcept
+    namespace windows
     {
-      try
+      // Device name, size
+      outcome<void> _device(storage_profile &sp, handle &h, std::string mntfromname) noexcept
       {
-        // Firstly open a handle to the volume
-        BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(*h.service(), mntfromname, handle::mode::read, handle::creation::open_existing, handle::caching::only_metadata));
-        // Now ask the volume what physical disks it spans
-        alignas(8) fixme_path::value_type buffer[32769];
-        VOLUME_DISK_EXTENTS *vde = (VOLUME_DISK_EXTENTS *)buffer;
-        OVERLAPPED ol = { (ULONG_PTR) -1 };
-        if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, nullptr, 0, vde, sizeof(buffer), nullptr, &ol))
+        try
         {
-          if (ERROR_IO_PENDING == GetLastError())
+          // Firstly open a handle to the volume
+          BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(*h.service(), mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
+          // Now ask the volume what physical disks it spans
+          alignas(8) fixme_path::value_type buffer[32769];
+          VOLUME_DISK_EXTENTS *vde = (VOLUME_DISK_EXTENTS *)buffer;
+          OVERLAPPED ol = { (ULONG_PTR)-1 };
+          if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, nullptr, 0, vde, sizeof(buffer), nullptr, &ol))
           {
-            NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
-            if(ntstat)
-              return make_errored_outcome_nt<void>(ntstat);
+            if (ERROR_IO_PENDING == GetLastError())
+            {
+              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+              if (ntstat)
+                return make_errored_outcome_nt<void>(ntstat);
+            }
+            if (ERROR_SUCCESS != GetLastError())
+              return make_errored_outcome<void>(GetLastError());
           }
-          if (ERROR_SUCCESS != GetLastError())
-            return make_errored_outcome<void>(GetLastError());
+          sp.device_name.value.clear();
+          if (vde->NumberOfDiskExtents > 0)
+          {
+            // For now we only care about the first physical device
+            alignas(8) fixme_path::value_type physicaldrivename[32769];
+            wsprintf(physicaldrivename, L"\\\\.\\PhysicalDrive%u", vde->Extents[0].DiskNumber);
+            BOOST_OUTCOME_FILTER_ERROR(diskh, file_handle::file(*h.service(), physicaldrivename, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
+            STORAGE_PROPERTY_QUERY spq = { StorageDeviceProperty, PropertyStandardQuery };
+            STORAGE_DEVICE_DESCRIPTOR *sdd = (STORAGE_DEVICE_DESCRIPTOR *)buffer;
+            ol.Internal = (ULONG_PTR)-1;
+            if (!DeviceIoControl(diskh.native_handle().h, IOCTL_STORAGE_QUERY_PROPERTY, &spq, sizeof(spq), sdd, sizeof(buffer), nullptr, &ol))
+            {
+              if (ERROR_IO_PENDING == GetLastError())
+              {
+                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+                if (ntstat)
+                  return make_errored_outcome_nt<void>(ntstat);
+              }
+              if (ERROR_SUCCESS != GetLastError())
+                return make_errored_outcome<void>(GetLastError());
+            }
+            if (sdd->VendorIdOffset > 0 && sdd->VendorIdOffset < sizeof(buffer))
+            {
+              for (auto n = sdd->VendorIdOffset; ((const char *)buffer)[n]; n++)
+                sp.device_name.value.push_back(((const char *)buffer)[n]);
+              sp.device_name.value.push_back(',');
+            }
+            if (sdd->ProductIdOffset > 0 && sdd->ProductIdOffset < sizeof(buffer))
+            {
+              for (auto n = sdd->ProductIdOffset; ((const char *)buffer)[n]; n++)
+                sp.device_name.value.push_back(((const char *)buffer)[n]);
+              sp.device_name.value.push_back(',');
+            }
+            if (sdd->ProductRevisionOffset > 0 && sdd->ProductRevisionOffset < sizeof(buffer))
+            {
+              for (auto n = sdd->ProductRevisionOffset; ((const char *)buffer)[n]; n++)
+                sp.device_name.value.push_back(((const char *)buffer)[n]);
+              sp.device_name.value.push_back(',');
+            }
+            if (!sp.device_name.value.empty())
+              sp.device_name.value.resize(sp.device_name.value.size() - 1);
+            if (vde->NumberOfDiskExtents > 1)
+              sp.device_name.value.append(" (NOTE: plus additional devices)");
+            // Get device size
+            STORAGE_READ_CAPACITY *src = (STORAGE_READ_CAPACITY *)buffer;
+            src->Version = sizeof(STORAGE_READ_CAPACITY);
+            if (!DeviceIoControl(diskh.native_handle().h, IOCTL_STORAGE_READ_CAPACITY, nullptr, 0, src, sizeof(buffer), nullptr, &ol))
+            {
+              if (ERROR_IO_PENDING == GetLastError())
+              {
+                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+                if (ntstat)
+                  return make_errored_outcome_nt<void>(ntstat);
+              }
+              if (ERROR_SUCCESS != GetLastError())
+                return make_errored_outcome<void>(GetLastError());
+            }
+            sp.device_size.value = src->DiskLength.QuadPart;
+          }
         }
+        catch (...)
+        {
+          return std::current_exception();
+        }
+        return make_outcome<void>();
       }
-      catch (...)
-      {
-        return std::current_exception();
-      }
-      return make_outcome<void>();
     }
   }
 }
