@@ -38,7 +38,7 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
 {
   result<handle> ret(handle(&service, _path, native_handle_type(), _caching, _flags));
   ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::readable| native_handle_type::disposition::writable|native_handle_type::disposition::append_only);
-  DWORD access = 0;
+  DWORD access = SYNCHRONIZE;
   if (mode != mode::unchanged)
   {
     switch (mode)
@@ -46,16 +46,22 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
     case mode::unchanged:
     case mode::none:
       break;
+    case mode::attr_read:
+      access |= FILE_READ_ATTRIBUTES;
+      break;
+    case mode::attr_write:
+      access |= FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES;
+      break;
     case mode::read:
-      access = GENERIC_READ;
+      access |= GENERIC_READ;
       ret.value()._v.behaviour |= native_handle_type::disposition::readable;
       break;
     case mode::write:
-      access = GENERIC_WRITE | GENERIC_READ;
+      access |= GENERIC_WRITE | GENERIC_READ;
       ret.value()._v.behaviour |= native_handle_type::disposition::readable| native_handle_type::disposition::writable;
       break;
     case mode::append:
-      access = FILE_APPEND_DATA;
+      access |= FILE_APPEND_DATA;
       ret.value()._v.behaviour |= native_handle_type::disposition::append_only | native_handle_type::disposition::writable;
       break;
     }
