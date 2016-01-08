@@ -46,7 +46,7 @@ namespace storage_profile
 #pragma warning(push)
 #pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
 #endif
-    outcome<void> os(storage_profile &sp, handle &h) noexcept
+    outcome<void> os(storage_profile &sp, file_handle &h) noexcept
     {
       try
       {
@@ -67,13 +67,13 @@ namespace storage_profile
       {
         return std::current_exception();
       }
-      return make_outcome<void>();
+      return make_ready_outcome<void>();
     }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
     // CPU name, architecture, physical cores
-    outcome<void> cpu(storage_profile &sp, handle &h) noexcept
+    outcome<void> cpu(storage_profile &sp, file_handle &h) noexcept
     {
       try
       {
@@ -152,17 +152,17 @@ namespace storage_profile
       {
         return std::current_exception();
       }
-      return make_outcome<void>();
+      return make_ready_outcome<void>();
     }
     namespace windows
     {
-      outcome<void> _mem(storage_profile &sp, handle &h) noexcept
+      outcome<void> _mem(storage_profile &sp, file_handle &h) noexcept
       {
         MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
         GlobalMemoryStatusEx(&ms);
         sp.mem_quantity.value = (unsigned)ms.ullTotalPhys;
         sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
-        return make_outcome<void>();
+        return make_ready_outcome<void>();
       }
     }
   }
@@ -171,7 +171,7 @@ namespace storage_profile
     namespace windows
     {
       // Device name, size
-      outcome<void> _device(storage_profile &sp, handle &h, std::string mntfromname) noexcept
+      outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept
       {
         try
         {
@@ -256,7 +256,7 @@ namespace storage_profile
         {
           return std::current_exception();
         }
-        return make_outcome<void>();
+        return make_ready_outcome<void>();
       }
     }
   }

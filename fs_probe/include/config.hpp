@@ -261,8 +261,11 @@ template<typename R> using is_lightweight_future = BOOST_OUTCOME_V1_NAMESPACE::l
 using BOOST_OUTCOME_V1_NAMESPACE::empty;
 using BOOST_OUTCOME_V1_NAMESPACE::make_option;
 using BOOST_OUTCOME_V1_NAMESPACE::make_outcome;
-using BOOST_OUTCOME_V1_NAMESPACE::make_result;
+using BOOST_OUTCOME_V1_NAMESPACE::make_ready_outcome;
 using BOOST_OUTCOME_V1_NAMESPACE::make_errored_outcome;
+using BOOST_OUTCOME_V1_NAMESPACE::make_exceptional_outcome;
+using BOOST_OUTCOME_V1_NAMESPACE::make_result;
+using BOOST_OUTCOME_V1_NAMESPACE::make_ready_result;
 using BOOST_OUTCOME_V1_NAMESPACE::make_errored_result;
 using BOOST_OUTCOME_V1_NAMESPACE::monad_errc;
 using BOOST_OUTCOME_V1_NAMESPACE::monad_category;

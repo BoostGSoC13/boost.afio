@@ -132,7 +132,7 @@ namespace storage_profile
     }
 
     // System memory quantity, in use, max and min bandwidth
-    outcome<void> mem(storage_profile &sp, handle &h) noexcept
+    outcome<void> mem(storage_profile &sp, file_handle &h) noexcept
     {
       try
       {
@@ -145,16 +145,17 @@ namespace storage_profile
 
         if (sp.mem_quantity.value / 4 < chunksize)
           chunksize = sp.mem_quantity.value / 4;
-        std::vector<char, utils::page_allocator<char>> buffer(chunksize);
+        char *buffer = utils::page_allocator<char>().allocate(chunksize);
+        auto unbuffer = BOOST_AFIO_V2_NAMESPACE::detail::Undoer([buffer, chunksize] { utils::page_allocator<char>().deallocate(buffer, chunksize); });
         // Make sure all memory is really allocated first
-        memset(buffer.data(), 1, chunksize);
+        memset(buffer, 1, chunksize);
 
         // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
         auto begin = stl11::chrono::high_resolution_clock::now();
         unsigned long long count;
         for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
         {
-          memset(buffer.data(), count & 0xff, chunksize);
+          memset(buffer, count & 0xff, chunksize);
         }
         sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
 
@@ -168,7 +169,7 @@ namespace storage_profile
           {
             auto offset = detail::ranval(&ctx) * 4096;
             offset = offset % chunksize;
-            memset(buffer.data() + offset, count & 0xff, 4096);
+            memset(buffer + offset, count & 0xff, 4096);
           }
         }
         sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
@@ -177,13 +178,13 @@ namespace storage_profile
       {
         return std::current_exception();
       }
-      return make_outcome<void>();
+      return make_ready_outcome<void>();
     }
   }
   namespace storage
   {
     // Device name, size, min i/o size
-    outcome<void> device(storage_profile &sp, handle &h) noexcept
+    outcome<void> device(storage_profile &sp, file_handle &h) noexcept
     {
       try
       {
@@ -200,10 +201,10 @@ namespace storage_profile
       {
         return std::current_exception();
       }
-      return make_outcome<void>();
+      return make_ready_outcome<void>();
     }
     // FS name, config, size, in use
-    outcome<void> fs(storage_profile &sp, handle &h) noexcept
+    outcome<void> fs(storage_profile &sp, file_handle &h) noexcept
     {
       try
       {
@@ -218,15 +219,14 @@ namespace storage_profile
       {
         return std::current_exception();
       }
-      return make_outcome<void>();
+      return make_ready_outcome<void>();
     }
   }
 
   namespace concurrency
   {
-    outcome<void> atomic_write_quantum(storage_profile &sp, handle &_srch) noexcept
+    outcome<void> atomic_write_quantum(storage_profile &sp, file_handle &srch) noexcept
     {
-      file_handle &srch = static_cast<file_handle &>(_srch);
       try
       {
         using off_t = io_service::extent_type;
@@ -305,7 +305,7 @@ namespace storage_profile
       {
         return std::current_exception();
       }
-      return make_outcome<void>();
+      return make_ready_outcome<void>();
     }
   }
 }

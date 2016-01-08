@@ -95,16 +95,21 @@ int main(int argc, char *argv[])
         std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
         continue;
       }
-      handle testfile(std::move(_testfile.get()));
+      file_handle testfile(std::move(_testfile.get()));
       for (auto &test : profile[flags])
       {
         if (std::regex_match(test.name, torun))
         {
-          auto result = test(profile[flags]);
-          if (!result)
+          std::cout << "Running test " << test.name << " ..." << std::endl;
+          auto result = test(profile[flags], testfile);
+          if (result)
           {
-            std::cerr << "ERROR running test '" << test.name << "': " << result.get_error().message() << std::endl;
+            test.invoke([](auto &i) {
+              std::cout << "   " << i.name << " = " << i.value << std::endl;
+            });
           }
+          else
+            std::cerr << "   ERROR running test '" << test.name << "': " << result.get_error().message() << std::endl;
         }
       }
       // Write out results for this combination of flags

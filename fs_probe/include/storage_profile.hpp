@@ -62,6 +62,8 @@ namespace storage_profile
   struct item_base
   {
     static constexpr size_t item_size = 128;
+    //! The type of handle used for testing
+    using handle_type = file_handle;
 
     const char *name;         //!< The name of the item in colon delimited category format
     const char *description;  //!< Some description of the item
@@ -75,7 +77,8 @@ namespace storage_profile
   template<class T> struct item : public item_base
   {
     static constexpr size_t item_size = item_base::item_size;
-    using callable = outcome<void>(*)(storage_profile &sp, handle &h);
+    using handle_type = item_base::handle_type;
+    using callable = outcome<void>(*)(storage_profile &sp, handle_type &h);
 
     callable impl;
     T value;                  //!< The storage of the item
@@ -87,18 +90,20 @@ namespace storage_profile
     //! Clear this item, returning value to default
     void clear() { value = default_value<T>(); }
     //! Set this item if its value is default
-    outcome<void> operator()(storage_profile &sp) const
+    outcome<void> operator()(storage_profile &sp, handle_type &h) const
     {
       if (value != default_value<T>())
-        return make_outcome<void>();
-      if (!sp.handle())
-        return make_errored_outcome<void>(EINVAL);
-      return impl(sp, *sp.handle());
+        return make_ready_outcome<void>();
+      return impl(sp, h);
     }
   };
   //! A type erased tag-value item
   struct item_erased : public item_base
   {
+    static constexpr size_t item_size = item_base::item_size;
+    using handle_type = item_base::handle_type;
+    char _padding[item_size - sizeof(item_base)];
+
     item_erased() = delete;
     ~item_erased() = delete;
     item_erased(const item_erased &) = delete;
@@ -124,10 +129,10 @@ namespace storage_profile
       throw std::invalid_argument("No type set in item");
     }
     //! Set this item if its value is default
-    outcome<void> operator()(storage_profile &sp) const
+    outcome<void> operator()(storage_profile &sp, handle_type &h) const
     {
-      return invoke([&sp](auto &item) {
-        return item(sp);
+      return invoke([&sp, &h](auto &item) {
+        return item(sp, h);
       });
     }
   };
@@ -135,58 +140,47 @@ namespace storage_profile
   namespace system
   {
     // OS name, version
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> os(storage_profile &sp, handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> os(storage_profile &sp, file_handle &h) noexcept;
     // CPU name, architecture, physical cores
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> cpu(storage_profile &sp, handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> cpu(storage_profile &sp, file_handle &h) noexcept;
     // System memory quantity, in use, max and min bandwidth
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> mem(storage_profile &sp, handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> mem(storage_profile &sp, file_handle &h) noexcept;
 #ifdef WIN32
     namespace windows {
 #else
     namespace posix {
 #endif
-      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _mem(storage_profile &sp, handle &h) noexcept;
+      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _mem(storage_profile &sp, file_handle &h) noexcept;
     }
   }
   namespace storage
   {
     // Device name, size, min i/o size
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> device(storage_profile &sp, handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> device(storage_profile &sp, file_handle &h) noexcept;
     // FS name, config, size, in use
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> fs(storage_profile &sp, handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> fs(storage_profile &sp, file_handle &h) noexcept;
 #ifdef WIN32
     namespace windows {
 #else
     namespace posix {
 #endif
-      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _device(storage_profile &sp, handle &h, std::string mntfromname) noexcept;
+      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept;
     }
   }
   namespace concurrency
   {
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_write_quantum(storage_profile &sp, handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_write_quantum(storage_profile &sp, file_handle &h) noexcept;
   }
 
   //! A (possibly incomplet) profile of storage
   struct BOOST_AFIO_DECL storage_profile
   {
+    //! The size type
     using size_type = size_t;
-    using handle_type = handle;
   private:
     size_type _size;
-    handle *_h;
   public:
-    constexpr storage_profile() : _size(0), _h(nullptr) { }
-    /*! Constructs a profile of the storage referred to by the handle.
-    Note that the handle needs to not move in memory until all profiling
-    is done.
-    */
-    constexpr storage_profile(handle &h) : _size(0), _h(&h) {}
-
-    //! Returns a pointer to the handle used by this profile for profiling
-    handle_type *handle() const noexcept { return _h; }
-    //! Sets the pointer to the handle used by this profile for profiling
-    handle_type *handle(handle_type *n) noexcept { handle_type *o = _h; _h = n; return o; }
+    constexpr storage_profile() : _size(0) { }
 
     //! Value type
     using value_type = item_erased &;
@@ -198,6 +192,8 @@ namespace storage_profile
     using iterator = item_erased *;
     //! Const iterator type
     using const_iterator = const item_erased *;
+    //! The type of handle used for testing
+    using handle_type = item_base::handle_type;
 
     //! True if this storage profile is empty
     bool empty() const noexcept { return _size == 0; }

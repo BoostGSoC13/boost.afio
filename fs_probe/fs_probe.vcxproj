@@ -130,7 +130,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug clang|x64'">
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
@@ -143,8 +143,8 @@
       </AdditionalIncludeDirectories>
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4503;4201;4100;4127;4189;4459</DisableSpecificWarnings>
-      <EnablePREfast>true</EnablePREfast>
-      <AdditionalOptions>/analyze:stacksize 204800 %(AdditionalOptions)</AdditionalOptions>
+      <EnablePREfast>false</EnablePREfast>
+      <AdditionalOptions>/analyze:stacksize 204800 /analyze- %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug clang|x64'">
