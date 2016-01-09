@@ -48,24 +48,35 @@ namespace storage_profile
 #endif
     outcome<void> os(storage_profile &sp, file_handle &h) noexcept
     {
-      try
+      static std::string os_name, os_ver;
+      if (!os_name.empty())
       {
-        RTL_OSVERSIONINFOW ovi = { sizeof(RTL_OSVERSIONINFOW) };
-        // GetVersionEx() is no longer useful since Win8.1
-        using RtlGetVersion_t = LONG(*)(PRTL_OSVERSIONINFOW);
-        static RtlGetVersion_t RtlGetVersion;
-        if (!RtlGetVersion)
-          RtlGetVersion = (RtlGetVersion_t)GetProcAddress(GetModuleHandle(L"NTDLL.DLL"), "RtlGetVersion");
-        if (!RtlGetVersion)
-          return make_errored_outcome<void>(GetLastError());
-        RtlGetVersion(&ovi);
-        sp.os_name.value = "Microsoft Windows ";
-        sp.os_name.value.append(ovi.dwPlatformId == VER_PLATFORM_WIN32_NT ? "NT" : "Unknown");
-        sp.os_ver.value.append(to_string(ovi.dwMajorVersion) + "." + to_string(ovi.dwMinorVersion) + "." + to_string(ovi.dwBuildNumber));
+        sp.os_name.value = os_name;
+        sp.os_ver.value = os_ver;
       }
-      catch (...)
+      else
       {
-        return std::current_exception();
+        try
+        {
+          RTL_OSVERSIONINFOW ovi = { sizeof(RTL_OSVERSIONINFOW) };
+          // GetVersionEx() is no longer useful since Win8.1
+          using RtlGetVersion_t = LONG(*)(PRTL_OSVERSIONINFOW);
+          static RtlGetVersion_t RtlGetVersion;
+          if (!RtlGetVersion)
+            RtlGetVersion = (RtlGetVersion_t)GetProcAddress(GetModuleHandle(L"NTDLL.DLL"), "RtlGetVersion");
+          if (!RtlGetVersion)
+            return make_errored_outcome<void>(GetLastError());
+          RtlGetVersion(&ovi);
+          sp.os_name.value = "Microsoft Windows ";
+          sp.os_name.value.append(ovi.dwPlatformId == VER_PLATFORM_WIN32_NT ? "NT" : "Unknown");
+          sp.os_ver.value.append(to_string(ovi.dwMajorVersion) + "." + to_string(ovi.dwMinorVersion) + "." + to_string(ovi.dwBuildNumber));
+        }
+        catch (...)
+        {
+          return std::current_exception();
+        }
+        os_name = sp.os_name.value;
+        os_ver = sp.os_ver.value;
       }
       return make_ready_outcome<void>();
     }
@@ -75,82 +86,97 @@ namespace storage_profile
     // CPU name, architecture, physical cores
     outcome<void> cpu(storage_profile &sp, file_handle &h) noexcept
     {
-      try
+      static std::string cpu_name, cpu_architecture;
+      static unsigned cpu_physical_cores;
+      if (!cpu_name.empty())
       {
-        SYSTEM_INFO si = { {sizeof(SYSTEM_INFO)} };
-        GetNativeSystemInfo(&si);
-        switch (si.wProcessorArchitecture)
-        {
-        case PROCESSOR_ARCHITECTURE_AMD64:
-          sp.cpu_name.value = sp.cpu_architecture.value = "x64";
-          break;
-        case PROCESSOR_ARCHITECTURE_ARM:
-          sp.cpu_name.value = sp.cpu_architecture.value = "ARM";
-          break;
-        case PROCESSOR_ARCHITECTURE_IA64:
-          sp.cpu_name.value = sp.cpu_architecture.value = "IA64";
-          break;
-        case PROCESSOR_ARCHITECTURE_INTEL:
-          sp.cpu_name.value = sp.cpu_architecture.value = "x86";
-          break;
-        default:
-          sp.cpu_name.value = sp.cpu_architecture.value = "unknown";
-          break;
-        }
-        {
-          DWORD size = 0;
-
-          GetLogicalProcessorInformation(NULL, &size);
-          if (ERROR_INSUFFICIENT_BUFFER != GetLastError())
-            return make_errored_outcome<void>(GetLastError());
-
-          std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(size);
-          if (GetLogicalProcessorInformation(&buffer.front(), &size) == FALSE)
-            return make_errored_outcome<void>(GetLastError());
-
-          const size_t Elements = size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
-
-          sp.cpu_physical_cores.value = 0;
-          for (size_t i = 0; i < Elements; ++i) {
-            if (buffer[i].Relationship == RelationProcessorCore)
-              ++sp.cpu_physical_cores.value;
-          }
-        }
-#if defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-        // We can do a much better CPU name on x86/x64
-        sp.cpu_name.value.clear();
-        {
-          char buffer[62];
-          memset(buffer, 32, 62);
-          int nBuff[4];
-          __cpuid(nBuff, 0);
-          *(int*)&buffer[0] = nBuff[1];
-          *(int*)&buffer[4] = nBuff[3];
-          *(int*)&buffer[8] = nBuff[2];
-
-          // Do we have a brand string?
-          __cpuid(nBuff, 0x80000000);
-          if ((unsigned)nBuff[0] >= 0x80000004)
-          {
-            __cpuid((int*)&buffer[14], 0x80000002);
-            __cpuid((int*)&buffer[30], 0x80000003);
-            __cpuid((int*)&buffer[46], 0x80000004);
-          }
-          else
-            strcpy(&buffer[14], "unbranded");
-
-          // Trim string
-          for (size_t n = 0; n < 62; n++)
-          {
-            if (!n || buffer[n] != 32 || buffer[n - 1] != 32)
-              sp.cpu_name.value.push_back(buffer[n]);
-          }
-        }
-#endif
+        sp.cpu_name.value = cpu_name;
+        sp.cpu_architecture.value = cpu_architecture;
+        sp.cpu_physical_cores.value = cpu_physical_cores;
       }
-      catch (...)
+      else
       {
-        return std::current_exception();
+        try
+        {
+          SYSTEM_INFO si = { {sizeof(SYSTEM_INFO)} };
+          GetNativeSystemInfo(&si);
+          switch (si.wProcessorArchitecture)
+          {
+          case PROCESSOR_ARCHITECTURE_AMD64:
+            sp.cpu_name.value = sp.cpu_architecture.value = "x64";
+            break;
+          case PROCESSOR_ARCHITECTURE_ARM:
+            sp.cpu_name.value = sp.cpu_architecture.value = "ARM";
+            break;
+          case PROCESSOR_ARCHITECTURE_IA64:
+            sp.cpu_name.value = sp.cpu_architecture.value = "IA64";
+            break;
+          case PROCESSOR_ARCHITECTURE_INTEL:
+            sp.cpu_name.value = sp.cpu_architecture.value = "x86";
+            break;
+          default:
+            sp.cpu_name.value = sp.cpu_architecture.value = "unknown";
+            break;
+          }
+          {
+            DWORD size = 0;
+
+            GetLogicalProcessorInformation(NULL, &size);
+            if (ERROR_INSUFFICIENT_BUFFER != GetLastError())
+              return make_errored_outcome<void>(GetLastError());
+
+            std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(size);
+            if (GetLogicalProcessorInformation(&buffer.front(), &size) == FALSE)
+              return make_errored_outcome<void>(GetLastError());
+
+            const size_t Elements = size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+
+            sp.cpu_physical_cores.value = 0;
+            for (size_t i = 0; i < Elements; ++i) {
+              if (buffer[i].Relationship == RelationProcessorCore)
+                ++sp.cpu_physical_cores.value;
+            }
+          }
+#if defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+          // We can do a much better CPU name on x86/x64
+          sp.cpu_name.value.clear();
+          {
+            char buffer[62];
+            memset(buffer, 32, 62);
+            int nBuff[4];
+            __cpuid(nBuff, 0);
+            *(int*)&buffer[0] = nBuff[1];
+            *(int*)&buffer[4] = nBuff[3];
+            *(int*)&buffer[8] = nBuff[2];
+
+            // Do we have a brand string?
+            __cpuid(nBuff, 0x80000000);
+            if ((unsigned)nBuff[0] >= 0x80000004)
+            {
+              __cpuid((int*)&buffer[14], 0x80000002);
+              __cpuid((int*)&buffer[30], 0x80000003);
+              __cpuid((int*)&buffer[46], 0x80000004);
+            }
+            else
+              strcpy(&buffer[14], "unbranded");
+
+            // Trim string
+            for (size_t n = 0; n < 62; n++)
+            {
+              if (!n || buffer[n] != 32 || buffer[n - 1] != 32)
+                if (buffer[n])
+                  sp.cpu_name.value.push_back(buffer[n]);
+            }
+          }
+#endif
+        }
+        catch (...)
+        {
+          return std::current_exception();
+        }
+        cpu_name = sp.cpu_name.value;
+        cpu_architecture = sp.cpu_architecture.value;
+        cpu_physical_cores = sp.cpu_physical_cores.value;
       }
       return make_ready_outcome<void>();
     }

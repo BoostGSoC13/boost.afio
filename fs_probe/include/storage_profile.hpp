@@ -223,8 +223,14 @@ namespace storage_profile
     item<unsigned> cpu_physical_cores = { "system:cpu:physical_cores", &system::cpu };
     item<unsigned> mem_quantity = { "system:mem:quantity", &system::mem };
     item<float> mem_in_use = { "system:mem:in_use", &system::mem };                           // not including caches etc.
-    item<unsigned> mem_max_bandwidth = { "system:mem:max_bandwidth", &system::mem };          // of main memory (sequentially accessed)
-    item<unsigned> mem_min_bandwidth = { "system:mem:min_bandwidth", &system::mem };          // of main memory (randomly accessed in 4Kb chunks, not sequentially)
+    item<unsigned> mem_max_bandwidth = { "system:mem:max_bandwidth",
+      system::mem,
+      "Main memory bandwidth when accessed sequentially"
+    };
+    item<unsigned> mem_min_bandwidth = { "system:mem:min_bandwidth",
+      system::mem,
+      "Main memory bandwidth when 4Kb pages are accessed randomly"
+    };
 
     // Storage characteristics
     item<std::string> device_name = { "storage:device:name", &storage::device };              // e.g. WDC WD30EFRX-68EUZN0
@@ -244,10 +250,10 @@ namespace storage_profile
       concurrency::atomic_write_quantum,
       "The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity"
     };
-    item<io_service::extent_type> max_atomic_write = {
-      "concurrency::max_atomic_write",
+    item<io_service::extent_type> max_aligned_atomic_write = {
+      "concurrency:max_aligned_atomic_write",
       concurrency::atomic_write_quantum,
-      "The maximum single i/o write quantity atomically visible to readers"
+      "The maximum single aligned i/o write quantity atomically visible to readers"
     };
   };
 }

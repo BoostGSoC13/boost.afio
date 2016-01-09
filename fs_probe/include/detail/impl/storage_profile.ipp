@@ -95,6 +95,8 @@ namespace storage_profile
             out << std::string(indent, ' ') << thissection[n] << ":\n";
           }
         }
+        if(i.description)
+          out << std::string(indent + 4, ' ') << "# " << i.description << "\n";
         out << std::string(indent + 4, ' ') << name << ": " << i.value << "\n";
         lastsection = std::move(thissection);
       }
@@ -134,49 +136,65 @@ namespace storage_profile
     // System memory quantity, in use, max and min bandwidth
     outcome<void> mem(storage_profile &sp, file_handle &h) noexcept
     {
-      try
+      static unsigned mem_quantity, mem_max_bandwidth, mem_min_bandwidth;
+      static float mem_in_use;
+      if (mem_quantity)
       {
-        size_t chunksize = 256 * 1024 * 1024;
+        sp.mem_quantity.value = mem_quantity;
+        sp.mem_in_use.value = mem_in_use;
+        sp.mem_max_bandwidth.value = mem_max_bandwidth;
+        sp.mem_min_bandwidth.value = mem_min_bandwidth;
+      }
+      else
+      {
+        try
+        {
+          size_t chunksize = 256 * 1024 * 1024;
 #ifdef WIN32
-        BOOST_OUTCOME_PROPAGATE_ERROR(windows::_mem(sp, h));
+          BOOST_OUTCOME_PROPAGATE_ERROR(windows::_mem(sp, h));
 #else
-        BOOST_OUTCOME_PROPAGATE_ERROR(posix::_mem(sp, h));
+          BOOST_OUTCOME_PROPAGATE_ERROR(posix::_mem(sp, h));
 #endif
 
-        if (sp.mem_quantity.value / 4 < chunksize)
-          chunksize = sp.mem_quantity.value / 4;
-        char *buffer = utils::page_allocator<char>().allocate(chunksize);
-        auto unbuffer = BOOST_AFIO_V2_NAMESPACE::detail::Undoer([buffer, chunksize] { utils::page_allocator<char>().deallocate(buffer, chunksize); });
-        // Make sure all memory is really allocated first
-        memset(buffer, 1, chunksize);
+          if (sp.mem_quantity.value / 4 < chunksize)
+            chunksize = sp.mem_quantity.value / 4;
+          char *buffer = utils::page_allocator<char>().allocate(chunksize);
+          auto unbuffer = BOOST_AFIO_V2_NAMESPACE::detail::Undoer([buffer, chunksize] { utils::page_allocator<char>().deallocate(buffer, chunksize); });
+          // Make sure all memory is really allocated first
+          memset(buffer, 1, chunksize);
 
-        // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
-        auto begin = stl11::chrono::high_resolution_clock::now();
-        unsigned long long count;
-        for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
-        {
-          memset(buffer, count & 0xff, chunksize);
-        }
-        sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
-
-        // Min bandwidth is randomised 4Kb copies of the same
-        detail::ranctx ctx;
-        detail::raninit(&ctx, 78);
-        begin = stl11::chrono::high_resolution_clock::now();
-        for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
-        {
-          for (size_t n = 0; n < chunksize; n += 4096)
+          // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
+          auto begin = stl11::chrono::high_resolution_clock::now();
+          unsigned long long count;
+          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
           {
-            auto offset = detail::ranval(&ctx) * 4096;
-            offset = offset % chunksize;
-            memset(buffer + offset, count & 0xff, 4096);
+            memset(buffer, count & 0xff, chunksize);
           }
+          sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
+
+          // Min bandwidth is randomised 4Kb copies of the same
+          detail::ranctx ctx;
+          detail::raninit(&ctx, 78);
+          begin = stl11::chrono::high_resolution_clock::now();
+          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
+          {
+            for (size_t n = 0; n < chunksize; n += 4096)
+            {
+              auto offset = detail::ranval(&ctx) * 4096;
+              offset = offset % chunksize;
+              memset(buffer + offset, count & 0xff, 4096);
+            }
+          }
+          sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
         }
-        sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
-      }
-      catch (...)
-      {
-        return std::current_exception();
+        catch (...)
+        {
+          return std::current_exception();
+        }
+        mem_quantity = sp.mem_quantity.value;
+        mem_in_use = sp.mem_in_use.value;
+        mem_max_bandwidth = sp.mem_max_bandwidth.value;
+        mem_min_bandwidth = sp.mem_min_bandwidth.value;
       }
       return make_ready_outcome<void>();
     }
@@ -230,7 +248,7 @@ namespace storage_profile
       try
       {
         using off_t = io_service::extent_type;
-        sp.max_atomic_write.value = 1;
+        sp.max_aligned_atomic_write.value = 1;
         for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
         {
           // Create two concurrent writer threads
@@ -289,8 +307,8 @@ namespace storage_profile
           }
           if (!failed)
           {
-            if (size > sp.max_atomic_write.value)
-              sp.max_atomic_write.value = size;
+            if (size > sp.max_aligned_atomic_write.value)
+              sp.max_aligned_atomic_write.value = size;
           }
           done = true;
           for (auto &writer : writers)
@@ -298,8 +316,8 @@ namespace storage_profile
           if (failed)
             break;
         }
-        if (sp.atomic_write_quantum.value > sp.max_atomic_write.value)
-          sp.atomic_write_quantum.value = sp.max_atomic_write.value;
+        if (sp.atomic_write_quantum.value > sp.max_aligned_atomic_write.value)
+          sp.atomic_write_quantum.value = sp.max_aligned_atomic_write.value;
       }
       catch (...)
       {
