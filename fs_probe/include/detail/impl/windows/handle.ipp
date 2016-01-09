@@ -37,10 +37,11 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 result<handle> handle::clone(io_service &service, handle::mode mode, handle::caching caching) const noexcept
 {
   result<handle> ret(handle(&service, _path, native_handle_type(), _caching, _flags));
-  ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::readable| native_handle_type::disposition::writable|native_handle_type::disposition::append_only);
+  ret.value()._v.behaviour = _v.behaviour;
   DWORD access = SYNCHRONIZE;
   if (mode != mode::unchanged)
   {
+    ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
     switch (mode)
     {
     case mode::unchanged:
@@ -66,12 +67,12 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
       break;
     }
   }
-  if (!DuplicateHandle(GetCurrentProcess(), _v.h, GetCurrentProcess(), &ret.value()._v.h, access, false, mode == mode::unchanged ? DUPLICATE_SAME_ACCESS : 0))
-    return make_errored_result<handle>(GetLastError());
   if (caching != caching::unchanged && caching != _caching)
   {
     return make_errored_result<handle>(EINVAL);
   }
+  if (!DuplicateHandle(GetCurrentProcess(), _v.h, GetCurrentProcess(), &ret.value()._v.h, access, false, mode == mode::unchanged ? DUPLICATE_SAME_ACCESS : 0))
+    return make_errored_result<handle>(GetLastError());
   return ret;
 }
 

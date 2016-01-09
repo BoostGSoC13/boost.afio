@@ -186,7 +186,7 @@ namespace storage_profile
       {
         MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
         GlobalMemoryStatusEx(&ms);
-        sp.mem_quantity.value = (unsigned)ms.ullTotalPhys;
+        sp.mem_quantity.value = (unsigned long long)ms.ullTotalPhys;
         sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
         return make_ready_outcome<void>();
       }

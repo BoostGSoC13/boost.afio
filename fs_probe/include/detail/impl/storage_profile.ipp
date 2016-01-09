@@ -69,7 +69,7 @@ namespace storage_profile
   min_atomic_write: 1
   max_atomic_write: 1
   */
-  void storage_profile::write(std::ostream &out, size_t _indent) const
+  void storage_profile::write(std::ostream &out, std::regex which, size_t _indent, bool invert_match) const
   {
     std::vector<std::string> lastsection;
     auto print = [_indent, &out, &lastsection](auto &i) {
@@ -92,17 +92,21 @@ namespace storage_profile
           indent += 4;
           if (n >= lastsection.size() || thissection[n] != lastsection[n])
           {
-            out << std::string(indent, ' ') << thissection[n] << ":\n";
+            out << std::string(indent-4, ' ') << thissection[n] << ":\n";
           }
         }
         if(i.description)
-          out << std::string(indent + 4, ' ') << "# " << i.description << "\n";
-        out << std::string(indent + 4, ' ') << name << ": " << i.value << "\n";
+          out << std::string(indent, ' ') << "# " << i.description << "\n";
+        out << std::string(indent, ' ') << name << ": " << i.value << "\n";
         lastsection = std::move(thissection);
       }
     };
     for (const item_erased &i : *this)
-      i.invoke(print);
+    {
+      bool matches = std::regex_match(i.name, which);
+      if((matches && !invert_match) || (!matches && invert_match))
+        i.invoke(print);
+    }
   }
 
   namespace system
@@ -136,7 +140,7 @@ namespace storage_profile
     // System memory quantity, in use, max and min bandwidth
     outcome<void> mem(storage_profile &sp, file_handle &h) noexcept
     {
-      static unsigned mem_quantity, mem_max_bandwidth, mem_min_bandwidth;
+      static unsigned long long mem_quantity, mem_max_bandwidth, mem_min_bandwidth;
       static float mem_in_use;
       if (mem_quantity)
       {
@@ -170,7 +174,7 @@ namespace storage_profile
           {
             memset(buffer, count & 0xff, chunksize);
           }
-          sp.mem_max_bandwidth.value = (unsigned)(count*chunksize / 10);
+          sp.mem_max_bandwidth.value = (unsigned long long)((double) count*chunksize / 10);
 
           // Min bandwidth is randomised 4Kb copies of the same
           detail::ranctx ctx;
@@ -185,7 +189,7 @@ namespace storage_profile
               memset(buffer + offset, count & 0xff, 4096);
             }
           }
-          sp.mem_min_bandwidth.value = (unsigned)(count*chunksize / 10);
+          sp.mem_min_bandwidth.value = (unsigned long long)((double) count*chunksize / 10);
         }
         catch (...)
         {
@@ -253,8 +257,8 @@ namespace storage_profile
         {
           // Create two concurrent writer threads
           std::vector<std::thread> writers;
-          std::atomic<size_t> done(2);
-          for (char no = '1'; no <= '2'; no++)
+          std::atomic<size_t> done(8);
+          for (char no = '1'; no <= '8'; no++)
             writers.push_back(std::thread([size, &srch, no, &done] {
             io_service service;
             auto _h(srch.clone(service, handle::mode::write));

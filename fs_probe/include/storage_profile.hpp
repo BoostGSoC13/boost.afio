@@ -32,6 +32,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include "handle.hpp"
 
+#include <regex>
+
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace storage_profile
@@ -42,6 +44,7 @@ namespace storage_profile
     unknown,
     extent_type,
     unsigned_int,
+    unsigned_long_long,
     float_,
     string
   };
@@ -55,6 +58,7 @@ namespace storage_profile
   template<> constexpr storage_types map_to_storage_type<io_service::extent_type>() { return storage_types::extent_type; }
   template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) - 1; }
   template<> constexpr storage_types map_to_storage_type<unsigned int>() { return storage_types::unsigned_int; }
+//  template<> constexpr storage_types map_to_storage_type<unsigned long long>() { return storage_types::unsigned_long_long; }
   template<> constexpr storage_types map_to_storage_type<float>() { return storage_types::float_; }
   template<> constexpr storage_types map_to_storage_type<std::string>() { return storage_types::string; }
 
@@ -119,6 +123,8 @@ namespace storage_profile
         return f(*static_cast<const item<io_service::extent_type> *>(static_cast<const item_base *>(this)));
       case storage_types::unsigned_int:
         return f(*static_cast<const item<unsigned int> *>(static_cast<const item_base *>(this)));
+      case storage_types::unsigned_long_long:
+        return f(*static_cast<const item<unsigned long long> *>(static_cast<const item_base *>(this)));
       case storage_types::float_:
         return f(*static_cast<const item<float> *>(static_cast<const item_base *>(this)));
       case storage_types::string:
@@ -210,10 +216,10 @@ namespace storage_profile
     //! Returns an iterator to the last item
     const_iterator end() const noexcept { return begin() + max_size(); }
 
-    //! Read the storage profile from in as YAML
-    void read(std::istream &in);
-    //! Write the storage profile as YAML to out with the given indentation
-    void write(std::ostream &out, size_t _indent = 0) const;
+    //! Read the matching items in the storage profile from in as YAML
+    void read(std::istream &in, std::regex which = std::regex(".*"));
+    //! Write the matching items from storage profile as YAML to out with the given indentation
+    void write(std::ostream &out, std::regex which = std::regex(".*"), size_t _indent = 0, bool invert_which=false) const;
 
     // System characteristics
     item<std::string> os_name = { "system:os:name", &system::os };                            // e.g. Microsoft Windows NT
@@ -221,16 +227,16 @@ namespace storage_profile
     item<std::string> cpu_name = { "system:cpu:name", &system::cpu };                         // e.g. Intel Haswell
     item<std::string> cpu_architecture = { "system:cpu:architecture", &system::cpu };         // e.g. x64
     item<unsigned> cpu_physical_cores = { "system:cpu:physical_cores", &system::cpu };
-    item<unsigned> mem_quantity = { "system:mem:quantity", &system::mem };
-    item<float> mem_in_use = { "system:mem:in_use", &system::mem };                           // not including caches etc.
-    item<unsigned> mem_max_bandwidth = { "system:mem:max_bandwidth",
+    item<unsigned long long> mem_max_bandwidth = { "system:mem:max_bandwidth",
       system::mem,
       "Main memory bandwidth when accessed sequentially"
     };
-    item<unsigned> mem_min_bandwidth = { "system:mem:min_bandwidth",
+    item<unsigned long long> mem_min_bandwidth = { "system:mem:min_bandwidth",
       system::mem,
       "Main memory bandwidth when 4Kb pages are accessed randomly"
     };
+    item<unsigned long long> mem_quantity = { "system:mem:quantity", &system::mem };
+    item<float> mem_in_use = { "system:mem:in_use", &system::mem };                           // not including caches etc.
 
     // Storage characteristics
     item<std::string> device_name = { "storage:device:name", &storage::device };              // e.g. WDC WD30EFRX-68EUZN0
