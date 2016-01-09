@@ -9,6 +9,10 @@ may not be representative of the same combination on other hardware.
 
 Todo:
 - [x] Make a native_handle_type to wrap fds and HANDLEs.
+- [ ] Cache cpu and sys tests statically
+- [ ] Configurable tracking of op latency and throughput (bytes) for all
+handles on some storage
+  - Add IOPS QD=1..N storage profile test
 - [ ] Port to POSIX AIO
   - http://www.informit.com/articles/article.aspx?p=607373&seqNum=4 is a
 very useful programming guide for POSIX AIO.
