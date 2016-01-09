@@ -72,6 +72,12 @@ DEALINGS IN THE SOFTWARE.
 #ifndef __cpp_init_captures
 # error Boost.AFIO need lambda init captures support in the compiler (C++ 14)
 #endif
+#if (defined(__GNUC__) && !defined(__clang__))
+# define BOOST_AFIO_GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+# if BOOST_AFIO_GCC_VERSION < 40900
+#  error Boost.AFIO needs GCC 4.9 or later as the <regex> shipped in libstdc++ < 4.9 does not work
+# endif
+#endif
 
 #if defined(BOOST_AFIO_LATEST_VERSION) && BOOST_AFIO_LATEST_VERSION < 2
 # error You need to include the latest version of Boost.AFIO before any earlier versions within the same translation unit
