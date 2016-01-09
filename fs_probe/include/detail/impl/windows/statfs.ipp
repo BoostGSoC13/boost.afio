@@ -150,9 +150,14 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
         if (memcmp(buffer2, buffer + len - pathlen, pathlen))
           continue;  // path changed
         len -= pathlen;
+        // buffer should look like \Device\HarddiskVolumeX
+        if (memcmp(buffer, L"\\Device\\HarddiskVolume", 44))
+          return make_errored_result<size_t>(EILSEQ);
+        // TODO FIXME This should output the kind of path the input handle uses
+        // For now though, output a win32 compatible path
         f_mntfromname.reserve(len+3);
-        f_mntfromname.assign("\\\\.");  // win32 device escape prefix
-        for (size_t n = 0; n < len; n++)
+        f_mntfromname.assign("\\\\.");  // win32 escape prefix for NT kernel path \Device
+        for (size_t n = 7; n < len; n++)
           f_mntfromname.push_back((char)buffer[n]);
         ++ret;
         wanted &= ~want::mntfromname;

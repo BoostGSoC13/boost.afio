@@ -218,8 +218,9 @@ namespace storage_profile
             if (ERROR_SUCCESS != GetLastError())
               return make_errored_outcome<void>(GetLastError());
           }
+          DWORD disk_extents = vde->NumberOfDiskExtents;
           sp.device_name.value.clear();
-          if (vde->NumberOfDiskExtents > 0)
+          if (disk_extents > 0)
           {
             // For now we only care about the first physical device
             alignas(8) fixme_path::value_type physicaldrivename[32769];
@@ -259,12 +260,15 @@ namespace storage_profile
             }
             if (!sp.device_name.value.empty())
               sp.device_name.value.resize(sp.device_name.value.size() - 1);
-            if (vde->NumberOfDiskExtents > 1)
+            if (disk_extents > 1)
               sp.device_name.value.append(" (NOTE: plus additional devices)");
+
             // Get device size
-            STORAGE_READ_CAPACITY *src = (STORAGE_READ_CAPACITY *)buffer;
-            src->Version = sizeof(STORAGE_READ_CAPACITY);
-            if (!DeviceIoControl(diskh.native_handle().h, IOCTL_STORAGE_READ_CAPACITY, nullptr, 0, src, sizeof(buffer), nullptr, &ol))
+            // IOCTL_STORAGE_READ_CAPACITY needs GENERIC_READ privs which requires admin privs
+            // so simply fetch the geometry
+            DISK_GEOMETRY_EX *dg = (DISK_GEOMETRY_EX *)buffer;
+            ol.Internal = (ULONG_PTR)-1;
+            if (!DeviceIoControl(diskh.native_handle().h, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, nullptr, 0, dg, sizeof(buffer), nullptr, &ol))
             {
               if (ERROR_IO_PENDING == GetLastError())
               {
@@ -275,7 +279,7 @@ namespace storage_profile
               if (ERROR_SUCCESS != GetLastError())
                 return make_errored_outcome<void>(GetLastError());
             }
-            sp.device_size.value = src->DiskLength.QuadPart;
+            sp.device_size.value = dg->DiskSize.QuadPart;
           }
         }
         catch (...)
