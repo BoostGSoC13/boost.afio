@@ -36,11 +36,11 @@ DEALINGS IN THE SOFTWARE.
 
 #include <fstream>
 #include <iomanip>
-#include <regex>
 
 using namespace BOOST_AFIO_V2_NAMESPACE;
 
 constexpr unsigned permute_flags_max = 4;
+static const std::regex sp_preamble{ "(system|storage).*" };
 
 static storage_profile::storage_profile profile[permute_flags_max];
 
@@ -69,8 +69,9 @@ int main(int argc, char *argv[])
   std::ofstream results("fs_probe_results.yaml", std::ios::app);
   {
     std::time_t t = std::time(nullptr);
-    results << "---\ntimestamp: " << std::put_time(std::gmtime(&t), "%F %T %z") << std::endl;
+    results << "---\ntimestamp: " << std::put_time(std::gmtime(&t), "%F %T %z") << "\n";
   }
+  bool first = true;
   for (unsigned flags = 0; flags <= torunflags; flags++)
   {
     if (!flags || !!(flags & torunflags))
@@ -89,6 +90,7 @@ int main(int argc, char *argv[])
         strategy = handle::caching::none;           // O_DIRECT|O_SYNC
         break;
       }
+      std::cout << "\ndirect=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
       auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::if_needed, strategy));
       if (!_testfile)
       {
@@ -113,11 +115,13 @@ int main(int argc, char *argv[])
         }
       }
       // Write out results for this combination of flags
-      std::cout << "\ndirect=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
-      profile[flags].write(std::cout, 0);
-      std::cout.flush();
+      if (first)
+      {
+        profile[flags].write(results, sp_preamble);
+        first = false;
+      }
       results << "direct=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
-      profile[flags].write(results, 0);
+      profile[flags].write(results, sp_preamble, 4, true);
       results.flush();
     }
   }
