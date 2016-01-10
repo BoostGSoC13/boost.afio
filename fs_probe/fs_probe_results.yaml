@@ -49,3 +49,54 @@ direct=1 sync=1:
         atomic_write_quantum: 512
         # The maximum single aligned i/o write quantity atomically visible to readers
         max_aligned_atomic_write: 4096
+---
+timestamp: 2016-01-10 02:27:14 -0000
+system:
+    os:
+        name: Microsoft Windows NT
+        ver: 10.0.10240
+    cpu:
+        name: GenuineIntel Intel(R) Core(TM) i5 CPU M 540 @ 2.53GHz
+        architecture: x64
+        physical_cores: 2
+    mem:
+        # Main memory bandwidth when accessed sequentially
+        max_bandwidth: 4992899481
+        # Main memory bandwidth when 4Kb pages are accessed randomly
+        min_bandwidth: 4697620480
+        quantity: 4217192448
+        in_use: 0.766235
+storage:
+    device:
+        name: Samsung SSD 840 Series,DXT07B0Q
+        min_io_size: 512
+        size: 120034123776
+    fs:
+        name: NTFS
+        config: todo
+        size: 116417097728
+        in_use: 0.946809
+direct=0 sync=0:
+    concurrency:
+        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
+        atomic_write_quantum: 1
+        # The maximum single aligned i/o write quantity atomically visible to readers
+        max_aligned_atomic_write: 1
+direct=1 sync=0:
+    concurrency:
+        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
+        atomic_write_quantum: 512
+        # The maximum single aligned i/o write quantity atomically visible to readers
+        max_aligned_atomic_write: 4096
+direct=0 sync=1:
+    concurrency:
+        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
+        atomic_write_quantum: 1
+        # The maximum single aligned i/o write quantity atomically visible to readers
+        max_aligned_atomic_write: 1
+direct=1 sync=1:
+    concurrency:
+        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
+        atomic_write_quantum: 512
+        # The maximum single aligned i/o write quantity atomically visible to readers
+        max_aligned_atomic_write: 4096
