@@ -255,69 +255,89 @@ namespace storage_profile
         sp.max_aligned_atomic_write.value = 1;
         for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
         {
-          // Create two concurrent writer threads
-          std::vector<std::thread> writers;
-          std::atomic<size_t> done(8);
-          for (char no = '1'; no <= '8'; no++)
+          // Preallocate space before testing
+          srch.truncate(size);
+          // Create two concurrent writer threads and as many reader threads as additional CPU cores
+          std::vector<std::thread> writers, readers;
+          std::atomic<size_t> done(2);
+          for (char no = '1'; no <= '2'; no++)
             writers.push_back(std::thread([size, &srch, no, &done] {
-            io_service service;
-            auto _h(srch.clone(service, handle::mode::write));
-            if (!_h)
-              throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
-            file_handle h(std::move(_h.get()));
-            std::vector<char> buffer(size, no);
-            file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-            // Preallocate space before testing
-            h.truncate(size);
-            h.write(reqs);
-            --done;
-            while (done)
-              std::this_thread::yield();
-            while (!done)
-            {
+              io_service service;
+              auto _h(srch.clone(service, handle::mode::write));
+              if (!_h)
+                throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
+              file_handle h(std::move(_h.get()));
+              std::vector<char> buffer(size, no);
+              file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+              // Force extent allocation before test begins
               h.write(reqs);
-            }
+              --done;
+              while (done)
+                std::this_thread::yield();
+              while (!done)
+              {
+                h.write(reqs);
+              }
           }));
+          // Wait till the writers launch
           while (done)
             std::this_thread::yield();
-          // Repeatedly read from the file and check for torn writes
-          io_service service;
-          auto _h(srch.clone(service, handle::mode::read));
-          if (!_h)
-            throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
-          file_handle h(std::move(_h.get()));
-          std::vector<char> buffer(size, 0);
-          file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-          bool failed = false;
-          std::cout << "direct=" << srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes ..." << std::endl;
-          for (size_t transitions = 0; transitions < 10000; transitions++)
-          {
-            h.read(reqs);
-            const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
-            for (const size_t *d = data; d < end; d++)
-            {
-              if (*d != *data)
+          unsigned concurrency = std::thread::hardware_concurrency() - 2;
+          if (concurrency < 4) concurrency = 4;
+          std::atomic<io_service::extent_type> atomic_write_quantum(sp.atomic_write_quantum.value);
+          std::atomic<bool> failed(false);
+          for (unsigned no = 0; no < concurrency; no++)
+            readers.push_back(std::thread([size, &srch, no, &done, &atomic_write_quantum, &failed] {
+              io_service service;
+              auto _h(srch.clone(service, handle::mode::read));
+              if (!_h)
+                throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
+              file_handle h(std::move(_h.get()));
+              std::vector<char> buffer(size, 0), tocmp(size, 0);
+              file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+              while (!done)
               {
-                failed = true;
-                off_t failedat = d - data;
-                if (failedat < sp.atomic_write_quantum.value)
+                h.read(reqs);
+                //memset(tocmp.data(), buffer.front(), size);
+                //if (memcmp(buffer.data(), tocmp.data(), size))
                 {
-                  std::cout << "  Torn write at offset " << failedat << std::endl;
-                  sp.atomic_write_quantum.value = failedat;
+                  const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
+                  for (const size_t *d = data; d < end; d++)
+                  {
+                    if (*d != *data)
+                    {
+                      failed = true;
+                      off_t failedat = d - data;
+                      if (failedat < atomic_write_quantum)
+                      {
+                        std::cout << "  Torn write at offset " << failedat << std::endl;
+                        atomic_write_quantum = failedat;
+                      }
+                      break;
+                    }
+                  }
                 }
-                break;
               }
-            }
+            }));
+
+          std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes ..." << std::endl;
+          auto begin = stl11::chrono::high_resolution_clock::now();
+          while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count()<5)
+          {
+            stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
           }
+          done = true;
+          for (auto &writer : writers)
+            writer.join();
+          for (auto &reader : readers)
+            reader.join();
+          sp.atomic_write_quantum.value = atomic_write_quantum;
           if (!failed)
           {
             if (size > sp.max_aligned_atomic_write.value)
               sp.max_aligned_atomic_write.value = size;
           }
-          done = true;
-          for (auto &writer : writers)
-            writer.join();
-          if (failed)
+          else
             break;
         }
         if (sp.atomic_write_quantum.value > sp.max_aligned_atomic_write.value)

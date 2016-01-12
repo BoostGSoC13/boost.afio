@@ -50,7 +50,7 @@ direct=1 sync=1:
         # The maximum single aligned i/o write quantity atomically visible to readers
         max_aligned_atomic_write: 4096
 ---
-timestamp: 2016-01-10 02:27:14 -0000
+timestamp: 2016-01-12 08:50:32 -0000
 system:
     os:
         name: Microsoft Windows NT
@@ -63,10 +63,16 @@ system:
         # Main memory bandwidth when accessed sequentially
         max_bandwidth: 4992899481
         # Main memory bandwidth when 4Kb pages are accessed randomly
-        min_bandwidth: 4697620480
+        min_bandwidth: 4670776934
         quantity: 4217192448
-        in_use: 0.766235
+        in_use: 0.737706
 storage:
+    controller:
+        kind: RAID
+        # The maximum number of bytes the disk controller can transfer at once
+        max_transfer: 131072
+        # The maximum number of scatter-gather buffers the disk controller can handle
+        max_buffers: 33
     device:
         name: Samsung SSD 840 Series,DXT07B0Q
         min_io_size: 512
@@ -75,7 +81,7 @@ storage:
         name: NTFS
         config: todo
         size: 116417097728
-        in_use: 0.946809
+        in_use: 0.946461
 direct=0 sync=0:
     concurrency:
         # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
