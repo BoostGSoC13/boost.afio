@@ -1,5 +1,5 @@
 ---
-timestamp: 2016-01-09 18:59:27 -0000
+timestamp: 2016-01-12 09:53:59 -0000
 system:
     os:
         name: Microsoft Windows NT
@@ -10,12 +10,18 @@ system:
         physical_cores: 4
     mem:
         # Main memory bandwidth when accessed sequentially
-        max_bandwidth: 22468047667
+        max_bandwidth: 21555367116
         # Main memory bandwidth when 4Kb pages are accessed randomly
-        min_bandwidth: 17367774003
+        min_bandwidth: 17099338547
         quantity: 17127100416
-        in_use: 0.334933
+        in_use: 0.605072
 storage:
+    controller:
+        kind: SATA
+        # The maximum number of bytes the disk controller can transfer at once
+        max_transfer: 131072
+        # The maximum number of scatter-gather buffers the disk controller can handle
+        max_buffers: 33
     device:
         name: Samsung SSD 850 EVO 1TB,EMT02B6Q
         min_io_size: 512
@@ -24,7 +30,7 @@ storage:
         name: NTFS
         config: todo
         size: 744143671296
-        in_use: 0.857304
+        in_use: 0.854889
 direct=0 sync=0:
     concurrency:
         # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
