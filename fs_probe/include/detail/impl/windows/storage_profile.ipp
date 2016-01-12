@@ -196,17 +196,85 @@ namespace storage_profile
   {
     namespace windows
     {
-      // Device name, size
+      // Controller type, max transfer, max buffers. Device name, size
       outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept
       {
         try
         {
+          alignas(8) fixme_path::value_type buffer[32769];
           // Firstly open a handle to the volume
           BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(*h.service(), mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
-          // Now ask the volume what physical disks it spans
-          alignas(8) fixme_path::value_type buffer[32769];
-          VOLUME_DISK_EXTENTS *vde = (VOLUME_DISK_EXTENTS *)buffer;
+          STORAGE_PROPERTY_QUERY spq = { StorageAdapterProperty, PropertyStandardQuery };
+          STORAGE_ADAPTER_DESCRIPTOR *sad = (STORAGE_ADAPTER_DESCRIPTOR *)buffer;
           OVERLAPPED ol = { (ULONG_PTR)-1 };
+          if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_STORAGE_QUERY_PROPERTY, &spq, sizeof(spq), sad, sizeof(buffer), nullptr, &ol))
+          {
+            if (ERROR_IO_PENDING == GetLastError())
+            {
+              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+              if (ntstat)
+                return make_errored_outcome_nt<void>(ntstat);
+            }
+            if (ERROR_SUCCESS != GetLastError())
+              return make_errored_outcome<void>(GetLastError());
+          }
+          switch (sad->BusType)
+          {
+          case BusTypeScsi:
+            sp.controller_type.value = "SCSI";
+            break;
+          case BusTypeAtapi:
+            sp.controller_type.value = "ATAPI";
+            break;
+          case BusTypeAta:
+            sp.controller_type.value = "ATA";
+            break;
+          case BusType1394:
+            sp.controller_type.value = "1394";
+            break;
+          case BusTypeSsa:
+            sp.controller_type.value = "SSA";
+            break;
+          case BusTypeFibre:
+            sp.controller_type.value = "Fibre";
+            break;
+          case BusTypeUsb:
+            sp.controller_type.value = "USB";
+            break;
+          case BusTypeRAID:
+            sp.controller_type.value = "RAID";
+            break;
+          case BusTypeiScsi:
+            sp.controller_type.value = "iSCSI";
+            break;
+          case BusTypeSas:
+            sp.controller_type.value = "SAS";
+            break;
+          case BusTypeSata:
+            sp.controller_type.value = "SATA";
+            break;
+          case BusTypeSd:
+            sp.controller_type.value = "SD";
+            break;
+          case BusTypeMmc:
+            sp.controller_type.value = "MMC";
+            break;
+          case BusTypeVirtual:
+            sp.controller_type.value = "Virtual";
+            break;
+          case BusTypeFileBackedVirtual:
+            sp.controller_type.value = "File Backed Virtual";
+            break;
+          default:
+            sp.controller_type.value = "unknown";
+            break;
+          }
+          sp.controller_max_transfer.value = sad->MaximumTransferLength;
+          sp.controller_max_buffers.value = sad->MaximumPhysicalPages;
+
+          // Now ask the volume what physical disks it spans
+          VOLUME_DISK_EXTENTS *vde = (VOLUME_DISK_EXTENTS *)buffer;
+          ol.Internal = (ULONG_PTR)-1;
           if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, nullptr, 0, vde, sizeof(buffer), nullptr, &ol))
           {
             if (ERROR_IO_PENDING == GetLastError())
@@ -226,7 +294,7 @@ namespace storage_profile
             alignas(8) fixme_path::value_type physicaldrivename[32769];
             wsprintf(physicaldrivename, L"\\\\.\\PhysicalDrive%u", vde->Extents[0].DiskNumber);
             BOOST_OUTCOME_FILTER_ERROR(diskh, file_handle::file(*h.service(), physicaldrivename, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
-            STORAGE_PROPERTY_QUERY spq = { StorageDeviceProperty, PropertyStandardQuery };
+            spq = { StorageDeviceProperty, PropertyStandardQuery };
             STORAGE_DEVICE_DESCRIPTOR *sdd = (STORAGE_DEVICE_DESCRIPTOR *)buffer;
             ol.Internal = (ULONG_PTR)-1;
             if (!DeviceIoControl(diskh.native_handle().h, IOCTL_STORAGE_QUERY_PROPERTY, &spq, sizeof(spq), sdd, sizeof(buffer), nullptr, &ol))

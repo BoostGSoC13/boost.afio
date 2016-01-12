@@ -238,6 +238,17 @@ namespace storage_profile
     item<unsigned long long> mem_quantity = { "system:mem:quantity", &system::mem };
     item<float> mem_in_use = { "system:mem:in_use", &system::mem };                           // not including caches etc.
 
+    // Controller characteristics
+    item<std::string> controller_type = { "storage:controller:kind", &storage::device };      // e.g. SATA
+    item<unsigned> controller_max_transfer = { "storage:controller:max_transfer",
+      storage::device,
+      "The maximum number of bytes the disk controller can transfer at once"
+    };
+    item<unsigned> controller_max_buffers = { "storage:controller:max_buffers",
+      storage::device,
+      "The maximum number of scatter-gather buffers the disk controller can handle"
+    };
+
     // Storage characteristics
     item<std::string> device_name = { "storage:device:name", &storage::device };              // e.g. WDC WD30EFRX-68EUZN0
     item<unsigned> device_min_io_size = { "storage:device:min_io_size", &storage::device };   // e.g. 4096
