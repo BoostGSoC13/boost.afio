@@ -35,6 +35,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include <vector>
 
+#define BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER 1
+
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace storage_profile
@@ -92,10 +94,10 @@ namespace storage_profile
           indent += 4;
           if (n >= lastsection.size() || thissection[n] != lastsection[n])
           {
-            out << std::string(indent-4, ' ') << thissection[n] << ":\n";
+            out << std::string(indent - 4, ' ') << thissection[n] << ":\n";
           }
         }
-        if(i.description)
+        if (i.description)
           out << std::string(indent, ' ') << "# " << i.description << "\n";
         out << std::string(indent, ' ') << name << ": " << i.value << "\n";
         lastsection = std::move(thissection);
@@ -104,7 +106,7 @@ namespace storage_profile
     for (const item_erased &i : *this)
     {
       bool matches = std::regex_match(i.name, which);
-      if((matches && !invert_match) || (!matches && invert_match))
+      if ((matches && !invert_match) || (!matches && invert_match))
         i.invoke(print);
     }
   }
@@ -170,17 +172,17 @@ namespace storage_profile
           // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
           auto begin = stl11::chrono::high_resolution_clock::now();
           unsigned long long count;
-          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
+          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (10/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER); count++)
           {
             memset(buffer, count & 0xff, chunksize);
           }
-          sp.mem_max_bandwidth.value = (unsigned long long)((double) count*chunksize / 10);
+          sp.mem_max_bandwidth.value = (unsigned long long)((double)count*chunksize / 10);
 
           // Min bandwidth is randomised 4Kb copies of the same
           detail::ranctx ctx;
           detail::raninit(&ctx, 78);
           begin = stl11::chrono::high_resolution_clock::now();
-          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < 10; count++)
+          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (10/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER); count++)
           {
             for (size_t n = 0; n < chunksize; n += 4096)
             {
@@ -189,7 +191,7 @@ namespace storage_profile
               memset(buffer + offset, count & 0xff, 4096);
             }
           }
-          sp.mem_min_bandwidth.value = (unsigned long long)((double) count*chunksize / 10);
+          sp.mem_min_bandwidth.value = (unsigned long long)((double)count*chunksize / 10);
         }
         catch (...)
         {
@@ -211,8 +213,8 @@ namespace storage_profile
       try
       {
         statfs_t fsinfo;
-        BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize|statfs_t::want::mntfromname));
-        sp.device_min_io_size.value = (unsigned) fsinfo.f_iosize;
+        BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize | statfs_t::want::mntfromname));
+        sp.device_min_io_size.value = (unsigned)fsinfo.f_iosize;
 #ifdef WIN32
         BOOST_OUTCOME_PROPAGATE_ERROR(windows::_device(sp, h, fsinfo.f_mntfromname));
 #else
@@ -253,6 +255,7 @@ namespace storage_profile
       {
         using off_t = io_service::extent_type;
         sp.max_aligned_atomic_write.value = 1;
+        sp.atomic_write_quantum.value = (off_t)-1;
         for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_write_quantum.value; size = size * 2)
         {
           // Preallocate space before testing
@@ -262,22 +265,22 @@ namespace storage_profile
           std::atomic<size_t> done(2);
           for (char no = '1'; no <= '2'; no++)
             writers.push_back(std::thread([size, &srch, no, &done] {
-              io_service service;
-              auto _h(srch.clone(service, handle::mode::write));
-              if (!_h)
-                throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
-              file_handle h(std::move(_h.get()));
-              std::vector<char> buffer(size, no);
-              file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-              // Force extent allocation before test begins
+            io_service service;
+            auto _h(srch.clone(service, handle::mode::write));
+            if (!_h)
+              throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
+            file_handle h(std::move(_h.get()));
+            std::vector<char> buffer(size, no);
+            file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+            // Force extent allocation before test begins
+            h.write(reqs);
+            --done;
+            while (done)
+              std::this_thread::yield();
+            while (!done)
+            {
               h.write(reqs);
-              --done;
-              while (done)
-                std::this_thread::yield();
-              while (!done)
-              {
-                h.write(reqs);
-              }
+            }
           }));
           // Wait till the writers launch
           while (done)
@@ -288,41 +291,41 @@ namespace storage_profile
           std::atomic<bool> failed(false);
           for (unsigned no = 0; no < concurrency; no++)
             readers.push_back(std::thread([size, &srch, no, &done, &atomic_write_quantum, &failed] {
-              io_service service;
-              auto _h(srch.clone(service, handle::mode::read));
-              if (!_h)
-                throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
-              file_handle h(std::move(_h.get()));
-              std::vector<char> buffer(size, 0), tocmp(size, 0);
-              file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-              while (!done)
+            io_service service;
+            auto _h(srch.clone(service, handle::mode::read));
+            if (!_h)
+              throw std::runtime_error("concurrency::atomic_write_quantum: Could not open work file due to " + _h.get_error().message());
+            file_handle h(std::move(_h.get()));
+            std::vector<char> buffer(size, 0), tocmp(size, 0);
+            file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
+            while (!done)
+            {
+              h.read(reqs);
+              //memset(tocmp.data(), buffer.front(), size);
+              //if (memcmp(buffer.data(), tocmp.data(), size))
               {
-                h.read(reqs);
-                //memset(tocmp.data(), buffer.front(), size);
-                //if (memcmp(buffer.data(), tocmp.data(), size))
+                const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
+                for (const size_t *d = data; d < end; d++)
                 {
-                  const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
-                  for (const size_t *d = data; d < end; d++)
+                  if (*d != *data)
                   {
-                    if (*d != *data)
+                    failed = true;
+                    off_t failedat = d - data;
+                    if (failedat < atomic_write_quantum)
                     {
-                      failed = true;
-                      off_t failedat = d - data;
-                      if (failedat < atomic_write_quantum)
-                      {
-                        std::cout << "  Torn write at offset " << failedat << std::endl;
-                        atomic_write_quantum = failedat;
-                      }
-                      break;
+                      std::cout << "  Torn write at offset " << failedat << std::endl;
+                      atomic_write_quantum = failedat;
                     }
+                    break;
                   }
                 }
               }
-            }));
+            }
+          }));
 
           std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes ..." << std::endl;
           auto begin = stl11::chrono::high_resolution_clock::now();
-          while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count()<5)
+          while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
           {
             stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
           }
@@ -349,9 +352,111 @@ namespace storage_profile
       }
       return make_ready_outcome<void>();
     }
+
+    outcome<void> atomic_write_offset_boundary(storage_profile &sp, file_handle &srch) noexcept
+    {
+      try
+      {
+        using off_t = io_service::extent_type;
+        sp.atomic_write_offset_boundary.value = 1;
+        // Force extent allocation before test begins
+        {
+          std::vector<char> buffer(16 * 1024);
+          srch.truncate(buffer.size());
+          file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), buffer.size()) }, 0);
+          srch.write(reqs);
+        }
+        for (off_t size = 512; size <= 8 * 1024 && size <= sp.max_aligned_atomic_write.value; size = size * 2)
+        {
+          sp.atomic_write_offset_boundary.value = (off_t)-1;
+          for (off_t offset = 0; offset < size; offset += 512)
+          {
+            // Create two concurrent writer threads and as many reader threads as additional CPU cores
+            std::vector<std::thread> writers, readers;
+            std::atomic<size_t> done(2);
+            for (char no = '1'; no <= '2'; no++)
+              writers.push_back(std::thread([size, offset, &srch, no, &done] {
+              io_service service;
+              auto _h(srch.clone(service, handle::mode::write));
+              if (!_h)
+                throw std::runtime_error("concurrency::atomic_write_offset_boundary: Could not open work file due to " + _h.get_error().message());
+              file_handle h(std::move(_h.get()));
+              std::vector<char> buffer(size, no);
+              file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, offset);
+              --done;
+              while (done)
+                std::this_thread::yield();
+              while (!done)
+              {
+                h.write(reqs);
+              }
+            }));
+            // Wait till the writers launch
+            while (done)
+              std::this_thread::yield();
+            unsigned concurrency = std::thread::hardware_concurrency() - 2;
+            if (concurrency < 4) concurrency = 4;
+            std::atomic<io_service::extent_type> atomic_write_offset_boundary(sp.atomic_write_offset_boundary.value);
+            std::atomic<bool> failed(false);
+            for (unsigned no = 0; no < concurrency; no++)
+              readers.push_back(std::thread([size, offset, &srch, no, &done, &atomic_write_offset_boundary, &failed] {
+              io_service service;
+              auto _h(srch.clone(service, handle::mode::read));
+              if (!_h)
+                throw std::runtime_error("concurrency::atomic_write_offset_boundary: Could not open work file due to " + _h.get_error().message());
+              file_handle h(std::move(_h.get()));
+              std::vector<char> buffer(size, 0), tocmp(size, 0);
+              file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, offset);
+              while (!done)
+              {
+                h.read(reqs);
+                //memset(tocmp.data(), buffer.front(), size);
+                //if (memcmp(buffer.data(), tocmp.data(), size))
+                {
+                  const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
+                  for (const size_t *d = data; d < end; d++)
+                  {
+                    if (*d != *data)
+                    {
+                      failed = true;
+                      off_t failedat = (d - data) + offset;
+                      if (failedat < atomic_write_offset_boundary)
+                      {
+                        std::cout << "  Torn write at offset " << failedat << std::endl;
+                        atomic_write_offset_boundary = failedat;
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+            }));
+
+            std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of writes of " << size << " bytes to offset " << offset << " ..." << std::endl;
+            auto begin = stl11::chrono::high_resolution_clock::now();
+            while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
+            {
+              stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
+            }
+            done = true;
+            for (auto &writer : writers)
+              writer.join();
+            for (auto &reader : readers)
+              reader.join();
+            sp.atomic_write_offset_boundary.value = atomic_write_offset_boundary;
+            if (failed)
+              return make_ready_outcome<void>();
+          }
+        }
+      }
+      catch (...)
+      {
+        return std::current_exception();
+      }
+      return make_ready_outcome<void>();
+    }
   }
 }
-
 BOOST_AFIO_V2_NAMESPACE_END
 
 #ifdef WIN32

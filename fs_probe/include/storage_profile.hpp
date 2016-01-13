@@ -176,6 +176,7 @@ namespace storage_profile
   namespace concurrency
   {
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_write_quantum(storage_profile &sp, file_handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_write_offset_boundary(storage_profile &sp, file_handle &h) noexcept;
   }
 
   //! A (possibly incomplet) profile of storage
@@ -270,7 +271,16 @@ namespace storage_profile
     item<io_service::extent_type> max_aligned_atomic_write = {
       "concurrency:max_aligned_atomic_write",
       concurrency::atomic_write_quantum,
-      "The maximum single aligned i/o write quantity atomically visible to readers"
+      "The maximum single aligned i/o write quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_write_quantum). "
+      "A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping."
+    };
+    item<io_service::extent_type> atomic_write_offset_boundary = {
+      "concurrency:atomic_write_offset_boundary",
+      concurrency::atomic_write_offset_boundary,
+      "The multiple of offset in a file where atomicity breaks, so if you wrote 4096 bytes at a 512 offset and "
+      "this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. "
+      "Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on "
+      "filing systems which take special measures to work around it."
     };
   };
 }
