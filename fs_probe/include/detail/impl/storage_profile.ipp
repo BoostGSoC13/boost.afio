@@ -98,8 +98,30 @@ namespace storage_profile
           }
         }
         if (i.description)
-          out << std::string(indent, ' ') << "# " << i.description << "\n";
+        {
+          std::string text(i.description);
+          std::vector<std::string> lines;
+          for (;;)
+          {
+            size_t idx = 78;
+            if (idx < text.size())
+            {
+              while (text[idx] != ' ')
+                --idx;
+            }
+            else idx = text.size();
+            lines.push_back(text.substr(0, idx));
+            if (idx < text.size())
+              text = text.substr(idx + 1);
+            else
+              break;
+          }
+          for(auto &line : lines)
+            out << std::string(indent, ' ') << "# " << line << "\n";
+        }
         out << std::string(indent, ' ') << name << ": " << i.value << "\n";
+        if (i.description && strlen(i.description)>78)
+          out << "\n";
         lastsection = std::move(thissection);
       }
     };

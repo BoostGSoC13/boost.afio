@@ -113,7 +113,7 @@ direct=1 sync=1:
         # The maximum single aligned i/o write quantity atomically visible to readers
         max_aligned_atomic_write: 4096
 ---
-timestamp: 2016-01-13 09:04:20 -0000
+timestamp: 2016-01-14 09:35:10 -0000
 system:
     os:
         name: Microsoft Windows NT
@@ -124,11 +124,11 @@ system:
         physical_cores: 2
     mem:
         # Main memory bandwidth when accessed sequentially
-        max_bandwidth: 4724464025
+        max_bandwidth: 4429185024
         # Main memory bandwidth when 4Kb pages are accessed randomly
-        min_bandwidth: 4321810841
+        min_bandwidth: 4375497932
         quantity: 4217192448
-        in_use: 0.849144
+        in_use: 0.829525
 storage:
     controller:
         kind: RAID
@@ -144,36 +144,67 @@ storage:
         name: NTFS
         config: todo
         size: 116417097728
-        in_use: 0.952343
+        in_use: 0.953878
 direct=0 sync=0:
     concurrency:
-        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
-        atomic_write_quantum: 1
-        # The maximum single aligned i/o write quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_write_quantum). A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping.
-        max_aligned_atomic_write: 1
-        # The multiple of offset in a file where atomicity breaks, so if you wrote 4096 bytes at a 512 offset and this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on filing systems which take special measures to work around it.
-        atomic_write_offset_boundary: 1
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 1
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 1
+
 direct=1 sync=0:
     concurrency:
-        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
-        atomic_write_quantum: 512
-        # The maximum single aligned i/o write quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_write_quantum). A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping.
-        max_aligned_atomic_write: 4096
-        # The multiple of offset in a file where atomicity breaks, so if you wrote 4096 bytes at a 512 offset and this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on filing systems which take special measures to work around it.
-        atomic_write_offset_boundary: 960
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 512
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 4096
+
+        # The multiple of offset in a file where update atomicity breaks, so if you
+        # wrote 4096 bytes at a 512 offset and this value was 4096, your write would
+        # tear at 3584 because all writes would tear on a 4096 offset multiple. Linux
+        # has a famously broken kernel i/o design which causes this value to be a page
+        # multiple, except on filing systems which take special measures to work around
+        # it. Windows NT appears to lose all atomicity as soon as an i/o straddles a
+        # 4096 file offset multiple and DMA suddenly goes into many 64 byte cache lines
+        # :(, so if this value is less than max_aligned_atomic_rewrite and some multiple
+        # of the CPU cache line size then this is what has happened.
+        atomic_rewrite_offset_boundary: 960
+
 direct=0 sync=1:
     concurrency:
-        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
-        atomic_write_quantum: 1
-        # The maximum single aligned i/o write quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_write_quantum). A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping.
-        max_aligned_atomic_write: 1
-        # The multiple of offset in a file where atomicity breaks, so if you wrote 4096 bytes at a 512 offset and this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on filing systems which take special measures to work around it.
-        atomic_write_offset_boundary: 1
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 1
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 1
+
 direct=1 sync=1:
     concurrency:
-        # The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity
-        atomic_write_quantum: 512
-        # The maximum single aligned i/o write quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_write_quantum). A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping.
-        max_aligned_atomic_write: 4096
-        # The multiple of offset in a file where atomicity breaks, so if you wrote 4096 bytes at a 512 offset and this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on filing systems which take special measures to work around it.
-        atomic_write_offset_boundary: 64
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 64
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 512
+
