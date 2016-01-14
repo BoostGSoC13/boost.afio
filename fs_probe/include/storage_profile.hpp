@@ -175,8 +175,8 @@ namespace storage_profile
   }
   namespace concurrency
   {
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_write_quantum(storage_profile &sp, file_handle &h) noexcept;
-    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_write_offset_boundary(storage_profile &sp, file_handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_rewrite_quantum(storage_profile &sp, file_handle &h) noexcept;
+    BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> atomic_rewrite_offset_boundary(storage_profile &sp, file_handle &h) noexcept;
   }
 
   //! A (possibly incomplet) profile of storage
@@ -263,24 +263,27 @@ namespace storage_profile
     item<float> fs_in_use = { "storage:fs:in_use", &storage::fs };
 
     // Test results on this filing system, storage and system
-    item<io_service::extent_type> atomic_write_quantum = {
-      "concurrency:atomic_write_quantum",
-      concurrency::atomic_write_quantum,
-      "The i/o write quantum guaranteed to be atomically visible to readers irrespective of write quantity"
+    item<io_service::extent_type> atomic_rewrite_quantum = {
+      "concurrency:atomic_rewrite_quantum",
+      concurrency::atomic_rewrite_quantum,
+      "The i/o modify quantum guaranteed to be atomically visible to readers irrespective of rewrite quantity"
     };
-    item<io_service::extent_type> max_aligned_atomic_write = {
-      "concurrency:max_aligned_atomic_write",
-      concurrency::atomic_write_quantum,
-      "The maximum single aligned i/o write quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_write_quantum). "
+    item<io_service::extent_type> max_aligned_atomic_rewrite = {
+      "concurrency:max_aligned_atomic_rewrite",
+      concurrency::atomic_rewrite_quantum,
+      "The maximum single aligned i/o modify quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_rewrite_quantum). "
       "A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping."
     };
-    item<io_service::extent_type> atomic_write_offset_boundary = {
-      "concurrency:atomic_write_offset_boundary",
-      concurrency::atomic_write_offset_boundary,
-      "The multiple of offset in a file where atomicity breaks, so if you wrote 4096 bytes at a 512 offset and "
+    item<io_service::extent_type> atomic_rewrite_offset_boundary = {
+      "concurrency:atomic_rewrite_offset_boundary",
+      concurrency::atomic_rewrite_offset_boundary,
+      "The multiple of offset in a file where update atomicity breaks, so if you wrote 4096 bytes at a 512 offset and "
       "this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. "
       "Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on "
-      "filing systems which take special measures to work around it."
+      "filing systems which take special measures to work around it. Windows NT appears to lose all atomicity as soon as "
+      "an i/o straddles a 4096 file offset multiple and DMA suddenly goes into many 64 byte cache lines :(, so if "
+      "this value is less than max_aligned_atomic_rewrite and some multiple of the CPU cache line size then this is "
+      "what has happened."
     };
   };
 }

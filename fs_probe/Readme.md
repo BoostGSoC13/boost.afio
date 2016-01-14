@@ -8,11 +8,6 @@ fs_probe for various OS, storage devices and filing systems. It may or
 may not be representative of the same combination on other hardware.
 
 Todo:
-- [ ] Add test for atomicity boundary, so maybe if atomic_write_quantum > 1
-you might iterate that as an offset 2^n-atomic_write_quantum/2 e.g. concurrent
-write 512 bytes to 4096-256=3840 to see if it tears.
-- [ ] max_aligned_atomic_write and atomic_write_offset_boundary need variants
-testing their truth under extent allocation.
 - [ ] Still need to decide if caching belongs in native_handle_type.
 - [ ] Port to POSIX AIO
   - http://www.informit.com/articles/article.aspx?p=607373&seqNum=4 is a

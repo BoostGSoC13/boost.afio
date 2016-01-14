@@ -66,6 +66,25 @@ int main(int argc, char *argv[])
     }
   }
 
+  // Force extent allocation before test begins
+  {
+    io_service service;
+    // Create file with O_SYNC
+    auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::if_needed, handle::caching::reads));
+    if (!_testfile)
+    {
+      std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
+      return 1;
+    }
+    file_handle testfile(std::move(_testfile.get()));
+    std::vector<char> buffer(1024 * 1024);
+    testfile.truncate(buffer.size());
+    file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), buffer.size()) }, 0);
+    testfile.write(reqs);
+  }
+  // File closes, as it was opened with O_SYNC it forces extent allocation
+  // Pause as Windows still takes a while
+  stl11::this_thread::sleep_for(stl11::chrono::seconds(3));
   std::ofstream results("fs_probe_results.yaml", std::ios::app);
   {
     std::time_t t = std::time(nullptr);
@@ -91,7 +110,7 @@ int main(int argc, char *argv[])
         break;
       }
       std::cout << "\ndirect=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
-      auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::if_needed, strategy));
+      auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::open_existing, strategy));
       if (!_testfile)
       {
         std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
