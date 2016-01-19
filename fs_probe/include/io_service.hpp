@@ -82,7 +82,7 @@ public:
       if (_bytes_transferred == (size_type)-1)
       {
         _bytes_transferred = 0;
-        for (auto &i : value())
+        for (auto &i : this->value())
           _bytes_transferred += i.second;
       }
       return _bytes_transferred;

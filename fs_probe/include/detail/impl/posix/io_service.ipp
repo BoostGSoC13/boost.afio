@@ -29,24 +29,14 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include "../../io_service.hpp"
-#ifdef WIN32
-# include "../windows.hpp"
-#else
-# include <pthread.h>
-#endif
+#include "../../../io_service.hpp"
+#include <pthread.h>
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 io_service::io_service() : _work_queued(0)
 {
-#ifdef WIN32
-  if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &_threadh, 0, false, DUPLICATE_SAME_ACCESS))
-    throw std::runtime_error("Failed to create creating thread handle");
-  _threadid = GetCurrentThreadId();
-#else
   _threadh = pthread_self();
-#endif
 }
 
 io_service::~io_service()
@@ -57,63 +47,15 @@ io_service::~io_service()
     while (_work_queued)
       std::this_thread::yield();
   }
-#ifdef WIN32
-  CloseHandle(_threadh);
-#endif
 }
 
 result<bool> io_service::run_until(deadline d) noexcept
 {
   if (!_work_queued)
     return false;
-#ifdef WIN32
-  if (GetCurrentThreadId() != _threadid)
-    return make_errored_result<bool>(EOPNOTSUPP);
-  stl11::chrono::steady_clock::time_point began_steady;
-  stl11::chrono::system_clock::time_point end_utc;
-  if (d)
-  {
-    if (d.steady)
-      began_steady = stl11::chrono::steady_clock::now();
-    else
-      end_utc = d.to_time_point();
-  }
-  DWORD tosleep = INFINITE;
-  if (d)
-  {
-    stl11::chrono::milliseconds ms;
-    if (d.steady)
-      ms = stl11::chrono::duration_cast<stl11::chrono::milliseconds>((began_steady + stl11::chrono::nanoseconds(d.nsecs)) - stl11::chrono::steady_clock::now());
-    else
-      ms = stl11::chrono::duration_cast<stl11::chrono::milliseconds>(end_utc - stl11::chrono::system_clock::now());
-    if (ms.count() < 0)
-      tosleep = 0;
-    else
-      tosleep = (DWORD) ms.count();
-  }
-  // Execute any APCs queued to this thread
-  if (!SleepEx(tosleep, true))
-  {
-    // Really a timeout?
-    if (d)
-    {
-      if (d.steady)
-      {
-        if(stl11::chrono::steady_clock::now()>=(began_steady + stl11::chrono::nanoseconds(d.nsecs)))
-          return make_errored_result<bool>(ETIMEDOUT);
-      }
-      else
-      {
-        if(stl11::chrono::system_clock::now()>=end_utc)
-          return make_errored_result<bool>(ETIMEDOUT);
-      }
-    }
-  }
-#else
   if (pthread_self() != _threadh)
     return make_errored_result<bool>(EOPNOTSUPP);
 #error todo
-#endif
   return _work_queued != 0;
 }
 
@@ -126,17 +68,7 @@ void io_service::post(detail::function_ptr<void(io_service *)> &&f)
     _posts.push_back(std::move(pi));
     data = (void *)&_posts.back();
   }
-#ifdef WIN32
-  PAPCFUNC apcf = [](ULONG_PTR data) {
-    post_info *pi = (post_info *)data;
-    pi->f(pi->service);
-    pi->service->_post_done(pi);
-  };
-  if (QueueUserAPC(apcf, _threadh, (ULONG_PTR)data))
-    _work_enqueued();
-#else
 #error todo
-#endif
 }
 
 BOOST_AFIO_V2_NAMESPACE_END
