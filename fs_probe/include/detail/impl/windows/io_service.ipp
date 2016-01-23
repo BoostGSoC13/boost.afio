@@ -117,6 +117,11 @@ void io_service::post(detail::function_ptr<void(io_service *)> &&f)
   };
   if (QueueUserAPC(apcf, _threadh, (ULONG_PTR)data))
     _work_enqueued();
+  else
+  {
+    post_info *pi = (post_info *)data;
+    pi->service->_post_done(pi);
+  }
 }
 
 BOOST_AFIO_V2_NAMESPACE_END

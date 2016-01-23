@@ -29,10 +29,10 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
+#include "io_service.hpp"
+
 #ifndef BOOST_AFIO_HANDLE_H
 #define BOOST_AFIO_HANDLE_H
-
-#include "io_service.hpp"
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
@@ -259,6 +259,7 @@ public:
 //! A handle to a regular file or device
 class BOOST_AFIO_DECL file_handle : public handle
 {
+  friend class io_service;
 public:
   //! The scatter buffer type used by this handle
   using buffer_type = io_service::buffer_type;
@@ -280,17 +281,27 @@ public:
   static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<file_handle> file(io_service &service, path_type _path, mode _mode = mode::read, creation _creation = creation::open_existing, caching _caching = caching::all, flag flags = flag::none) noexcept;
 protected:
   using shared_size_type = size_type;
-  // Holds state for an i/o in progress. Likely will be subclassed with platform specific state.
+  // Holds state for an i/o in progress. Will be subclassed with platform specific state and how to implement completion.
   // Note this is allocated using malloc not new to avoid memory zeroing, and therefore it has a custom deleter.
-  template<class CompletionRoutine, class BuffersType> struct _io_state_type
+  struct _erased_io_state_type
   {
     handle *parent;
-    io_result<BuffersType> result;
-    CompletionRoutine completion;
     size_t items;
     shared_size_type items_to_go;
-    constexpr _io_state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : parent(_parent), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)), items(_items), items_to_go(0) { }
-    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~_io_state_type()
+    constexpr _erased_io_state_type(handle *_parent, size_t _items) : parent(_parent), items(_items), items_to_go(0) { }
+    /*
+    For Windows:
+      - errcode: GetLastError() code
+      - bytes_transferred: obvious
+      - internal_state: LPOVERLAPPED for this op
+
+    For POSIX AIO:
+      - errcode: errno code
+      - bytes_transferred: return from aio_return(), usually bytes transferred
+      - internal_state: address of pointer to struct aiocb in io_service's _aiocbsv
+    */
+    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept=0;
+    BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~_erased_io_state_type()
     {
       // i/o still pending is very bad, this should never happen
       assert(!items_to_go);
@@ -301,8 +312,19 @@ protected:
       }
     }
   };
+  // State for an i/o in progress, but with the per operation typing
+  template<class CompletionRoutine, class BuffersType> struct _io_state_type : public _erased_io_state_type
+  {
+    io_result<BuffersType> result;
+    CompletionRoutine completion;
+    constexpr _io_state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : _erased_io_state_type(_parent, _items), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)) { }
+  };
   struct _io_state_deleter { template<class U> void operator()(U *_ptr) const { _ptr->~U(); char *ptr = (char *)_ptr; ::free(ptr); } };
 public:
+  /*! Smart pointer to state of an i/o in progress. Destroying this before an i/o has completed
+  is <b>blocking</b> because the i/o must be cancelled before the destructor can safely exit.
+  */
+  using erased_io_state_ptr = std::unique_ptr<_erased_io_state_type, _io_state_deleter>;
   /*! Smart pointer to state of an i/o in progress. Destroying this before an i/o has completed
   is <b>blocking</b> because the i/o must be cancelled before the destructor can safely exit.
   */

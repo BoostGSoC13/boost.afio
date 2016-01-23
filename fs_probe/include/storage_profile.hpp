@@ -187,7 +187,7 @@ namespace storage_profile
   private:
     size_type _size;
   public:
-    constexpr storage_profile() : _size(0) { }
+    storage_profile() : _size(0) { }
 
     //! Value type
     using value_type = item_erased &;

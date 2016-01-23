@@ -29,14 +29,129 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include "../../../io_service.hpp"
+#include "../../../handle.hpp"
+
 #include <pthread.h>
+#if BOOST_AFIO_USE_POSIX_AIO
+# include <aio.h>
+# if BOOST_AFIO_USE_KQUEUES
+#  include <sys/types.h>
+#  include <sys/event.h>
+#  include <sys/time.h>
+# endif
+#endif
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
+
+#ifdef BOOST_AFIO_IO_POST_SIGNAL
+static int interrupt_signal;
+static struct sigaction interrupt_signal_handler_old_action;
+struct ucontext;
+static inline void interrupt_signal_handler(int, siginfo_t *, void *)
+{
+  // We do nothing, and aio_suspend should exit with EINTR
+}
+
+int io_service::interruption_signal() noexcept
+{
+  return interrupt_signal;
+}
+
+int io_service::set_interruption_signal(int signo)
+{
+  int ret=interrupt_signal;
+  if(interrupt_signal)
+  {
+    if(sigaction(interrupt_signal, &interrupt_signal_handler_old_action, nullptr)<0)
+      throw std::system_error(errno, std::system_category());
+    interrupt_signal=0;
+  }
+  if(signo)
+  {
+#if BOOST_AFIO_HAVE_REALTIME_SIGNALS
+    if(-1==signo)
+    {
+      for(signo=SIGRTMIN; signo<SIGRTMAX; signo++)
+      {
+        struct sigaction sigact = { 0 };
+        if(sigaction(signo, nullptr, &sigact)>=0)
+        {
+          if(sigact.sa_handler==SIG_DFL)
+            break;
+        }
+      }
+    }
+#endif
+    // Install process wide signal handler for signal
+    struct sigaction sigact = { 0 };
+    sigact.sa_sigaction=&interrupt_signal_handler;
+    sigact.sa_flags=SA_SIGINFO;
+    sigemptyset(&sigact.sa_mask);
+    if(sigaction(signo, &sigact, &interrupt_signal_handler_old_action)<0)
+      throw std::system_error(errno, std::system_category());
+    interrupt_signal=signo;
+  }
+  return ret;
+}
+
+void io_service::_block_interruption() noexcept
+{
+  assert(!_blocked_interrupt_signal);
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, interrupt_signal);
+  pthread_sigmask(SIG_BLOCK, &set, nullptr);
+  _blocked_interrupt_signal=interrupt_signal;
+  _need_signal=false;
+}
+
+void io_service::_unblock_interruption() noexcept
+{
+  assert(_blocked_interrupt_signal);
+  if(_blocked_interrupt_signal)
+  {
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, _blocked_interrupt_signal);
+    pthread_sigmask(SIG_UNBLOCK, &set, nullptr);
+    _blocked_interrupt_signal=0;
+    _need_signal=true;
+  }
+}
+
+#endif
 
 io_service::io_service() : _work_queued(0)
 {
   _threadh = pthread_self();
+#if BOOST_AFIO_USE_POSIX_AIO
+  memset(_free_aiocbs, 0, sizeof(_free_aiocbs));
+  _free_aiocbsptr=_free_aiocbs;
+  for(size_t n=0; n<AIO_LISTIO_MAX; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
+  {
+    for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
+    {
+      _free_aiocb *i=(_free_aiocb *) calloc(1, sizeof(aiocb));
+      if(!i)
+	throw std::bad_alloc();
+      i->next=_free_aiocbs[m];
+      _free_aiocbs[m]=i;
+    }
+  }
+#ifdef BOOST_AFIO_IO_POST_SIGNAL
+  if(!interrupt_signal)
+    set_interruption_signal();
+  _blocked_interrupt_signal=0;
+  _block_interruption();
+#endif
+#if BOOST_AFIO_USE_KQUEUES
+  _kqueueh=0;
+#else
+  _aiocbsv.reserve(AIO_LISTIO_MAX);
+#endif
+#else
+# error todo
+#endif
 }
 
 io_service::~io_service()
@@ -47,6 +162,31 @@ io_service::~io_service()
     while (_work_queued)
       std::this_thread::yield();
   }
+#if BOOST_AFIO_USE_POSIX_AIO
+#if BOOST_AFIO_USE_KQUEUES
+  ::close(_kqueueh);
+#else
+  _aiocbsv.clear();
+#endif
+#ifdef BOOST_AFIO_IO_POST_SIGNAL
+  if (pthread_self() == _threadh)
+    _unblock_interruption();
+#endif
+  for(size_t n=0; n<AIO_LISTIO_MAX; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
+  {
+    for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
+    {
+      _free_aiocb *i;
+      while((i=_free_aiocbs[m]))
+      {
+        _free_aiocbs[m]=i->next;
+        free(i);
+      }
+    }
+  }
+#else
+# error todo
+#endif
 }
 
 result<bool> io_service::run_until(deadline d) noexcept
@@ -55,20 +195,153 @@ result<bool> io_service::run_until(deadline d) noexcept
     return false;
   if (pthread_self() != _threadh)
     return make_errored_result<bool>(EOPNOTSUPP);
-#error todo
+  stl11::chrono::steady_clock::time_point began_steady;
+  stl11::chrono::system_clock::time_point end_utc;
+  if (d)
+  {
+    if (d.steady)
+      began_steady = stl11::chrono::steady_clock::now();
+    else
+      end_utc = d.to_time_point();
+  }
+  struct timespec *ts=nullptr, _ts={0};
+  bool done=false;
+  do
+  {
+    if (d)
+    {
+      stl11::chrono::nanoseconds ns;
+      if (d.steady)
+        ns = stl11::chrono::duration_cast<stl11::chrono::nanoseconds>((began_steady + stl11::chrono::nanoseconds(d.nsecs)) - stl11::chrono::steady_clock::now());
+      else
+        ns = stl11::chrono::duration_cast<stl11::chrono::nanoseconds>(end_utc - stl11::chrono::system_clock::now());
+      ts=&_ts;      
+      if (ns.count() <= 0)
+      {
+        ts->tv_sec=0;
+        ts->tv_nsec=0;
+      }
+      else
+      {
+        ts->tv_sec=ns.count()/1000000000ULL;
+        ts->tv_nsec=ns.count()%1000000000ULL;
+      }
+    }
+    bool timedout=false;
+# if defined(BOOST_AFIO_IO_POST_SIGNAL)
+    // Unblock the interruption signal
+    _unblock_interruption();
+# endif
+    // Execute any pending posts
+    {
+      std::unique_lock<decltype(_posts_lock)> g(_posts_lock);
+      if(!_posts.empty())
+      {
+        post_info *pi=&_posts.front();
+        g.unlock();
+        pi->f(this);
+        _post_done(pi);
+        // We did work, so exit
+# if defined(BOOST_AFIO_IO_POST_SIGNAL)
+        // Block the interruption signal
+        _block_interruption();
+# endif
+        return _work_queued != 0;
+      }
+    }
+#if BOOST_AFIO_USE_POSIX_AIO
+#if BOOST_AFIO_USE_KQUEUES
+# error todo
+#else
+    int errcode=0;
+    if(aio_suspend(_aiocbsv.data(), _aiocbsv.size(), ts)<0)
+      errcode=errno;
+# if defined(BOOST_AFIO_IO_POST_SIGNAL)
+    // Block the interruption signal
+    _block_interruption();
+# endif
+    if(errcode)
+    {
+      switch(errno)
+      {
+        case EAGAIN:
+          if(d)
+            timedout=true;
+          break;
+        case EINTR:
+          // Let him loop, recalculate any timeout and check for posts to be executed
+          break;
+        default:
+          return make_errored_result<bool>(errno);
+      }
+    }
+    else
+    {
+      // Poll the outstanding aiocbs to see which are ready
+      for(auto &aiocb : _aiocbsv)
+      {
+        int ioret=aio_return(aiocb);
+        if(ioret>=0 || errno!=EINVAL)
+        {
+          int errcode=ioret<0 ? errno : 0;
+          // The aiocb aio_sigevent.sigev_value.sival_ptr field will point to a file_handle::_io_state_type
+          auto io_state=(file_handle::_erased_io_state_type *) aiocb->aio_sigevent.sigev_value.sival_ptr;
+          assert(io_state);
+          (*io_state)(errcode, ioret, &aiocb);
+        }
+      }
+      // Eliminate any empty holes in the quick aiocbs vector
+      _aiocbsv.erase(std::remove(_aiocbsv.begin(), _aiocbsv.end(), nullptr), _aiocbsv.end());
+      done=true;
+    }
+#endif
+#else
+# error todo
+#endif
+    if(timedout)
+    {
+      if (d.steady)
+      {
+        if(stl11::chrono::steady_clock::now()>=(began_steady + stl11::chrono::nanoseconds(d.nsecs)))
+          return make_errored_result<bool>(ETIMEDOUT);
+      }
+      else
+      {
+        if(stl11::chrono::system_clock::now()>=end_utc)
+          return make_errored_result<bool>(ETIMEDOUT);
+      }
+    }
+  } while(!done);
   return _work_queued != 0;
 }
 
 void io_service::post(detail::function_ptr<void(io_service *)> &&f)
 {
-  void *data = nullptr;
   {
     post_info pi(this, std::move(f));
     std::lock_guard<decltype(_posts_lock)> g(_posts_lock);
     _posts.push_back(std::move(pi));
-    data = (void *)&_posts.back();
   }
-#error todo
+  _work_enqueued();
+#if BOOST_AFIO_USE_POSIX_AIO
+#if BOOST_AFIO_USE_KQUEUES
+# error todo
+#elif defined(BOOST_AFIO_IO_POST_SIGNAL)
+  // If run_until() is exactly between the unblock of the signal and the beginning
+  // of the aio_suspend(), we need to pump this until run_until() notices
+  while(_need_signal)
+  {
+//#  if BOOST_AFIO_HAVE_REALTIME_SIGNALS
+//    sigval val = { 0 };
+//    pthread_sigqueue(_threadh, interrupt_signal, val);
+//#else
+    pthread_kill(_threadh, interrupt_signal);
+//#  endif
+  }
+#endif
+#else
+# error todo
+#endif
 }
 
 BOOST_AFIO_V2_NAMESPACE_END

@@ -30,93 +30,86 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "../../../handle.hpp"
-#ifdef WIN32
-# include "import.hpp"
-#else
-# include <pthread.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+#if BOOST_AFIO_USE_POSIX_AIO
+# include <aio.h>
 #endif
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-result<handle> handle::create(io_service &service, handle::path_type _path, handle::mode _mode, handle::creation _creation, handle::caching _caching, unsigned flags) noexcept
+result<handle> handle::clone(io_service &service, handle::mode mode, handle::caching caching) const noexcept
 {
-#ifdef WIN32
-  DWORD access = 0;
-  switch (_mode)
+  result<handle> ret(handle(&service, _path, native_handle_type(), _caching, _flags));
+  ret.value()._v.behaviour = _v.behaviour;
+  if (-1 == (ret.value()._v.fd = ::dup(_v.fd)))
+    return make_errored_result<handle>(errno);
+  if (mode != mode::unchanged)
   {
-  case mode::unchanged:
+    ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
+    int attribs = 0;
+    if (-1 == (attribs = fcntl(ret.value()._v.fd, F_GETFL)))
+      return make_errored_result<handle>(errno);
+    switch (mode)
+    {
+    case mode::unchanged:
+      break;
+    case mode::none:
+    case mode::attr_read:
+    case mode::attr_write:
+    case mode::read:
+      return make_errored_result<handle>(EINVAL);
+    case mode::write:
+      attribs&=~O_APPEND;
+      ret.value()._v.behaviour |= native_handle_type::disposition::readable| native_handle_type::disposition::writable;
+      break;
+    case mode::append:
+      attribs |= O_APPEND;
+      ret.value()._v.behaviour |= native_handle_type::disposition::append_only | native_handle_type::disposition::writable;
+      break;
+    }
+    if(-1==fcntl(ret.value()._v.fd, F_SETFL, attribs))
+      return make_errored_result<handle>(errno);
+  }
+  if (caching != caching::unchanged && caching != _caching)
+  {
+    // TODO: Allow fiddling with O_DIRECT
     return make_errored_result<handle>(EINVAL);
-  case mode::read:
-    access = GENERIC_READ;
-    break;
-  case mode::write:
-    access = GENERIC_WRITE | GENERIC_READ;
-    break;
-  case mode::append:
-    access = FILE_APPEND_DATA;
-    break;
   }
-  DWORD creation = OPEN_EXISTING;
-  switch (_creation)
-  {
-  case creation::only_if_not_exist:
-    creation = CREATE_NEW;
-    break;
-  case creation::if_needed:
-    creation = OPEN_ALWAYS;
-    break;
-  case creation::truncate:
-    creation = TRUNCATE_EXISTING;
-    break;
-  }
-  DWORD attribs = FILE_FLAG_OVERLAPPED;
-  switch (_caching)
-  {
-  case caching::unchanged:
-    return make_errored_result<handle>(EINVAL);
-  case caching::none:
-      attribs |= FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH;
-      break;
-    case caching::only_metadata:
-      attribs |= FILE_FLAG_NO_BUFFERING;
-      break;
-    case caching::reads:
-    case caching::reads_and_metadata:
-      attribs |= FILE_FLAG_WRITE_THROUGH;
-      break;
-    case caching::all:
-    case caching::safety_fsyncs:
-      break;
-    case caching::maximum:
-      attribs |= FILE_ATTRIBUTE_TEMPORARY;
-      break;
-  }
-  if(flags & flag_delete_on_close)
-    attribs |= FILE_FLAG_DELETE_ON_CLOSE;
-  result<handle> ret(handle(&service, std::move(_path), _mode, _caching, flags));
-  if (INVALID_HANDLE_VALUE == (ret.value()._v = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, creation, attribs, NULL)))
-    return make_errored_result<handle>(GetLastError());
-  if (_creation==creation::truncate && ret.value().are_safety_fsyncs_issued())
-    FlushFileBuffers(ret.value()._v);
   return ret;
-#else
+}
+
+result<file_handle> file_handle::file(io_service &service, file_handle::path_type _path, file_handle::mode _mode, file_handle::creation _creation, file_handle::caching _caching, file_handle::flag flags) noexcept
+{
+  result<file_handle> ret(file_handle(&service, std::move(_path), native_handle_type(), _caching, flags));
+  native_handle_type &nativeh = ret.get()._v;
   int attribs = 0;
   switch (_mode)
   {
   case mode::unchanged:
-    return make_errored_result<handle>(EINVAL);
+    return make_errored_result<file_handle>(EINVAL);
+  case mode::none:
+    break;
+  case mode::attr_read:
   case mode::read:
     attribs = O_RDONLY;
+    nativeh.behaviour |= native_handle_type::disposition::seekable|native_handle_type::disposition::readable;
     break;
+  case mode::attr_write:
   case mode::write:
     attribs = O_RDWR;
+    nativeh.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
     break;
   case mode::append:
     attribs = O_APPEND;
+    nativeh.behaviour |= native_handle_type::disposition::writable|native_handle_type::disposition::append_only;
     break;
   }
   switch (_creation)
   {
+  case creation::open_existing:
+    break;
   case creation::only_if_not_exist:
     attribs |= O_CREAT | O_EXCL;
     break;
@@ -127,34 +120,39 @@ result<handle> handle::create(io_service &service, handle::path_type _path, hand
     attribs |= O_TRUNC;
     break;
   }
+  nativeh.behaviour |= native_handle_type::disposition::file;
   switch (_caching)
   {
   case caching::unchanged:
-    return make_errored_result<handle>(EINVAL);
+    return make_errored_result<file_handle>(EINVAL);
   case caching::none:
     attribs |= O_SYNC | O_DIRECT;
+    nativeh.behaviour |= native_handle_type::disposition::aligned_io;
     break;
   case caching::only_metadata:
     attribs |= O_DIRECT;
+    nativeh.behaviour |= native_handle_type::disposition::aligned_io;
     break;
   case caching::reads:
     attribs |= O_SYNC;
     break;
   case caching::reads_and_metadata:
+#ifdef O_DSYNC
     attribs |= O_DSYNC;
+#else
+    attribs |= O_SYNC;
+#endif
     break;
   case caching::all:
   case caching::safety_fsyncs:
-  case caching::maximum:
+  case caching::temporary:
     break;
   }
-  result<handle> ret(handle(&service, std::move(_path), _mode, _caching, flags));
-  if (-1 == (ret.value()._v = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
-    return make_errored_result<handle>(errno);
+  if (-1 == (nativeh.fd = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
+    return make_errored_result<file_handle>(errno);
   if (_creation == creation::truncate && ret.value().are_safety_fsyncs_issued())
-    fsync(ret.value()._v);
+    fsync(nativeh.fd);
   return ret;
-#endif
 }
 
 handle::~handle()
@@ -163,183 +161,34 @@ handle::~handle()
   {
     if(are_safety_fsyncs_issued())
     {
-#ifdef WIN32
-      FlushFileBuffers(_v);
-#else
-      fsync(_v);
-#endif
+      fsync(_v.fd);
     }
-#ifdef WIN32
-    CloseHandle(_v);
-    _v = nullptr;
-#else
-    ::close(_v);
-    _v = 0;
-#endif
+    ::close(_v.fd);
+    _v = native_handle_type();
   }
 }
 
-result<handle> handle::clone(io_service &service, mode mode, caching caching, unsigned flags) const noexcept
+template<class CompletionRoutine, class BuffersType, class IORoutine> result<file_handle::io_state_ptr<CompletionRoutine, BuffersType>> file_handle::_begin_io(file_handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
 {
-  result<handle> ret(handle(&service, _path, _mode, _caching, _flags));
-#ifdef WIN32
-  DWORD access = 0;
-  if (mode != mode::unchanged && mode != _mode)
-  {
-    switch (mode)
-    {
-    case mode::unchanged:
-      break;
-    case mode::read:
-      access = GENERIC_READ;
-      break;
-    case mode::write:
-      access = GENERIC_WRITE | GENERIC_READ;
-      break;
-    case mode::append:
-      access = FILE_APPEND_DATA;
-      break;
-    }
-  }
-  if (!DuplicateHandle(GetCurrentProcess(), _v, GetCurrentProcess(), &ret.value()._v, access, false, mode == mode::unchanged ? DUPLICATE_SAME_ACCESS : 0))
-    return make_errored_result<handle>(GetLastError());
-  if (caching != caching::unchanged && caching != _caching)
-  {
-    return make_errored_result<handle>(EINVAL);
-  }
-#else
-  if (-1 == (ret.value()._v = ::dup(_v)))
-    return make_errored_result<handle>(errno);
-  if (mode != mode::unchanged && mode != _mode)
-  {
-    int attribs = 0;
-    if (-1 == (attribs = fcntl(ret.value()._v, F_GETFL)))
-      return make_errored_result<handle>(errno);
-    switch (mode)
-    {
-    case mode::unchanged:
-      break;
-    case mode::read:
-      return make_errored_result<handle>(EINVAL);
-    case mode::write:
-    case mode::append:
-      attribs ^= O_APPEND;
-      break;
-    }
-    if(-1==fcntl(ret.value()._v, F_SETFL, attribs))
-      return make_errored_result<handle>(errno);
-  }
-  if (caching != caching::unchanged && caching != _caching)
-  {
-    // TODO: Allow fiddling with O_DIRECT
-    return make_errored_result<handle>(EINVAL);
-  }
-#endif
-  return ret;
-}
-
-template<class CompletionRoutine, class BuffersType, class IORoutine> result<handle::io_state_ptr<CompletionRoutine, BuffersType>> handle::_begin_io(handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
-{
-#ifdef WIN32
-  // Need to keep a set of OVERLAPPED matching the scatter-gather buffers
-  struct state_type : public _io_state_type<CompletionRoutine, BuffersType>
-  {
-    OVERLAPPED ols[1];
-    state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, std::forward<CompletionRoutine>(f), _items) { }
-    virtual ~state_type() override final
-    {
-      // Do we need to cancel pending i/o?
-      if (items_to_go)
-      {
-        for (size_t n = 0; n < items; n++)
-        {
-          // If this is non-zero, probably this i/o still in flight
-          if (ols[n].hEvent)
-            CancelIoEx(parent->_v, ols + n);
-        }
-        // Pump the i/o service until all pending i/o is completed
-        while (items_to_go)
-          parent->service()->run();
-      }
-    }
-  } *state;
-  extent_type offset = reqs.offset;
-  size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
-  using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
-  void *mem = ::malloc(statelen);
-  if (!mem)
-    return make_errored_result<return_type>(ENOMEM);
-  return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
-  memset((state = (state_type *)mem), 0, statelen);
-  new(state) state_type(this, std::forward<CompletionRoutine>(completion), items);
-  // To be called once each buffer is read
-  struct handle_completion
-  {
-    static VOID CALLBACK Do(DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol)
-    {
-      state_type *state = (state_type *)ol->hEvent;
-      ol->hEvent = nullptr;
-      if (state->result)
-      {
-        if (errcode)
-          state->result = make_errored_result<BuffersType>(errcode);
-        else
-        {
-          // Figure out which i/o I am and update the buffer in question
-          size_t idx = ol - state->ols;
-          state->result.value()[idx].second = bytes_transferred;
-        }
-      }
-      state->parent->service()->_work_done();
-      // Are we done?
-      if (!--state->items_to_go)
-        state->completion(state);
-    }
-  };
-  // Noexcept move the buffers from req into result
-  BuffersType &out = state->result.value();
-  out = std::move(reqs.buffers);
-  for (size_t n = 0; n < items; n++)
-  {
-    LPOVERLAPPED ol = state->ols + n;
-    ol->Offset = offset & 0xffffffff;
-    ol->OffsetHigh = (offset >> 32) & 0xffffffff;
-    // Use the unused hEvent member to pass through the state
-    ol->hEvent = (HANDLE)state;
-    offset += out[n].second;
-    ++state->items_to_go;
-    if (!ioroutine(_v, out[n].first, (DWORD)out[n].second, ol, handle_completion::Do))
-    {
-      --state->items_to_go;
-      state->result = make_errored_result<BuffersType>(GetLastError());
-      // Fire completion now if we didn't schedule anything
-      if (!n)
-        state->completion(state);
-      return _state;
-    }
-    service()->_work_enqueued();
-  }
-  return _state;
-#else
 #error todo
-#endif
 }
 
-template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::buffers_type>> handle::async_read(handle::io_request<handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
+template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::buffers_type>> file_handle::async_read(file_handle::io_request<file_handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
-  return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
-    completion(state->parent, state->result);
-  }, ReadFileEx);
+//  return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
+//    completion(state->parent, state->result);
+//  }, ReadFileEx);
 }
 
-template<class CompletionRoutine> result<handle::io_state_ptr<CompletionRoutine, handle::const_buffers_type>> handle::async_write(handle::io_request<handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
+template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::const_buffers_type>> file_handle::async_write(file_handle::io_request<file_handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
-  return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
-    completion(state->parent, state->result);
-  }, WriteFileEx);
+//  return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
+//    completion(state->parent, state->result);
+//  }, WriteFileEx);
 }
 
-handle::io_result<handle::buffers_type> handle::read(handle::io_request<handle::buffers_type> reqs, deadline d) noexcept
+# if 0
+file_handle::io_result<file_handle::buffers_type> file_handle::read(file_handle::io_request<file_handle::buffers_type> reqs, deadline d) noexcept
 {
   io_result<buffers_type> ret;
   auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
@@ -358,7 +207,7 @@ handle::io_result<handle::buffers_type> handle::read(handle::io_request<handle::
   return ret;
 }
 
-handle::io_result<handle::const_buffers_type> handle::write(handle::io_request<handle::const_buffers_type> reqs, deadline d) noexcept
+file_handle::io_result<file_handle::const_buffers_type> file_handle::write(file_handle::io_request<file_handle::const_buffers_type> reqs, deadline d) noexcept
 {
   io_result<const_buffers_type> ret;
   auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
@@ -376,22 +225,11 @@ handle::io_result<handle::const_buffers_type> handle::write(handle::io_request<h
   }
   return ret;
 }
-
-result<handle::extent_type> handle::truncate(handle::extent_type newsize) noexcept
-{
-#ifdef WIN32
-  FILE_END_OF_FILE_INFO feofi;
-  feofi.EndOfFile.QuadPart = newsize;
-  if (!SetFileInformationByHandle(_v, FileEndOfFileInfo, &feofi, sizeof(feofi)))
-    return make_errored_result<extent_type>(GetLastError());
-  if (are_safety_fsyncs_issued())
-  {
-    FlushFileBuffers(_v);
-  }
-  return newsize;
-#else
-#error todo
 #endif
+
+result<file_handle::extent_type> file_handle::truncate(file_handle::extent_type newsize) noexcept
+{
+#error todo
 }
 
 BOOST_AFIO_V2_NAMESPACE_END
