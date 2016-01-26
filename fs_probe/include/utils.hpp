@@ -326,7 +326,7 @@ namespace utils
           break;
         }
       if ((bits_per_byte - 1 + bitsvalid) / bits_per_byte>sizeof(result_type))
-        BOOST_AFIO_THROW(std::runtime_error("ECC would exceed the size of result_type!"));
+        throw std::runtime_error("secdec_ecc: ECC would exceed the size of result_type!");
       for (result_type i = 0; i<blocksize*bits_per_byte; i++)
       {
         // Make a code bit
@@ -350,7 +350,7 @@ namespace utils
 #endif
         ecc_table[i] = (unsigned short)b;
         if (b>(unsigned short)-1)
-          BOOST_AFIO_THROW(std::runtime_error("Precalculated table has exceeded its bounds"));
+          throw std::runtime_error("secdec_ecc: Precalculated table has exceeded its bounds");
       }
     }
     //! The number of bits valid in result_type

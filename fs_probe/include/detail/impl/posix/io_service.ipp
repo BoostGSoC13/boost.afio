@@ -127,17 +127,7 @@ io_service::io_service() : _work_queued(0)
 #if BOOST_AFIO_USE_POSIX_AIO
   memset(_free_aiocbs, 0, sizeof(_free_aiocbs));
   _free_aiocbsptr=_free_aiocbs;
-  for(size_t n=0; n<AIO_LISTIO_MAX; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
-  {
-    for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
-    {
-      _free_aiocb *i=(_free_aiocb *) calloc(1, sizeof(aiocb));
-      if(!i)
-	throw std::bad_alloc();
-      i->next=_free_aiocbs[m];
-      _free_aiocbs[m]=i;
-    }
-  }
+  BOOST_OUTCOME_THROW_ERROR(_more_aiocbs());
 #ifdef BOOST_AFIO_IO_POST_SIGNAL
   if(!interrupt_signal)
     set_interruption_signal();
@@ -172,6 +162,7 @@ io_service::~io_service()
   if (pthread_self() == _threadh)
     _unblock_interruption();
 #endif
+  todo make list of getpagesize() pages and munmap them;
   for(size_t n=0; n<AIO_LISTIO_MAX; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
   {
     for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
@@ -188,6 +179,29 @@ io_service::~io_service()
 # error todo
 #endif
 }
+
+#if BOOST_AFIO_USE_POSIX_AIO
+result<void> io_service::_more_aiocbs() noexcept
+{
+  void *page=mmap(nullptr, getpagesize(), PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0);
+  if(!page)
+    return make_errored_result<void>(errno);
+    
+  // TODO FIXME: Claim 4Kb pages and make many aiocbs from each
+  // Start with 16 free aiocbs
+  for(size_t n=0; n<16; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
+  {
+    for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
+    {
+      _free_aiocb *i=(_free_aiocb *) calloc(1, sizeof(aiocb));
+      if(!i)
+        throw std::bad_alloc();
+      i->next=_free_aiocbs[m];
+      _free_aiocbs[m]=i;
+    }
+  }
+}
+#endif
 
 result<bool> io_service::run_until(deadline d) noexcept
 {
