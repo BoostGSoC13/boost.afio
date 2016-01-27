@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.
 #include <pthread.h>
 #if BOOST_AFIO_USE_POSIX_AIO
 # include <aio.h>
+# include <sys/mman.h>
 # if BOOST_AFIO_USE_KQUEUES
 #  include <sys/types.h>
 #  include <sys/event.h>
@@ -162,19 +163,36 @@ io_service::~io_service()
   if (pthread_self() == _threadh)
     _unblock_interruption();
 #endif
-  todo make list of getpagesize() pages and munmap them;
-  for(size_t n=0; n<AIO_LISTIO_MAX; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
+  bool done;
+  do
   {
+    done=true;
+    void *pagetofree=nullptr;
     for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
     {
-      _free_aiocb *i;
-      while((i=_free_aiocbs[m]))
+      if(_free_aiocbs[m])
       {
-        _free_aiocbs[m]=i->next;
-        free(i);
+        if(done)
+        {
+          done=false;
+          pagetofree=(void *)(((uintptr_t)_free_aiocbs[m])&~getpagesize());
+        }
+        for(_free_aiocb **i=&_free_aiocbs[m]; *i; )
+        {
+          void *thispage=(void *)(((uintptr_t)*i)&~getpagesize());
+          if(thispage==pagetofree)
+            *i=(*i)->next;
+          else
+            i=&(*i)->next;
+        }
+      }
+      if(pagetofree)
+      {
+        munmap(pagetofree, getpagesize());
+        pagetofree=nullptr;
       }
     }
-  }
+  } while(!done);
 #else
 # error todo
 #endif
@@ -186,20 +204,47 @@ result<void> io_service::_more_aiocbs() noexcept
   void *page=mmap(nullptr, getpagesize(), PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0);
   if(!page)
     return make_errored_result<void>(errno);
-    
-  // TODO FIXME: Claim 4Kb pages and make many aiocbs from each
-  // Start with 16 free aiocbs
-  for(size_t n=0; n<16; n+=sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]))
+  aiocb *p=(aiocb *) page, *lastp=(aiocb *)((char *)page+getpagesize());
+  for(; p<lastp; p++)
   {
-    for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
+    _free_aiocb *i=(_free_aiocb *) p;
+    i->next=*_free_aiocbsptr;
+    *_free_aiocbsptr=i;
+    if(p+1<lastp)
     {
-      _free_aiocb *i=(_free_aiocb *) calloc(1, sizeof(aiocb));
-      if(!i)
-        throw std::bad_alloc();
-      i->next=_free_aiocbs[m];
-      _free_aiocbs[m]=i;
+      if(_free_aiocbsptr==_free_aiocbs+(sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0])-1))
+        _free_aiocbsptr=_free_aiocbs;
+      else
+        ++_free_aiocbsptr;
     }
   }
+}
+result<aiocb *> io_service::_acquire_aiocb(bool alloc_more_if_needed) noexcept
+{
+  // _free_aiocbsptr always points at a free aiocb, so if he's zero there are
+  // none free
+  if(!*_free_aiocbsptr)
+  {
+    if(!alloc_more_if_needed)
+      return make_errored_result<aiocb *>(ENOMEM);
+    BOOST_OUTCOME_PROPAGATE_ERROR(_more_aiocbs());
+  }
+  aiocb *ret=(aiocb *)(*_free_aiocbsptr);
+  *_free_aiocbsptr=((*_free_aiocbsptr)->next);
+  if(_free_aiocbsptr==_free_aiocbs+(sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0])-1))
+    _free_aiocbsptr=_free_aiocbs;
+  else
+    ++_free_aiocbsptr;
+}
+void io_service::_release_aiocb(aiocb *p) noexcept
+{
+  if(_free_aiocbsptr==_free_aiocbs)
+    _free_aiocbsptr=_free_aiocbs+(sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0])-1);
+  else
+    --_free_aiocbsptr;
+  _free_aiocb *a=(_free_aiocb *) p;
+  a->next=*_free_aiocbsptr;
+  *_free_aiocbsptr=a;
 }
 #endif
 

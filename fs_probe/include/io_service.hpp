@@ -147,6 +147,8 @@ private:
   struct _free_aiocb;
   struct _free_aiocb { _free_aiocb *next; } *_free_aiocbs[8], **_free_aiocbsptr;
   result<void> _more_aiocbs() noexcept;
+  result<aiocb *> _acquire_aiocb(bool alloc_more_if_needed=true) noexcept;
+  void _release_aiocb(aiocb *p) noexcept;
 # if BOOST_AFIO_USE_KQUEUES
   int _kqueueh;
 # else
