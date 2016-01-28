@@ -169,13 +169,33 @@ handle::~handle()
   }
 }
 
-template<class CompletionRoutine, class BuffersType, class IORoutine> result<file_handle::io_state_ptr<CompletionRoutine, BuffersType>> file_handle::_begin_io(file_handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
+template<class CompletionRoutine, class BuffersType, class IORoutine> result<file_handle::io_state_ptr<CompletionRoutine, BuffersType>> file_handle::_begin_io(file_handle::operation_t operation, file_handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
 {
   // Need to keep a set of OVERLAPPED matching the scatter-gather buffers
   struct state_type : public _io_state_type<CompletionRoutine, BuffersType>
   {
     OVERLAPPED ols[1];
-    state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, std::forward<CompletionRoutine>(f), _items) { }
+    state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, _operation, std::forward<CompletionRoutine>(f), _items) { }
+    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept
+    {
+      LPOVERLAPPED ol=(LPOVERLAPPED) internal_state;
+      ol->hEvent = nullptr;
+      if (this->result)
+      {
+        if (errcode)
+          this->result = make_errored_result<BuffersType>((DWORD) errcode);
+        else
+        {
+          // Figure out which i/o I am and update the buffer in question
+          size_t idx = ol - ols;
+          this->result.value()[idx].second = bytes_transferred;
+        }
+      }
+      this->parent->service()->_work_done();
+      // Are we done?
+      if (!--this->items_to_go)
+        this->completion(this->state);
+    }
     virtual ~state_type() override final
     {
       // Do we need to cancel pending i/o?
@@ -200,29 +220,14 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
   if (!mem)
     return make_errored_result<return_type>(ENOMEM);
   return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
-  new((state = (state_type *)mem)) state_type(this, std::forward<CompletionRoutine>(completion), items);
+  new((state = (state_type *)mem)) state_type(this, operation, std::forward<CompletionRoutine>(completion), items);
   // To be called once each buffer is read
   struct handle_completion
   {
     static VOID CALLBACK Do(DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol)
     {
       state_type *state = (state_type *)ol->hEvent;
-      ol->hEvent = nullptr;
-      if (state->result)
-      {
-        if (errcode)
-          state->result = make_errored_result<BuffersType>(errcode);
-        else
-        {
-          // Figure out which i/o I am and update the buffer in question
-          size_t idx = ol - state->ols;
-          state->result.value()[idx].second = bytes_transferred;
-        }
-      }
-      state->parent->service()->_work_done();
-      // Are we done?
-      if (!--state->items_to_go)
-        state->completion(state);
+      (*state)(errcode, bytes_transferred, ol);
     }
   };
   // Noexcept move the buffers from req into result
@@ -254,14 +259,14 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
 
 template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::buffers_type>> file_handle::async_read(file_handle::io_request<file_handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
-  return _begin_io(std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
+  return _begin_io(operation_t::read, std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
     completion(state->parent, state->result);
   }, ReadFileEx);
 }
 
 template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::const_buffers_type>> file_handle::async_write(file_handle::io_request<file_handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
 {
-  return _begin_io(std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
+  return _begin_io(operation_t::write, std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
     completion(state->parent, state->result);
   }, WriteFileEx);
 }
@@ -269,7 +274,7 @@ template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRou
 file_handle::io_result<file_handle::buffers_type> file_handle::read(file_handle::io_request<file_handle::buffers_type> reqs, deadline d) noexcept
 {
   io_result<buffers_type> ret;
-  auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
+  auto _io_state(_begin_io(operation_t::read, std::move(reqs), [&ret](auto *state) {
     ret = std::move(state->result);
   }, ReadFileEx));
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
@@ -288,7 +293,7 @@ file_handle::io_result<file_handle::buffers_type> file_handle::read(file_handle:
 file_handle::io_result<file_handle::const_buffers_type> file_handle::write(file_handle::io_request<file_handle::const_buffers_type> reqs, deadline d) noexcept
 {
   io_result<const_buffers_type> ret;
-  auto _io_state(_begin_io(std::move(reqs), [&ret](auto *state) {
+  auto _io_state(_begin_io(operation_t::write, std::move(reqs), [&ret](auto *state) {
     ret = std::move(state->result);
   }, WriteFileEx));
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);

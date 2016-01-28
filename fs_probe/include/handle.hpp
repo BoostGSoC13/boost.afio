@@ -281,14 +281,16 @@ public:
   static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<file_handle> file(io_service &service, path_type _path, mode _mode = mode::read, creation _creation = creation::open_existing, caching _caching = caching::all, flag flags = flag::none) noexcept;
 protected:
   using shared_size_type = size_type;
+  enum class operation_t { read, write };
   // Holds state for an i/o in progress. Will be subclassed with platform specific state and how to implement completion.
   // Note this is allocated using malloc not new to avoid memory zeroing, and therefore it has a custom deleter.
   struct _erased_io_state_type
   {
     handle *parent;
+    operation_t operation;
     size_t items;
     shared_size_type items_to_go;
-    constexpr _erased_io_state_type(handle *_parent, size_t _items) : parent(_parent), items(_items), items_to_go(0) { }
+    constexpr _erased_io_state_type(handle *_parent, operation_t _operation, size_t _items) : parent(_parent), operation(_operation), items(_items), items_to_go(0) { }
     /*
     For Windows:
       - errcode: GetLastError() code
@@ -317,7 +319,7 @@ protected:
   {
     io_result<BuffersType> result;
     CompletionRoutine completion;
-    constexpr _io_state_type(handle *_parent, CompletionRoutine &&f, size_t _items) : _erased_io_state_type(_parent, _items), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)) { }
+    constexpr _io_state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _erased_io_state_type(_parent, _operation, _items), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)) { }
   };
   struct _io_state_deleter { template<class U> void operator()(U *_ptr) const { _ptr->~U(); char *ptr = (char *)_ptr; ::free(ptr); } };
 public:
@@ -332,7 +334,7 @@ public:
 protected:
   template<class CompletionRoutine, class BuffersType, class IORoutine>
   result<io_state_ptr<CompletionRoutine, BuffersType>>
-    _begin_io(io_request<BuffersType> reqs,
+    _begin_io(operation_t operation, io_request<BuffersType> reqs,
       CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
 public:
   /*! \brief Schedule a read to occur asynchronously.

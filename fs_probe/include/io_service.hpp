@@ -182,7 +182,7 @@ public:
     std::lock_guard<decltype(_posts_lock)> g(_posts_lock);
     return __post_done(pi);
   }
-  void _work_enqueued() { ++_work_queued; }
+  void _work_enqueued(size_type i=1) { _work_queued+=i; }
   void _work_done() { --_work_queued; }
   /*! Creates an i/o service for the calling thread, installing a
   global signal handler via set_interruption_signal() if not yet installed

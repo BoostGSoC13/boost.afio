@@ -168,9 +168,101 @@ handle::~handle()
   }
 }
 
-template<class CompletionRoutine, class BuffersType, class IORoutine> result<file_handle::io_state_ptr<CompletionRoutine, BuffersType>> file_handle::_begin_io(file_handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
+template<class CompletionRoutine, class BuffersType, class IORoutine> result<file_handle::io_state_ptr<CompletionRoutine, BuffersType>> file_handle::_begin_io(file_handle::operation_t operation, file_handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
 {
+  // Need to keep a set of aiocbs matching the scatter-gather buffers
+  struct state_type : public _io_state_type<CompletionRoutine, BuffersType>
+  {
+#if BOOST_AFIO_USE_POSIX_AIO
+    struct aiocb aiocbs[1];
+#endif
+    state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, _operation, std::forward<CompletionRoutine>(f), _items) { }
+    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept
+    {
+#if BOOST_AFIO_USE_POSIX_AIO
+      struct aiocb **paiocb=(struct aiocb **) internal_state;
+#endif
+      if (this->result)
+      {
+        if (errcode)
+          this->result = make_errored_result<BuffersType>((int) errcode);
+        else
+        {
+          // Figure out which i/o I am and update the buffer in question
+#if BOOST_AFIO_USE_POSIX_AIO
+          size_t idx = *paiocb - aiocbs;
+#endif
+          this->result.value()[idx].second = bytes_transferred;
+        }
+      }
+      this->parent->service()->_work_done();
+      // Are we done?
+      if (!--this->items_to_go)
+        this->completion(this->state);
+    }
+    virtual ~state_type() override final
+    {
+      // Do we need to cancel pending i/o?
+      if (this->items_to_go)
+      {
+        for (size_t n = 0; n < this->items; n++)
+        {
+#if BOOST_AFIO_USE_POSIX_AIO
+          aio_cancel(this->parent->native_handle().fd, aiocbs + n);
+#endif
+        }
+        // Pump the i/o service until all pending i/o is completed
+        while (this->items_to_go)
+          this->parent->service()->run();
+      }
+    }
+  } *state;
+  extent_type offset = reqs.offset;
+  size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(struct aiocb), items(reqs.buffers.size());
+  using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
+#if BOOST_AFIO_USE_POSIX_AIO
+  if(items>AIO_LISTIO_MAX)
+    return make_errored_result<return_type>(EINVAL);
+#endif
+  void *mem = ::calloc(1, statelen);
+  if (!mem)
+    return make_errored_result<return_type>(ENOMEM);
+  return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
+  new((state = (state_type *)mem)) state_type(this, operation, std::forward<CompletionRoutine>(completion), items);
+  // Noexcept move the buffers from req into result
+  BuffersType &out = state->result.value();
+  out = std::move(reqs.buffers);
+  for (size_t n = 0; n < items; n++)
+  {
+#if BOOST_AFIO_USE_POSIX_AIO
+    struct aiocb *aiocb = state->aiocbs + n;
+    aiocb->aio_fildes = _v.fd;
+    aiocb->aio_offset = offset;
+    aiocb->aio_buf = out[n].first;
+    aiocb->aio_nbytes = out[n].second;
+    aiocb->aio_sigevent.sigev_notify = SIGEV_NONE;
+    aiocb->aio_lio_opcode = (operation==operation_t::write) ? LIO_WRITE : LIO_READ;
+#endif
+    offset += out[n].second;
+    ++state->items_to_go;
+  }
+#if BOOST_AFIO_USE_POSIX_AIO
+  struct sigevent *sigev=nullptr;
+# if BOOST_AFIO_USE_KQUEUES
+  struct _sigev={0};
+  sigev=&_sigev;
 #error todo
+#endif
+  if(lio_listio(LIO_NOWAIT, state->aiocbs, items, sigev)<0)
+#endif
+  {
+    state->items_to_go=0;
+    state->result = make_errored_result<BuffersType>(errno);
+    state->completion(state);
+    return make_result<return_type>(std::move(_state));
+  }
+  service()->_work_enqueued(items);
+  return make_result<return_type>(std::move(_state));
 }
 
 template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::buffers_type>> file_handle::async_read(file_handle::io_request<file_handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
