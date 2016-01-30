@@ -188,6 +188,11 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
         {
           // Figure out which i/o I am and update the buffer in question
           size_t idx = ol - ols;
+          if(idx>=this->items)
+          {
+            BOOST_AFIO_LOG_FATAL_EXIT("file_handle::io_state::operator() called with invalid index " << idx);
+            std::terminate();
+          }
           this->result.value()[idx].second = bytes_transferred;
         }
       }
@@ -216,6 +221,9 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
   extent_type offset = reqs.offset;
   size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
   using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
+  // On Windows i/o must be scheduled on the same thread pumping completion
+  if (GetCurrentThreadId() != service()->_threadid)
+    return make_errored_result<return_type>(EOPNOTSUPP);
   void *mem = ::calloc(1, statelen);
   if (!mem)
     return make_errored_result<return_type>(ENOMEM);

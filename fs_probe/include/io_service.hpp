@@ -40,23 +40,31 @@ DEALINGS IN THE SOFTWARE.
 
 # undef _threadid  // windows macro splosh sigh
 
-//!\def BOOST_AFIO_USE_KQUEUES Undefined to autodetect, 1 to use BSD kqueues, 0 to not use
+//!\def BOOST_AFIO_COMPILE_KQUEUES Undefined to autodetect, 1 to compile in BSD kqueue support, 0 to leave it out
 //!\def BOOST_AFIO_USE_POSIX_AIO Undefined to autodetect, 1 to use POSIX AIO, 0 to not use
 //!\def BOOST_AFIO_IO_POST_SIGNAL Undefined to autoset to first free SIGRTMIN if realtime signals available, else SIGUSR1. Only used if BOOST_AFIO_USE_KQUEUES=0.
 //!\def BOOST_AFIO_HAVE_REALTIME_SIGNALS Undefined to autodetect. 0 to use non-realtime signals. Note performance in this use case is abysmal.
 
 // Need to decide which kind of POSIX AIO to use
 #ifndef WIN32
-# if BOOST_AFIO_USE_KQUEUES
+// Right now the only thing we support is POSIX AIO
+# if !defined(BOOST_AFIO_USE_POSIX_AIO)
+#  define BOOST_AFIO_USE_POSIX_AIO 1
+# endif
+// BSD kqueues not implemented yet
+//# if defined(__FreeBSD__) && !defined(BOOST_AFIO_COMPILE_KQUEUES)
+//#  define BOOST_AFIO_COMPILE_KQUEUES 1
+//# endif
+# if BOOST_AFIO_COMPILE_KQUEUES
 #  if defined(BOOST_AFIO_USE_POSIX_AIO) && !BOOST_AFIO_USE_POSIX_AIO
 #   error BSD kqueues must be combined with POSIX AIO!
 #  endif
-#  define BOOST_AFIO_USE_POSIX_AIO 1
-#  undef BOOST_AFIO_IO_POST_SIGNAL
-#  undef BOOST_AFIO_HAVE_REALTIME_SIGNALS
-# else
-// Right now the only thing we support is POSIX AIO
-#  define BOOST_AFIO_USE_POSIX_AIO 1
+#  if !defined(BOOST_AFIO_USE_POSIX_AIO)
+#   define BOOST_AFIO_USE_POSIX_AIO 1
+#  endif
+# endif
+
+# if BOOST_AFIO_USE_POSIX_AIO
 // We'll be using POSIX AIO and signal based interruption for post()
 #  include <signal.h>
 // Do we have realtime signals?
@@ -71,9 +79,6 @@ DEALINGS IN THE SOFTWARE.
 #   endif
 #   define BOOST_AFIO_HAVE_REALTIME_SIGNALS 0
 #  endif
-# endif
-
-# if BOOST_AFIO_USE_POSIX_AIO
 struct aiocb;
 # endif
 #endif
@@ -81,8 +86,11 @@ struct aiocb;
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 class io_service;
+class handle;
+class file_handle;
 class BOOST_AFIO_DECL io_service
 {
+  friend class file_handle;
 public:
   //! The file extent type used by this i/o service
   using extent_type = unsigned long long;
@@ -144,16 +152,11 @@ private:
   using shared_size_type = std::atomic<size_type>;
   shared_size_type _work_queued;
 #if BOOST_AFIO_USE_POSIX_AIO
-  struct _free_aiocb;
-  struct _free_aiocb { _free_aiocb *next; } *_free_aiocbs[8], **_free_aiocbsptr;
-  result<void> _more_aiocbs() noexcept;
-  result<aiocb *> _acquire_aiocb(bool alloc_more_if_needed=true) noexcept;
-  void _release_aiocb(aiocb *p) noexcept;
-# if BOOST_AFIO_USE_KQUEUES
+  bool _use_kqueues;
+# if BOOST_AFIO_COMPILE_KQUEUES
   int _kqueueh;
-# else
-  std::vector<struct aiocb *> _aiocbsv;  // for fast aio_suspend()
 # endif
+  std::vector<struct aiocb *> _aiocbsv;  // for fast aio_suspend()
 #endif
 public:
   // LOCK MUST BE HELD ON ENTRY!
@@ -186,7 +189,7 @@ public:
   void _work_done() { --_work_queued; }
   /*! Creates an i/o service for the calling thread, installing a
   global signal handler via set_interruption_signal() if not yet installed
-  if on POSIX and BOOST_AFIO_USE_KQUEUES=0.
+  if on POSIX and BSD kqueues not in use.
   */
   BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC io_service();
   io_service(io_service &&) = delete;
@@ -201,13 +204,13 @@ private:
   void _unblock_interruption() noexcept;
 public:
   /*! Returns the signal used for interrupting run_until(). Only used on POSIX when
-  BOOST_AFIO_USE_KQUEUES=0. Defaults to BOOST_AFIO_IO_POST_SIGNAL on platforms which use it.
+  BSD kqueues are not used. Defaults to BOOST_AFIO_IO_POST_SIGNAL on platforms which use it.
 
   \note Only present if BOOST_AFIO_IO_POST_SIGNAL is defined.
   */
   static int interruption_signal() noexcept;
   /*! Sets the signal used for interrupting run_until(), returning the former signal
-  setting. Only used on POSIX when BOOST_AFIO_USE_KQUEUES=0. Special values are
+  setting. Only used on POSIX when BSD kqueues are not used. Special values are
   0 for deinstall global signal handler, and -1 for install to first unused signal
   between SIGRTMIN and SIGRTMAX. Changing this while any io_service instances exist
   is a bad idea.
@@ -215,6 +218,13 @@ public:
   \note Only present if BOOST_AFIO_IO_POST_SIGNAL is defined.
   */
   static BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC int set_interruption_signal(int sig=BOOST_AFIO_IO_POST_SIGNAL);
+#endif
+  
+#if BOOST_AFIO_USE_POSIX_AIO
+  //! True if this i/o service is using BSD kqueues
+  bool using_kqueues() const noexcept { return _use_kqueues; }
+  //! Force disable any use of BSD kqueues
+  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC void disable_kqueues();
 #endif
 
   /*! Runs the i/o service for the thread owning this i/o service. Returns true if more

@@ -35,7 +35,7 @@ DEALINGS IN THE SOFTWARE.
 #if BOOST_AFIO_USE_POSIX_AIO
 # include <aio.h>
 # include <sys/mman.h>
-# if BOOST_AFIO_USE_KQUEUES
+# if BOOST_AFIO_COMPILE_KQUEUES
 #  include <sys/types.h>
 #  include <sys/event.h>
 #  include <sys/time.h>
@@ -44,7 +44,6 @@ DEALINGS IN THE SOFTWARE.
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-#ifdef BOOST_AFIO_IO_POST_SIGNAL
 static int interrupt_signal;
 static struct sigaction interrupt_signal_handler_old_action;
 struct ucontext;
@@ -97,6 +96,8 @@ int io_service::set_interruption_signal(int signo)
 
 void io_service::_block_interruption() noexcept
 {
+  if(_use_kqueues)
+    return;
   assert(!_blocked_interrupt_signal);
   sigset_t set;
   sigemptyset(&set);
@@ -108,6 +109,8 @@ void io_service::_block_interruption() noexcept
 
 void io_service::_unblock_interruption() noexcept
 {
+  if(_use_kqueues)
+    return;
   assert(_blocked_interrupt_signal);
   if(_blocked_interrupt_signal)
   {
@@ -120,26 +123,18 @@ void io_service::_unblock_interruption() noexcept
   }
 }
 
-#endif
-
 io_service::io_service() : _work_queued(0)
 {
   _threadh = pthread_self();
 #if BOOST_AFIO_USE_POSIX_AIO
-  memset(_free_aiocbs, 0, sizeof(_free_aiocbs));
-  _free_aiocbsptr=_free_aiocbs;
-  BOOST_OUTCOME_THROW_ERROR(_more_aiocbs());
-#ifdef BOOST_AFIO_IO_POST_SIGNAL
-  if(!interrupt_signal)
-    set_interruption_signal();
+  _use_kqueues=true;
   _blocked_interrupt_signal=0;
-  _block_interruption();
-#endif
-#if BOOST_AFIO_USE_KQUEUES
+# if BOOST_AFIO_COMPILE_KQUEUES
   _kqueueh=0;
-#else
-  _aiocbsv.reserve(AIO_LISTIO_MAX);
-#endif
+#  error todo
+# else
+  disable_kqueues();
+# endif
 #else
 # error todo
 #endif
@@ -154,97 +149,36 @@ io_service::~io_service()
       std::this_thread::yield();
   }
 #if BOOST_AFIO_USE_POSIX_AIO
-#if BOOST_AFIO_USE_KQUEUES
-  ::close(_kqueueh);
-#else
+# if BOOST_AFIO_COMPILE_KQUEUES
+  if(_kqueueh)
+    ::close(_kqueueh);
+# endif
   _aiocbsv.clear();
-#endif
-#ifdef BOOST_AFIO_IO_POST_SIGNAL
   if (pthread_self() == _threadh)
     _unblock_interruption();
-#endif
-  bool done;
-  do
-  {
-    done=true;
-    void *pagetofree=nullptr;
-    for(size_t m=0; m<sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0]); m++)
-    {
-      if(_free_aiocbs[m])
-      {
-        if(done)
-        {
-          done=false;
-          pagetofree=(void *)(((uintptr_t)_free_aiocbs[m])&~getpagesize());
-        }
-        for(_free_aiocb **i=&_free_aiocbs[m]; *i; )
-        {
-          void *thispage=(void *)(((uintptr_t)*i)&~getpagesize());
-          if(thispage==pagetofree)
-            *i=(*i)->next;
-          else
-            i=&(*i)->next;
-        }
-      }
-      if(pagetofree)
-      {
-        munmap(pagetofree, getpagesize());
-        pagetofree=nullptr;
-      }
-    }
-  } while(!done);
 #else
 # error todo
 #endif
 }
 
 #if BOOST_AFIO_USE_POSIX_AIO
-result<void> io_service::_more_aiocbs() noexcept
+void io_service::disable_kqueues()
 {
-  void *page=mmap(nullptr, getpagesize(), PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0);
-  if(!page)
-    return make_errored_result<void>(errno);
-  aiocb *p=(aiocb *) page, *lastp=(aiocb *)((char *)page+getpagesize());
-  for(; p<lastp; p++)
+  if(_use_kqueues)
   {
-    _free_aiocb *i=(_free_aiocb *) p;
-    i->next=*_free_aiocbsptr;
-    *_free_aiocbsptr=i;
-    if(p+1<lastp)
-    {
-      if(_free_aiocbsptr==_free_aiocbs+(sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0])-1))
-        _free_aiocbsptr=_free_aiocbs;
-      else
-        ++_free_aiocbsptr;
-    }
+    if(_work_queued)
+      throw std::runtime_error("Cannot disable kqueues if work is pending");
+    if (pthread_self() != _threadh)
+      throw std::runtime_error("Cannot disable kqueues except from owning thread");
+    // Is the global signal handler set yet?
+    if(!interrupt_signal)
+      set_interruption_signal();
+    // Block interruption on this thread
+    _block_interruption();
+    // Prepare for aio_suspend
+    _aiocbsv.reserve(AIO_LISTIO_MAX);
+    _use_kqueues=false;
   }
-}
-result<aiocb *> io_service::_acquire_aiocb(bool alloc_more_if_needed) noexcept
-{
-  // _free_aiocbsptr always points at a free aiocb, so if he's zero there are
-  // none free
-  if(!*_free_aiocbsptr)
-  {
-    if(!alloc_more_if_needed)
-      return make_errored_result<aiocb *>(ENOMEM);
-    BOOST_OUTCOME_PROPAGATE_ERROR(_more_aiocbs());
-  }
-  aiocb *ret=(aiocb *)(*_free_aiocbsptr);
-  *_free_aiocbsptr=((*_free_aiocbsptr)->next);
-  if(_free_aiocbsptr==_free_aiocbs+(sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0])-1))
-    _free_aiocbsptr=_free_aiocbs;
-  else
-    ++_free_aiocbsptr;
-}
-void io_service::_release_aiocb(aiocb *p) noexcept
-{
-  if(_free_aiocbsptr==_free_aiocbs)
-    _free_aiocbsptr=_free_aiocbs+(sizeof(_free_aiocbs)/sizeof(_free_aiocbs[0])-1);
-  else
-    --_free_aiocbsptr;
-  _free_aiocb *a=(_free_aiocb *) p;
-  a->next=*_free_aiocbsptr;
-  *_free_aiocbsptr=a;
 }
 #endif
 
@@ -287,10 +221,8 @@ result<bool> io_service::run_until(deadline d) noexcept
       }
     }
     bool timedout=false;
-# if defined(BOOST_AFIO_IO_POST_SIGNAL)
     // Unblock the interruption signal
     _unblock_interruption();
-# endif
     // Execute any pending posts
     {
       std::unique_lock<decltype(_posts_lock)> g(_posts_lock);
@@ -301,24 +233,26 @@ result<bool> io_service::run_until(deadline d) noexcept
         pi->f(this);
         _post_done(pi);
         // We did work, so exit
-# if defined(BOOST_AFIO_IO_POST_SIGNAL)
         // Block the interruption signal
         _block_interruption();
-# endif
         return _work_queued != 0;
       }
     }
 #if BOOST_AFIO_USE_POSIX_AIO
-#if BOOST_AFIO_USE_KQUEUES
-# error todo
-#else
     int errcode=0;
-    if(aio_suspend(_aiocbsv.data(), _aiocbsv.size(), ts)<0)
-      errcode=errno;
-# if defined(BOOST_AFIO_IO_POST_SIGNAL)
+    if(_use_kqueues)
+    {
+#if BOOST_AFIO_COMPILE_KQUEUES
+# error todo
+#endif
+    }
+    else
+    {
+      if(aio_suspend(_aiocbsv.data(), _aiocbsv.size(), ts)<0)
+        errcode=errno;
+    }
     // Block the interruption signal
     _block_interruption();
-# endif
     if(errcode)
     {
       switch(errno)
@@ -353,7 +287,6 @@ result<bool> io_service::run_until(deadline d) noexcept
       _aiocbsv.erase(std::remove(_aiocbsv.begin(), _aiocbsv.end(), nullptr), _aiocbsv.end());
       done=true;
     }
-#endif
 #else
 # error todo
 #endif
@@ -383,21 +316,26 @@ void io_service::post(detail::function_ptr<void(io_service *)> &&f)
   }
   _work_enqueued();
 #if BOOST_AFIO_USE_POSIX_AIO
-#if BOOST_AFIO_USE_KQUEUES
-# error todo
-#elif defined(BOOST_AFIO_IO_POST_SIGNAL)
-  // If run_until() is exactly between the unblock of the signal and the beginning
-  // of the aio_suspend(), we need to pump this until run_until() notices
-  while(_need_signal)
+  if(_use_kqueues)
   {
+#if BOOST_AFIO_COMPILE_KQUEUES
+# error todo
+#endif
+  }
+  else
+  {
+    // If run_until() is exactly between the unblock of the signal and the beginning
+    // of the aio_suspend(), we need to pump this until run_until() notices
+    while(_need_signal)
+    {
 //#  if BOOST_AFIO_HAVE_REALTIME_SIGNALS
 //    sigval val = { 0 };
 //    pthread_sigqueue(_threadh, interrupt_signal, val);
 //#else
-    pthread_kill(_threadh, interrupt_signal);
+      pthread_kill(_threadh, interrupt_signal);
 //#  endif
+    }
   }
-#endif
 #else
 # error todo
 #endif
