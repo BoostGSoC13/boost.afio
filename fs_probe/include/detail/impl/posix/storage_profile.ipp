@@ -1,7 +1,7 @@
 /* storage_profile.hpp
 A profile of an OS and filing system
-(C) 2015 Niall Douglas http://www.nedprod.com/
-File Created: Dec 2015
+(C) 2016 Niall Douglas http://www.nedprod.com/
+File Created: Jan 2016
 
 
 Boost Software License - Version 1.0 - August 17th, 2003
@@ -31,9 +31,11 @@ DEALINGS IN THE SOFTWARE.
 
 #include "../../../storage_profile.hpp"
 #include "../../../handle.hpp"
-#include "import.hpp"
 
-#include <winioctl.h>
+#include <sys/utsname.h>  // for uname()
+#if !defined(__linux__)
+# include <sys/sysctl.h>
+#endif
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
@@ -42,10 +44,6 @@ namespace storage_profile
   namespace system
   {
     // OS name, version
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 6387) // MSVC sanitiser warns that GetModuleHandleA() might fail (hah!)
-#endif
     outcome<void> os(storage_profile &sp, file_handle &h) noexcept
     {
       static std::string os_name, os_ver;
@@ -58,20 +56,11 @@ namespace storage_profile
       {
         try
         {
-          RTL_OSVERSIONINFOW ovi = { sizeof(RTL_OSVERSIONINFOW) };
-          // GetVersionEx() is no longer useful since Win8.1
-          using RtlGetVersion_t = LONG(*)(PRTL_OSVERSIONINFOW);
-          static RtlGetVersion_t RtlGetVersion;
-          if (!RtlGetVersion)
-            RtlGetVersion = (RtlGetVersion_t)GetProcAddress(GetModuleHandle(L"NTDLL.DLL"), "RtlGetVersion");
-          if (!RtlGetVersion)
-            return make_errored_outcome<void>(GetLastError());
-          RtlGetVersion(&ovi);
-          sp.os_name.value = "Microsoft Windows ";
-          sp.os_name.value.append(ovi.dwPlatformId == VER_PLATFORM_WIN32_NT ? "NT" : "Unknown");
-          sp.os_ver.value.append(to_string(ovi.dwMajorVersion) + "." + to_string(ovi.dwMinorVersion) + "." + to_string(ovi.dwBuildNumber));
-          os_name = sp.os_name.value;
-          os_ver = sp.os_ver.value;
+          struct utsname name = {0};
+          if(uname(&name)<0)
+            return make_errored_outcome<void>(errno);
+          sp.os_name.value = os_name = name.sysname;
+          sp.os_ver.value = os_ver = name.release;
         }
         catch (...)
         {
@@ -80,9 +69,7 @@ namespace storage_profile
       }
       return make_ready_outcome<void>();
     }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+
     // CPU name, architecture, physical cores
     outcome<void> cpu(storage_profile &sp, file_handle &h) noexcept
     {
@@ -98,48 +85,66 @@ namespace storage_profile
       {
         try
         {
-          SYSTEM_INFO si = { {sizeof(SYSTEM_INFO)} };
-          GetNativeSystemInfo(&si);
-          switch (si.wProcessorArchitecture)
+          struct utsname name = {0};
+          if(uname(&name)<0)
+            return make_errored_outcome<void>(errno);
+          sp.cpu_name.value = sp.cpu_architecture.value = name.machine;
+          sp.cpu_physical_cores.value = 0;
+#if defined(__linux__)
           {
-          case PROCESSOR_ARCHITECTURE_AMD64:
-            sp.cpu_name.value = sp.cpu_architecture.value = "x64";
-            break;
-          case PROCESSOR_ARCHITECTURE_ARM:
-            sp.cpu_name.value = sp.cpu_architecture.value = "ARM";
-            break;
-          case PROCESSOR_ARCHITECTURE_IA64:
-            sp.cpu_name.value = sp.cpu_architecture.value = "IA64";
-            break;
-          case PROCESSOR_ARCHITECTURE_INTEL:
-            sp.cpu_name.value = sp.cpu_architecture.value = "x86";
-            break;
-          default:
-            sp.cpu_name.value = sp.cpu_architecture.value = "unknown";
-            break;
-          }
-          {
-            DWORD size = 0;
-
-            GetLogicalProcessorInformation(NULL, &size);
-            if (ERROR_INSUFFICIENT_BUFFER != GetLastError())
-              return make_errored_outcome<void>(GetLastError());
-
-            std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(size);
-            if (GetLogicalProcessorInformation(&buffer.front(), &size) == FALSE)
-              return make_errored_outcome<void>(GetLastError());
-
-            const size_t Elements = size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
-
-            sp.cpu_physical_cores.value = 0;
-            for (size_t i = 0; i < Elements; ++i) {
-              if (buffer[i].Relationship == RelationProcessorCore)
-                ++sp.cpu_physical_cores.value;
+            int ih=::open("/proc/cpuinfo", O_RDONLY);
+            if(ih>=0)
+            {
+              char cpuinfo[8192];
+              cpuinfo[::read(ih, cpuinfo, sizeof(cpuinfo)-1)]=0;
+              ::close(ih);
+              /* If siblings > cpu cores hyperthread is enabled:
+              siblings   : 8
+              cpu cores  : 4
+              */
+              const char *siblings=strstr(cpuinfo, "siblings");
+              const char *cpucores=strstr(cpuinfo, "cpu cores");
+              if(siblings && cpucores)
+              {
+                for(siblings=strchr(siblings, ':'); ' '==*siblings; siblings++);
+                for(cpucores=strchr(cpucores, ':'); ' '==*cpucores; cpucores++);
+                int s=atoi(siblings), c=atoi(cpucores);
+                if(s && c)
+                  sp.cpu_physical_cores.value = sysconf( _SC_NPROCESSORS_ONLN ) * c / s;
+              }
             }
           }
+#else
+          // Currently only available on OS X
+          {
+            int physicalCores=0;
+            size_t len=sizeof(physicalCores);
+            if(sysctlbyname("hw.physicalcpu", &physicalCores, &len, NULL, 0)>=0)
+              sp.cpu_physical_cores.value=physicalCores;
+          }
+          if(!sp.cpu_physical_cores.value)
+          {
+            char topology[8192];
+            size_t len=sizeof(topology)-1;
+            if(sysctlbyname("kern.sched.topology_spec", topology, &len, NULL, 0)>=0)
+            {
+              topology[len]=0;
+              sp.cpu_physical_cores.value = sysconf( _SC_NPROCESSORS_ONLN );
+              if(strstr(topology, "HTT"))
+                sp.cpu_physical_cores.value /= 2;
+            }
+          }
+#endif
+          // Doesn't account for any hyperthreading
+          if(!sp.cpu_physical_cores.value)
+            sp.cpu_physical_cores.value = sysconf( _SC_NPROCESSORS_ONLN );
 #if defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
           // We can do a much better CPU name on x86/x64
           sp.cpu_name.value.clear();
+          auto __cpuid=[](int *cpuInfo, int func)
+          {
+            __asm__ __volatile__ ("cpuid\n\t" : "=a" (cpuInfo[0]), "=b" (cpuInfo[1]), "=c" (cpuInfo[2]), "=d" (cpuInfo[3]) : "0" (func));
+          };
           {
             char buffer[62];
             memset(buffer, 32, 62);
@@ -169,29 +174,32 @@ namespace storage_profile
             }
           }
 #endif
-          cpu_name = sp.cpu_name.value;
-          cpu_architecture = sp.cpu_architecture.value;
-          cpu_physical_cores = sp.cpu_physical_cores.value;
         }
         catch (...)
         {
           return std::current_exception();
         }
+        cpu_name = sp.cpu_name.value;
+        cpu_architecture = sp.cpu_architecture.value;
+        cpu_physical_cores = sp.cpu_physical_cores.value;
       }
       return make_ready_outcome<void>();
     }
-    namespace windows
+    namespace posix
     {
       outcome<void> _mem(storage_profile &sp, file_handle &h) noexcept
       {
+#if 0
         MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
         GlobalMemoryStatusEx(&ms);
         sp.mem_quantity.value = (unsigned long long)ms.ullTotalPhys;
         sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
+#endif
         return make_ready_outcome<void>();
       }
     }
   }
+#if 0
   namespace storage
   {
     namespace windows
@@ -358,6 +366,7 @@ namespace storage_profile
       }
     }
   }
+#endif
 }
 
 BOOST_AFIO_V2_NAMESPACE_END

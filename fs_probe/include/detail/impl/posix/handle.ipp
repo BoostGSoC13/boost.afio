@@ -179,7 +179,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
 #error todo
 #endif
     state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, _operation, std::forward<CompletionRoutine>(f), _items) { }
-    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept
+    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept override final
     {
 #if BOOST_AFIO_USE_POSIX_AIO
       struct aiocb **_paiocb=(struct aiocb **) internal_state;
@@ -212,7 +212,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
       this->parent->service()->_work_done();
       // Are we done?
       if (!--this->items_to_go)
-        this->completion(this->state);
+        this->completion(this);
     }
     virtual ~state_type() override final
     {
@@ -254,7 +254,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
     struct aiocb *aiocb = state->aiocbs + n;
     aiocb->aio_fildes = _v.fd;
     aiocb->aio_offset = offset;
-    aiocb->aio_buf = out[n].first;
+    aiocb->aio_buf = (void *) out[n].first;
     aiocb->aio_nbytes = out[n].second;
     aiocb->aio_sigevent.sigev_notify = SIGEV_NONE;
     aiocb->aio_lio_opcode = (operation==operation_t::write) ? LIO_WRITE : LIO_READ;
@@ -275,7 +275,17 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
 #endif
   }
   else
-    ret=lio_listio(LIO_NOWAIT, state->aiocbs, items, nullptr);
+  {
+    // Add these i/o's to the quick aio_suspend list
+    service()->_aiocbsv.resize(service()->_aiocbsv.size()+items);
+    struct aiocb **thislist=service()->_aiocbsv.data()+service()->_aiocbsv.size()-items;    
+    for (size_t n = 0; n < items; n++)
+    {
+      struct aiocb *aiocb = state->aiocbs + n;
+      thislist[n]=aiocb;
+    }    
+    ret=lio_listio(LIO_NOWAIT, thislist, items, nullptr);
+  }
 #else
 #error todo
 #endif
