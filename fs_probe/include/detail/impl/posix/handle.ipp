@@ -179,7 +179,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
 #error todo
 #endif
     state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, _operation, std::forward<CompletionRoutine>(f), _items) { }
-    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept override final
+    virtual void operator()(long errcode, long bytes_transferred, void *internal_state) noexcept override final
     {
 #if BOOST_AFIO_USE_POSIX_AIO
       struct aiocb **_paiocb=(struct aiocb **) internal_state;

@@ -302,7 +302,7 @@ protected:
       - bytes_transferred: return from aio_return(), usually bytes transferred
       - internal_state: address of pointer to struct aiocb in io_service's _aiocbsv
     */
-    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept=0;
+    virtual void operator()(long errcode, long bytes_transferred, void *internal_state) noexcept=0;
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~_erased_io_state_type()
     {
       // i/o still pending is very bad, this should never happen

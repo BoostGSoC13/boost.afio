@@ -139,6 +139,12 @@ namespace storage_profile
           }
 #if defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
           // We can do a much better CPU name on x86/x64
+#ifdef __clang__
+          auto __cpuid = [](int *cpuInfo, int func)
+          {
+            __asm__ __volatile__("cpuid\n\t" : "=a" (cpuInfo[0]), "=b" (cpuInfo[1]), "=c" (cpuInfo[2]), "=d" (cpuInfo[3]) : "0" (func));
+          };
+#endif
           sp.cpu_name.value.clear();
           {
             char buffer[62];
@@ -291,8 +297,14 @@ namespace storage_profile
           if (disk_extents > 0)
           {
             // For now we only care about the first physical device
-            alignas(8) fixme_path::value_type physicaldrivename[32769];
-            wsprintf(physicaldrivename, L"\\\\.\\PhysicalDrive%u", vde->Extents[0].DiskNumber);
+            alignas(8) fixme_path::value_type physicaldrivename[32769]=L"\\\\.\\PhysicalDrive", *e;
+            for (e = physicaldrivename; *e; e++);
+            if (vde->Extents[0].DiskNumber >= 100)
+              *e++ = '0'+((vde->Extents[0].DiskNumber / 100) % 10);
+            if (vde->Extents[0].DiskNumber >= 10)
+              *e++ = '0'+((vde->Extents[0].DiskNumber / 10) % 10);
+            *e++ = '0' + (vde->Extents[0].DiskNumber % 10);
+            *e = 0;
             BOOST_OUTCOME_FILTER_ERROR(diskh, file_handle::file(*h.service(), physicaldrivename, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
             spq = { StorageDeviceProperty, PropertyStandardQuery };
             STORAGE_DEVICE_DESCRIPTOR *sdd = (STORAGE_DEVICE_DESCRIPTOR *)buffer;

@@ -278,7 +278,7 @@ namespace storage_profile
         using off_t = io_service::extent_type;
         sp.max_aligned_atomic_rewrite.value = 1;
         sp.atomic_rewrite_quantum.value = (off_t)-1;
-        for (off_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_rewrite_quantum.value; size = size * 2)
+        for (size_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_rewrite_quantum.value; size = size * 2)
         {
           // Create two concurrent writer threads and as many reader threads as additional CPU cores
           std::vector<std::thread> writers, readers;
@@ -368,7 +368,7 @@ namespace storage_profile
         // offsets not at the front of the file
         if (sp.max_aligned_atomic_rewrite.value > sp.atomic_rewrite_quantum.value)
         {
-          off_t size = sp.max_aligned_atomic_rewrite.value;
+          size_t size = sp.max_aligned_atomic_rewrite.value;
           for (off_t offset = sp.max_aligned_atomic_rewrite.value; offset < sp.max_aligned_atomic_rewrite.value*4; offset += sp.max_aligned_atomic_rewrite.value)
           {
             // Create two concurrent writer threads and as many reader threads as additional CPU cores
@@ -461,8 +461,8 @@ namespace storage_profile
       try
       {
         using off_t = io_service::extent_type;
-        off_t size = sp.max_aligned_atomic_rewrite.value!=(off_t)-1 ? sp.max_aligned_atomic_rewrite.value : 1024;
-        off_t maxsize = sp.max_aligned_atomic_rewrite.value != (off_t)-1 ? sp.max_aligned_atomic_rewrite.value : 8192;
+        size_t size = sp.max_aligned_atomic_rewrite.value!=(off_t)-1 ? sp.max_aligned_atomic_rewrite.value : 1024;
+        size_t maxsize = sp.max_aligned_atomic_rewrite.value != (off_t)-1 ? sp.max_aligned_atomic_rewrite.value : 8192;
         sp.atomic_rewrite_offset_boundary.value = (off_t)-1;
         if(size>1)
         {

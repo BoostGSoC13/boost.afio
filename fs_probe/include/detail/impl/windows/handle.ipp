@@ -176,7 +176,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
   {
     OVERLAPPED ols[1];
     state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, _operation, std::forward<CompletionRoutine>(f), _items) { }
-    virtual void operator()(long errcode, ssize_t bytes_transferred, void *internal_state) noexcept override final
+    virtual void operator()(long errcode, long bytes_transferred, void *internal_state) noexcept override final
     {
       LPOVERLAPPED ol=(LPOVERLAPPED) internal_state;
       ol->hEvent = nullptr;
