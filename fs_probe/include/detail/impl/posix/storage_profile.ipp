@@ -32,8 +32,12 @@ DEALINGS IN THE SOFTWARE.
 #include "../../../storage_profile.hpp"
 #include "../../../handle.hpp"
 
+#include <unistd.h>
 #include <sys/utsname.h>  // for uname()
-#if !defined(__linux__)
+#include <sys/ioctl.h>
+#if defined(__linux__)
+# include <linux/fs.h>
+#else
 # include <sys/sysctl.h>
 #endif
 
@@ -174,14 +178,14 @@ namespace storage_profile
             }
           }
 #endif
+          cpu_name = sp.cpu_name.value;
+          cpu_architecture = sp.cpu_architecture.value;
+          cpu_physical_cores = sp.cpu_physical_cores.value;
         }
         catch (...)
         {
           return std::current_exception();
         }
-        cpu_name = sp.cpu_name.value;
-        cpu_architecture = sp.cpu_architecture.value;
-        cpu_physical_cores = sp.cpu_physical_cores.value;
       }
       return make_ready_outcome<void>();
     }
@@ -189,174 +193,59 @@ namespace storage_profile
     {
       outcome<void> _mem(storage_profile &sp, file_handle &h) noexcept
       {
-#if 0
-        MEMORYSTATUSEX ms = { sizeof(MEMORYSTATUSEX) };
-        GlobalMemoryStatusEx(&ms);
-        sp.mem_quantity.value = (unsigned long long)ms.ullTotalPhys;
-        sp.mem_in_use.value = (float)(ms.ullTotalPhys - ms.ullAvailPhys) / ms.ullTotalPhys;
+#if defined(_SC_PHYS_PAGES)
+        size_t physpages=sysconf (_SC_PHYS_PAGES), pagesize=sysconf (_SC_PAGESIZE);
+        sp.mem_quantity.value = (unsigned long long)physpages * pagesize;
+#if defined(_SC_AVPHYS_PAGES)
+        size_t freepages=sysconf (_SC_AVPHYS_PAGES);
+        sp.mem_in_use.value = (float)(physpages - freepages) / physpages;
+#elif defined(HW_USERMEM)
+        unsigned long long freemem=0;
+        size_t len = sizeof(freemem);
+        int mib[2] = { CTL_HW, HW_USERMEM };
+        if (sysctl (mib, 2, &freemem, &len, nullptr, 0) >= 0)
+        {
+          size_t freepages=(size_t)(freemem/pagesize);
+          sp.mem_in_use.value = (float)(physpages - freepages) / physpages;          
+        }
+#else
+#error Do not know how to get free physical RAM on this platform
 #endif
+#endif        
         return make_ready_outcome<void>();
       }
     }
   }
-#if 0
   namespace storage
   {
-    namespace windows
+    namespace posix
     {
       // Controller type, max transfer, max buffers. Device name, size
       outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept
       {
         try
         {
-          alignas(8) fixme_path::value_type buffer[32769];
-          // Firstly open a handle to the volume
-          BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(*h.service(), mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
-          STORAGE_PROPERTY_QUERY spq = { StorageAdapterProperty, PropertyStandardQuery };
-          STORAGE_ADAPTER_DESCRIPTOR *sad = (STORAGE_ADAPTER_DESCRIPTOR *)buffer;
-          OVERLAPPED ol = { (ULONG_PTR)-1 };
-          if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_STORAGE_QUERY_PROPERTY, &spq, sizeof(spq), sad, sizeof(buffer), nullptr, &ol))
-          {
-            if (ERROR_IO_PENDING == GetLastError())
-            {
-              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
-              if (ntstat)
-                return make_errored_outcome_nt<void>(ntstat);
-            }
-            if (ERROR_SUCCESS != GetLastError())
-              return make_errored_outcome<void>(GetLastError());
-          }
-          switch (sad->BusType)
-          {
-          case BusTypeScsi:
-            sp.controller_type.value = "SCSI";
-            break;
-          case BusTypeAtapi:
-            sp.controller_type.value = "ATAPI";
-            break;
-          case BusTypeAta:
-            sp.controller_type.value = "ATA";
-            break;
-          case BusType1394:
-            sp.controller_type.value = "1394";
-            break;
-          case BusTypeSsa:
-            sp.controller_type.value = "SSA";
-            break;
-          case BusTypeFibre:
-            sp.controller_type.value = "Fibre";
-            break;
-          case BusTypeUsb:
-            sp.controller_type.value = "USB";
-            break;
-          case BusTypeRAID:
-            sp.controller_type.value = "RAID";
-            break;
-          case BusTypeiScsi:
-            sp.controller_type.value = "iSCSI";
-            break;
-          case BusTypeSas:
-            sp.controller_type.value = "SAS";
-            break;
-          case BusTypeSata:
-            sp.controller_type.value = "SATA";
-            break;
-          case BusTypeSd:
-            sp.controller_type.value = "SD";
-            break;
-          case BusTypeMmc:
-            sp.controller_type.value = "MMC";
-            break;
-          case BusTypeVirtual:
-            sp.controller_type.value = "Virtual";
-            break;
-          case BusTypeFileBackedVirtual:
-            sp.controller_type.value = "File Backed Virtual";
-            break;
-          default:
-            sp.controller_type.value = "unknown";
-            break;
-          }
-          sp.controller_max_transfer.value = sad->MaximumTransferLength;
-          sp.controller_max_buffers.value = sad->MaximumPhysicalPages;
+          // Firstly open a handle to the device
+          BOOST_OUTCOME_FILTER_ERROR(deviceh, file_handle::file(*h.service(), mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
 
-          // Now ask the volume what physical disks it spans
-          VOLUME_DISK_EXTENTS *vde = (VOLUME_DISK_EXTENTS *)buffer;
-          ol.Internal = (ULONG_PTR)-1;
-          if (!DeviceIoControl(volumeh.native_handle().h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, nullptr, 0, vde, sizeof(buffer), nullptr, &ol))
-          {
-            if (ERROR_IO_PENDING == GetLastError())
-            {
-              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
-              if (ntstat)
-                return make_errored_outcome_nt<void>(ntstat);
-            }
-            if (ERROR_SUCCESS != GetLastError())
-              return make_errored_outcome<void>(GetLastError());
-          }
-          DWORD disk_extents = vde->NumberOfDiskExtents;
-          sp.device_name.value.clear();
-          if (disk_extents > 0)
-          {
-            // For now we only care about the first physical device
-            alignas(8) fixme_path::value_type physicaldrivename[32769];
-            wsprintf(physicaldrivename, L"\\\\.\\PhysicalDrive%u", vde->Extents[0].DiskNumber);
-            BOOST_OUTCOME_FILTER_ERROR(diskh, file_handle::file(*h.service(), physicaldrivename, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
-            spq = { StorageDeviceProperty, PropertyStandardQuery };
-            STORAGE_DEVICE_DESCRIPTOR *sdd = (STORAGE_DEVICE_DESCRIPTOR *)buffer;
-            ol.Internal = (ULONG_PTR)-1;
-            if (!DeviceIoControl(diskh.native_handle().h, IOCTL_STORAGE_QUERY_PROPERTY, &spq, sizeof(spq), sdd, sizeof(buffer), nullptr, &ol))
-            {
-              if (ERROR_IO_PENDING == GetLastError())
-              {
-                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
-                if (ntstat)
-                  return make_errored_outcome_nt<void>(ntstat);
-              }
-              if (ERROR_SUCCESS != GetLastError())
-                return make_errored_outcome<void>(GetLastError());
-            }
-            if (sdd->VendorIdOffset > 0 && sdd->VendorIdOffset < sizeof(buffer))
-            {
-              for (auto n = sdd->VendorIdOffset; ((const char *)buffer)[n]; n++)
-                sp.device_name.value.push_back(((const char *)buffer)[n]);
-              sp.device_name.value.push_back(',');
-            }
-            if (sdd->ProductIdOffset > 0 && sdd->ProductIdOffset < sizeof(buffer))
-            {
-              for (auto n = sdd->ProductIdOffset; ((const char *)buffer)[n]; n++)
-                sp.device_name.value.push_back(((const char *)buffer)[n]);
-              sp.device_name.value.push_back(',');
-            }
-            if (sdd->ProductRevisionOffset > 0 && sdd->ProductRevisionOffset < sizeof(buffer))
-            {
-              for (auto n = sdd->ProductRevisionOffset; ((const char *)buffer)[n]; n++)
-                sp.device_name.value.push_back(((const char *)buffer)[n]);
-              sp.device_name.value.push_back(',');
-            }
-            if (!sp.device_name.value.empty())
-              sp.device_name.value.resize(sp.device_name.value.size() - 1);
-            if (disk_extents > 1)
-              sp.device_name.value.append(" (NOTE: plus additional devices)");
+          // TODO See https://github.com/baruch/diskscan/blob/master/arch/arch-linux.c
+          //          sp.controller_type.value = "SCSI";
+          //          sp.controller_max_transfer.value = sad->MaximumTransferLength;
+          //          sp.controller_max_buffers.value = sad->MaximumPhysicalPages;
+          //          sp.device_name.value.resize(sp.device_name.value.size() - 1);
 
-            // Get device size
-            // IOCTL_STORAGE_READ_CAPACITY needs GENERIC_READ privs which requires admin privs
-            // so simply fetch the geometry
-            DISK_GEOMETRY_EX *dg = (DISK_GEOMETRY_EX *)buffer;
-            ol.Internal = (ULONG_PTR)-1;
-            if (!DeviceIoControl(diskh.native_handle().h, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, nullptr, 0, dg, sizeof(buffer), nullptr, &ol))
-            {
-              if (ERROR_IO_PENDING == GetLastError())
-              {
-                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
-                if (ntstat)
-                  return make_errored_outcome_nt<void>(ntstat);
-              }
-              if (ERROR_SUCCESS != GetLastError())
-                return make_errored_outcome<void>(GetLastError());
-            }
-            sp.device_size.value = dg->DiskSize.QuadPart;
-          }
+#ifdef DIOCGMEDIASIZE
+          // BSDs
+          ioctl(deviceh.h.fd, DIOCGMEDIASIZE, &sp.device_size.value);
+#endif
+#ifdef BLKGETSIZE64
+          // Linux
+          ioctl(deviceh.h.fd, BLKGETSIZE64, &sp.device_size.value);
+#endif
+#ifdef DKIOCGETBLOCKCOUNT
+          // OS X
+          ioctl(deviceh.h.fd, DKIOCGETBLOCKCOUNT, &sp.device_size.value);
+#endif
         }
         catch (...)
         {
@@ -366,7 +255,6 @@ namespace storage_profile
       }
     }
   }
-#endif
 }
 
 BOOST_AFIO_V2_NAMESPACE_END
