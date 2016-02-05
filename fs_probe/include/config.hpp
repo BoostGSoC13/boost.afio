@@ -355,41 +355,56 @@ namespace detail {
 // Temporary in lieu of afio::path
 using fixme_path = stl1z::filesystem::path;
 
-//! Constexpr bitwise flags support
-template<class Derived, class T = unsigned> class bitwise_flags
+//! Constexpr typesafe bitwise flags support
+template<class Enum> struct bitfield : public Enum
 {
-  T _value;
+  //! The C style enum type which represents flags in this bitfield
+  using enum_type = typename Enum::enum_type;
+  //! The type which the C style enum implicitly converts to
+  using underlying_type = std::underlying_type_t<enum_type>;
+private:
+  underlying_type _value;
 public:
-  //! The underlying type
-  using underlying_type = T;
-  //! Default constructs to all bits zero
-  constexpr bitwise_flags() noexcept : _value(0) { }
-  //! Constructs to a predetermined value
-  explicit constexpr bitwise_flags(underlying_type _v) noexcept : _value(_v) { }
-  //! Returns the underlying value
+  //! Default construct to all bits zero
+  constexpr bitfield() noexcept : _value(0) { }
+  //! Implicit construction from the C style enum
+  constexpr bitfield(enum_type v) noexcept : _value(v) { }
+  //! Implicit construction from the underlying type of the C enum
+  constexpr bitfield(underlying_type v) noexcept : _value(v) { }
+
+  //! Permit explicit casting to the underlying type
   explicit constexpr operator underlying_type() const noexcept { return _value; }
-  //! True if value is not all bits zero
+  //! Test for non-zeroness
   explicit constexpr operator bool() const noexcept { return !!_value; }
-  //! True if value is all bits zero
+  //! Test for zeroness
   constexpr bool operator !() const noexcept { return !_value; }
-  //! True if value has the specified bit set
-  constexpr bool operator&&(bitwise_flags o) const noexcept { return !!(_value&&o._value); }
 
   //! Performs a bitwise NOT
-  constexpr bitwise_flags operator ~() const noexcept { return bitwise_flags(~_value); }
+  constexpr bitfield operator ~() const noexcept { return bitfield(~_value); }
   //! Performs a bitwise AND
-  constexpr bitwise_flags operator &(bitwise_flags o) const noexcept { return bitwise_flags(_value&o._value); }
+  constexpr bitfield operator &(bitfield o) const noexcept { return bitfield(_value&o._value); }
   //! Performs a bitwise AND
-  BOOST_CXX14_CONSTEXPR bitwise_flags &operator &=(bitwise_flags o) noexcept { _value &= o._value; return *this; }
+  BOOST_CXX14_CONSTEXPR bitfield &operator &=(bitfield o) noexcept { _value &= o._value; return *this; }
   //! Performs a bitwise OR
-  constexpr bitwise_flags operator |(bitwise_flags o) const noexcept { return bitwise_flags(_value | o._value); }
+  constexpr bitfield operator |(bitfield o) const noexcept { return bitfield(_value | o._value); }
   //! Performs a bitwise OR
-  BOOST_CXX14_CONSTEXPR bitwise_flags &operator |=(bitwise_flags o) noexcept { _value |= o._value; return *this; }
+  BOOST_CXX14_CONSTEXPR bitfield &operator |=(bitfield o) noexcept { _value |= o._value; return *this; }
   //! Performs a bitwise XOR
-  constexpr bitwise_flags operator ^(bitwise_flags o) const noexcept { return bitwise_flags(_value ^ o._value); }
+  constexpr bitfield operator ^(bitfield o) const noexcept { return bitfield(_value ^ o._value); }
   //! Performs a bitwise XOR
-  BOOST_CXX14_CONSTEXPR bitwise_flags &operator ^=(bitwise_flags o) noexcept { _value ^= o._value; return *this; }
+  BOOST_CXX14_CONSTEXPR bitfield &operator ^=(bitfield o) noexcept { _value ^= o._value; return *this; }
 };
+
+//! Begins a typesafe bitfield
+#define BOOST_AFIO_BITFIELD_BEGIN(type) \
+struct type##_base \
+{ \
+  enum enum_type : unsigned
+
+//! Ends a typesafe bitfield
+#define BOOST_AFIO_BITFIELD_END(type) \
+;}; \
+using type = bitfield<type##_base>; 
 
 // Native handle support
 namespace win

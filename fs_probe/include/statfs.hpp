@@ -71,26 +71,25 @@ struct BOOST_AFIO_DECL statfs_t
   fixme_path f_mntonname;              /*!< directory on which mounted         (Windows, POSIX) */
 
   //! Used to indicate what metadata should be filled in
-  struct want : bitwise_flags<want>
+  BOOST_AFIO_BITFIELD_BEGIN(want)
   {
-    want() = default;
-    constexpr want(bitwise_flags<want> v) noexcept : bitwise_flags<want>(v) { }
-    static constexpr bitwise_flags<want> flags{ 1 << 0 };
-    static constexpr bitwise_flags<want> bsize{ 1 << 1 };
-    static constexpr bitwise_flags<want> iosize{ 1 << 2 };
-    static constexpr bitwise_flags<want> blocks{ 1 << 3 };
-    static constexpr bitwise_flags<want> bfree{ 1 << 4 };
-    static constexpr bitwise_flags<want> bavail{ 1 << 5 };
-    static constexpr bitwise_flags<want> files{ 1 << 6 };
-    static constexpr bitwise_flags<want> ffree{ 1 << 7 };
-    static constexpr bitwise_flags<want> namemax{ 1 << 8 };
-    static constexpr bitwise_flags<want> owner{ 1 << 9 };
-    static constexpr bitwise_flags<want> fsid{ 1 << 10 };
-    static constexpr bitwise_flags<want> fstypename{ 1 << 11 };
-    static constexpr bitwise_flags<want> mntfromname{ 1 << 12 };
-    static constexpr bitwise_flags<want> mntonname{ 1 << 13 };
-    static constexpr bitwise_flags<want> all{ (unsigned)-1 };
-  };
+    flags=1<<0,
+    bsize=1<<1,
+    iosize=1<<2,
+    blocks=1<<3,
+    bfree=1<<4,
+    bavail=1<<5,
+    files=1<<6,
+    ffree=1<<7,
+    namemax=1<<8,
+    owner=1<<9,
+    fsid=1<<10,
+    fstypename=1<<11,
+    mntfromname=1<<12,
+    mntonname=1<<13,
+    all=(unsigned)-1
+  }
+  BOOST_AFIO_BITFIELD_END(want)
   //! Constructs a default initialised instance (all bits set)
   statfs_t()
   {

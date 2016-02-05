@@ -40,43 +40,31 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 struct native_handle_type
 {
   //! The type of handle.
-  struct disposition : bitwise_flags<disposition>
+  BOOST_AFIO_BITFIELD_BEGIN(disposition)
   {
-    constexpr disposition() = default;
-    constexpr disposition(bitwise_flags<disposition> v) noexcept : bitwise_flags<disposition>(v) { }
-    //! Invalid handle
-    static constexpr bitwise_flags<disposition> invalid{ 0 };
+    invalid=0,              //!< Invalid handle
 
-    //! Is readable
-    static constexpr bitwise_flags<disposition> readable{ 1 << 0 };
-    //! Is writable
-    static constexpr bitwise_flags<disposition> writable{ 1 << 1 };
-    //! Is append only
-    static constexpr bitwise_flags<disposition> append_only{ 1 << 2 };
+    readable=1<<0,          //!< Is readable
+    writable=1<<1,          //!< Is writable
+    append_only=1<<2,       //!< Is append only
 
-    //! Requires additional synchronisation
-    static constexpr bitwise_flags<disposition> overlapped{ 1 << 4 };
-    //! Is seekable
-    static constexpr bitwise_flags<disposition> seekable{ 1 << 5 };
-    //! Is aligned i/o (a direct i/o file or device)
-    static constexpr bitwise_flags<disposition> aligned_io{ 1 << 6 };
-
-    //! Is a regular file
-    static constexpr bitwise_flags<disposition> file{ 1 << 8 };
-    //! Is a directory
-    static constexpr bitwise_flags<disposition> directory{ 1 << 9 };
-    //! Is a symlink
-    static constexpr bitwise_flags<disposition> symlink{ 1 << 10 };
-    //! Is a kqueue/epoll/iocp
-    static constexpr bitwise_flags<disposition> multiplexer{ 1 << 11 };
-  };
-  //! The behaviour of the handle
-  disposition behaviour;
+    overlapped=1<<4,        //!< Requires additional synchronisation
+    seekable=1<<5,          //!< Is seekable
+    aligned_io=1<<6,        //!< Requires sector aligned i/o (typically 512 or 4096)
+    
+    file=1<<8,              //!< Is a regular file
+    directory=1<<9,         //!< Is a directory
+    symlink=1<<10,          //!< Is a symlink
+    multiplexer=1<<11       //!< Is a kqueue/epoll/iocp
+    
+  }
+  BOOST_AFIO_BITFIELD_END(disposition)
+  disposition behaviour;    //! The behaviour of the handle
   union
   {
     intptr_t _init;
-    int fd;         //!< A POSIX file descriptor
-    win::handle h;  //!< A Windows HANDLE
+    int fd;                 //!< A POSIX file descriptor
+    win::handle h;          //!< A Windows HANDLE
   };
   //! Constructs a default instance
   constexpr native_handle_type() noexcept : behaviour(), _init(-1) {}
@@ -157,14 +145,10 @@ public:
     temporary=6             //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight as this file is expected to be temporary (Windows only).
   };
   //! Bitwise flags which can be specified
-  struct flag : bitwise_flags<flag>
+  BOOST_AFIO_BITFIELD_BEGIN(flag)
   {
-    flag() = default;
-    constexpr flag(bitwise_flags<flag> v) noexcept : bitwise_flags<flag>(v) { }
-    //! No flags
-    static constexpr bitwise_flags<flag> none{ 0 };
-    //! Delete the file on last handle close
-    static constexpr bitwise_flags<flag> delete_on_close{ 1 << 0 };
+    none=0,                 //!< No flags
+    delete_on_close=1<<0,   //!< Delete the file on last handle close
     /*! Some kernel caching modes have unhelpfully inconsistent behaviours
     in getting your data onto storage, so by default unless this flag is
     specified AFIO adds extra fsyncs to the following operations for the
@@ -178,8 +162,9 @@ public:
     * caching::reads_and_metadata
     * caching::safety_fsyncs
     */
-    static constexpr bitwise_flags<flag> disable_safety_fsyncs{ 1 << 1 };
-  };
+    disable_safety_fsyncs=1<<1
+  }
+  BOOST_AFIO_BITFIELD_END(flag)
 protected:
   io_service *_service;
   path_type _path;
