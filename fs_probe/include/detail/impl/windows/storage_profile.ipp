@@ -203,7 +203,7 @@ namespace storage_profile
     namespace windows
     {
       // Controller type, max transfer, max buffers. Device name, size
-      outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept
+      outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname, std::string /*fstypename*/) noexcept
       {
         try
         {

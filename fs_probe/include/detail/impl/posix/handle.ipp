@@ -148,7 +148,8 @@ result<file_handle> file_handle::file(io_service &service, file_handle::path_typ
   case caching::temporary:
     break;
   }
-  if (-1 == (nativeh.fd = ::open(ret.value()._path.c_str(), attribs, 0x1b0/*660*/)))
+  const char *path_=ret.value()._path.c_str();
+  if (-1 == (nativeh.fd = ::open(path_, attribs, 0x1b0/*660*/)))
     return make_errored_result<file_handle>(errno);
   if (_creation == creation::truncate && ret.value().are_safety_fsyncs_issued())
     fsync(nativeh.fd);
@@ -257,6 +258,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
     aiocb->aio_buf = (void *) out[n].first;
     aiocb->aio_nbytes = out[n].second;
     aiocb->aio_sigevent.sigev_notify = SIGEV_NONE;
+    aiocb->aio_sigevent.sigev_value.sival_ptr=(void *) state;
     aiocb->aio_lio_opcode = (operation==operation_t::write) ? LIO_WRITE : LIO_READ;
 #else
 #error todo
@@ -334,12 +336,19 @@ file_handle::io_result<file_handle::buffers_type> file_handle::read(file_handle:
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
   // While i/o is not done pump i/o completion
-  while (!ret)
+  while (!ret.is_ready())
   {
     auto t(_service->run_until(d));
     // If i/o service pump failed or timed out, cancel outstanding i/o and return
     if (!t)
       return make_errored_result<buffers_type>(t.get_error());
+#ifndef NDEBUG
+    if(!ret.is_ready() && t && !t.get())
+    {
+      BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
+      std::terminate();
+    }
+#endif
   }
   return ret;
 }
@@ -353,12 +362,19 @@ file_handle::io_result<file_handle::const_buffers_type> file_handle::write(file_
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
   // While i/o is not done pump i/o completion
-  while (!ret)
+  while (!ret.is_ready())
   {
     auto t(_service->run_until(d));
     // If i/o service pump failed or timed out, cancel outstanding i/o and return
     if (!t)
       return make_errored_result<const_buffers_type>(t.get_error());
+#ifndef NDEBUG
+    if(!ret.is_ready() && t && !t.get())
+    {
+      BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
+      std::terminate();
+    }
+#endif
   }
   return ret;
 }

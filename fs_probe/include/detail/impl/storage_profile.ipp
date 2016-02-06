@@ -235,12 +235,12 @@ namespace storage_profile
       try
       {
         statfs_t fsinfo;
-        BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize | statfs_t::want::mntfromname));
+        BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize | statfs_t::want::mntfromname | statfs_t::want::fstypename));
         sp.device_min_io_size.value = (unsigned)fsinfo.f_iosize;
 #ifdef WIN32
-        BOOST_OUTCOME_PROPAGATE_ERROR(windows::_device(sp, h, fsinfo.f_mntfromname));
+        BOOST_OUTCOME_PROPAGATE_ERROR(windows::_device(sp, h, fsinfo.f_mntfromname, fsinfo.f_fstypename));
 #else
-        BOOST_OUTCOME_PROPAGATE_ERROR(posix::_device(sp, h, fsinfo.f_mntfromname));
+        BOOST_OUTCOME_PROPAGATE_ERROR(posix::_device(sp, h, fsinfo.f_mntfromname, fsinfo.f_fstypename));
 #endif
       }
       catch (...)

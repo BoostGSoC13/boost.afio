@@ -41,7 +41,11 @@ DEALINGS IN THE SOFTWARE.
 # undef _threadid  // windows macro splosh sigh
 
 //!\def BOOST_AFIO_COMPILE_KQUEUES Undefined to autodetect, 1 to compile in BSD kqueue support, 0 to leave it out
-//!\def BOOST_AFIO_USE_POSIX_AIO Undefined to autodetect, 1 to use POSIX AIO, 0 to not use
+/*!\def BOOST_AFIO_USE_POSIX_AIO Undefined to autodetect, 1 to use POSIX AIO, 0 to not use
+
+\warning On FreeBSD the AIO kernel module needs to be loaded for POSIX AIO to work.
+Run as root 'kldload aio' or add 'aio_load=YES' in loader.conf.
+*/
 //!\def BOOST_AFIO_IO_POST_SIGNAL Undefined to autoset to first free SIGRTMIN if realtime signals available, else SIGUSR1. Only used if BOOST_AFIO_USE_KQUEUES=0.
 //!\def BOOST_AFIO_HAVE_REALTIME_SIGNALS Undefined to autodetect. 0 to use non-realtime signals. Note performance in this use case is abysmal.
 

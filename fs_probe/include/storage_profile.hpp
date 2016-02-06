@@ -170,7 +170,7 @@ namespace storage_profile
 #else
     namespace posix {
 #endif
-      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept;
+      BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname, std::string fstypename) noexcept;
     }
   }
   namespace concurrency

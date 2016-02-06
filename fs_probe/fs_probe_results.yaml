@@ -208,3 +208,63 @@ direct=1 sync=1:
         # memory page mapping.
         max_aligned_atomic_rewrite: 512
 
+------
+timestamp: 2016-02-06 16:21:57 +0000
+storage:
+    device:
+        min_io_size: 131072
+    fs:
+        name: zfs
+        config: todo
+        size: 20218984960
+        in_use: 0.00901603
+direct=0 sync=0:
+direct=1 sync=0:
+direct=0 sync=1:
+direct=1 sync=1:
+---
+timestamp: 2016-02-06 16:27:00 +0000
+storage:
+    device:
+        min_io_size: 131072
+        size: 34359738368
+    fs:
+        name: zfs
+        config: todo
+        size: 20218953728
+        in_use: 0.00907616
+direct=0 sync=0:
+direct=1 sync=0:
+direct=0 sync=1:
+direct=1 sync=1:
+---
+timestamp: 2016-02-06 16:37:10 +0000
+storage:
+    device:
+        min_io_size: 131072
+        size: 34359738368
+    fs:
+        name: zfs
+        config: todo
+        size: 20218921472
+        in_use: 0.00906934
+direct=0 sync=0:
+direct=1 sync=0:
+direct=0 sync=1:
+direct=1 sync=1:
+---
+timestamp: 2016-02-06 16:37:34 +0000
+storage:
+    device:
+        min_io_size: 131072
+        size: 34359738368
+    fs:
+        name: zfs
+        config: todo
+        size: 20218936320
+        in_use: 0.00906931
+direct=0 sync=0:
+direct=1 sync=0:
+direct=0 sync=1:
+direct=1 sync=1:
+-

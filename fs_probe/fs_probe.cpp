@@ -44,6 +44,8 @@ static const std::regex sp_preamble{ "(system|storage).*" };
 
 static storage_profile::storage_profile profile[permute_flags_max];
 
+#define RETCHECK(expr) { auto ret=(expr); if(ret.has_error()) { std::cerr << "WARNING: Operation " #expr " failed due to '" << ret.get_error().message() << "'" << std::endl; abort(); } }
+
 int main(int argc, char *argv[])
 {
   std::regex torun(".*");
@@ -73,14 +75,14 @@ int main(int argc, char *argv[])
     auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::if_needed, handle::caching::reads));
     if (!_testfile)
     {
-      std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
+      std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', failing" << std::endl;
       return 1;
     }
     file_handle testfile(std::move(_testfile.get()));
     std::vector<char> buffer(1024 * 1024);
-    testfile.truncate(buffer.size());
+    RETCHECK(testfile.truncate(buffer.size()));
     file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), buffer.size()) }, 0);
-    testfile.write(reqs);
+    RETCHECK(testfile.write(reqs));
   }
   // File closes, as it was opened with O_SYNC it forces extent allocation
   // Pause as Windows still takes a while

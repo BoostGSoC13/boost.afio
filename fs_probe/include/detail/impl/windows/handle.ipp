@@ -288,12 +288,19 @@ file_handle::io_result<file_handle::buffers_type> file_handle::read(file_handle:
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
   // While i/o is not done pump i/o completion
-  while (!ret)
+  while (!ret.is_ready())
   {
     auto t(_service->run_until(d));
     // If i/o service pump failed or timed out, cancel outstanding i/o and return
     if (!t)
       return make_errored_result<buffers_type>(t.get_error());
+#ifndef NDEBUG
+    if(!ret.is_ready() && t && !t.get())
+    {
+      BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
+      std::terminate();
+    }
+#endif
   }
   return ret;
 }
@@ -307,12 +314,19 @@ file_handle::io_result<file_handle::const_buffers_type> file_handle::write(file_
   BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
 
   // While i/o is not done pump i/o completion
-  while (!ret)
+  while (!ret.is_ready())
   {
     auto t(_service->run_until(d));
     // If i/o service pump failed or timed out, cancel outstanding i/o and return
     if (!t)
       return make_errored_result<const_buffers_type>(t.get_error());
+#ifndef NDEBUG
+    if(!ret.is_ready() && t && !t.get())
+    {
+      BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
+      std::terminate();
+    }
+#endif
   }
   return ret;
 }

@@ -39,6 +39,7 @@ DEALINGS IN THE SOFTWARE.
 # include <linux/fs.h>
 #else
 # include <sys/sysctl.h>
+# include <sys/disk.h>
 #endif
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
@@ -221,11 +222,45 @@ namespace storage_profile
     namespace posix
     {
       // Controller type, max transfer, max buffers. Device name, size
-      outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname) noexcept
+      outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname, std::string fstypename) noexcept
       {
         try
         {
           // Firstly open a handle to the device
+          if(strncmp(mntfromname.data(), "/dev", 4))
+          {
+            // If the mount point doesn't begin with /dev we can't use that here, so return ENOSYS
+#ifdef __FreeBSD__
+            // If on ZFS and there is exactly one physical disk in the system, use that
+            if(fstypename=="zfs")
+            {
+              char buffer[4096];
+              size_t len=sizeof(buffer);
+              if(sysctlbyname("kern.disks",buffer, &len, NULL, 0)>=0)
+              {
+                mntfromname.clear();
+                // Might be a string like "ada0 cd0 ..."
+                const char *s, *e=buffer;
+                for(; e<buffer+len; e++)
+                {
+                  for(s=e; e<buffer+len && *e!=' '; e++);
+                  if(s[0]=='c' && s[1]=='d') continue;
+                  if(s[0]=='f' && s[1]=='d') continue;
+                  if(s[0]=='m' && s[1]=='c' && s[2]=='d') continue;
+                  if(s[0]=='s' && s[1]=='c' && s[2]=='d') continue;
+                  // Is there more than one physical disk device?
+                  if(!mntfromname.empty())
+                    return make_errored_outcome<void>(ENOSYS);
+                  mntfromname="/dev/"+std::string(s, e-s);
+                }
+              }
+              else
+                return make_errored_outcome<void>(ENOSYS);
+            }
+            else
+#endif            
+            return make_errored_outcome<void>(ENOSYS);
+          }
           BOOST_OUTCOME_FILTER_ERROR(deviceh, file_handle::file(*h.service(), mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
 
           // TODO See https://github.com/baruch/diskscan/blob/master/arch/arch-linux.c
@@ -236,15 +271,15 @@ namespace storage_profile
 
 #ifdef DIOCGMEDIASIZE
           // BSDs
-          ioctl(deviceh.h.fd, DIOCGMEDIASIZE, &sp.device_size.value);
+          ioctl(deviceh.native_handle().fd, DIOCGMEDIASIZE, &sp.device_size.value);
 #endif
 #ifdef BLKGETSIZE64
           // Linux
-          ioctl(deviceh.h.fd, BLKGETSIZE64, &sp.device_size.value);
+          ioctl(deviceh.native_handle().fd, BLKGETSIZE64, &sp.device_size.value);
 #endif
 #ifdef DKIOCGETBLOCKCOUNT
           // OS X
-          ioctl(deviceh.h.fd, DKIOCGETBLOCKCOUNT, &sp.device_size.value);
+          ioctl(deviceh.native_handle().fd, DKIOCGETBLOCKCOUNT, &sp.device_size.value);
 #endif
         }
         catch (...)
