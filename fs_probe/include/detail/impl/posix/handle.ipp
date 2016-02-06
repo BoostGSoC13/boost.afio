@@ -43,39 +43,50 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
 {
   result<handle> ret(handle(&service, _path, native_handle_type(), _caching, _flags));
   ret.value()._v.behaviour = _v.behaviour;
-  if (-1 == (ret.value()._v.fd = ::dup(_v.fd)))
-    return make_errored_result<handle>(errno);
-  if (mode != mode::unchanged)
+  // If current handle is read-only and clone request is to add write powers, we can't use dup()
+  if (mode != mode::unchanged && !_v.is_writable() && (mode==mode::write || mode==mode::append))
   {
-    ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
-    int attribs = 0;
-    if (-1 == (attribs = fcntl(ret.value()._v.fd, F_GETFL)))
-      return make_errored_result<handle>(errno);
-    switch (mode)
-    {
-    case mode::unchanged:
-      break;
-    case mode::none:
-    case mode::attr_read:
-    case mode::attr_write:
-    case mode::read:
-      return make_errored_result<handle>(EINVAL);
-    case mode::write:
-      attribs&=~O_APPEND;
-      ret.value()._v.behaviour |= native_handle_type::disposition::readable| native_handle_type::disposition::writable;
-      break;
-    case mode::append:
-      attribs |= O_APPEND;
-      ret.value()._v.behaviour |= native_handle_type::disposition::append_only | native_handle_type::disposition::writable;
-      break;
-    }
-    if(-1==fcntl(ret.value()._v.fd, F_SETFL, attribs))
-      return make_errored_result<handle>(errno);
+    // Race free fetch the handle's path and reopen it with the new permissions
+    // TODO FIXME
+    return make_errored_result<handle>(ENOSYS);
   }
-  if (caching != caching::unchanged && caching != _caching)
+  else
   {
-    // TODO: Allow fiddling with O_DIRECT
-    return make_errored_result<handle>(EINVAL);
+    if (-1 == (ret.value()._v.fd = ::dup(_v.fd)))
+      return make_errored_result<handle>(errno);
+    // Only care if cloning and changing append only flag
+    if (mode != mode::unchanged && (mode==mode::write || mode==mode::append))
+    {
+      ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::seekable | native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
+      int attribs = 0;
+      if (-1 == (attribs = fcntl(ret.value()._v.fd, F_GETFL)))
+        return make_errored_result<handle>(errno);
+      switch (mode)
+      {
+      case mode::unchanged:
+        break;
+      case mode::none:
+      case mode::attr_read:
+      case mode::attr_write:
+      case mode::read:
+        return make_errored_result<handle>(EINVAL);
+      case mode::write:
+        attribs&=~O_APPEND;
+        ret.value()._v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
+        break;
+      case mode::append:
+        attribs |= O_APPEND;
+        ret.value()._v.behaviour |= native_handle_type::disposition::append_only | native_handle_type::disposition::writable;
+        break;
+      }
+      if(-1==fcntl(ret.value()._v.fd, F_SETFL, attribs))
+        return make_errored_result<handle>(errno);
+    }
+    if (caching != caching::unchanged && caching != _caching)
+    {
+      // TODO: Allow fiddling with O_DIRECT
+      return make_errored_result<handle>(EINVAL);
+    }
   }
   return ret;
 }
@@ -223,14 +234,42 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
         for (size_t n = 0; n < this->items; n++)
         {
 #if BOOST_AFIO_USE_POSIX_AIO
-          aio_cancel(this->parent->native_handle().fd, aiocbs + n);
+          int ret=aio_cancel(this->parent->native_handle().fd, aiocbs + n);
+#if 0
+          if(ret<0 || ret==AIO_NOTCANCELED)
+          {
+            std::cout << "Failed to cancel " << (aiocbs+n) << std::endl;
+          }
+          else if(ret==AIO_CANCELED)
+          {
+            std::cout << "Cancelled " << (aiocbs+n) << std::endl;
+          }
+          else if(ret==AIO_ALLDONE)
+          {
+            std::cout << "Already done " << (aiocbs+n) << std::endl;
+          }
+#endif
 #else
 #error todo
 #endif
         }
         // Pump the i/o service until all pending i/o is completed
         while (this->items_to_go)
-          this->parent->service()->run();
+        {
+          auto res=this->parent->service()->run();
+#ifndef NDEBUG
+          if(res.has_error())
+          {
+            BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service failed due to '" << res.get_error().message() << "'");
+            std::terminate();
+          }
+          if(!res.get())
+          {
+            BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
+            std::terminate();
+          }
+#endif
+        }
       }
     }
   } *state;
@@ -293,22 +332,12 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
 #endif
   if(ret<0)
   {
+    service()->_aiocbsv.resize(service()->_aiocbsv.size()-items);
     state->items_to_go=0;
     state->result = make_errored_result<BuffersType>(errno);
     state->completion(state);
     return make_result<return_type>(std::move(_state));
   }
-#if BOOST_AFIO_USE_POSIX_AIO
-  if(!service()->using_kqueues())
-  {
-    // Add these i/o's to the quick aio_suspend list
-    for (size_t n = 0; n < items; n++)
-    {
-      struct aiocb *aiocb = state->aiocbs + n;
-      service()->_aiocbsv.push_back(aiocb);
-    }    
-  }
-#endif
   service()->_work_enqueued(items);
   return make_result<return_type>(std::move(_state));
 }

@@ -255,7 +255,7 @@ result<bool> io_service::run_until(deadline d) noexcept
     _block_interruption();
     if(errcode)
     {
-      switch(errno)
+      switch(errcode)
       {
         case EAGAIN:
           if(d)
@@ -265,7 +265,7 @@ result<bool> io_service::run_until(deadline d) noexcept
           // Let him loop, recalculate any timeout and check for posts to be executed
           break;
         default:
-          return make_errored_result<bool>(errno);
+          return make_errored_result<bool>(errcode);
       }
     }
     else
@@ -277,6 +277,7 @@ result<bool> io_service::run_until(deadline d) noexcept
         if(ioret>=0 || errno!=EINVAL)
         {
           int errcode=ioret<0 ? errno : 0;
+//          std::cout << "aiocb " << aiocb << " sees return " << ioret << " errno " << errcode << std::endl;
           // The aiocb aio_sigevent.sigev_value.sival_ptr field will point to a file_handle::_io_state_type
           auto io_state=(file_handle::_erased_io_state_type *) aiocb->aio_sigevent.sigev_value.sival_ptr;
           assert(io_state);

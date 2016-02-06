@@ -207,64 +207,81 @@ direct=1 sync=1:
         # 4096, don't trust values higher than this because of potentially discontiguous
         # memory page mapping.
         max_aligned_atomic_rewrite: 512
+---
+timestamp: 2016-02-06 18:54:23 +0000
+system:
+    os:
+        name: FreeBSD
+        ver: 10.2-RELEASE-p11
+    cpu:
+        name: GenuineIntel Intel(R) Core(TM) i5 CPU M 540 @ 2.53GHz
+        architecture: amd64
+        physical_cores: 2
+    mem:
+        # Main memory bandwidth when accessed sequentially
+        max_bandwidth: 375809638
+        # Main memory bandwidth when 4Kb pages are accessed randomly
+        min_bandwidth: 429496729
+        quantity: 2117103616
+        in_use: 0.262044
+storage:
+    device:
+        min_io_size: 131072
+        size: 34359738368
+    fs:
+        name: zfs
+        config: todo
+        size: 20207178752
+        in_use: 0.00916991
+direct=0 sync=0:
+    concurrency:
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 1048576
 
-------
-timestamp: 2016-02-06 16:21:57 +0000
-storage:
-    device:
-        min_io_size: 131072
-    fs:
-        name: zfs
-        config: todo
-        size: 20218984960
-        in_use: 0.00901603
-direct=0 sync=0:
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 1048576
+
 direct=1 sync=0:
+    concurrency:
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 1048576
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 1048576
+
 direct=0 sync=1:
+    concurrency:
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 1048576
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 1048576
+
 direct=1 sync=1:
----
-timestamp: 2016-02-06 16:27:00 +0000
-storage:
-    device:
-        min_io_size: 131072
-        size: 34359738368
-    fs:
-        name: zfs
-        config: todo
-        size: 20218953728
-        in_use: 0.00907616
-direct=0 sync=0:
-direct=1 sync=0:
-direct=0 sync=1:
-direct=1 sync=1:
----
-timestamp: 2016-02-06 16:37:10 +0000
-storage:
-    device:
-        min_io_size: 131072
-        size: 34359738368
-    fs:
-        name: zfs
-        config: todo
-        size: 20218921472
-        in_use: 0.00906934
-direct=0 sync=0:
-direct=1 sync=0:
-direct=0 sync=1:
-direct=1 sync=1:
----
-timestamp: 2016-02-06 16:37:34 +0000
-storage:
-    device:
-        min_io_size: 131072
-        size: 34359738368
-    fs:
-        name: zfs
-        config: todo
-        size: 20218936320
-        in_use: 0.00906931
-direct=0 sync=0:
-direct=1 sync=0:
-direct=0 sync=1:
-direct=1 sync=1:
--
+    concurrency:
+        # The i/o modify quantum guaranteed to be atomically visible to readers
+        # irrespective of rewrite quantity
+        atomic_rewrite_quantum: 1048576
+
+        # The maximum single aligned i/o modify quantity atomically visible to readers
+        # (can be [potentially unreliably] much larger than atomic_rewrite_quantum). A
+        # very common value on modern hardware with direct i/o thanks to PCIe DMA is
+        # 4096, don't trust values higher than this because of potentially discontiguous
+        # memory page mapping.
+        max_aligned_atomic_rewrite: 1048576
+

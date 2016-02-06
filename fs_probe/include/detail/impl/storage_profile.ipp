@@ -35,7 +35,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <vector>
 
-#define BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER 1
+#define BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER 10
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
@@ -461,8 +461,10 @@ namespace storage_profile
       try
       {
         using off_t = io_service::extent_type;
-        size_t size = sp.max_aligned_atomic_rewrite.value!=(off_t)-1 ? sp.max_aligned_atomic_rewrite.value : 1024;
-        size_t maxsize = sp.max_aligned_atomic_rewrite.value != (off_t)-1 ? sp.max_aligned_atomic_rewrite.value : 8192;
+        size_t size = sp.max_aligned_atomic_rewrite.value;
+        size_t maxsize = sp.max_aligned_atomic_rewrite.value;
+        if(size>1024) size=1024;
+        if(maxsize>8192) maxsize=8192;
         sp.atomic_rewrite_offset_boundary.value = (off_t)-1;
         if(size>1)
         {

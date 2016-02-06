@@ -41,7 +41,7 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
   DWORD access = SYNCHRONIZE;
   if (mode != mode::unchanged)
   {
-    ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
+    ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::seekable | native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
     switch (mode)
     {
     case mode::unchanged:
@@ -55,11 +55,11 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
       break;
     case mode::read:
       access |= GENERIC_READ;
-      ret.value()._v.behaviour |= native_handle_type::disposition::readable;
+      ret.value()._v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable;
       break;
     case mode::write:
       access |= GENERIC_WRITE | GENERIC_READ;
-      ret.value()._v.behaviour |= native_handle_type::disposition::readable| native_handle_type::disposition::writable;
+      ret.value()._v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
       break;
     case mode::append:
       access |= FILE_APPEND_DATA;
@@ -214,7 +214,21 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
         }
         // Pump the i/o service until all pending i/o is completed
         while (this->items_to_go)
-          this->parent->service()->run();
+        {
+          auto res=this->parent->service()->run();
+#ifndef NDEBUG
+          if(res.has_error())
+          {
+            BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service failed due to '" << res.get_error().message() << "'");
+            std::terminate();
+          }
+          if(!res.get())
+          {
+            BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
+            std::terminate();
+          }
+#endif
+        }
       }
     }
   } *state;
