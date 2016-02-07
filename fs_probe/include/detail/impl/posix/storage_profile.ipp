@@ -155,9 +155,9 @@ namespace storage_profile
             memset(buffer, 32, 62);
             int nBuff[4];
             __cpuid(nBuff, 0);
-            *(int*)&buffer[0] = nBuff[1];
-            *(int*)&buffer[4] = nBuff[3];
-            *(int*)&buffer[8] = nBuff[2];
+            memcpy(buffer+0, nBuff+1, 4);
+            *(int*)(buffer+4) = nBuff[3];
+            *(int*)(buffer+8) = nBuff[2];
 
             // Do we have a brand string?
             __cpuid(nBuff, 0x80000000);

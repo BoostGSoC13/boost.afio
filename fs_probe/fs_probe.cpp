@@ -38,6 +38,9 @@ DEALINGS IN THE SOFTWARE.
 #include <iomanip>
 
 using namespace BOOST_AFIO_V2_NAMESPACE;
+#ifdef __linux__
+# define file_handle BOOST_AFIO_V2_NAMESPACE::file_handle
+#endif
 
 constexpr unsigned permute_flags_max = 4;
 static const std::regex sp_preamble{ "(system|storage).*" };

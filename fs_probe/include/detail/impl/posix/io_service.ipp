@@ -177,7 +177,11 @@ void io_service::disable_kqueues()
     // Block interruption on this thread
     _block_interruption();
     // Prepare for aio_suspend
+#ifdef AIO_LISTIO_MAX
     _aiocbsv.reserve(AIO_LISTIO_MAX);
+#else
+    _aiocbsv.reserve(16);
+#endif
   }
 }
 #endif

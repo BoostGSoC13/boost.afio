@@ -44,7 +44,7 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
   result<handle> ret(handle(&service, _path, native_handle_type(), _caching, _flags));
   ret.value()._v.behaviour = _v.behaviour;
   // If current handle is read-only and clone request is to add write powers, we can't use dup()
-  if (mode != mode::unchanged && !_v.is_writable() && (mode==mode::write || mode==mode::append))
+  if (mode != handle::mode::unchanged && !_v.is_writable() && (mode==handle::mode::write || mode==handle::mode::append))
   {
     // Race free fetch the handle's path and reopen it with the new permissions
     // TODO FIXME
@@ -55,7 +55,7 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
     if (-1 == (ret.value()._v.fd = ::dup(_v.fd)))
       return make_errored_result<handle>(errno);
     // Only care if cloning and changing append only flag
-    if (mode != mode::unchanged && (mode==mode::write || mode==mode::append))
+    if (mode != handle::mode::unchanged && (mode==handle::mode::write || mode==handle::mode::append))
     {
       ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::seekable | native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
       int attribs = 0;
@@ -63,18 +63,18 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
         return make_errored_result<handle>(errno);
       switch (mode)
       {
-      case mode::unchanged:
+      case handle::mode::unchanged:
         break;
-      case mode::none:
-      case mode::attr_read:
-      case mode::attr_write:
-      case mode::read:
+      case handle::mode::none:
+      case handle::mode::attr_read:
+      case handle::mode::attr_write:
+      case handle::mode::read:
         return make_errored_result<handle>(EINVAL);
-      case mode::write:
+      case handle::mode::write:
         attribs&=~O_APPEND;
         ret.value()._v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
         break;
-      case mode::append:
+      case handle::mode::append:
         attribs |= O_APPEND;
         ret.value()._v.behaviour |= native_handle_type::disposition::append_only | native_handle_type::disposition::writable;
         break;
@@ -82,7 +82,7 @@ result<handle> handle::clone(io_service &service, handle::mode mode, handle::cac
       if(-1==fcntl(ret.value()._v.fd, F_SETFL, attribs))
         return make_errored_result<handle>(errno);
     }
-    if (caching != caching::unchanged && caching != _caching)
+    if (caching != handle::caching::unchanged && caching != _caching)
     {
       // TODO: Allow fiddling with O_DIRECT
       return make_errored_result<handle>(EINVAL);
@@ -276,7 +276,7 @@ template<class CompletionRoutine, class BuffersType, class IORoutine> result<fil
   extent_type offset = reqs.offset;
   size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(struct aiocb), items(reqs.buffers.size());
   using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
-#if BOOST_AFIO_USE_POSIX_AIO
+#if BOOST_AFIO_USE_POSIX_AIO && defined(AIO_LISTIO_MAX)
   if(items>AIO_LISTIO_MAX)
     return make_errored_result<return_type>(EINVAL);
 #endif
