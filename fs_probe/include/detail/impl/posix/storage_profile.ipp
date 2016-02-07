@@ -227,7 +227,12 @@ namespace storage_profile
         try
         {
           // Firstly open a handle to the device
-          if(strncmp(mntfromname.data(), "/dev", 4))
+          if(!strncmp(mntfromname.data(), "/dev", 4))
+          {
+            if(std::isdigit(mntfromname.back()))
+              mntfromname.resize(mntfromname.size()-1);
+          }
+          else
           {
             // If the mount point doesn't begin with /dev we can't use that here, so return ENOSYS
 #ifdef __FreeBSD__

@@ -92,8 +92,13 @@ int main(int argc, char *argv[])
   stl11::this_thread::sleep_for(stl11::chrono::seconds(3));
   std::ofstream results("fs_probe_results.yaml", std::ios::app);
   {
+    auto put_time=[](const std::tm* tmb, const char * fmt){
+      std::string buffer(256, 0);
+      buffer.resize(std::strftime((char *) buffer.data(), buffer.size(), fmt, tmb));
+      return buffer;
+    };
     std::time_t t = std::time(nullptr);
-    results << "---\ntimestamp: " << std::put_time(std::gmtime(&t), "%F %T %z") << "\n";
+    results << "---\ntimestamp: " << put_time(std::gmtime(&t), "%F %T %z") << "\n";
   }
   bool first = true;
   for (unsigned flags = 0; flags <= torunflags; flags++)
