@@ -7,15 +7,16 @@ The results directory contains a YAML database of standard runs of
 fs_probe for various OS, storage devices and filing systems. It may or
 may not be representative of the same combination on other hardware.
 
+Note that include contains the beginnings of the post-peer-review AFIO
+v2 rewrite. It currently has Windows and POSIX AIO async file i/o
+backends with file open, close, clone, scatter-gather read/writes and
+truncate only.
+
 Todo:
 - [ ] Still need to decide if caching belongs in native_handle_type.
-- [ ] Port to POSIX AIO
+- [ ] Add native BSD kqueues to POSIX AIO backend as is vastly more efficient.
   - http://www.informit.com/articles/article.aspx?p=607373&seqNum=4 is a
 very useful programming guide for POSIX AIO.
-  - An initial implementation need only call aio_suspend() in the run() loop
-and poll the aiocb's for completion. pthread_sigqueue() can be used by post()
-to cause aio_suspend() to break early to run user supplied functions.
-    - Keep in mind a design which works well with BSD kqueues.
 - [ ] Port to Linux KAIO
   - http://linux.die.net/man/2/io_getevents would be in the run() loop.
 pthread_sigqueue() can be used by post() to cause aio_suspend() to break
