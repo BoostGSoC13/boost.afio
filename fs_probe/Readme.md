@@ -13,7 +13,15 @@ backends with file open, close, clone, scatter-gather read/writes and
 truncate only.
 
 Todo:
-- [ ] Still need to decide if caching belongs in native_handle_type.
+- [ ] Move caching into native_handle_type.
+- [ ] Add macro helpers to Outcome for returning outcomes out of things
+which cannot return values like constructors, and convert said exceptions/TLS
+back into outcomes.
+- [ ] Get Outcome to work perfectly with exceptions and RTTI disabled, this makes
+Outcome useful in the games/audio world. Add unit tests proving it for all
+platforms.
+- [ ] There is much duplicate and sloppy code in AFIO v2. Reduce and eliminate.
+
 - [ ] Add native BSD kqueues to POSIX AIO backend as is vastly more efficient.
   - http://www.informit.com/articles/article.aspx?p=607373&seqNum=4 is a
 very useful programming guide for POSIX AIO.
