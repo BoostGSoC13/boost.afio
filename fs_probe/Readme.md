@@ -18,8 +18,13 @@ Todo:
 which cannot return values like constructors, and convert said exceptions/TLS
 back into outcomes.
 - [ ] Get Outcome to work perfectly with exceptions and RTTI disabled, this makes
-Outcome useful in the games/audio world. Add unit tests proving it for all
-platforms.
+Outcome useful in the games/audio world.
+  - [ ] Where Outcome might throw, do macro based action which could be any of:
+   - Throw an exception
+   - Call a deliberately undefined function to create a link error (release) or
+assert & trap (debug)
+   - Some user based action e.g. fatal exit
+  - [ ] Add unit tests proving it for all platforms.
 - [ ] There is much duplicate and sloppy code in AFIO v2. Reduce and eliminate.
 
 - [ ] Add native BSD kqueues to POSIX AIO backend as is vastly more efficient.
