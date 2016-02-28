@@ -1,0 +1,396 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>What is the maximum throughput of AFIO's closure execution engine aka how many IOPS can I push with AFIO?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="next" href="closure_latency.html" title="What is the latency of AFIO's closure execution engine aka how quickly can I push a single op with AFIO?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../FAQ.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="closure_latency.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.closure_performance"></a><a class="link" href="closure_performance.html" title="What is the maximum throughput of AFIO's closure execution engine aka how many IOPS can I push with AFIO?">What is the maximum throughput
+      of AFIO's closure execution engine aka how many IOPS can I push with AFIO?</a>
+</h3></div></div></div>
+<p>
+        For v1.3 of the engine, maximum ops <span class="bold"><strong>dispatch</strong></span>
+        throughput is approximately as follows, where the values for <code class="computeroutput"><span class="identifier">call</span><span class="special">()</span></code>
+        might be for use as a closure engine whereas the values for <code class="computeroutput"><span class="identifier">completion</span><span class="special">()</span></code>
+        might be for max filing system IOPS<sup>[<a name="afio.FAQ.closure_performance.f0" href="#ftn.afio.FAQ.closure_performance.f0" class="footnote">12</a>]</sup>:
+      </p>
+<div class="table">
+<a name="afio.FAQ.closure_performance.throughput"></a><p class="title"><b>Table&#160;1.16.&#160;Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K
+        for AFIO v1.3<sup>[<a name="afio.FAQ.closure_performance.f1" href="#ftn.afio.FAQ.closure_performance.f1" class="footnote">a</a>]</sup></b></p>
+<div class="table-contents"><table class="table" summary="Maximum null closure dispatch rate on a 3.5Ghz Intel Core i7 3770K
+        for AFIO v1.3
+          Benchmarks compiled using address-model=64 link=static --lto release -j 4.
+        ">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                <p>
+                  Operating system
+                </p>
+              </th>
+<th>
+                <p>
+                  <code class="computeroutput"><span class="identifier">call</span><span class="special">()</span></code>
+                  unchained
+                </p>
+              </th>
+<th>
+                <p>
+                  <code class="computeroutput"><span class="identifier">call</span><span class="special">()</span></code>
+                  chained
+                </p>
+              </th>
+<th>
+                <p>
+                  <code class="computeroutput"><span class="identifier">completion</span><span class="special">()</span></code>
+                  unchained
+                </p>
+              </th>
+<th>
+                <p>
+                  <code class="computeroutput"><span class="identifier">completion</span><span class="special">()</span></code>
+                  chained
+                </p>
+              </th>
+<th>
+                <p>
+                  Raw ASIO
+                </p>
+              </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                <p>
+                  Microsoft Windows 8 x64 with Visual Studio 2013
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1148070</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">704051</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1850090</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">877899</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">2750088</span>
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <span class="emphasis"><em>Relative to ASIO</em></span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">42%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">26%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">67%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">32%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">100%</span>
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <span class="emphasis"><em>Relative to AFIO v1.21</em></span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+1%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+16%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+14%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+36%</span>
+                </p>
+              </td>
+<td>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <span class="emphasis"><em>Relative to AFIO v1.1</em></span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+26%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+18%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+19%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+20%</span>
+                </p>
+              </td>
+<td>
+              </td>
+</tr>
+<tr>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  Ubuntu 14.04 LTS Linux x64 with GCC 4.9.2
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1149470</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1100650</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1629110</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1308240</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">1927300</span>
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <span class="emphasis"><em>Relative to ASIO</em></span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">60%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">57%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">85%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">68%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">100%</span>
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <span class="emphasis"><em>Relative to AFIO v1.21</em></span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">-11%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+8%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+10%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+9%</span>
+                </p>
+              </td>
+<td>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <span class="emphasis"><em>Relative to AFIO v1.1</em></span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+5%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+39%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+14%</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="alignright">+20%</span>
+                </p>
+              </td>
+<td>
+              </td>
+</tr>
+<tr>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+<td>
+              </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+        We hope that ~600k min IOPS surely ought to be enough to max out any SATA
+        III SSD &#8212; it should even max out any mid range PCIe based SSD too,
+        and if paired with a CPU with more cores, AFIO's almost wait free design
+        ought to scale out fairly well too such that it may be able to max out even
+        top end PCIe SSDs, some of which can push 10m IOPS now.
+      </p>
+<div class="footnotes">
+<br><hr width="100" align="left">
+<div class="footnote"><p><sup>[<a id="ftn.afio.FAQ.closure_performance.f0" href="#afio.FAQ.closure_performance.f0" class="para">12</a>] </sup>
+          The phrase <span class="quote">&#8220;<span class="quote">might be</span>&#8221;</span> is important: a null closure benchmark
+          will always have dispatch rate problems i.e. the closures being executed
+          take less time to execute than the time to dispatch them, so these figures
+          are best read as maximum dispatch rate, not maximum IOPS.
+        </p></div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../FAQ.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="closure_latency.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,500 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Chapter&#160;1.&#160;Boost.AFIO 1.40</title>
+<link rel="stylesheet" href="../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="next" href="afio/introduction.html" title="Introduction">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../boost.png"></td>
+<td align="center"><a href="../../index.html">Home</a></td>
+<td align="center"><a href="../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+<a accesskey="n" href="afio/introduction.html"><img src="../../doc/src/images/next.png" alt="Next"></a></div>
+<div class="chapter">
+<div class="titlepage"><div>
+<div><h2 class="title">
+<a name="afio"></a>Chapter&#160;1.&#160;Boost.AFIO 1.40</h2></div>
+<div><div class="author"><h3 class="author">
+<span class="firstname">Niall</span> <span class="surname">Douglas</span>
+</h3></div></div>
+<div><div class="author"><h3 class="author">
+<span class="firstname">Paul</span> <span class="surname">Kirth</span>
+</h3></div></div>
+<div><p class="copyright">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth</p></div>
+<div><div class="legalnotice">
+<a name="afio.legal"></a><p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></div>
+</div></div>
+<div class="toc">
+<p><b>Table of Contents</b></p>
+<dl>
+<dt><span class="section"><a href="afio/introduction.html">Introduction</a></span></dt>
+<dt><span class="section"><a href="afio/overview.html">AFIO single page cheat sheet for the very
+    impatient</a></span></dt>
+<dt><span class="section"><a href="afio/design.html">Design Introduction and Rationale</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/design/acid_write_ordering.html">Write ordering constraints,
+      and how these can be used to achieve some of the Durability in ACID without
+      needing <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code></a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/design/acid_write_ordering/background.html">Background
+        on how filing systems work</a></span></dt>
+<dt><span class="section"><a href="afio/design/acid_write_ordering/write_ordering_data.html">Write
+        ordering data and durability: why does it matter?</a></span></dt>
+</dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="afio/compilation.html">Compilation</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart.html">Quick Start Tutorial</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/quickstart/workshop.html">Step by step workshop building
+      an AFIO-based key-value store</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/quickstart/workshop/naive.html">1. World's simplest
+        named blob store in STL iostreams</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/workshop/naive_afio.html">2. World's simplest
+        named blob store in AFIO (synchronous)</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/workshop/naive_afio_async.html">3. World's
+        simplest named blob store in AFIO (asynchronous)</a></span></dt>
+<dd><dl><dt><span class="section"><a href="afio/quickstart/workshop/naive_afio_async/naive_racy.html">The
+          problems with this naive design</a></span></dt></dl></dd>
+<dt><span class="section"><a href="afio/quickstart/workshop/atomic_updates.html">4. Second
+        attempt at a key-value store: How to implement atomic value updates and therefore
+        Atomicity, Consistency, Isolation and Durability</a></span></dt>
+<dd><dl><dt><span class="section"><a href="afio/quickstart/workshop/atomic_updates/atomic_updates_problems.html">The
+          performance of and problems with this second generation design</a></span></dt></dl></dd>
+<dt><span class="section"><a href="afio/quickstart/workshop/extents_theory.html">5. Third attempt
+        at a key-value store: Thinking like a filing system</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/quickstart/workshop/extents_theory/extents.html">The
+          final named blob store design</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/workshop/extents_theory/extents_problems.html">The
+          performance of and problems with this third generation design</a></span></dt>
+</dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="afio/quickstart/mini_programs.html">Example mini-programs
+      written using AFIO</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/quickstart/mini_programs/hello_world.html">Hello World,
+        asynchronously!</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/mini_programs/file_concat.html">A less toy
+        example: Concatenating files</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/mini_programs/atomic_logging.html">Achieving
+        atomicity on the filing system</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/mini_programs/filesystem_races.html">Handling
+        races on the filing system</a></span></dt>
+<dt><span class="section"><a href="afio/quickstart/mini_programs/so_what.html">What performance
+        benefit does asynchronous file i/o bring me? A demonstration</a></span></dt>
+</dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference.html">Reference</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/macros_flags.html">Macros and Flags</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/macros_flags/boost_afio_validate_inputs.html">BOOST_AFIO_VALIDATE_INPUTS</a></span></dt>
+<dt><span class="section"><a href="afio/reference/macros_flags/file_flags.html">file_flags</a></span></dt>
+<dt><span class="section"><a href="afio/reference/macros_flags/fs_metadata_flags.html">fs_metadata_flags</a></span></dt>
+<dt><span class="section"><a href="afio/reference/macros_flags/metadata_flags.html">metadata_flags</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/structs.html">Structures</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/structs/enumerate_req.html">enumerate_req</a></span></dt>
+<dd><dl><dt><span class="section"><a href="afio/reference/structs/enumerate_req/filter.html">filter</a></span></dt></dl></dd>
+<dt><span class="section"><a href="afio/reference/structs/io_req.html">io_req</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/structs/io_req/io_req.html">io_req</a></span></dt>
+<dt><span class="section"><a href="afio/reference/structs/io_req/io_req_constt_.html">io_req&lt;
+          const T &gt;</a></span></dt>
+<dt><span class="section"><a href="afio/reference/structs/io_req/io_req_void_.html">io_req&lt;
+          void &gt;</a></span></dt>
+<dt><span class="section"><a href="afio/reference/structs/io_req/io_req_constvoid_.html">io_req&lt;
+          const void &gt;</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/structs/path_req.html">path_req</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/structs/path_req/path_req_absolute.html">path_req::absolute</a></span></dt>
+<dt><span class="section"><a href="afio/reference/structs/path_req/path_req_relative.html">path_req::relative</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/structs/stat_t.html">stat_t</a></span></dt>
+<dt><span class="section"><a href="afio/reference/structs/statfs_t.html">statfs_t</a></span></dt>
+<dd><dl><dt><span class="section"><a href="afio/reference/structs/statfs_t/statfs_t_f_flags_t.html">statfs_t::f_flags_t</a></span></dt></dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/classes.html">Classes</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/classes/current_dispatcher_guard.html">current_dispatcher_guard</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/directory_entry.html">directory_entry</a></span></dt>
+<dd><dl><dt><span class="section"><a href="afio/reference/classes/directory_entry/directory_entry_hash.html">directory_entry_hash</a></span></dt></dl></dd>
+<dt><span class="section"><a href="afio/reference/classes/dispatcher.html">dispatcher</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/classes/dispatcher/complete_async_op_3_normal.html">complete_async_op
+          (normal)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/dispatcher/complete_async_op_2_errored.html">complete_async_op
+          (errored)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/classes/enqueued_task_r___.html">enqueued_task&lt;
+        R()&gt;</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/future.html">future</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/future_void_.html">future&lt; void
+        &gt;</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle.html">handle</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/classes/handle/open_states.html">open_states</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/handle_mapped_file.html">handle::mapped_file</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/path.html">path</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/direntry.html">direntry</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/target.html">target</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/link.html">link</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/unlink.html">unlink</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/handle/atomic_relink.html">atomic_relink</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/classes/path.html">path</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/classes/path/path_make_absolute.html">path::make_absolute</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/path/normalise_path.html">normalise_path</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/path/path_hash.html">path_hash</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/classes/thread_source.html">thread_source</a></span></dt>
+<dt><span class="section"><a href="afio/reference/classes/std_thread_pool.html">std_thread_pool</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions.html">Functions</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/current_dispatcher.html">current_dispatcher</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/make_dispatcher.html">make_dispatcher</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/depends.html">depends</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/make_io_req_3_length_deducing.html">make_io_req
+        (length deducing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/make_io_req_3_length_deducing0.html">make_io_req
+        (length deducing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/make_io_req_4_length_specifying.html">make_io_req
+        (length specifying)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/process_threadpool.html">process_threadpool</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir.html">Functions for opening/creating
+        directories</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/dir/dir_1_batch.html">dir (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir/async_dir_3_relative.html">async_dir
+          (relative)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir/async_dir_2_absolute.html">async_dir
+          (absolute)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir/dir_3_relative_throwing.html">dir
+          (relative throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir/dir_2_absolute_throwing.html">dir
+          (absolute throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir/dir_4_relative_non_throwing.html">dir
+          (relative non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/dir/dir_3_absolute_non_throwing.html">dir
+          (absolute non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/rmdir.html">Functions for deleting
+        directories</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/rmdir_1_batch.html">rmdir
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/async_rmdir_3_relative.html">async_rmdir
+          (relative)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/async_rmdir_2_absolute.html">async_rmdir
+          (absolute)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/rmdir_3_relative_throwing.html">rmdir
+          (relative throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/rmdir_2_absolute_throwing.html">rmdir
+          (absolute throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/rmdir_4_relative_non_throwing.html">rmdir
+          (relative non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmdir/rmdir_3_absolute_non_throwing.html">rmdir
+          (absolute non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/file.html">Functions for opening/creating
+        files</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/file/file_1_batch.html">file
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/file/async_file_3_relative.html">async_file
+          (relative)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/file/async_file_2_absolute.html">async_file
+          (absolute)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/file/file_3_relative_throwing.html">file
+          (relative throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/file/file_2_absolute_throwing.html">file
+          (absolute throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/file/file_4_relative_non_throwing.html">file
+          (relative non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/file/file_3_absolute_non_throwing.html">file
+          (absolute non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/rmfile.html">Functions for deleting
+        files</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/rmfile_1_batch.html">rmfile
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/async_rmfile_3_relative.html">async_rmfile
+          (relative)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/async_rmfile_2_absolute.html">async_rmfile
+          (absolute)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/rmfile_3_relative_throwing.html">rmfile
+          (relative throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/rmfile_2_absolute_throwing.html">rmfile
+          (absolute throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/rmfile_4_relative_non_throwing.html">rmfile
+          (relative non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmfile/rmfile_3_absolute_non_throwing.html">rmfile
+          (absolute non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/symlink.html">Functions for opening/creating
+        symlinks</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/symlink/symlink_2_batch.html">symlink
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/symlink/async_symlink_4_relative.html">async_symlink
+          (relative)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/symlink/async_symlink_3_absolute.html">async_symlink
+          (absolute)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/symlink/symlink_4_relative_throwing.html">symlink
+          (relative throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/symlink/symlink_3_absolute_throwing.html">symlink
+          (absolute throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/symlink/symlink_5_relative_non_throwing.html">symlink
+          (relative non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/symlink/symlink_4_absolute_non_throwing.html">symlink
+          (absolute non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink.html">Functions for deleting
+        symlinks</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/rmsymlink_1_batch.html">rmsymlink
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/async_rmsymlink_3_relative.html">async_rmsymlink
+          (relative)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/async_rmsymlink_2_absolute.html">async_rmsymlink
+          (absolute)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/rmsymlink_3_relative_throwing.html">rmsymlink
+          (relative throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/rmsymlink_2_absolute_throwing.html">rmsymlink
+          (absolute throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/rmsymlink_4_relative_non_throwing.html">rmsymlink
+          (relative non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/rmsymlink/rmsymlink_3_absolute_non_throwing.html">rmsymlink
+          (absolute non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/sync.html">Functions for synchronising
+        changes to physical storage</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/sync/sync_1_batch.html">sync
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/sync/async_sync.html">async_sync</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/sync/sync_1_throwing.html">sync
+          (throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/sync/sync_2_non_throwing.html">sync
+          (non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/zero.html">Functions for deallocating/zeroing
+        physical storage</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/zero/zero_2_batch.html">zero
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/zero/async_zero.html">async_zero</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/zero/zero_2_throwing.html">zero
+          (throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/zero/zero_3_non_throwing.html">zero
+          (non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/close.html">Functions for closing
+        open handles</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/close/close_1_batch.html">close
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/close/async_close.html">async_close</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/close/close_1_throwing.html">close
+          (throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/close/close_2_non_throwing.html">close
+          (non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/read.html">Functions for scatter
+        reading file contents</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/read/read_1_batch.html">read
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/read/async_read_3_length_deducing.html">async_read
+          (length deducing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/read/async_read_4_length_specifying.html">async_read
+          (length specifying)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/read/read_3_length_deducing_throwing.html">read
+          (length deducing throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/read/read_4_length_specifying_throwing.html">read
+          (length specifying throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/read/read_4_length_deducing_non_throwing.html">read
+          (length deducing non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/read/read_5_length_specifying_non_throwing.html">read
+          (length specifying non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/write.html">Functions for gather
+        writing file contents</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/write/write_1_batch.html">write
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/write/async_write_3_length_deducing.html">async_write
+          (length deducing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/write/async_write_4_length_specifying.html">async_write
+          (length specifying)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/write/write_3_length_deducing_throwing.html">write
+          (length deducing throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/write/write_4_length_specifying_throwing.html">write
+          (length specifying throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/write/write_4_length_deducing_non_throwing.html">write
+          (length deducing non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/write/write_5_length_specifying_non_throwing.html">write
+          (length specifying non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/truncate.html">Functions for setting
+        maximum file extent</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/truncate/truncate_2_batch.html">truncate
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/truncate/async_truncate.html">async_truncate</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/truncate/truncate_2_throwing.html">truncate
+          (throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/truncate/truncate_3_non_throwing.html">truncate
+          (non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/enumerate.html">Functions for enumerating
+        directory contents and fetching file metadata</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_1_batch.html">enumerate
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/async_enumerate_6_maxitems_first.html">async_enumerate
+          (maxitems first)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_6_max_items_first_throwing.html">enumerate
+          (max items first throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_7_max_items_first_non_throwing.html">enumerate
+          (max items first non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/async_enumerate_6_glob_first.html">async_enumerate
+          (glob first)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_6_glob_first_throwing.html">enumerate
+          (glob first throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_7_glob_first_non_throwing.html">enumerate
+          (glob first non throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/async_enumerate_6_metadata_first.html">async_enumerate
+          (metadata first)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_6_metadata_first_throwing.html">enumerate
+          (metadata first throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/enumerate/enumerate_7_metadata_first_non_throwing.html">enumerate
+          (metadata first non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/extents.html">Functions for enumerating
+        file physical storage extents</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/extents/extents_1_batch.html">extents
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/extents/async_extents.html">async_extents</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/extents/extents_1_throwing.html">extents
+          (throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/extents/extents_2_non_throwing.html">extents
+          (non throwing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/statfs.html">Functions for fetching
+        storage volume metadata</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/statfs/statfs_2_batch.html">statfs
+          (batch)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/statfs/async_statfs.html">async_statfs</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/statfs/statfs_2_throwing.html">statfs
+          (throwing)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/statfs/statfs_3_nonthrowing.html">statfs
+          (nonthrowing)</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers.html">Specialisations
+        for how types should be parsed into ASIO scatter/gather buffers</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_1_asio_mutable_buffer.html">to_asio_buffers
+          (asio mutable_buffer)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_1_asio_const_buffer.html">to_asio_buffers
+          (asio const_buffer)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_2_buffer_of_t.html">to_asio_buffers
+          (buffer of T)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_2_const_buffer_of_t.html">to_asio_buffers
+          (const buffer of T)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_2_buffer.html">to_asio_buffers
+          (buffer)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_2_const_buffer_0.html">to_asio_buffers
+          (const buffer of T)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_1_trivial_and_container_types.html">to_asio_buffers
+          (trivial and container types)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_1_const_trivial_and_container_types.html">to_asio_buffers
+          (const trivial and container types)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_1_c_arrays.html">to_asio_buffers
+          (C arrays)</a></span></dt>
+<dt><span class="section"><a href="afio/reference/functions/to_asio_buffers/to_asio_buffers_1_const_c_arrays.html">to_asio_buffers
+          (const C arrays)</a></span></dt>
+</dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/utilities.html">Utilities</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/utilities/classes.html">Classes</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/utilities/classes/utils_page_allocator.html">utils::page_allocator</a></span></dt>
+<dt><span class="section"><a href="afio/reference/utilities/classes/utils_secded_ecc.html">utils::secded_ecc</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/reference/utilities/function.html">Functions in namespace
+        utils</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/reference/utilities/function/page_sizes.html">page_sizes</a></span></dt>
+<dt><span class="section"><a href="afio/reference/utilities/function/file_buffer_default_size.html">file_buffer_default_size</a></span></dt>
+<dt><span class="section"><a href="afio/reference/utilities/function/random_fill.html">random_fill</a></span></dt>
+<dt><span class="section"><a href="afio/reference/utilities/function/to_hex_string.html">to_hex_string</a></span></dt>
+<dt><span class="section"><a href="afio/reference/utilities/function/from_hex_string.html">from_hex_string</a></span></dt>
+<dt><span class="section"><a href="afio/reference/utilities/function/random_string.html">random_string</a></span></dt>
+</dl></dd>
+</dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="afio/release_notes.html">Release Notes</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ.html">Frequently Asked Questions</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="afio/FAQ/closure_performance.html">What is the maximum throughput
+      of AFIO's closure execution engine aka how many IOPS can I push with AFIO?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/closure_latency.html">What is the latency of AFIO's
+      closure execution engine aka how quickly can I push a single op with AFIO?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/stuck_ops.html">I'm seeing <span class="quote">&#8220;<span class="quote">WARNING: <code class="computeroutput"><span class="special">~</span><span class="identifier">async_file_dispatcher_base</span><span class="special">()</span></code> detects stuck <code class="computeroutput"><span class="identifier">async_io_op</span></code>
+      in total of X ops</span>&#8221;</span> during process close. What does this mean?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/vector_use.html">Why did you use <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;&gt;</span></code> as the ops batch container instead
+      of a generic iterator range?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/foreign_fd.html">How do I configure my own file descriptor
+      or HANDLE in AFIO?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/slow_compile.html">Using AFIO really slows down my
+      compile times. Can't you do something about that?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/fatal_error_read.html">Why do I get a fatal application
+      exit with <code class="computeroutput"><span class="identifier">FATAL</span> <span class="identifier">EXCEPTION</span><span class="special">:</span> <span class="identifier">Failed</span> <span class="identifier">to</span> <span class="identifier">read</span> <span class="identifier">all</span> <span class="identifier">buffers</span></code>
+      when I read a file?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/async_metadata.html"><code class="computeroutput"><span class="identifier">async_io_handle</span><span class="special">::</span><span class="identifier">direntry</span><span class="special">()</span></code> and <code class="computeroutput"><span class="identifier">async_io_handle</span><span class="special">::</span><span class="identifier">lstat</span><span class="special">()</span></code>
+      are both synchronous functions which block. How then can I get metadata about
+      files and directories asynchronously?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/deleting_open_files.html">I thought on Windows it
+      is impossible to delete a file which is still open for use. How does AFIO achieve
+      this?</a></span></dt>
+<dt><span class="section"><a href="afio/FAQ/multi_abi.html">How do I reconfigure AFIO within
+      the same translation unit to use a different ABI?</a></span></dt>
+</dl></dd>
+<dt><span class="section"><a href="afio/acknowledgments.html">Acknowledgments</a></span></dt>
+<dt><span class="section"><a href="afio/index.html">Index</a></span></dt>
+</dl>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"><p><small>Last revised: February 28, 2016 at 04:15:46 GMT</small></p></td>
+<td align="right"><div class="copyright-footer"></div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+<a accesskey="n" href="afio/introduction.html"><img src="../../doc/src/images/next.png" alt="Next"></a></div>
+</body>
+</html>

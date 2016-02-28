@@ -1,0 +1,394 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>async_enumerate (metadata first)</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../enumerate.html" title="Functions for enumerating directory contents and fetching file metadata">
+<link rel="prev" href="enumerate_7_glob_first_non_throwing.html" title="enumerate (glob first non throwing)">
+<link rel="next" href="enumerate_6_metadata_first_throwing.html" title="enumerate (metadata first throwing)">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="enumerate_7_glob_first_non_throwing.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../enumerate.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="enumerate_6_metadata_first_throwing.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first"></a><a class="link" href="async_enumerate_6_metadata_first.html" title="async_enumerate (metadata first)">async_enumerate
+          (metadata first)</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'async_enumerate_6_metadata_first';
+var disqus_title = 'Boost.AFIO async_enumerate (metadata first)';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp30769944"></a>
+Asynchronous directory enumeration after a preceding operation.
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h0"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.description"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.description">Description</a>
+          </h6>
+<p>
+            By default dir() returns shared handles i.e. dir( foo) and dir( foo)
+            will return the exact same handle, and therefore enumerating not all
+            of the entries at once is a race condition. The solution is to either
+            set maxitems to a value large enough to guarantee a directory will be
+            enumerated in a single shot, or to open a separate directory handle using
+            the file_flags::unique_directory_handle flag. Note that setting maxitems=1
+            will often cause a buffer space exhaustion, causing a second syscall
+            with an enlarged buffer. This is because AFIO cannot know if the allocated
+            buffer can hold all of the filename being retrieved, so it may have to
+            retry. Put another way, setting maxitems=1 will give you the worst performance
+            possible, whereas maxitems=2 will probably only return one item most
+            of the time. Related types: <code class="literal"><code class="computeroutput"><a class="link" href="../../structs/enumerate_req.html" title="enumerate_req"><code class="computeroutput"><span class="identifier">enumerate_req</span></code></a></code></code>,
+            <code class="literal"><code class="computeroutput"><a class="link" href="../../classes/directory_entry.html" title="directory_entry"><code class="computeroutput"><span class="identifier">directory_entry</span></code></a></code></code>,
+            <code class="literal"><code class="computeroutput"><a class="link" href="../../structs/stat_t.html" title="stat_t"><code class="computeroutput"><span class="identifier">stat_t</span></code></a></code></code>
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h1"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.synopsis"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">directory_entry</span><span class="special">&gt;,</span> <span class="keyword">bool</span><span class="special">&gt;</span> <span class="special">&gt;</span> <span class="identifier">async_enumerate</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="identifier">metadata_flags</span> <span class="identifier">_metadata</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">_maxitems</span> <span class="special">=</span> <span class="number">2</span><span class="special">,</span>
+                                                                            <span class="keyword">bool</span> <span class="identifier">_restart</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">,</span> <span class="identifier">path</span> <span class="identifier">_glob</span> <span class="special">=</span> <span class="identifier">path</span><span class="special">(),</span> <span class="identifier">enumerate_req</span><span class="special">::</span><span class="identifier">filter</span> <span class="identifier">_filtering</span> <span class="special">=</span> <span class="identifier">enumerate_req</span><span class="special">::</span><span class="identifier">filter</span><span class="special">::</span><span class="identifier">fastdeleted</span><span class="special">)</span></pre>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h2"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.parameters"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Type
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Concept
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Name
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                    <p>
+                      future&lt;&gt;
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _precondition
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The precondition to use.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      metadata_flags
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _metadata
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The metadata to prefetch for each item enumerated. AFIO may
+                      fetch more metadata than requested if it is cost free.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      size_t
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _maxitems
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The maximum number of items to return in this request. Note
+                      that setting to one will often invoke two syscalls.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      bool
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _restart
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Restarts the enumeration for this open directory handle.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      path
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _glob
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      An optional shell glob by which to filter the items returned.
+                      Done kernel side on Windows, user side on POSIX.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      enumerate_req::filter
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _filtering
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Any filtering you want AFIO to do for you.
+                    </p>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h3"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.returns"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.returns">Returns</a>
+          </h6>
+<p>
+            A <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span></code><code class="computeroutput"><span class="identifier">directory_entry</span></code><code class="computeroutput"><span class="special">&gt;,</span>
+            <span class="keyword">bool</span><span class="special">&gt;&gt;</span></code></code>
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h4"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.header"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h5"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.race_guarantees"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.race_guarantees">Race
+            Guarantees</a>
+          </h6>
+<p>
+            </p>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>Operating system</th>
+<th>Race guarantees under a changing file system</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>FreeBSD, Linux, OS X</td>
+<td>Race free per batch of up to <span class="emphasis"><em>maxitems</em></span>
+            for ino and type only. Remember that many filing systems will recycle
+            inodes such that a created file will get the inode of a just deleted
+            file, so comparing inodes for equivalence to a direntry() won't help
+            you.</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>Race free per batch of up to <span class="emphasis"><em>maxitems</em></span>
+            for ino, type, atim, mtim, ctim, size, allocated, birthtim, sparse, compressed.</td>
+</tr>
+</tbody>
+</table></div>
+<p>
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h6"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.complexity"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.complexity">Complexity</a>
+          </h6>
+<p>
+            Amortised O(1) to dispatch. Amortised O(M) to complete where M is the
+            average number of entries in each directory.
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h7"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.exception_model"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.exception_model">Exception
+            Model</a>
+          </h6>
+<p>
+            Propagates the exception of any input precondition with an errored state
+            at the point of dispatch, and throws a <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">invalid_argument</span></code>
+            if any inputs have values which could not possibly be correct. Note that
+            error code returning functions may still throw exceptions e.g. failure
+            to allocate memory.
+          </p>
+<h6>
+<a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.h8"></a>
+            <span><a name="afio.reference.functions.enumerate.async_enumerate_6_metadata_first.example"></a></span><a class="link" href="async_enumerate_6_metadata_first.html#afio.reference.functions.enumerate.async_enumerate_6_metadata_first.example">Example</a>
+          </h6>
+<pre class="programlisting">  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">current_dispatcher_guard</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">());</span>
+
+  <span class="comment">// Schedule an opening of the root directory</span>
+  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">rootdir</span><span class="special">(</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_dir</span><span class="special">(</span><span class="string">"/"</span><span class="special">));</span>
+
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">directory_entry</span><span class="special">&gt;,</span> <span class="keyword">bool</span><span class="special">&gt;</span> <span class="identifier">list</span><span class="special">;</span>
+  <span class="comment">// This is used to reset the enumeration to the start</span>
+  <span class="keyword">bool</span> <span class="identifier">restart</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+  <span class="keyword">do</span>
+  <span class="special">{</span>
+    <span class="comment">// Schedule an enumeration of an open directory handle</span>
+    <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">directory_entry</span><span class="special">&gt;,</span> <span class="keyword">bool</span><span class="special">&gt;&gt;</span>
+    <span class="identifier">enumeration</span><span class="special">(</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_enumerate</span><span class="special">(</span>
+    <span class="identifier">rootdir</span><span class="special">,</span>
+    <span class="comment">/* This is the maximum entries to enumerate. Note
+    the use of compatibility_maximum() which is the
+    same value your libc uses. The problem with smaller
+    enumerations is that the directory contents can change
+    out from underneath you more frequently. */</span>
+    <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">directory_entry</span><span class="special">::</span><span class="identifier">compatibility_maximum</span><span class="special">(),</span>
+    <span class="comment">/* True if to reset enumeration */</span>
+    <span class="identifier">restart</span><span class="special">));</span>
+    <span class="identifier">restart</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+
+    <span class="comment">// People using AFIO often forget that futures can be waited</span>
+    <span class="comment">// on normally without needing to wait on the op handle</span>
+    <span class="identifier">list</span> <span class="special">=</span> <span class="identifier">enumeration</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">directory_entry</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">list</span><span class="special">.</span><span class="identifier">first</span><span class="special">)</span>
+    <span class="special">{</span>
+<span class="preprocessor">#ifdef</span> <span class="identifier">WIN32</span>
+      <span class="identifier">std</span><span class="special">::</span><span class="identifier">wcout</span> <span class="special">&lt;&lt;</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">name</span><span class="special">();</span>
+<span class="preprocessor">#else</span>  <span class="comment">/*_ defined(WIN32) _*/</span>
+      <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">name</span><span class="special">();</span>
+<span class="preprocessor">#endif</span>  <span class="comment">/*_ defined(WIN32) _*/</span>
+      <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">" type "</span> <span class="special">&lt;&lt;</span> <span class="keyword">static_cast</span><span class="special">&lt;</span><span class="keyword">int</span><span class="special">&gt;(</span><span class="identifier">i</span><span class="special">.</span><span class="identifier">st_type</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="special">}</span>
+  <span class="special">}</span> <span class="keyword">while</span><span class="special">(</span><span class="identifier">list</span><span class="special">.</span><span class="identifier">second</span><span class="special">);</span>
+</pre>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="enumerate_7_glob_first_non_throwing.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../enumerate.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="enumerate_6_metadata_first_throwing.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Design Introduction and Rationale</title>
+<link rel="stylesheet" href="../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="prev" href="overview.html" title="AFIO single page cheat sheet for the very impatient">
+<link rel="next" href="design/acid_write_ordering.html" title="Write ordering constraints, and how these can be used to achieve some of the Durability in ACID without needing fsync()">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../boost.png"></td>
+<td align="center"><a href="../../../index.html">Home</a></td>
+<td align="center"><a href="../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="overview.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="design/acid_write_ordering.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="afio.design"></a><a class="link" href="design.html" title="Design Introduction and Rationale">Design Introduction and Rationale</a>
+</h2></div></div></div>
+<div class="toc"><dl>
+<dt><span class="section"><a href="design/acid_write_ordering.html">Write ordering constraints,
+      and how these can be used to achieve some of the Durability in ACID without
+      needing <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code></a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="design/acid_write_ordering/background.html">Background
+        on how filing systems work</a></span></dt>
+<dt><span class="section"><a href="design/acid_write_ordering/write_ordering_data.html">Write
+        ordering data and durability: why does it matter?</a></span></dt>
+</dl></dd>
+</dl></div>
+<p>
+      <script type="text/javascript">
+var disqus_identifier = 'design_rationale';
+var disqus_title = 'Boost.AFIO Design Introduction and Rationale';
+</script>
+    </p>
+<p>
+      Boost.AFIO came about out of the need for a scalable, high performance, portable
+      asynchronous file i/o and filesystem implementation library for a forthcoming
+      filing system based graph store ACID compliant transactional persistence layer
+      called TripleGit &#8212; call it a <span class="quote">&#8220;<span class="quote">SQLite3 but for graphstores</span>&#8221;</span><sup>[<a name="afio.design.f0" href="#ftn.afio.design.f0" class="footnote">1</a>]</sup>. The fact that a portable asynchronous file i/o and filesystem
+      library for C++ was needed at all came as a bit of a surprise: one thinks of
+      these things as done and dusted decades ago, but it turns out that the fully
+      featured <a href="http://nikhilm.github.io/uvbook/filesystem.html" target="_top">libuv</a>,
+      a C library, is good enough for most people needing portable asynchronous file
+      i/o. However as great as libuv is, it isn't very C++-ish, and hooking it in
+      with <a href="http://www.boost.org/libs/asio/" target="_top">Boost.ASIO</a> (parts
+      of which are expected to enter the ISO C++ language standard) isn't particularly
+      clean. I therefore resolved to write a native Boost asynchronous file i/o and
+      filesystem implementation, and keep it as simple as possible.
+    </p>
+<h4>
+<a name="afio.design.h0"></a>
+      <span><a name="afio.design.a_quick_version_history"></a></span><a class="link" href="design.html#afio.design.a_quick_version_history">A
+      quick version history</a>
+    </h4>
+<p>
+      AFIO started life as a C++ 0x library written for an early Visual Studio 2013
+      Community Preview back in 2012 as a outside-of-work side project when I was
+      working at BlackBerry. It was ported to Boost during Google Summer of Code
+      2013 with the help of student Paul Kirth, and VS2012 and VS2010 support was
+      added. For v1.0, AFIO used a simple dispatch engine which kept the extant ops
+      in a hash table, and the entire dispatch engine was protected by a single giant
+      and recursive mutex. Performance never exceeded about 150k ops/sec maximum
+      on a four core Intel Ivy Bridge CPU.
+    </p>
+<p>
+      That performance was embarrassing, so for v1.1 the entire engine was rewritten
+      using atomic shared pointers to be completely lock free, and very nearly wait
+      free if it weren't for the thin spin locks around the central ops hash table.
+      Now performance can reach 1.5m ops/sec on a four core Intel Ivy Bridge CPU,
+      or more than half of Boost.ASIO's maximum dispatch rate.
+    </p>
+<p>
+      For the v1.2 engine, another large refactor was done, this time to substantially
+      simplify the engine by removing the use of <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">packaged_task</span><span class="special">&lt;&gt;</span></code> completely, replacing it with a new
+      intrusive-capable <code class="computeroutput"><span class="identifier">enqueued_task</span><span class="special">&lt;&gt;</span></code> which permits the engine to early out
+      in many cases, plus allowing the consolidation of all spinlocked points down
+      to just two: one in dispatch, and one other in completion, which is now optimal.
+      Performance of the v1.2 engine rose by about 20% over the v1.1 engine, plus
+      AFIO is now fully clean on all race detecting tools.
+    </p>
+<p>
+      For the v1.3 engine, yet another large refactor was done, though not for performance
+      but rather to make it much easier to maintain AFIO in the future, especially
+      after acceptance into Boost whereupon one cannot arbitrarily break API anymore,
+      and one must maintain backwards compatibility. To this end the dependencies
+      between AFIO and Boost were completely abstracted into a substitutable symbol
+      aliasing layer such that any combination of Boost and C++ 11 STL threading/chrono,
+      filesystem and networking can be selected externally using macros. Indeed,
+      any of the eight build combinations can coexist in the same translation unit
+      too, I have unit test runs which prove it! With the v1.3 engine AFIO optionally
+      no longer needs Boost at all, not even for its unit testing. However the cost
+      was dropping support for all Visual Studios before 2013 and all GCCs before
+      4.7 as they don't have the template aliasing support needed to implement the
+      STL abstraction layer. A very large amount of legacy cruft code e.g. support
+      for non-variadic templates was cleaned out for the v1.3 release.
+    </p>
+<h4>
+<a name="afio.design.h1"></a>
+      <span><a name="afio.design.this_version_1_4_of_afio"></a></span><a class="link" href="design.html#afio.design.this_version_1_4_of_afio">This
+      version 1.4 of AFIO</a>
+    </h4>
+<p>
+      During ACCU and C++ Now 2015 I spoke with a number of ISO WG21 committee members
+      about the structural design problems in iostreams and the Filesystem TS (lack
+      of filesystem race freedom, lack of context dependant filesystem), and what
+      design the committee would prefer to see to fix those problems. As it happens,
+      we were all close to the same page, so from the v1.4 engine onwards I resolved
+      to refactor the AFIO API thusly:
+    </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+          Since v1.0 AFIO implemented the Concurrency TS continuations atop standard
+          futures using a central hash table to keep the continuations information
+          per future. This had the big advantage that standard STL and Boost futures
+          could be used, but it came with many other problems, mainly performance
+          and code complexity related. An additional problem was that the Concurrency
+          TS had moved on considerably since 2012, and AFIO's emulation was now significantly
+          out of date. For v1.4 a new lightweight future-promise factory toolkit
+          library called <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>
+          was written between the end of C++ Now (May) and the beginning of the AFIO
+          peer review (July) which makes easy the writing of arbitrarily customisable
+          future-promises for C++ which:
+          <div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+                Implements an almost complete Concurrency TS (<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4399.html" target="_top">N4399</a>)
+                future-promise specification with almost all the Boost.Thread future-promise
+                extensions.
+              </li>
+<li class="listitem">
+                Are very considerably more performant (2x-3x) and much more reliably
+                low latency (no memory allocation).
+              </li>
+<li class="listitem">
+                Permit arbitrary wait composure of any kind of custom future-promise
+                with one another.
+              </li>
+<li class="listitem">
+                Are part of a general purpose lightweight C++ monadic programming
+                implementation, so futures are merely asynchronous monads.
+              </li>
+<li class="listitem">
+                Natively support C++ 1z coroutines (<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4499.pdf" target="_top">N4499</a>)
+                which are currently only supported by Visual Studio 2015.
+              </li>
+</ul></div>
+          <p>
+            The use of this future factory toolkit makes the AFIO continuations infrastructure
+            redundant, and it will therefore be removed shortly. The monadic programming
+            library also makes quite a bit of internal AFIO implementation code much
+            more simplified as thanks to the monads, one can use noexcept design
+            throughout and therefore skip dealing directly with exception safety
+            as the monads take away the potential of control flow being reversed
+            by an exception throw.
+          </p>
+          <div class="note"><table border="0" summary="Note">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="../../../doc/src/images/note.png"></td>
+<th align="left">Note</th>
+</tr>
+<tr><td align="left" valign="top">
+<p>
+              This version of AFIO being presented for Boost review does not yet
+              make use of lightweight future-promises, and instead mocks up the eventual
+              API using the existing highly mature and very well tested engine. The
+              API presented is expected to be final, except for the very few items
+              specified as deprecated (see below for a list). This has been done
+              in order to test that the engine rewrite based on lightweight future-promise
+              exactly matches the behaviour of the current engine using an identical
+              unit test suite.
+            </p>
+<p>
+              I should emphasise that I expect any programs written to match the
+              presented API to continue to work after the engine rewrite &#8212;
+              after all the internal unit test suite will do so.
+            </p>
+</td></tr>
+</table></div>
+        </li>
+<li class="listitem">
+          For race free filesystem programming, you really need to base all path
+          related operations on an open file descriptor or handle, so something like:
+<pre class="programlisting"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="special">&amp;</span><span class="identifier">h</span><span class="special">;</span>  <span class="comment">// Some open file handle</span>
+
+<span class="comment">// Create a sibling file to h-&gt;path() race free</span>
+<span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">newfileh</span><span class="special">=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">h</span><span class="special">,</span> <span class="string">"../newfile"</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">);</span>
+
+<span class="comment">// Asynchronously create a sibling file to h-&gt;path() race free</span>
+<span class="comment">// afio::future has type void because afio::future *always* carries a shared pointer to a handle</span>
+<span class="comment">// (it only gets a type when the operation returns more than a file handle)</span>
+<span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span> <span class="identifier">newfilefh2</span><span class="special">=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">h</span><span class="special">,</span> <span class="string">"../newfile"</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">);</span>
+
+<span class="comment">// Wait for the asynchronous file creation to complete, rethrowing any error or exception</span>
+<span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">newfileh2</span><span class="special">=</span><span class="identifier">newfilefh2</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">();</span>
+</pre>
+          <p>
+            I'll admit this design isn't quite what the members of WG21 had in mind,
+            especially the notion that <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span></code> with type void always carries a shared
+            pointer to a handle and that implicit type slicing from <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code>
+            to <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span></code>
+            is not just allowed but absolutely essential. However apart from that,
+            the above API is probably quite close to what members of WG21 were thinking.
+          </p>
+        </li>
+<li class="listitem">
+          One oft-observed design limitation in the Filesystem TS is that it cannot
+          support filesystems in filesystems, with the most classic example being
+          a ZIP archive on a filesystem where it might be nice to allow generic C++
+          filesystem code to not need to be aware that the filesystem it sees is
+          inside a ZIP archive. The solution could be one or both of these options:
+          <div class="orderedlist"><ol class="orderedlist" type="a">
+<li class="listitem">
+                Make the Filesystem TS operations hang as virtual member functions
+                off some <code class="computeroutput"><span class="identifier">filesystem</span></code>
+                abstract base class.
+              </li>
+<li class="listitem">
+                Have a thread local variable set the current <code class="computeroutput"><span class="identifier">filesystem</span></code>
+                instance to be used by the global Filesystem TS functions on that
+                thread.
+              </li>
+</ol></div>
+          <p>
+            AFIO v1.4 and probably v1.5 won't implement this as this is really a
+            thing for Boost.Filesystem to do. However, AFIO's <a class="link" href="reference/functions/make_dispatcher.html" title="make_dispatcher"><code class="computeroutput"><span class="identifier">make_dispatcher</span><span class="special">()</span></code></a>
+            already takes a URI and there is a RAII facility for setting the current
+            thread local dispatcher, so AFIO is ready for a Filesystem TS implementation
+            matching the above design to be written on top of it in that a <code class="computeroutput"><span class="identifier">dispatcher</span></code> instance has a suite of
+            virtual member functions which define what some filesystem is or does.
+            AFIO v1.4 only provides POSIX and NT kernel filesystem backends currently,
+            however it is expected that v1.5 will add a new temporary filesystem
+            backend which lets programs portably work inside <code class="computeroutput"><span class="identifier">tmpfs</span></code>
+            in whichever form that takes across Linux, FreeBSD, Apple OS X and Microsoft
+            Windows. Additional backends implementing say a ZIP archive filesystem
+            are similarly easy to add on.
+          </p>
+        </li>
+</ol></div>
+<p>
+      As mentioned above, note that due to the above refactoring some parts of this
+      v1.4 release of AFIO are deprecated and are expected to be removed shortly.
+      You can find a list of these shortly to be removed APIs and parts <a class="link" href="release_notes.html" title="Release Notes">here</a>.
+      The list is not long, and the removals are obvious.
+    </p>
+<p>
+      </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+    </p>
+<div class="footnotes">
+<br><hr width="100" align="left">
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.f0" href="#afio.design.f0" class="para">1</a>] </sup>
+        The <a href="http://unqlite.org/" target="_top">UnQLite embedded NoSQL database engine</a>
+        is exactly one of those of course. Unfortunately I intend TripleGit for implementing
+        portable Component Objects for C++ extending C++ Modules, which means I need
+        a database engine suitable for incorporation into a dynamic linker, which
+        unfortunately is not quite UnQLite.
+      </p></div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="overview.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="design/acid_write_ordering.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

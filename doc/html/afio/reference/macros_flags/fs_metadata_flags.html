@@ -1,0 +1,305 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>fs_metadata_flags</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../macros_flags.html" title="Macros and Flags">
+<link rel="prev" href="file_flags.html" title="file_flags">
+<link rel="next" href="metadata_flags.html" title="metadata_flags">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="file_flags.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../macros_flags.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="metadata_flags.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.macros_flags.fs_metadata_flags"></a><a class="link" href="fs_metadata_flags.html" title="fs_metadata_flags">fs_metadata_flags</a>
+</h4></div></div></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'fs_metadata_flags';
+var disqus_title = 'Boost.AFIO fs_metadata_flags';
+</script>
+        </p>
+<p>
+          <a class="indexterm" name="idp14825808"></a>
+<a class="indexterm" name="idp14826184"></a>
+<a class="indexterm" name="idp14826592"></a>
+<a class="indexterm" name="idp14827000"></a>
+<a class="indexterm" name="idp14827408"></a>
+<a class="indexterm" name="idp14827816"></a>
+<a class="indexterm" name="idp14828224"></a>
+<a class="indexterm" name="idp14828632"></a>
+<a class="indexterm" name="idp14829040"></a>
+<a class="indexterm" name="idp14829448"></a>
+<a class="indexterm" name="idp14829856"></a>
+<a class="indexterm" name="idp14830264"></a>
+<a class="indexterm" name="idp14830672"></a>
+<a class="indexterm" name="idp14831080"></a>
+<a class="indexterm" name="idp14831488"></a>
+<a class="indexterm" name="idp14831896"></a>
+<a class="indexterm" name="idp14832304"></a>
+Bitflags for availability of metadata from <code class="literal"><code class="computeroutput"><span class="keyword">struct</span>
+          </code><code class="computeroutput"><span class="identifier">statfs_t</span></code></code>
+        </p>
+<h6>
+<a name="afio.reference.macros_flags.fs_metadata_flags.h0"></a>
+          <span><a name="afio.reference.macros_flags.fs_metadata_flags.synopsis"></a></span><a class="link" href="fs_metadata_flags.html#afio.reference.macros_flags.fs_metadata_flags.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">enum</span> <span class="identifier">fs_metadata_flags</span> <span class="special">{</span><span class="identifier">None</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">flags</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">1</span><span class="special">,</span> <span class="identifier">bsize</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">2</span><span class="special">,</span> <span class="identifier">iosize</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">3</span><span class="special">,</span> <span class="identifier">blocks</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">4</span><span class="special">,</span> <span class="identifier">bfree</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">5</span><span class="special">,</span> <span class="identifier">bavail</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">6</span><span class="special">,</span> <span class="identifier">files</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">7</span><span class="special">,</span> <span class="identifier">ffree</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">8</span><span class="special">,</span> <span class="identifier">namemax</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">9</span><span class="special">,</span> <span class="identifier">owner</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">10</span><span class="special">,</span> <span class="identifier">fsid</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">11</span><span class="special">,</span> <span class="identifier">fstypename</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">12</span><span class="special">,</span> <span class="identifier">mntfromname</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">13</span><span class="special">,</span> <span class="identifier">mntonname</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">14</span><span class="special">,</span> <span class="identifier">All</span> <span class="special">=</span> <span class="special">(</span><span class="identifier">size_t</span><span class="special">)-</span><span class="number">1</span><span class="special">};</span></pre>
+<h6>
+<a name="afio.reference.macros_flags.fs_metadata_flags.h1"></a>
+          <span><a name="afio.reference.macros_flags.fs_metadata_flags.values"></a></span><a class="link" href="fs_metadata_flags.html#afio.reference.macros_flags.fs_metadata_flags.values">Values</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Value
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    None
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    flags
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    bsize
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    iosize
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    blocks
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    bfree
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    bavail
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    files
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    ffree
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    namemax
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    owner
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    fsid
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    fstypename
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    mntfromname
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    mntonname
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    All
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Return the maximum possible metadata.
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.macros_flags.fs_metadata_flags.h2"></a>
+          <span><a name="afio.reference.macros_flags.fs_metadata_flags.header"></a></span><a class="link" href="fs_metadata_flags.html#afio.reference.macros_flags.fs_metadata_flags.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="file_flags.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../macros_flags.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="metadata_flags.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

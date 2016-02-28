@@ -1,0 +1,568 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>utils::secded_ecc</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../classes.html" title="Classes">
+<link rel="prev" href="utils_page_allocator.html" title="utils::page_allocator">
+<link rel="next" href="../function.html" title="Functions in namespace utils">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="utils_page_allocator.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../function.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.utilities.classes.utils_secded_ecc"></a><a class="link" href="utils_secded_ecc.html" title="utils::secded_ecc">utils::secded_ecc</a>
+</h5></div></div></div>
+<div class="toc"><dl><dt><span class="section"><a href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.verify_status">verify_status</a></span></dt></dl></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'utils_secded_ecc';
+var disqus_title = 'Boost.AFIO utils::secded_ecc';
+</script>
+
+          </p>
+<div class="section">
+<div class="titlepage"><div><div><h6 class="title">
+<a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status"></a><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.verify_status" title="verify_status">verify_status</a>
+</h6></div></div></div>
+<p>
+              <script type="text/javascript">
+var disqus_identifier = 'verify_status';
+var disqus_title = 'Boost.AFIO verify_status';
+</script>
+            </p>
+<p>
+              <a class="indexterm" name="idp32246264"></a>
+<a class="indexterm" name="idp32246640"></a>
+<a class="indexterm" name="idp32247048"></a>
+<a class="indexterm" name="idp32247456"></a>
+The outcomes from verify()
+            </p>
+<h7><a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status.h0"></a>
+              <span><a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status.synopsis"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.verify_status.synopsis">Synopsis</a>
+            </h7><pre class="programlisting"><span class="keyword">enum</span> <span class="identifier">verify_status</span> <span class="special">{</span><span class="identifier">corrupt</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">okay</span> <span class="special">=</span> <span class="number">1</span><span class="special">,</span> <span class="identifier">healed</span> <span class="special">=</span> <span class="number">2</span><span class="special">};</span></pre>
+<h7><a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status.h1"></a>
+              <span><a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status.values"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.verify_status.values">Values</a>
+            </h7><div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                      <p>
+                        Value
+                      </p>
+                    </th>
+<th>
+                      <p>
+                        Description
+                      </p>
+                    </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                      <p>
+                        corrupt
+                      </p>
+                    </td>
+<td>
+                      <p>
+                        The buffer had more than a single bit corrupted or the ECC
+                        was invalid.
+                      </p>
+                    </td>
+</tr>
+<tr>
+<td>
+                      <p>
+                        okay
+                      </p>
+                    </td>
+<td>
+                      <p>
+                        The buffer had no errors.
+                      </p>
+                    </td>
+</tr>
+<tr>
+<td>
+                      <p>
+                        healed
+                      </p>
+                    </td>
+<td>
+                      <p>
+                        The buffer was healed.
+                      </p>
+                    </td>
+</tr>
+</tbody>
+</table></div>
+<h7><a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status.h2"></a>
+              <span><a name="afio.reference.utilities.classes.utils_secded_ecc.verify_status.header"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.verify_status.header">Header</a>
+            </h7><p>
+              <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+            </p>
+<p>
+              </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+            </p>
+</div>
+<p>
+            <a class="indexterm" name="idp32267944"></a><a class="indexterm" name="idp32268256"></a>
+Calculates the single error correcting double error detecting (SECDED)
+            Hamming Error Correcting Code for a <span class="emphasis"><em>blocksize</em></span> block
+            of bytes. For example, a secdec_ecc&lt;8&gt; would be the very common
+            72,64 Hamming code used in ECC RAM, or secdec_ecc&lt;4096&gt; would be
+            for a 32784,32768 Hamming code.
+          </p>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h0"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.description"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.description">Description</a>
+          </h6>
+<p>
+            Did you know that some non-ECC RAM systems can see 1e-12 flips/bit/hour,
+            which is 3.3 bits flipped in a 16Gb RAM system per 24 hours). See Schroeder,
+            Pinheiro and Weber (2009) 'DRAM Errors in the Wild: A Large-Scale Field
+            Study'.
+          </p>
+<p>
+            After construction during which lookup tables are built, no state is
+            modified and therefore this class is safe for static storage (indeed
+            if C++ 14 is available, the constructor is constexpr). The maximum number
+            of bits in a code is a good four billion, I did try limiting it to 65536
+            for performance but it wasn't worth it, and one might want &gt; 8Kb blocks
+            maybe. As with all SECDED ECC, undefined behaviour occurs when more than
+            two bits of error are present or the ECC supplied is incorrect. You should
+            combine this SECDED with a robust hash which can tell you definitively
+            if a buffer is error free or not rather than relying on this to correctly
+            do so.
+          </p>
+<p>
+            The main intended use case for this routine is calculating the ECC on
+            data being written to disc, and hence that is where performance has been
+            maximised. It is not expected that this routine will be frequently called
+            on data being read from disc i.e. only when its hash doesn't match its
+            contents which should be very rare, and then a single bit heal using
+            this routine is attempted before trying again with the hash. Care was
+            taken that really enormous SECDEDs are fast, in fact tuning was mostly
+            done for the 32784,32768 code which can heal one bad bit per 4Kb page
+            as the main thing we have in mind is achieving reliable filing system
+            code on computers without ECC RAM and in which sustained large quantities
+            of random disc i/o produce a worrying number of flipped bits in a 24
+            hour period (anywhere between 0 and 3 on my hardware here, average is
+            about 0.8).
+          </p>
+<p>
+            Performance of the fixed block size routine where you supply whole chunks
+            of <span class="emphasis"><em>blocksize</em></span> is therefore <span class="bold"><strong>particularly</strong></span>
+            excellent as I spent a lot of time tuning it for Ivy Bridge and later
+            out of order architectures: an amazing 22 cycles per byte for the 32784,32768
+            code, which is a testament to modern out of order CPUs (remember SECDED
+            inherently must work a bit at a time, so that's just 2.75 amortised CPU
+            cycles per bit which includes a table load, a bit test, and a conditional
+            XOR) i.e. it's pushing about 1.5 ops per clock cycle. On my 3.9Ghz i7-3770K
+            here, I see about 170Mb/sec per CPU core.
+          </p>
+<p>
+            The variable length routine is necessarily much slower as it must work
+            in single bytes, and achieves 72 cycles per byte, or 9 cycles per bit
+            (64Mb/sec per CPU core).
+          </p>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h1"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.synopsis"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="identifier">size_t</span> <span class="identifier">blocksize</span><span class="special">&gt;</span>
+<span class="keyword">class</span> <span class="identifier">utils</span><span class="special">::</span><span class="identifier">secded_ecc</span>
+<span class="special">{</span>
+  <span class="comment">// ...</span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h2"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.template_parameter_s"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.template_parameter_s">Template
+            parameter(s)</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Parameter
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody><tr>
+<td>
+                    <p>
+                      size_t blocksize
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h3"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.constructor_s"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.constructor_s">Constructor(s)</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Function
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Parameters
+                    </p>
+                  </th>
+</tr></thead>
+<tbody><tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">secded_ecc</span><span class="special">()</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Constructs an instance, configuring the necessary lookup tables.
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h4"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.member_function_s"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.member_function_s">Member
+            Function(s)</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Function
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Parameters
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Returns
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">constexpr</span> <span class="identifier">result_type</span> <span class="identifier">result_bits_valid</span><span class="special">()</span></pre>
+                  </td>
+<td>
+                    <p>
+                      The number of bits valid in result_type.
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">result_type</span> <span class="keyword">operator</span><span class="special">()(</span><span class="identifier">result_type</span> <span class="identifier">ecc</span><span class="special">,</span> <span class="keyword">const</span> <span class="keyword">char</span> <span class="special">*</span> <span class="identifier">buffer</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Accumulate ECC from fixed size buffer.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>result_type</strong></span>: <span class="emphasis"><em>ecc</em></span>:
+                    </p>
+                    <p>
+                      <span class="bold"><strong>const char *</strong></span>: <span class="emphasis"><em>buffer</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">result_type</span> <span class="keyword">operator</span><span class="special">()(</span><span class="keyword">const</span> <span class="keyword">char</span> <span class="special">*</span> <span class="identifier">buffer</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>const char *</strong></span>: <span class="emphasis"><em>buffer</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">result_type</span> <span class="keyword">operator</span><span class="special">()(</span><span class="identifier">result_type</span> <span class="identifier">ecc</span><span class="special">,</span> <span class="keyword">const</span> <span class="keyword">char</span> <span class="special">*</span> <span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Accumulate ECC from partial buffer where <span class="emphasis"><em>length</em></span>
+                      &lt;= <span class="emphasis"><em>blocksize</em></span>.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>result_type</strong></span>: <span class="emphasis"><em>ecc</em></span>:
+                    </p>
+                    <p>
+                      <span class="bold"><strong>const char *</strong></span>: <span class="emphasis"><em>buffer</em></span>:
+                    </p>
+                    <p>
+                      <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>length</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">result_type</span> <span class="keyword">operator</span><span class="special">()(</span><span class="keyword">const</span> <span class="keyword">char</span> <span class="special">*</span> <span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>const char *</strong></span>: <span class="emphasis"><em>buffer</em></span>:
+                    </p>
+                    <p>
+                      <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>length</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">result_type</span> <span class="identifier">find_bad_bit</span><span class="special">(</span><span class="identifier">result_type</span> <span class="identifier">good_ecc</span><span class="special">,</span> <span class="identifier">result_type</span> <span class="identifier">bad_ecc</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Given the original ECC and the new ECC for a buffer, find the
+                      bad bit. Return (result_type)-1 if not found (e.g. ECC corrupt)
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>result_type</strong></span>: <span class="emphasis"><em>good_ecc</em></span>:
+                    </p>
+                    <p>
+                      <span class="bold"><strong>result_type</strong></span>: <span class="emphasis"><em>bad_ecc</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">verify_status</span> <span class="identifier">verify</span><span class="special">(</span><span class="keyword">char</span> <span class="special">*</span> <span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">result_type</span> <span class="identifier">good_ecc</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Verifies and heals when possible a buffer, returning non zero
+                      if the buffer is error free.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>char *</strong></span>: <span class="emphasis"><em>buffer</em></span>:
+                    </p>
+                    <p>
+                      <span class="bold"><strong>result_type</strong></span>: <span class="emphasis"><em>good_ecc</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h5"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.header"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h6"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.complexity"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.complexity">Complexity</a>
+          </h6>
+<p>
+            O(N) where N is the blocksize
+          </p>
+<h6>
+<a name="afio.reference.utilities.classes.utils_secded_ecc.h7"></a>
+            <span><a name="afio.reference.utilities.classes.utils_secded_ecc.exception_model"></a></span><a class="link" href="utils_secded_ecc.html#afio.reference.utilities.classes.utils_secded_ecc.exception_model">Exception
+            Model</a>
+          </h6>
+<p>
+            Throws constexpr exceptions in constructor only, otherwise entirely noexcept.
+          </p>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="utils_page_allocator.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../function.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

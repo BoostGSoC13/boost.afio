@@ -1,0 +1,722 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>5. Third attempt at a key-value store: Thinking like a filing system</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../workshop.html" title="Step by step workshop building an AFIO-based key-value store">
+<link rel="prev" href="atomic_updates/atomic_updates_problems.html" title="The performance of and problems with this second generation design">
+<link rel="next" href="extents_theory/extents.html" title="The final named blob store design">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="atomic_updates/atomic_updates_problems.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="extents_theory/extents.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.quickstart.workshop.extents_theory"></a><a class="link" href="extents_theory.html" title="5. Third attempt at a key-value store: Thinking like a filing system">5. Third attempt
+        at a key-value store: Thinking like a filing system</a>
+</h4></div></div></div>
+<div class="toc"><dl>
+<dt><span class="section"><a href="extents_theory/extents.html">The
+          final named blob store design</a></span></dt>
+<dt><span class="section"><a href="extents_theory/extents_problems.html">The
+          performance of and problems with this third generation design</a></span></dt>
+</dl></div>
+<p>
+          You should prepare yourself to now think outside your normal comfort zone,
+          and like a filing system engineer.
+        </p>
+<p>
+          Modern filing systems are <span class="emphasis"><em>extents</em></span> based, which means
+          that instead of your file content being stored as the program sees it when
+          reading it, physical storage allocation is <span class="bold"><strong>lazy</strong></span>.
+          In other words, only when you write first into an extent is physical storage
+          actually allocated, and if you never write into an extent then no physical
+          storage is consumed, despite that that region of the file reads as all
+          bits zero.
+        </p>
+<p>
+          You can test this for yourself by the following shell command on an extents-based
+          filing system (e.g. ZFS, UFS, HFS+, ext4):
+        </p>
+<pre class="programlisting"><span class="identifier">ned</span><span class="error">@</span><span class="identifier">kate</span><span class="special">:~</span><span class="error">$</span> <span class="identifier">truncate</span> <span class="special">-</span><span class="identifier">s</span> <span class="number">2</span><span class="identifier">T</span> <span class="identifier">sparse</span><span class="special">.</span><span class="identifier">img</span>
+<span class="identifier">ned</span><span class="error">@</span><span class="identifier">kate</span><span class="special">:~</span><span class="error">$</span> <span class="identifier">ls</span> <span class="special">-</span><span class="identifier">ls</span> <span class="identifier">sparse</span><span class="special">.</span><span class="identifier">img</span>
+<span class="number">0</span> <span class="special">-</span><span class="identifier">rw</span><span class="special">-</span><span class="identifier">rw</span><span class="special">-</span><span class="identifier">r</span><span class="special">--</span> <span class="number">1</span> <span class="identifier">ned</span> <span class="identifier">ned</span> <span class="number">2199023255552</span> <span class="identifier">Aug</span> <span class="number">19</span> <span class="number">16</span><span class="special">:</span><span class="number">13</span> <span class="identifier">sparse</span><span class="special">.</span><span class="identifier">img</span>
+</pre>
+<p>
+          The first zero shows the allocated size of the file, which is zero. The
+          maximum allocation of the file, which is reported as the size, is 2Tb.
+          Let's try writing a single byte onto the end of the file:
+        </p>
+<pre class="programlisting"><span class="identifier">ned</span><span class="error">@</span><span class="identifier">kate</span><span class="special">:~</span><span class="error">$</span> <span class="identifier">echo</span> <span class="char">'0'</span> <span class="special">&gt;&gt;</span> <span class="identifier">sparse</span><span class="special">.</span><span class="identifier">img</span>
+<span class="identifier">ned</span><span class="error">@</span><span class="identifier">kate</span><span class="special">:~</span><span class="error">$</span> <span class="identifier">ls</span> <span class="special">-</span><span class="identifier">ls</span> <span class="identifier">sparse</span><span class="special">.</span><span class="identifier">img</span>
+<span class="number">4</span> <span class="special">-</span><span class="identifier">rw</span><span class="special">-</span><span class="identifier">rw</span><span class="special">-</span><span class="identifier">r</span><span class="special">--</span> <span class="number">1</span> <span class="identifier">ned</span> <span class="identifier">ned</span> <span class="number">2199023255554</span> <span class="identifier">Aug</span> <span class="number">19</span> <span class="number">16</span><span class="special">:</span><span class="number">17</span> <span class="identifier">sparse</span><span class="special">.</span><span class="identifier">img</span>
+</pre>
+<p>
+          The maximum allocation has increased by two bytes as you would expect.
+          However, the actual real allocation is now in fact four bytes! If you were
+          not on an extents-based filing system the echo append command would take
+          a very long time to execute and you would in fact get a 2Tb sized file
+          almost entirely made of zeroes!
+        </p>
+<p>
+          Different filing systems have different granularities of extent. ext4,
+          for example, usually has a 4Kb extent granularity unless it is a partial
+          final extent. ZFS usually has a 128Kb granularity, while NTFS usually has
+          a 64Kb granularity. The key thing to remember here is that the granularity
+          is usually quite chunky, so storing a single byte every 256Kb offset is
+          going to be extremely wasteful of physical storage. AFIO provides enumeration
+          of the allocated extents of a file using <a class="link" href="../../reference/functions/extents.html" title="Functions for enumerating file physical storage extents"><code class="computeroutput"><span class="identifier">async_extents</span><span class="special">()</span></code></a>.
+        </p>
+<p>
+          Just as you can lazily allocate physical storage for file content using
+          extents, so too can you deallocate extents by <span class="quote">&#8220;<span class="quote">punching holes</span>&#8221;</span>
+          in a file's content storage. This simply eliminates the physical storage
+          for a region, and therefore subsequent reads from that region will now
+          return all bits zero. AFIO's API for doing this deallocation is <a class="link" href="../../reference/functions/zero.html" title="Functions for deallocating/zeroing physical storage"><code class="computeroutput"><span class="identifier">async_zero</span><span class="special">()</span></code></a>,
+          and just to remind you of which filing systems provide extents and APIs
+          to manage them, here is that power loss safety table once again:
+        </p>
+<div class="table">
+<a name="afio.quickstart.workshop.extents_theory.power_loss_safety"></a><p class="title"><b>Table&#160;1.8.&#160;Power loss safety matrix: What non-trivially reconstructible data
+          can you lose if power is suddenly lost? <span class="bold">Any help
+          which can be supplied in filling in the unknowns in this table would be
+          hugely appreciated</span>.</b></p>
+<div class="table-contents"><table class="table" summary="Power loss safety matrix: What non-trivially reconstructible data
+          can you lose if power is suddenly lost? Any help
+          which can be supplied in filling in the unknowns in this table would be
+          hugely appreciated.">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Newly created file content corruptable
+                    after close</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">File data content rewrite corruptable
+                    after close</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Cosmic ray bitrot corruptable</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Can punch holes into physical storage
+                    of files<sup>[<a name="afio.quickstart.workshop.extents_theory.f0" href="#ftn.afio.quickstart.workshop.extents_theory.f0" class="footnote">a</a>]</sup></span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Default max seconds of writes reordered
+                    without using <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code></span>
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">FAT32</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">?</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext2</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">writeback</span></code></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35<sup>[<a name="afio.quickstart.workshop.extents_theory.f1" href="#ftn.afio.quickstart.workshop.extents_theory.f1" class="footnote">b</a>]</sup></span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">ordered</span></code>
+                    (default)</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">UFS + soft updates<sup>[<a name="afio.quickstart.workshop.extents_theory.f2" href="#ftn.afio.quickstart.workshop.extents_theory.f2" class="footnote">c</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span><sup>[<a name="afio.quickstart.workshop.extents_theory.f3" href="#ftn.afio.quickstart.workshop.extents_theory.f3" class="footnote">d</a>]</sup>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">HFS+</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">?</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">NTFS<sup>[<a name="afio.quickstart.workshop.extents_theory.f4" href="#ftn.afio.quickstart.workshop.extents_theory.f4" class="footnote">e</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">Until idle or write limit</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">journal</span></code></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">5</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">BTRFS<sup>[<a name="afio.quickstart.workshop.extents_theory.f5" href="#ftn.afio.quickstart.workshop.extents_theory.f5" class="footnote">f</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ReFS</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">not if integrity
+                    streams enabled</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">not if integrity
+                    streams enabled</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">Until idle or write limit</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ZFS</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+</tbody>
+<tbody class="footnotes"><tr><td colspan="6">
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.extents_theory.f0" href="#afio.quickstart.workshop.extents_theory.f0" class="para">a</a>] </sup>
+                      This is where a filing system permits you to deallocate the
+                      physical storage of a region of a file, so a file claiming
+                      to occupy 8Mb could be reduced to 1Mb of actual storage consumption.
+                      This may sound like sparse file support, but transparent compression
+                      support also counts as it would reduce a region written with
+                      all zeros to nearly zero physical storage
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.extents_theory.f1" href="#afio.quickstart.workshop.extents_theory.f1" class="para">b</a>] </sup>
+                      This is the <code class="computeroutput"><span class="identifier">commit</span></code>
+                      mount setting added to the <code class="computeroutput"><span class="special">/</span><span class="identifier">proc</span><span class="special">/</span><span class="identifier">sys</span><span class="special">/</span><span class="identifier">vm</span><span class="special">/</span><span class="identifier">dirty_expire_centiseconds</span></code>
+                      value. Sources: <a href="https://www.kernel.org/doc/Documentation/filesystems/ext4.txt" target="_top">https://www.kernel.org/doc/Documentation/filesystems/ext4.txt</a>
+                      and <a href="http://www.westnet.com/~gsmith/content/linux-pdflush.htm" target="_top">http://www.westnet.com/~gsmith/content/linux-pdflush.htm</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.extents_theory.f2" href="#afio.quickstart.workshop.extents_theory.f2" class="para">c</a>] </sup>
+                      Source: <a href="http://www.freebsd.org/cgi/man.cgi?query=syncer" target="_top">http://www.freebsd.org/cgi/man.cgi?query=syncer</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.extents_theory.f3" href="#afio.quickstart.workshop.extents_theory.f3" class="para">d</a>] </sup>
+                      BSD automatically detects extended regions of all bits zero,
+                      and eliminates their physical representation on storage.
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.extents_theory.f4" href="#afio.quickstart.workshop.extents_theory.f4" class="para">e</a>] </sup>
+                      Source: <a href="http://technet.microsoft.com/en-us/library/bb742613.aspx" target="_top">http://technet.microsoft.com/en-us/library/bb742613.aspx</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.extents_theory.f5" href="#afio.quickstart.workshop.extents_theory.f5" class="para">f</a>] </sup>
+                      Source: <a href="https://wiki.archlinux.org/index.php/Btrfs" target="_top">https://wiki.archlinux.org/index.php/Btrfs</a>
+                    </p></div>
+</td></tr></tbody>
+</table></div>
+</div>
+<br class="table-break"><h6>
+<a name="afio.quickstart.workshop.extents_theory.h0"></a>
+          <span><a name="afio.quickstart.workshop.extents_theory.visibility_of_concurrent_writes_"></a></span><a class="link" href="extents_theory.html#afio.quickstart.workshop.extents_theory.visibility_of_concurrent_writes_">Visibility
+          of concurrent writes to concurrent readers in file i/o</a>
+        </h6>
+<p>
+          The final piece of the puzzle is <span class="bold"><strong>atomicity of writes</strong></span>.
+          Many people do not realise that POSIX operating systems are supposed to
+          provide some strong POSIX-mandated guarantees about the visibility of file
+          i/o to concurrent readers and writers, and these guarantees AFIO goes out
+          of its way not to interfere with. These are:
+        </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+              The <span class="emphasis"><em>visibility</em></span> of a write to a file is to be atomic
+              to all readers of the same file, including gather writes (note gather
+              writes on Microsoft Windows are not atomic, but single buffer writes
+              may be, see below). The POSIX-2008 wording is this:
+              <div class="blockquote"><blockquote class="blockquote"><p>
+                  <span class="emphasis"><em><span class="quote">&#8220;<span class="quote">If a <code class="computeroutput"><span class="identifier">read</span><span class="special">()</span></code> of file data can be proven (by
+                  any means) to occur after a <code class="computeroutput"><span class="identifier">write</span><span class="special">()</span></code> of the data, it must reflect
+                  that <code class="computeroutput"><span class="identifier">write</span><span class="special">()</span></code>,
+                  even if the calls are made by different processes. A similar requirement
+                  applies to multiple write operations to the same file position.
+                  This is needed to guarantee the propagation of data from <code class="computeroutput"><span class="identifier">write</span><span class="special">()</span></code>
+                  calls to subsequent <code class="computeroutput"><span class="identifier">read</span><span class="special">()</span></code> calls.</span>&#8221;</span></em></span> (<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html" target="_top">POSIX-2008</a>)
+                </p></blockquote></div>
+              <p>
+                If you try to implement this wording, you quickly realise there is
+                an implied mutex on each file in the kernel, and every read to and
+                write from that file across the system involves holding that mutex
+                during the read or write. Whether that is actually the case is unimportant,
+                POSIX requires that it must appear to file i/o readers and writers
+                that this is as if so.
+              </p>
+              <p>
+                In actual implementations however, the reality is somewhat different.
+                The first obvious difficulty is with networked filing systems where
+                performance would be awful if an implied mutex had to be claimed
+                for every single read and write, so networked filing systems don't
+                do that. The second big deviation is with memory mapped files as
+                reading and writing raw memory does not synchronise on the implied
+                per-file mutex and therefore you may see a partially written write
+                during a read. All the major operating systems do just happen to
+                synchronise i/o between memory maps and normal read/write so long
+                as nobody is using <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">os_direct</span></code>
+                i.e. <code class="computeroutput"><span class="identifier">msync</span><span class="special">(</span><span class="identifier">MS_INVALIDATE</span><span class="special">)</span></code>
+                is a noop on any recent major operating system, however memory map
+                i/o still races on itself and on normal i/o operations. This, incidentally,
+                is why AFIO does not provide much memory map support currently.
+              </p>
+              <p>
+                An additional problem beyond these is that Linux is simply non-conforming
+                to POSIX-2008 here, and has unfortunately been so for a very long
+                time. Linux does lock on a per-page granularity, so per 4Kb page
+                it locks and nothing past that. This implies that if your read unfortunately
+                straddles a 4Kb boundary, you have a race. XFS has implemented additional
+                locking to solve this problem, but ext4 has not. You can see more
+                detail <a href="http://jeffr-tech.livejournal.com/20707.html" target="_top">here</a>
+                and <a href="http://permalink.gmane.org/gmane.comp.file-systems.ext4/27225" target="_top">here</a>.
+              </p>
+              <p>
+                Finally, Microsoft Windows makes no public guarantees about the atomic
+                visibility of writes except that nothing is guaranteed past a sector
+                size, and by that they are referring to the atomicity of a write
+                reaching storage rather than anything about visibility to concurrent
+                reader writers. From how the NT kernel IRP queue works whereby reads
+                and writes both enter the same serialised queue, it seems to me that
+                the POSIX visibility guarantees are met which would be expected as
+                the NT kernel is explicitly designed to be POSIX compliant, however
+                one should be cautious here. I note from a review of portable databases
+                that none makes strong assumptions about read-write visibility ordering,
+                and I assume that is for a reason &#8212; though that reason could
+                simply be <span class="quote">&#8220;<span class="quote">Linux</span>&#8221;</span>.
+              </p>
+              <p>
+                <span class="bold"><strong>If</strong></span> you are willing to restrict your
+                end use cases to:
+              </p>
+              <div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+                    Any of the BSDs (these conform to POSIX).
+                  </li>
+<li class="listitem">
+                    Linux with XFS (XFS implements special workarounds to conform
+                    with POSIX).
+                  </li>
+<li class="listitem">
+                    Microsoft Windows with NTFS (it is thought to conform to POSIX).
+                  </li>
+</ul></div>
+              <p>
+                ... then you may be able to dispense with explicit locks. You may
+                find the <a class="link" href="../../reference/functions/statfs.html" title="Functions for fetching storage volume metadata"><code class="computeroutput"><span class="identifier">async_statfs</span><span class="special">()</span></code></a>
+                API useful as it can return the name of the filing system providing
+                an open file handle.
+              </p>
+            </li>
+<li class="listitem">
+              By extension of the above, POSIX requires that the visibility of a
+              write to a file opened for append-only access is also atomic to all
+              readers and writers of the same file. Or put more succinctly, appending
+              to an append-only file is atomic per syscall, so concurrent appenders
+              are guaranteed each of their writes will appear to be appended in full
+              before another appender's write. Here is the POSIX-2008 wording:
+              <div class="blockquote"><blockquote class="blockquote"><p>
+                  <span class="emphasis"><em><span class="quote">&#8220;<span class="quote">If the <code class="computeroutput"><span class="identifier">O_APPEND</span></code>
+                  flag of the file status flags is set, the file offset shall be
+                  set to the end of the file prior to each write and no intervening
+                  file modification operation shall occur between changing the file
+                  offset and the write operation.</span>&#8221;</span></em></span> (<a href="http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html" target="_top">POSIX-2008</a>)
+                </p></blockquote></div>
+              <p>
+                You will be glad to know that this is a much better supported feature
+                in implementations. The atomicity of file append even works on CIFS/Samba
+                network shares in the usual configuration, albeit with a severe performance
+                penalty (NFS network shares unfortunately do not preserve append
+                atomicity because the protocol is incapable of expressing such an
+                operation). Because memory maps are for a given file extent, file
+                appends don't affect them, and because the requirement is merely
+                for the atomicity of the increment of the file size, the atomicity
+                of the visibility of the content appended is a separate problem to
+                <span class="emphasis"><em>where</em></span> the content is appended whose increment
+                is guaranteed to be atomic except on NFS.
+              </p>
+            </li>
+</ol></div>
+<h6>
+<a name="afio.quickstart.workshop.extents_theory.h1"></a>
+          <span><a name="afio.quickstart.workshop.extents_theory.the_relevance_of_all_this_filing"></a></span><a class="link" href="extents_theory.html#afio.quickstart.workshop.extents_theory.the_relevance_of_all_this_filing">The
+          relevance of all this filing system theory to the final key-value BLOB
+          store</a>
+        </h6>
+<p>
+          Why all this matters is because you need to understand all this theory
+          to understand why the third generation key-value BLOB store presented next
+          is designed exactly the way it is. Unintuitively, it is going to be a set
+          of always-growing atomically-appended sparse files. We take advantage of
+          hole punching to deallocate the parts of the files no longer needed so
+          physically consumed storage does not grow past what is needed, but their
+          apparent sizes grow forever and the atomicity of the atomic append operation
+          is used as the concurrency control mechanism for implementing transactional
+          updates as effectively copy-on-write, plus as the mechanism for marking
+          time to the filing system such that extents which have exceeded their maximum
+          age and must be flushed to storage are always exactly those at an offset
+          earlier in the file. Because we never open nor close files, we avoid the
+          costs of security checking during path lookup, and therefore maximise performance.
+          While the next example does not make use of memory maps as that would severely
+          complicate the code, the on-disk file format is capable of being used directly
+          from a memory map which would allow high performance scaling to hundreds
+          of millions of key-value pairs without blinking. The only real pessimism
+          in the following design is that it doesn't scale well to modifies with
+          worse than <code class="computeroutput"><span class="identifier">O</span><span class="special">(</span><span class="identifier">N</span><span class="special">^</span><span class="number">2</span><span class="special">)</span></code> complexity to concurrency of writers and
+          worse than <code class="computeroutput"><span class="identifier">O</span><span class="special">(</span><span class="identifier">N</span><span class="special">)</span></code> complexity
+          to key count.
+        </p>
+<p>
+          We do have to take some care however. As on Linux writes are not atomic
+          with respect to reads across 4Kb boundaries, we are going to need some
+          mechanism of checking if some given append is valid or not, which usefully
+          can be reused to check a store for validity after a sudden power loss (just
+          because reads and writes may have sequential consistency of visibility
+          to processes has no bearing whatsoever on what order writes are flushed
+          to physical storage). Any writes we make within a 4Kb boundary is probably
+          safe e.g. to the very front of the store file, so long as it does not exceed
+          4Kb.
+        </p>
+<p>
+          And just to be extra special careful, we will never do a <span class="emphasis"><em>rewrite</em></span>
+          of existing content exceeding a sector size which we'll assume is 512 bytes
+          on a 512 byte boundary as that is publicly documented as guaranteed for
+          all the major operating systems. For that reason, as you will note in the
+          implementation next section, everything is aligned to a 32 byte boundary
+          and we never rewrite more than 32 bytes which guarantees we will never
+          rewrite across a 512 byte boundary, and therefore risk atomicity.
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="atomic_updates/atomic_updates_problems.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="extents_theory/extents.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

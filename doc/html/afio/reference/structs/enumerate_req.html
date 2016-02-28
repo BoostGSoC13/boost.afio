@@ -1,0 +1,360 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>enumerate_req</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../structs.html" title="Structures">
+<link rel="prev" href="../structs.html" title="Structures">
+<link rel="next" href="enumerate_req/filter.html" title="filter">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../structs.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../structs.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="enumerate_req/filter.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.structs.enumerate_req"></a><a class="link" href="enumerate_req.html" title="enumerate_req">enumerate_req</a>
+</h4></div></div></div>
+<div class="toc"><dl><dt><span class="section"><a href="enumerate_req/filter.html">filter</a></span></dt></dl></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'enumerate_req';
+var disqus_title = 'Boost.AFIO enumerate_req';
+</script>
+
+        </p>
+<p>
+          <a class="indexterm" name="idp14995464"></a>
+A convenience bundle of precondition, number of items to enumerate, item
+          pattern match and metadata to prefetch.
+        </p>
+<h6>
+<a name="afio.reference.structs.enumerate_req.h0"></a>
+          <span><a name="afio.reference.structs.enumerate_req.description"></a></span><a class="link" href="enumerate_req.html#afio.reference.structs.enumerate_req.description">Description</a>
+        </h6>
+<p>
+          You should note that shell globs must use a restricted form for portability:
+        </p>
+<p>
+          Microsoft Windows NT oddly does not specify what wildcards are permitted,
+          but I think the documentation for the kernel function FsRtlIsNameInExpression()
+          is probably sound: * means zero or more characters, ? means any one character.
+          Do not use &lt;, &gt; or " as these have special MS-DOS compatibility
+          inducing consequences. Do not use ^ as this is the Windows wildcard escape
+          character.
+        </p>
+<p>
+          POSIX further extends NT's wildcards with [seq] which is a subset of characters
+          and [!seq] which is not any subset of characters. Here a is the wildcard
+          escape character.
+        </p>
+<h6>
+<a name="afio.reference.structs.enumerate_req.h1"></a>
+          <span><a name="afio.reference.structs.enumerate_req.synopsis"></a></span><a class="link" href="enumerate_req.html#afio.reference.structs.enumerate_req.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">struct</span> <span class="identifier">enumerate_req</span>
+<span class="special">{</span>
+  <span class="identifier">future</span> <span class="identifier">precondition</span><span class="special">;</span>      <span class="comment">// A precondition for this operation. </span>
+  <span class="identifier">size_t</span> <span class="identifier">maxitems</span><span class="special">;</span>          <span class="comment">// The maximum number of items to return in this request. Note that setting to one will often invoke two syscalls. </span>
+  <span class="keyword">bool</span> <span class="identifier">restart</span><span class="special">;</span>             <span class="comment">// Restarts the enumeration for this open directory handle. </span>
+  <span class="identifier">path</span> <span class="identifier">glob</span><span class="special">;</span>                <span class="comment">// An optional shell glob by which to filter the items returned. Done kernel side on Windows, user side on POSIX. </span>
+  <span class="identifier">metadata_flags</span> <span class="identifier">metadata</span><span class="special">;</span>  <span class="comment">// The metadata to prefetch for each item enumerated. AFIO may fetch more metadata than requested if it is cost free. </span>
+  <span class="identifier">filter</span> <span class="identifier">filtering</span><span class="special">;</span>         <span class="comment">// Any filtering you want AFIO to do for you. </span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.structs.enumerate_req.h2"></a>
+          <span><a name="afio.reference.structs.enumerate_req.constructor_s"></a></span><a class="link" href="enumerate_req.html#afio.reference.structs.enumerate_req.constructor_s">Constructor(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">enumerate_req</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Default constructor.
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">enumerate_req</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">_maxitems</span> <span class="special">=</span> <span class="number">2</span><span class="special">,</span> <span class="keyword">bool</span> <span class="identifier">_restart</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">,</span>
+               <span class="identifier">path</span> <span class="identifier">_glob</span> <span class="special">=</span> <span class="identifier">path</span><span class="special">(),</span> <span class="identifier">metadata_flags</span> <span class="identifier">_metadata</span> <span class="special">=</span> <span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">None</span><span class="special">,</span> <span class="identifier">filter</span> <span class="identifier">_filtering</span> <span class="special">=</span> <span class="identifier">filter</span><span class="special">::</span><span class="identifier">fastdeleted</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Constructs an instance.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>_precondition</em></span>:
+                    The precondition for this operation.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>_maxitems</em></span>:
+                    The maximum number of items to return in this request. Note that
+                    setting to one will often invoke two syscalls.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>_restart</em></span>:
+                    Restarts the enumeration for this open directory handle.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>path</strong></span>: <span class="emphasis"><em>_glob</em></span>:
+                    An optional shell glob by which to filter the items returned.
+                    Done kernel side on Windows, user side on POSIX.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>_metadata</em></span>:
+                    The metadata to prefetch for each item enumerated. AFIO may fetch
+                    more metadata than requested if it is cost free.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>filter</strong></span>: <span class="emphasis"><em>_filtering</em></span>:
+                    Any filtering you want AFIO to do for you.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">enumerate_req</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="identifier">path</span> <span class="identifier">_glob</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">_maxitems</span> <span class="special">=</span> <span class="number">2</span><span class="special">,</span>
+               <span class="keyword">bool</span> <span class="identifier">_restart</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">,</span> <span class="identifier">metadata_flags</span> <span class="identifier">_metadata</span> <span class="special">=</span> <span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">None</span><span class="special">,</span> <span class="identifier">filter</span> <span class="identifier">_filtering</span> <span class="special">=</span> <span class="identifier">filter</span><span class="special">::</span><span class="identifier">fastdeleted</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Constructs an instance.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>_precondition</em></span>:
+                    The precondition for this operation.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>path</strong></span>: <span class="emphasis"><em>_glob</em></span>:
+                    A shell glob by which to filter the items returned. Done kernel
+                    side on Windows, user side on POSIX.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>_maxitems</em></span>:
+                    The maximum number of items to return in this request. Note that
+                    setting to one will often invoke two syscalls.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>_restart</em></span>:
+                    Restarts the enumeration for this open directory handle.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>_metadata</em></span>:
+                    The metadata to prefetch for each item enumerated. AFIO may fetch
+                    more metadata than requested if it is cost free.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>filter</strong></span>: <span class="emphasis"><em>_filtering</em></span>:
+                    Any filtering you want AFIO to do for you.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">enumerate_req</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="identifier">metadata_flags</span> <span class="identifier">_metadata</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">_maxitems</span> <span class="special">=</span> <span class="number">2</span><span class="special">,</span>
+               <span class="keyword">bool</span> <span class="identifier">_restart</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">,</span> <span class="identifier">path</span> <span class="identifier">_glob</span> <span class="special">=</span> <span class="identifier">path</span><span class="special">(),</span> <span class="identifier">filter</span> <span class="identifier">_filtering</span> <span class="special">=</span> <span class="identifier">filter</span><span class="special">::</span><span class="identifier">fastdeleted</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Constructs an instance.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>_precondition</em></span>:
+                    The precondition for this operation.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>_metadata</em></span>:
+                    The metadata to prefetch for each item enumerated. AFIO may fetch
+                    more metadata than requested if it is cost free.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>_maxitems</em></span>:
+                    The maximum number of items to return in this request. Note that
+                    setting to one will often invoke two syscalls.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>_restart</em></span>:
+                    Restarts the enumeration for this open directory handle.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>path</strong></span>: <span class="emphasis"><em>_glob</em></span>:
+                    An optional shell glob by which to filter the items returned.
+                    Done kernel side on Windows, user side on POSIX.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>filter</strong></span>: <span class="emphasis"><em>_filtering</em></span>:
+                    Any filtering you want AFIO to do for you.
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.structs.enumerate_req.h3"></a>
+          <span><a name="afio.reference.structs.enumerate_req.member_function_s"></a></span><a class="link" href="enumerate_req.html#afio.reference.structs.enumerate_req.member_function_s">Member
+          Function(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Returns
+                  </p>
+                </th>
+</tr></thead>
+<tbody><tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">validate</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Validates contents.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.structs.enumerate_req.h4"></a>
+          <span><a name="afio.reference.structs.enumerate_req.header"></a></span><a class="link" href="enumerate_req.html#afio.reference.structs.enumerate_req.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../structs.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../structs.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="enumerate_req/filter.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

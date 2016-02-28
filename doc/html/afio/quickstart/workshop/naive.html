@@ -1,0 +1,343 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>1. World's simplest named blob store in STL iostreams</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../workshop.html" title="Step by step workshop building an AFIO-based key-value store">
+<link rel="prev" href="../workshop.html" title="Step by step workshop building an AFIO-based key-value store">
+<link rel="next" href="naive_afio.html" title="2. World's simplest named blob store in AFIO (synchronous)">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../workshop.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="naive_afio.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.quickstart.workshop.naive"></a><a class="link" href="naive.html" title="1. World's simplest named blob store in STL iostreams">1. World's simplest
+        named blob store in STL iostreams</a>
+</h4></div></div></div>
+<p>
+          Let us imagine your application needs to persist some state across executions,
+          and that that state is merely a collection of key-value items e.g.
+        </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+              "dog" =&gt; "I am a dog"
+            </li>
+<li class="listitem">
+              "cat" =&gt; "I am a cat"
+            </li>
+<li class="listitem">
+              "horse" =&gt; "I am a horse"
+            </li>
+<li class="listitem">
+              ...
+            </li>
+</ul></div>
+<p>
+          Let us imagine that you write the following low level public interface
+          for this key-value store:
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">filesystem</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">outcome</span><span class="special">;</span>
+
+<span class="keyword">class</span> <span class="identifier">data_store</span>
+<span class="special">{</span>
+  <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">_store_path</span><span class="special">;</span>
+  <span class="keyword">bool</span> <span class="identifier">_writeable</span><span class="special">;</span>
+<span class="keyword">public</span><span class="special">:</span>
+  <span class="comment">// Type used for read streams</span>
+  <span class="keyword">using</span> <span class="identifier">istream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write streams</span>
+  <span class="keyword">using</span> <span class="identifier">ostream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for lookup</span>
+  <span class="keyword">using</span> <span class="identifier">lookup_result_type</span> <span class="special">=</span> <span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write</span>
+  <span class="keyword">using</span> <span class="identifier">write_result_type</span> <span class="special">=</span> <span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+
+  <span class="comment">// Disposition flags</span>
+  <span class="keyword">static</span> <span class="keyword">constexpr</span> <span class="identifier">size_t</span> <span class="identifier">writeable</span> <span class="special">=</span> <span class="special">(</span><span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">0</span><span class="special">);</span>
+
+  <span class="comment">// Open a data store at path</span>
+  <span class="identifier">data_store</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">flags</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span> <span class="special">=</span> <span class="string">"store"</span><span class="special">);</span>
+
+  <span class="comment">// Look up item named name for reading, returning a std::istream for the item if it exists</span>
+  <span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+  <span class="comment">// Look up item named name for writing, returning an ostream for that item</span>
+  <span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+<span class="special">};</span>
+</pre>
+<p>
+          The macros for the monad and afio namespaces are to enforce a <span class="emphasis"><em>hard</em></span>
+          version dependency. By aliasing into the <code class="computeroutput"><span class="identifier">BOOST_AFIO_V2_NAMESPACE</span></code>,
+          you are creating a specific dependency on v2 of the AFIO ABI. AFIO ships
+          some still supported previously used ABI versions of itself in every version,
+          so by pinning yourself to v2 you mean v2 and nothing but v2. If you just
+          wanted the current AFIO, simply alias into namespace <code class="computeroutput"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span></code>
+          as with other libraries, this picks up whatever the current configuration
+          and version of AFIO is.
+        </p>
+<p>
+          The <code class="computeroutput"><span class="identifier">outcome</span><span class="special">&lt;&gt;</span></code>
+          comes from <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>
+          which is a dependency of Boost.AFIO. It has an identical API to <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span></code>
+          or more rather <code class="computeroutput"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span></code>,
+          so simply treat it as an always ready future. <code class="computeroutput"><span class="identifier">outcome</span><span class="special">&lt;&gt;</span></code> here can return a shared pointer
+          to the iostream, or empty (item not found), or an error, or an exception
+          as you can see in this example use case:
+        </p>
+<pre class="programlisting"><span class="comment">// To write a key-value item called "dog"</span>
+<span class="special">{</span>
+  <span class="identifier">data_store</span> <span class="identifier">ds</span><span class="special">;</span>
+  <span class="keyword">auto</span> <span class="identifier">dogh</span> <span class="special">=</span> <span class="identifier">ds</span><span class="special">.</span><span class="identifier">write</span><span class="special">(</span><span class="string">"dog"</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+  <span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">dogs</span> <span class="special">=</span> <span class="special">*</span><span class="identifier">dogh</span><span class="special">;</span>
+  <span class="identifier">dogs</span> <span class="special">&lt;&lt;</span> <span class="string">"I am a dog"</span><span class="special">;</span>
+<span class="special">}</span>
+
+<span class="comment">// To retrieve a key-value item called "dog"</span>
+<span class="special">{</span>
+  <span class="identifier">data_store</span> <span class="identifier">ds</span><span class="special">;</span>
+  <span class="keyword">auto</span> <span class="identifier">dogh</span> <span class="special">=</span> <span class="identifier">ds</span><span class="special">.</span><span class="identifier">lookup</span><span class="special">(</span><span class="string">"dog"</span><span class="special">);</span>
+  <span class="keyword">if</span> <span class="special">(</span><span class="identifier">dogh</span><span class="special">.</span><span class="identifier">empty</span><span class="special">())</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"No item called dog"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">else</span> <span class="keyword">if</span><span class="special">(</span><span class="identifier">dogh</span><span class="special">.</span><span class="identifier">has_error</span><span class="special">())</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: Looking up dog returned error "</span> <span class="special">&lt;&lt;</span> <span class="identifier">dogh</span><span class="special">.</span><span class="identifier">get_error</span><span class="special">().</span><span class="identifier">message</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">else</span> <span class="keyword">if</span> <span class="special">(</span><span class="identifier">dogh</span><span class="special">.</span><span class="identifier">has_exception</span><span class="special">())</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"FATAL: Looking up dog threw exception"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">terminate</span><span class="special">();</span>
+  <span class="special">}</span>
+  <span class="keyword">else</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">buffer</span><span class="special">;</span>
+    <span class="special">*</span><span class="identifier">dogh</span><span class="special">.</span><span class="identifier">get</span><span class="special">()</span> <span class="special">&gt;&gt;</span> <span class="identifier">buffer</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Item dog has value "</span> <span class="special">&lt;&lt;</span> <span class="identifier">buffer</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+          A perfectly straightforward and simple way of implementing <code class="computeroutput"><span class="identifier">data_store</span></code> using pure C++ STL is this:
+        </p>
+<pre class="programlisting"><span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">empty</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">error_code</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">generic_category</span><span class="special">;</span>
+
+<span class="keyword">static</span> <span class="keyword">bool</span> <span class="identifier">is_valid_name</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="special">&amp;</span><span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">static</span> <span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">banned</span><span class="special">(</span><span class="string">"&lt;&gt;:\"/\\|?*\0"</span><span class="special">,</span> <span class="number">10</span><span class="special">);</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span><span class="special">::</span><span class="identifier">npos</span><span class="special">!=</span><span class="identifier">name</span><span class="special">.</span><span class="identifier">find_first_of</span><span class="special">(</span><span class="identifier">banned</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="keyword">false</span><span class="special">;</span>
+  <span class="comment">// No leading period</span>
+  <span class="keyword">return</span> <span class="identifier">name</span><span class="special">[</span><span class="number">0</span><span class="special">]!=</span><span class="char">'.'</span><span class="special">;</span>
+<span class="special">}</span>
+
+<span class="keyword">static</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">fstream</span><span class="special">&gt;</span> <span class="identifier">name_to_fstream</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="special">&amp;</span><span class="identifier">store_path</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ios</span><span class="special">::</span><span class="identifier">openmode</span> <span class="identifier">mode</span><span class="special">)</span>
+<span class="special">{</span>
+  <span class="keyword">auto</span> <span class="identifier">to_lookup</span><span class="special">(</span><span class="identifier">store_path</span> <span class="special">/</span> <span class="identifier">name</span><span class="special">);</span>
+  <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">fstream</span><span class="special">&gt;(</span><span class="identifier">to_lookup</span><span class="special">.</span><span class="identifier">native</span><span class="special">(),</span> <span class="identifier">mode</span><span class="special">);</span>
+<span class="special">}</span>
+
+<span class="identifier">data_store</span><span class="special">::</span><span class="identifier">data_store</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">flags</span><span class="special">,</span> <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">_store_path</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">path</span><span class="special">)),</span> <span class="identifier">_writeable</span><span class="special">(</span><span class="identifier">flags</span> <span class="special">&amp;</span> <span class="identifier">writeable</span><span class="special">)</span>
+<span class="special">{</span>
+<span class="special">}</span>
+
+<span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">is_valid_name</span><span class="special">(</span><span class="identifier">name</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EINVAL</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="identifier">istream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">name_to_fstream</span><span class="special">(</span><span class="identifier">_store_path</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">name</span><span class="special">),</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ios</span><span class="special">::</span><span class="identifier">in</span> <span class="special">|</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ios</span><span class="special">::</span><span class="identifier">binary</span><span class="special">));</span>
+    <span class="keyword">if</span><span class="special">(!</span><span class="identifier">ret</span><span class="special">-&gt;</span><span class="identifier">fail</span><span class="special">())</span>
+      <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">ret</span><span class="special">);</span>
+    <span class="keyword">return</span> <span class="identifier">empty</span><span class="special">;</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span><span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">current_exception</span><span class="special">();</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+
+<span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">_writeable</span><span class="special">)</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EROFS</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">is_valid_name</span><span class="special">(</span><span class="identifier">name</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EINVAL</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="keyword">if</span> <span class="special">(!</span><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">exists</span><span class="special">(</span><span class="identifier">_store_path</span><span class="special">))</span>
+      <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">create_directory</span><span class="special">(</span><span class="identifier">_store_path</span><span class="special">);</span>
+    <span class="identifier">ostream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">name_to_fstream</span><span class="special">(</span><span class="identifier">_store_path</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">name</span><span class="special">),</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ios</span><span class="special">::</span><span class="identifier">out</span> <span class="special">|</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ios</span><span class="special">::</span><span class="identifier">binary</span><span class="special">));</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">ret</span><span class="special">);</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span> <span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">current_exception</span><span class="special">();</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+          Note that <code class="computeroutput"><span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code>
+          implicitly consumes any <code class="computeroutput"><span class="identifier">T</span></code>,
+          <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">error_code</span></code>, <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">exception_ptr</span></code>
+          or <code class="computeroutput"><span class="identifier">empty</span></code>, hence the ability
+          to return any of those directly.
+        </p>
+<p>
+          This very simple solution assumes that the key-value store is a directory
+          in the current path called <span class="quote">&#8220;<span class="quote">store</span>&#8221;</span> and that each key-value
+          item is simply a file called the same name as the key name.
+        </p>
+<div class="table">
+<a name="afio.quickstart.workshop.naive.conditions"></a><p class="title"><b>Table&#160;1.3.&#160;This solution will perform pretty well and is perfectly fine under
+          these conditions:</b></p>
+<div class="table-contents"><table class="table" summary="This solution will perform pretty well and is perfectly fine under
+          these conditions:">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                </th>
+<th>
+                  <p>
+                    Condition
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    On Microsoft Windows you don't place the store deep in a directory
+                    hierarchy and you use only short key names.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    No third party thread or process will rename the location of
+                    the store during use.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    The size of the values being read and written is small.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Only one thread or process will ever interact with the key-value
+                    store at a time.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    You don't care what happens if your process unexpectedly exits
+                    during a modify.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Maximum performance isn't important to you.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    You don't care what happens under power loss.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    You don't need to update more than one key-value at once.
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break">
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../workshop.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="naive_afio.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,751 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>dispatcher</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../classes.html" title="Classes">
+<link rel="prev" href="directory_entry/directory_entry_hash.html" title="directory_entry_hash">
+<link rel="next" href="dispatcher/complete_async_op_3_normal.html" title="complete_async_op (normal)">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="directory_entry/directory_entry_hash.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="dispatcher/complete_async_op_3_normal.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.classes.dispatcher"></a><a class="link" href="dispatcher.html" title="dispatcher">dispatcher</a>
+</h4></div></div></div>
+<div class="toc"><dl>
+<dt><span class="section"><a href="dispatcher/complete_async_op_3_normal.html">complete_async_op
+          (normal)</a></span></dt>
+<dt><span class="section"><a href="dispatcher/complete_async_op_2_errored.html">complete_async_op
+          (errored)</a></span></dt>
+</dl></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'dispatcher';
+var disqus_title = 'Boost.AFIO dispatcher';
+</script>
+        </p>
+<p>
+          <a class="indexterm" name="idp15969648"></a>
+Abstract base class for dispatching file i/o asynchronously.
+        </p>
+<h6>
+<a name="afio.reference.classes.dispatcher.h0"></a>
+          <span><a name="afio.reference.classes.dispatcher.description"></a></span><a class="link" href="dispatcher.html#afio.reference.classes.dispatcher.description">Description</a>
+        </h6>
+<p>
+          This is a reference counted instance with platform-specific implementation
+          in object code. Construct an instance using the <code class="literal"><code class="computeroutput"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">make_dispatcher</span><span class="special">()</span></code></code>
+          function.
+        </p>
+<h6>
+<a name="afio.reference.classes.dispatcher.h1"></a>
+          <span><a name="afio.reference.classes.dispatcher.synopsis"></a></span><a class="link" href="dispatcher.html#afio.reference.classes.dispatcher.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">class</span> <span class="identifier">dispatcher</span>
+      <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">enable_shared_from_this</span><span class="special">&lt;</span> <span class="identifier">dispatcher</span> <span class="special">&gt;</span>
+<span class="special">{</span>
+  <span class="comment">// ...</span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.classes.dispatcher.h2"></a>
+          <span><a name="afio.reference.classes.dispatcher.constructor_s"></a></span><a class="link" href="dispatcher.html#afio.reference.classes.dispatcher.constructor_s">Constructor(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+</tr></thead>
+<tbody><tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="special">~</span><span class="identifier">dispatcher</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Destroys the dispatcher, blocking inefficiently if any ops are
+                    still in flight.
+                  </p>
+                </td>
+<td>
+                </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.dispatcher.h3"></a>
+          <span><a name="afio.reference.classes.dispatcher.member_function_s"></a></span><a class="link" href="dispatcher.html#afio.reference.classes.dispatcher.member_function_s">Member Function(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Returns
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="identifier">testing_flags</span><span class="special">(</span><span class="identifier">detail</span><span class="special">::</span><span class="identifier">unit_testing_flags</span> <span class="identifier">flags</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>detail::unit_testing_flags</strong></span>:
+                    <span class="emphasis"><em>flags</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span> <span class="identifier">thread_source</span> <span class="special">&gt;</span> <span class="identifier">threadsource</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the thread source used by this dispatcher.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">file_flags</span> <span class="identifier">fileflags</span><span class="special">(</span><span class="identifier">file_flags</span> <span class="identifier">flags</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns file flags as would be used after forcing and masking
+                    bits passed during construction.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>file_flags</strong></span>: <span class="emphasis"><em>flags</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">size_t</span> <span class="identifier">wait_queue_depth</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the current wait queue depth of this dispatcher.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">size_t</span> <span class="identifier">fd_count</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the number of open items in this dispatcher.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">dir</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">path_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous directory creations and opens
+                    after optional preconditions.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; path_req &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>reqs</em></span>: A batch of <code class="literal"><code class="computeroutput"><span class="identifier">path_req</span></code></code> structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">rmdir</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">path_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous directory deletions after optional
+                    preconditions.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; path_req &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>reqs</em></span>: A batch of <code class="literal"><code class="computeroutput"><span class="identifier">path_req</span></code></code> structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">file</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">path_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous file creations and opens after
+                    optional preconditions.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; path_req &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>reqs</em></span>: A batch of <code class="literal"><code class="computeroutput"><span class="identifier">path_req</span></code></code> structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">rmfile</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">path_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous file deletions after optional
+                    preconditions.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; path_req &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>reqs</em></span>: A batch of <code class="literal"><code class="computeroutput"><span class="identifier">path_req</span></code></code> structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">symlink</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">path_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">targets</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous symlink creations and opens
+                    after a precondition.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; path_req &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>reqs</em></span>: A batch of <code class="literal"><code class="computeroutput"><span class="identifier">path_req</span></code></code> structures.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>targets</em></span>: An optional batch
+                    of targets if creating symlinks.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">rmsymlink</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">path_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous symlink deletions after optional
+                    preconditions.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; path_req &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>reqs</em></span>: A batch of <code class="literal"><code class="computeroutput"><span class="identifier">path_req</span></code></code> structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">sync</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous content synchronisations with
+                    physical storage after preceding operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of op handles.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">zero</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span> <span class="identifier">off_t</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="special">&gt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ranges</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous zeroing and deallocations of
+                    physical storage ("hole punching") after preceding
+                    operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of op handles.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; std::vector&lt; std::pair&lt;
+                    off_t, off_t &gt;&gt;&gt; &amp;</strong></span>: <span class="emphasis"><em>ranges</em></span>:
+                    A batch of vectors of extents to zero and deallocate.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">close</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous file or directory handle closes
+                    after preceding operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of op handles.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">&gt;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">read</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">io_req</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous data reads after preceding operations,
+                    where offset and total data read must not exceed the present
+                    file size.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; io_req&lt; T &gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of io_req&lt;T&gt;
+                    structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">&gt;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">write</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">io_req</span><span class="special">&lt;</span> <span class="keyword">const</span> <span class="identifier">T</span> <span class="special">&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous data writes after preceding
+                    operations, where offset and total data written must not exceed
+                    the present file size.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; io_req&lt; const
+                    T &gt;&gt; &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch
+                    of io_req&lt;const T&gt; structures.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">truncate</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">off_t</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">sizes</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous file length truncations after
+                    preceding operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of op handles.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; off_t &gt; &amp;</strong></span>:
+                    <span class="emphasis"><em>sizes</em></span>: A batch of new lengths.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of op handles.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">directory_entry</span> <span class="special">&gt;,</span> <span class="keyword">bool</span> <span class="special">&gt;</span> <span class="special">&gt;</span> <span class="special">&gt;</span> <span class="identifier">enumerate</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">enumerate_req</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous directory enumerations after
+                    preceding operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; enumerate_req &gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>reqs</em></span>: A batch of enumeration
+                    requests.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of stl_future vectors of directory entries with boolean
+                    returning false if done.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span> <span class="identifier">off_t</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="special">&gt;</span> <span class="special">&gt;</span> <span class="special">&gt;</span> <span class="special">&gt;</span> <span class="identifier">extents</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous extent enumerations after preceding
+                    operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of op handles.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of stl_future vectors of extents.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;</span> <span class="identifier">statfs_t</span> <span class="special">&gt;</span> <span class="special">&gt;</span> <span class="identifier">statfs</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">fs_metadata_flags</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">reqs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule a batch of asynchronous volume enumerations after preceding
+                    operations.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; future&lt;&gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>: A batch of op handles.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; fs_metadata_flags
+                    &gt; &amp;</strong></span>: <span class="emphasis"><em>reqs</em></span>: A batch of
+                    metadata requests.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A batch of stl_future volume metadatas.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">future</span> <span class="identifier">depends</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">precondition</span><span class="special">,</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">op</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedule the return of an op handle after another op handle completes.
+                    This is useful when you need to supply one op handle to a function
+                    but it must not begin until another op handle has finished.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>precondition</em></span>:
+                    The op handle which must complete for op to be passed through.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>op</em></span>:
+                    The op handle to return.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    The op handle op.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="identifier">complete_async_op</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">id</span><span class="special">,</span> <span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">,</span> <span class="identifier">exception_ptr</span> <span class="identifier">e</span> <span class="special">=</span> <span class="identifier">exception_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Completes an operation with a handle or an error, usually used
+                    when an operation was previously deferred.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>id</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>h</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>exception_ptr</strong></span>: <span class="emphasis"><em>e</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="identifier">complete_async_op</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">id</span><span class="special">,</span> <span class="identifier">exception_ptr</span> <span class="identifier">e</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Completes an operation with an error, usually used when an operation
+                    was previously deferred.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>id</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>exception_ptr</strong></span>: <span class="emphasis"><em>e</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">&gt;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">read</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">io_req</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; io_req&lt; T &gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">&gt;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&gt;</span> <span class="identifier">write</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">io_req</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;&gt;</span> <span class="special">&amp;</span> <span class="identifier">ops</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const std::vector&lt; io_req&lt; T &gt;&gt;
+                    &amp;</strong></span>: <span class="emphasis"><em>ops</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.dispatcher.h4"></a>
+          <span><a name="afio.reference.classes.dispatcher.header"></a></span><a class="link" href="dispatcher.html#afio.reference.classes.dispatcher.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="directory_entry/directory_entry_hash.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="dispatcher/complete_async_op_3_normal.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

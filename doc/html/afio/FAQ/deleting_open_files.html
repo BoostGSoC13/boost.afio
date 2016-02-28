@@ -1,0 +1,107 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>I thought on Windows it is impossible to delete a file which is still open for use. How does AFIO achieve this?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="async_metadata.html" title="async_io_handle::direntry() and async_io_handle::lstat() are both synchronous functions which block. How then can I get metadata about files and directories asynchronously?">
+<link rel="next" href="multi_abi.html" title="How do I reconfigure AFIO within the same translation unit to use a different ABI?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="async_metadata.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="multi_abi.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.deleting_open_files"></a><a class="link" href="deleting_open_files.html" title="I thought on Windows it is impossible to delete a file which is still open for use. How does AFIO achieve this?">I thought on Windows it
+      is impossible to delete a file which is still open for use. How does AFIO achieve
+      this?</a>
+</h3></div></div></div>
+<p>
+        On POSIX you are allowed to call <code class="computeroutput"><span class="identifier">unlink</span><span class="special">()</span></code> on a file which is open for use &#8212;
+        indeed this is a very convenient way of creating an anonymous private temporary
+        file whose storage will be deallocated on the last file handle close. Ordinarily
+        Windows does not permit deletion or renaming of files still in use, but if
+        all open handles to that file were opened with <code class="computeroutput"><span class="identifier">FILE_SHARE_DELETE</span></code>
+        then it <span class="emphasis"><em>can</em></span> permit renames and deletions of open files.
+      </p>
+<p>
+        There are however some gotchas with this, and it is worth listing them here.
+        Firstly, Windows never allows you to really delete an open file, rather it
+        is flagged as delete pending and its entry in its directory remains visible
+        (though no new file handles may be opened to it) and when the very last open
+        handle to the file in the system is closed, only then is it truly deleted.
+        Well, actually only <span class="emphasis"><em>sort of truly deleted</em></span>, because Windows
+        only <span class="emphasis"><em>appears</em></span> to remove the file entry from the directory,
+        but in fact that entry is merely hidden and actually still exists and attempting
+        to create a file with the same name will return an access denied error. How
+        long it silently exists for depends on a range of factors, but put it this
+        way: if your code loops creating and deleting the same file name as you might
+        when operating a lock file, you're going to see lots of random spurious access
+        denied errors and truly dismal lock file performance compared to POSIX.
+      </p>
+<p>
+        Note that this lazy file deletion is different from <span class="quote">&#8220;<span class="quote">file tunnelling</span>&#8221;</span>
+        whereby a file created with the same name as a recently deleted file silently
+        inherits its creation time and other metadata. I mention this because this
+        feature also gets in the way of POSIX file semantics, but for other reasons.
+      </p>
+<p>
+        AFIO works around these un-POSIX file semantics by taking a dual step to
+        deleting files. Firstly, it renames the file to a 128 bit cryptographically
+        strong random name prefixed by <span class="quote">&#8220;<span class="quote">.afiod</span>&#8221;</span> into as high up the
+        directory hierarchy as it is able to, and only then does it request the deletion
+        of the file. As AFIO always opens files with <code class="computeroutput"><span class="identifier">FILE_SHARE_DELETE</span></code>
+        permission enabled, with that flag Windows permits renaming and deletion,
+        and because the name was changed to a very random name somewhere not in its
+        origin directory before deletion, you don't see those unexpected and random
+        errors when creating files with the same name as a recently deleted file
+        as you do anywhere else on Windows. Because the file is probably not in its
+        original containing directory any more, deletions of that directory will
+        not fail with <span class="quote">&#8220;<span class="quote">directory not empty</span>&#8221;</span> as they otherwise normally
+        would and indeed do in most Windows programs. Handy eh?
+      </p>
+<p>
+        Unfortunately, there are additional problems with deleting directories caused
+        by AFIO's caching of directory handles in a central table &#8212; this happens
+        by default for all directories opened without write permissions and without
+        the <code class="computeroutput"><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">unique_directory_handle</span></code> flag. Explicit
+        close handle requests for these cached directories are ignored by AFIO, and
+        therefore AFIO may hold into existence a directory longer than might otherwise
+        be anticipated with the only way of forcing actual deletion being the destruction
+        of any reference to that directory, something difficult to achieve in larger
+        more complex codebases. Nevertheless, as it is the system which does the
+        deletion, you are guaranteed by Windows that the directory will eventually
+        be cleaned up some day, possibly in weeks or months on a long lived system.
+        If you don't want this, open directories with write permissions or the unique
+        directory handle flag.
+      </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="async_metadata.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="multi_abi.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

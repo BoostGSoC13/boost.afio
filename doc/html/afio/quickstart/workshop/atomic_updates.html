@@ -1,0 +1,1141 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>4. Second attempt at a key-value store: How to implement atomic value updates and therefore Atomicity, Consistency, Isolation and Durability</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../workshop.html" title="Step by step workshop building an AFIO-based key-value store">
+<link rel="prev" href="naive_afio_async/naive_racy.html" title="The problems with this naive design">
+<link rel="next" href="atomic_updates/atomic_updates_problems.html" title="The performance of and problems with this second generation design">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="naive_afio_async/naive_racy.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="atomic_updates/atomic_updates_problems.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.quickstart.workshop.atomic_updates"></a><a class="link" href="atomic_updates.html" title="4. Second attempt at a key-value store: How to implement atomic value updates and therefore Atomicity, Consistency, Isolation and Durability">4. Second
+        attempt at a key-value store: How to implement atomic value updates and therefore
+        Atomicity, Consistency, Isolation and Durability</a>
+</h4></div></div></div>
+<div class="toc"><dl><dt><span class="section"><a href="atomic_updates/atomic_updates_problems.html">The
+          performance of and problems with this second generation design</a></span></dt></dl></div>
+<p>
+          The naive key-value store simply stored each key in a single flat directory,
+          so:
+        </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+              "dog" =&gt; <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">dog</span></code>
+            </li>
+<li class="listitem">
+              "cat" =&gt; <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">cat</span></code>
+            </li>
+<li class="listitem">
+              "horse" =&gt; <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">horse</span></code>
+            </li>
+<li class="listitem">
+              ...
+            </li>
+</ul></div>
+<p>
+          When inserting or updating an item, it simply opened the filename and wrote
+          out the contents thus creating races for concurrent users and potentially
+          writing out the entire directory inode if that filesystem rebalances its
+          directory contents. So how do we implement ACID-ity of updates with constant
+          time updates?
+        </p>
+<p>
+          It is actually surprisingly simple thanks to AFIO. Firstly, we are going
+          to reorganise the store's structure with a directory per key name to become
+          this instead:
+        </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+              "dog" =&gt; <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">dog</span><span class="special">/</span><span class="number">0</span></code>
+            </li>
+<li class="listitem">
+              "cat" =&gt; <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">cat</span><span class="special">/</span><span class="number">0</span></code>
+            </li>
+<li class="listitem">
+              "horse" =&gt; <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">horse</span><span class="special">/</span><span class="number">0</span></code>
+            </li>
+<li class="listitem">
+              ...
+            </li>
+</ul></div>
+<p>
+          We are going to change the lookup semantics to this instead:
+        </p>
+<div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem">
+              For some key, open the file <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span><span class="special">/</span><span class="number">0</span></code> for
+              reading.
+            </li></ol></div>
+<p>
+          The insertion semantics becomes this:
+        </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+              For some key, open the file <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span><span class="special">/</span><span class="identifier">tmpXXXXXXXXXXXXXXXX</span></code>
+              for writing <span class="emphasis"><em>optionally</em></span> using <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>
+              (this causes the OS to not report write completion until the write
+              reaches physical storage), creating any <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span></code>
+              directory as necessary, where <code class="computeroutput"><span class="identifier">XXXXXXXXXXXXXXXX</span></code>
+              is a cryptographically strong 128-bit random number.
+            </li>
+<li class="listitem">
+              Write the new value using the output stream as normal, keeping the
+              handle open.
+            </li>
+<li class="listitem">
+              Atomically rename <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span><span class="special">/</span><span class="identifier">tmpXXXXXXXXXXXXXXXX</span></code>
+              to <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span><span class="special">/</span><span class="number">0</span></code> using AFIO's special <code class="computeroutput"><span class="identifier">atomic_relink</span><span class="special">()</span></code>
+              function (which because it acts on an open file handle, is invariant
+              to path relocations of itself). This function does as it says, and
+              atomically makes visible at <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span><span class="special">/</span><span class="number">0</span></code> our
+              new value for the key, unlinking any file previously there<sup>[<a name="afio.quickstart.workshop.atomic_updates.f0" href="#ftn.afio.quickstart.workshop.atomic_updates.f0" class="footnote">6</a>]</sup>. <span class="bold"><strong>Never at any point is there not
+              a complete and finished value file on physical storage at <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span><span class="special">/</span><span class="number">0</span></code></strong></span><sup>[<a name="afio.quickstart.workshop.atomic_updates.f1" href="#ftn.afio.quickstart.workshop.atomic_updates.f1" class="footnote">7</a>]</sup>. On Linux only we then execute a sync on the directory
+              handle for <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span></code> because Linux is different from
+              other operating systems in that you must explicitly request metadata
+              updates to be sent to physical storage.
+            </li>
+</ol></div>
+<p>
+          Not that we'll be implementing this here, but the deletion semantics would
+          be:
+        </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+              Atomically rename <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">key</span></code>
+              to <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">deadXXXXXXXXXXXXXXXX</span></code> where the latter
+              part is another 128-bit crypto strong random number. Note that Microsoft
+              Windows does not permit you to rename a directory containing an open
+              file, so you may need to move all the contents of the directory into
+              a newly created <code class="computeroutput"><span class="identifier">deadXXXXXXXXXXXXXXXX</span></code>
+              directory instead, being careful of races caused by someone setting
+              a new key-value into the directory you are trying to delete.
+            </li>
+<li class="listitem">
+              Recursively delete the dead directory. On Microsoft Windows, AFIO tags
+              the items for later deletion when the last handle to them is closed.
+              Remember that someone doing a lookup may still have a handle open to
+              the just deleted version of the handle, but on both POSIX and Windows
+              this is fine &#8212; the physical storage will be deallocated on last
+              handle close, even (usually) under unexpected power loss.
+            </li>
+</ol></div>
+<p>
+          What these new semantics achieve:
+        </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+              <span class="bold"><strong>Atomicity</strong></span>: Values always appear to
+              concurrent readers complete and finished.
+            </li>
+<li class="listitem">
+              <span class="bold"><strong>Consistency</strong></span>: If a writer fatal exits
+              during a key update, the store is left in a consistent state.
+            </li>
+<li class="listitem">
+              <span class="bold"><strong>Isolation</strong></span>: The operating system provides
+              strong ordering guarantees about atomic relinking, thus creating a
+              sequentially consistent ordering of key-value update visibility.
+            </li>
+<li class="listitem">
+              <span class="bold"><strong>(Durability)</strong></span>: If power loss suddenly
+              occurs, the key-value store will <span class="bold"><strong>always</strong></span>
+              be internally consistent, even if <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>
+              was not specified (see below for why). It may not have all the key-values
+              in an identical order to how they were written as this second generation
+              design does not implement transactions, but there will always be a
+              complete value for a key which at some point was stored to that key.
+              Strictly speaking, this means that durability is not fulfilled &#8212;
+              durability means when you are told a write completes, it is durably
+              stored, however for full durability simply add <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>.
+            </li>
+<li class="listitem">
+              <span class="bold"><strong>Much improved update complexity</strong></span>: New
+              key insertion may still be as poor as <code class="computeroutput"><span class="identifier">O</span><span class="special">(</span><span class="identifier">N</span><span class="special">)</span></code> complexity, but updates of existing
+              keys is now no worse than lookup complexity, which is a big improvement
+              over the naive design. If your filing system has <code class="computeroutput"><span class="identifier">O</span><span class="special">(</span><span class="identifier">N</span><span class="special">)</span></code> insert complexity, you could use prefix
+              directories to form a binary tree, thus reducing insert complexity
+              to <code class="computeroutput"><span class="identifier">O</span><span class="special">(</span><span class="identifier">log</span> <span class="identifier">N</span><span class="special">)</span></code>.
+            </li>
+</ol></div>
+<p>
+          Many readers will be wondering why <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>
+          is not necessary for consistency even under power loss, and the answer
+          is because of journalled filing systems combined with how we are modifying
+          data. If you examine <a class="link" href="../../design/acid_write_ordering/write_ordering_data.html#afio.design.acid_write_ordering.write_ordering_data.power_loss_safety" title="Table&#160;1.2.&#160;Power loss safety matrix: What non-trivially reconstructible data can you lose if power is suddenly lost? Any help which can be supplied in filling in the unknowns in this table would be hugely appreciated.">the
+          table of power loss safety guarantees in the design rationale</a>, you
+          will note that journalled file systems (with write barriers enabled) make
+          strong guarantees about newly created file content but not about rewritten
+          file content: if a newly created file appears in the filing system, it
+          is guaranteed to have correct contents because <span class="emphasis"><em>journalled filing
+          systems do not write an updated directory pointing to the new file until
+          the file contents are on physical storage</em></span>. Our naive design
+          of creating a brand new file per key-value update exploits this guarantee,
+          so the sequentially consistent ordering of writes to physical storage,
+          even without <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>, is this:
+        </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+              Allocate extents for new file content. Write journal.
+            </li>
+<li class="listitem">
+              Write new file content to physical storage. Write journal.
+            </li>
+<li class="listitem">
+              Write new copy of directory containing atomic rename of randomly named
+              file with deallocation of extents of previous file. Write journal.
+            </li>
+</ol></div>
+<p>
+          If power is lost at any point, during journal replay on power restore a
+          journalled filing system will throw away any extents allocated for content
+          not referenced by a directory on physical storage. The filing system on
+          power restore therefore refers to a previously consistent filing system
+          i.e. how it was just before power was lost. This is why the store will
+          be consistent even under power loss<sup>[<a name="afio.quickstart.workshop.atomic_updates.f2" href="#ftn.afio.quickstart.workshop.atomic_updates.f2" class="footnote">8</a>]</sup>, though without <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>
+          you may lose up to 5-35 seconds of updates and there may be reordering
+          of updates by up to 5-35 seconds. Here is the table from the design rationale
+          once again, for your convenience:
+        </p>
+<div class="table">
+<a name="afio.quickstart.workshop.atomic_updates.power_loss_safety"></a><p class="title"><b>Table&#160;1.6.&#160;Power loss safety matrix: What non-trivially reconstructible data
+          can you lose if power is suddenly lost? <span class="bold">Any help
+          which can be supplied in filling in the unknowns in this table would be
+          hugely appreciated</span>.</b></p>
+<div class="table-contents"><table class="table" summary="Power loss safety matrix: What non-trivially reconstructible data
+          can you lose if power is suddenly lost? Any help
+          which can be supplied in filling in the unknowns in this table would be
+          hugely appreciated.">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Newly created file content corruptable
+                    after close</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">File data content rewrite corruptable
+                    after close</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Cosmic ray bitrot corruptable</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Can punch holes into physical storage
+                    of files<sup>[<a name="afio.quickstart.workshop.atomic_updates.f3" href="#ftn.afio.quickstart.workshop.atomic_updates.f3" class="footnote">a</a>]</sup></span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Default max seconds of writes reordered
+                    without using <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code></span>
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">FAT32</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">?</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext2</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">writeback</span></code></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35<sup>[<a name="afio.quickstart.workshop.atomic_updates.f4" href="#ftn.afio.quickstart.workshop.atomic_updates.f4" class="footnote">b</a>]</sup></span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">ordered</span></code>
+                    (default)</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">UFS + soft updates<sup>[<a name="afio.quickstart.workshop.atomic_updates.f5" href="#ftn.afio.quickstart.workshop.atomic_updates.f5" class="footnote">c</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span><sup>[<a name="afio.quickstart.workshop.atomic_updates.f6" href="#ftn.afio.quickstart.workshop.atomic_updates.f6" class="footnote">d</a>]</sup>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">HFS+</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">?</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">NTFS<sup>[<a name="afio.quickstart.workshop.atomic_updates.f7" href="#ftn.afio.quickstart.workshop.atomic_updates.f7" class="footnote">e</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">Until idle or write limit</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">journal</span></code></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">5</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">BTRFS<sup>[<a name="afio.quickstart.workshop.atomic_updates.f8" href="#ftn.afio.quickstart.workshop.atomic_updates.f8" class="footnote">f</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ReFS</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">not if integrity
+                    streams enabled</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">not if integrity
+                    streams enabled</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">Until idle or write limit</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ZFS</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+</tbody>
+<tbody class="footnotes"><tr><td colspan="6">
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f3" href="#afio.quickstart.workshop.atomic_updates.f3" class="para">a</a>] </sup>
+                      This is where a filing system permits you to deallocate the
+                      physical storage of a region of a file, so a file claiming
+                      to occupy 8Mb could be reduced to 1Mb of actual storage consumption.
+                      This may sound like sparse file support, but transparent compression
+                      support also counts as it would reduce a region written with
+                      all zeros to nearly zero physical storage
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f4" href="#afio.quickstart.workshop.atomic_updates.f4" class="para">b</a>] </sup>
+                      This is the <code class="computeroutput"><span class="identifier">commit</span></code>
+                      mount setting added to the <code class="computeroutput"><span class="special">/</span><span class="identifier">proc</span><span class="special">/</span><span class="identifier">sys</span><span class="special">/</span><span class="identifier">vm</span><span class="special">/</span><span class="identifier">dirty_expire_centiseconds</span></code>
+                      value. Sources: <a href="https://www.kernel.org/doc/Documentation/filesystems/ext4.txt" target="_top">https://www.kernel.org/doc/Documentation/filesystems/ext4.txt</a>
+                      and <a href="http://www.westnet.com/~gsmith/content/linux-pdflush.htm" target="_top">http://www.westnet.com/~gsmith/content/linux-pdflush.htm</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f5" href="#afio.quickstart.workshop.atomic_updates.f5" class="para">c</a>] </sup>
+                      Source: <a href="http://www.freebsd.org/cgi/man.cgi?query=syncer" target="_top">http://www.freebsd.org/cgi/man.cgi?query=syncer</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f6" href="#afio.quickstart.workshop.atomic_updates.f6" class="para">d</a>] </sup>
+                      BSD automatically detects extended regions of all bits zero,
+                      and eliminates their physical representation on storage.
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f7" href="#afio.quickstart.workshop.atomic_updates.f7" class="para">e</a>] </sup>
+                      Source: <a href="http://technet.microsoft.com/en-us/library/bb742613.aspx" target="_top">http://technet.microsoft.com/en-us/library/bb742613.aspx</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f8" href="#afio.quickstart.workshop.atomic_updates.f8" class="para">f</a>] </sup>
+                      Source: <a href="https://wiki.archlinux.org/index.php/Btrfs" target="_top">https://wiki.archlinux.org/index.php/Btrfs</a>
+                    </p></div>
+</td></tr></tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+          It goes, of course, without saying that if you are <span class="bold"><strong>not</strong></span>
+          on a journalled filing system then you absolutely need <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">always_sync</span></code>
+          and on Linux you had best sync the directories containing newly written
+          files too.
+        </p>
+<p>
+          So let's look at the code: you will be surprised at how few changes there
+          are compared to the earlier asynchronous AFIO implementation. Firstly,
+          the interface is unchanged from before:
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">afio</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">;</span>
+<span class="keyword">namespace</span> <span class="identifier">filesystem</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">lightweight_futures</span><span class="special">::</span><span class="identifier">shared_future</span><span class="special">;</span>
+
+<span class="keyword">class</span> <span class="identifier">data_store</span>
+<span class="special">{</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher_ptr</span> <span class="identifier">_dispatcher</span><span class="special">;</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_store</span><span class="special">;</span>
+<span class="keyword">public</span><span class="special">:</span>
+  <span class="comment">// Type used for read streams</span>
+  <span class="keyword">using</span> <span class="identifier">istream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write streams</span>
+  <span class="keyword">using</span> <span class="identifier">ostream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for lookup</span>
+  <span class="keyword">using</span> <span class="identifier">lookup_result_type</span> <span class="special">=</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write</span>
+  <span class="keyword">using</span> <span class="identifier">write_result_type</span> <span class="special">=</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+
+  <span class="comment">// Disposition flags</span>
+  <span class="keyword">static</span> <span class="keyword">constexpr</span> <span class="identifier">size_t</span> <span class="identifier">writeable</span> <span class="special">=</span> <span class="special">(</span><span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">0</span><span class="special">);</span>
+
+  <span class="comment">// Open a data store at path</span>
+  <span class="identifier">data_store</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">flags</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span> <span class="special">=</span> <span class="string">"store"</span><span class="special">);</span>
+
+  <span class="comment">// Look up item named name for reading, returning an istream for the item</span>
+  <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+  <span class="comment">// Look up item named name for writing, returning an ostream for that item</span>
+  <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+<span class="special">};</span>
+</pre>
+<p>
+          <code class="computeroutput"><span class="identifier">lookup</span><span class="special">()</span></code>
+          is almost identical to before, now it simply opens <code class="computeroutput"><span class="identifier">key</span><span class="special">/</span><span class="number">0</span></code> instead.
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">asio</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">asio</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">empty</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">error_code</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">generic_category</span><span class="special">;</span>
+
+<span class="keyword">static</span> <span class="keyword">bool</span> <span class="identifier">is_valid_name</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="special">&amp;</span><span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">static</span> <span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">banned</span><span class="special">(</span><span class="string">"&lt;&gt;:\"/\\|?*\0"</span><span class="special">,</span> <span class="number">10</span><span class="special">);</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span><span class="special">::</span><span class="identifier">npos</span><span class="special">!=</span><span class="identifier">name</span><span class="special">.</span><span class="identifier">find_first_of</span><span class="special">(</span><span class="identifier">banned</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="keyword">false</span><span class="special">;</span>
+  <span class="comment">// No leading period</span>
+  <span class="keyword">return</span> <span class="identifier">name</span><span class="special">[</span><span class="number">0</span><span class="special">]!=</span><span class="char">'.'</span><span class="special">;</span>
+<span class="special">}</span>
+
+<span class="comment">// Keep a cache of crypto strong random names</span>
+<span class="keyword">static</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">random_name</span><span class="special">()</span>
+<span class="special">{</span>
+  <span class="keyword">static</span> <span class="keyword">struct</span> <span class="identifier">random_names_type</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span><span class="special">&gt;</span> <span class="identifier">names</span><span class="special">;</span>
+    <span class="identifier">size_t</span> <span class="identifier">idx</span><span class="special">;</span>
+    <span class="identifier">random_names_type</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">count</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">names</span><span class="special">(</span><span class="identifier">count</span><span class="special">),</span> <span class="identifier">idx</span><span class="special">(</span><span class="number">0</span><span class="special">)</span>
+    <span class="special">{</span>
+      <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span><span class="special">=</span><span class="number">0</span><span class="special">;</span> <span class="identifier">n</span><span class="special">&lt;</span><span class="identifier">count</span><span class="special">;</span> <span class="identifier">n</span><span class="special">++)</span>
+        <span class="identifier">names</span><span class="special">[</span><span class="identifier">n</span><span class="special">]=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">utils</span><span class="special">::</span><span class="identifier">random_string</span><span class="special">(</span><span class="number">16</span><span class="special">);</span>  <span class="comment">// 128 bits</span>
+    <span class="special">}</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">get</span><span class="special">()</span>
+    <span class="special">{</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">idx</span><span class="special">==</span><span class="identifier">names</span><span class="special">.</span><span class="identifier">size</span><span class="special">())</span>
+        <span class="identifier">idx</span><span class="special">=</span><span class="number">0</span><span class="special">;</span>
+      <span class="keyword">return</span> <span class="identifier">names</span><span class="special">[</span><span class="identifier">idx</span><span class="special">++];</span>
+    <span class="special">}</span>
+  <span class="special">}</span> <span class="identifier">random_names</span><span class="special">(</span><span class="number">10000</span><span class="special">);</span>
+  <span class="keyword">return</span> <span class="identifier">random_names</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+<span class="special">}</span>
+
+<span class="identifier">data_store</span><span class="special">::</span><span class="identifier">data_store</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">flags</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span><span class="special">)</span>
+<span class="special">{</span>
+  <span class="comment">// Make a dispatcher for the local filesystem URI, masking out write flags on all operations if not writeable</span>
+  <span class="identifier">_dispatcher</span><span class="special">=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">make_dispatcher</span><span class="special">(</span><span class="string">"file:///"</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">none</span><span class="special">,</span> <span class="special">!(</span><span class="identifier">flags</span> <span class="special">&amp;</span> <span class="identifier">writeable</span><span class="special">)</span> <span class="special">?</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">:</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">none</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+  <span class="comment">// Set the dispatcher for this thread, and open a handle to the store directory</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">current_dispatcher_guard</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">_dispatcher</span><span class="special">);</span>
+  <span class="identifier">_store</span><span class="special">=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">path</span><span class="special">),</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">);</span>  <span class="comment">// throws if there was an error</span>
+  <span class="comment">// Precalculate the cache of random names</span>
+  <span class="identifier">random_name</span><span class="special">();</span>
+<span class="special">}</span>
+
+<span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">is_valid_name</span><span class="special">(</span><span class="identifier">name</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EINVAL</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="identifier">name</span><span class="special">.</span><span class="identifier">append</span><span class="special">(</span><span class="string">"/0"</span><span class="special">);</span>
+    <span class="comment">// Schedule the opening of the file for reading</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">_store</span><span class="special">,</span> <span class="identifier">name</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read</span><span class="special">));</span>
+    <span class="comment">// When it completes, call this continuation</span>
+    <span class="keyword">return</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">then</span><span class="special">([](</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">_h</span><span class="special">)</span> <span class="special">-&gt;</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="special">{</span>
+      <span class="comment">// If file didn't open, return the error or exception immediately</span>
+      <span class="identifier">BOOST_OUTCOME_PROPAGATE</span><span class="special">(</span><span class="identifier">_h</span><span class="special">);</span>
+      <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">=(</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">_h</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">).</span><span class="identifier">st_size</span><span class="special">;</span>
+      <span class="comment">// Is a memory map more appropriate?</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">length</span><span class="special">&gt;=</span><span class="number">128</span><span class="special">*</span><span class="number">1024</span><span class="special">)</span>
+      <span class="special">{</span>
+        <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle</span><span class="special">::</span><span class="identifier">mapped_file_ptr</span> <span class="identifier">mfp</span><span class="special">;</span>
+        <span class="keyword">if</span><span class="special">((</span><span class="identifier">mfp</span><span class="special">=</span><span class="identifier">_h</span><span class="special">-&gt;</span><span class="identifier">map_file</span><span class="special">()))</span>
+        <span class="special">{</span>
+          <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">idirectstream</span><span class="special">&gt;(</span><span class="identifier">_h</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">(),</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">mfp</span><span class="special">),</span> <span class="identifier">length</span><span class="special">));</span>
+          <span class="keyword">return</span> <span class="identifier">ret</span><span class="special">;</span>
+        <span class="special">}</span>
+      <span class="special">}</span>
+      <span class="comment">// Schedule the reading of the file into a buffer</span>
+      <span class="keyword">auto</span> <span class="identifier">buffer</span><span class="special">=</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;(</span><span class="identifier">length</span><span class="special">);</span>
+      <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_read</span><span class="special">(</span><span class="identifier">_h</span><span class="special">,</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">length</span><span class="special">,</span> <span class="number">0</span><span class="special">));</span>
+      <span class="comment">// When the read completes call this continuation</span>
+      <span class="keyword">return</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">then</span><span class="special">([</span><span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">length</span><span class="special">](</span><span class="keyword">const</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">h</span><span class="special">)</span> <span class="special">-&gt;</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="special">{</span>
+        <span class="comment">// If read failed, return the error or exception immediately</span>
+        <span class="identifier">BOOST_OUTCOME_PROPAGATE</span><span class="special">(</span><span class="identifier">h</span><span class="special">);</span>
+        <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">idirectstream</span><span class="special">&gt;(</span><span class="identifier">h</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">length</span><span class="special">));</span>
+        <span class="keyword">return</span> <span class="identifier">ret</span><span class="special">;</span>
+      <span class="special">});</span>
+    <span class="special">});</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span><span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">current_exception</span><span class="special">();</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+          <code class="computeroutput"><span class="identifier">write</span><span class="special">()</span></code>
+          is a bit different. We now open the key directory, and while that is happening
+          asynchronously we generate a crypto strong random name which tends to be
+          slow. We then schedule creating that temporary file with the extra flag
+          <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">hold_parent_open</span></code> (which incidentally
+          can dramatically increase AFIO filesystem performance because a number
+          of fast code paths can be taken e.g. fetching most metadata about a file
+          on Windows will actually do a single glob directory enumeration on its
+          parent directory when available which is about 20x faster. The reason it
+          is not enabled by default is because of process file descriptor limits
+          on POSIX, especially the severely low default limit on Apple OS X). In
+          this particular case, we just want our temporary file to retain knowledge
+          of its parent because we will fetch that parent later.
+        </p>
+<pre class="programlisting"><span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">is_valid_name</span><span class="special">(</span><span class="identifier">name</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EINVAL</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="comment">// Schedule the opening of the directory</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">dirh</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_dir</span><span class="special">(</span><span class="identifier">_store</span><span class="special">,</span> <span class="identifier">name</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+<span class="preprocessor">#ifdef</span> <span class="identifier">__linux__</span>
+    <span class="comment">// Flush metadata on Linux only. This will be a noop unless we created a new directory</span>
+    <span class="comment">// above, and if we don't flush the new key directory it and its contents may not appear</span>
+    <span class="comment">// in the store directory after a suddenly power loss, even if it and its contents are</span>
+    <span class="comment">// all on physical storage.</span>
+    <span class="identifier">dirh</span><span class="special">.</span><span class="identifier">then</span><span class="special">([</span><span class="keyword">this</span><span class="special">](</span><span class="keyword">const</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">h</span><span class="special">)</span> <span class="special">{</span> <span class="identifier">async_sync</span><span class="special">(</span><span class="identifier">_store</span><span class="special">);</span> <span class="special">});</span>
+<span class="preprocessor">#endif</span>
+    <span class="comment">// Make a crypto strong random file name</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">randomname</span><span class="special">(</span><span class="string">"tmp"</span><span class="special">);</span>
+    <span class="identifier">randomname</span><span class="special">.</span><span class="identifier">append</span><span class="special">(</span><span class="identifier">random_name</span><span class="special">());</span>
+    <span class="comment">// Schedule the opening of the file for writing</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">dirh</span><span class="special">,</span> <span class="identifier">randomname</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span>
+      <span class="special">|</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">hold_parent_open</span>    <span class="comment">// handle should keep a handle_ptr to its parent dir</span>
+      <span class="comment">/*| afio::file_flags::always_sync*/</span>     <span class="comment">// writes don't complete until upon physical storage</span>
+      <span class="special">));</span>
+    <span class="comment">// When it completes, call this continuation</span>
+    <span class="keyword">return</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">then</span><span class="special">([](</span><span class="keyword">const</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">h</span><span class="special">)</span> <span class="special">-&gt;</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="special">{</span>
+      <span class="comment">// If file didn't open, return the error or exception immediately</span>
+      <span class="identifier">BOOST_OUTCOME_PROPAGATE</span><span class="special">(</span><span class="identifier">h</span><span class="special">);</span>
+      <span class="comment">// Create an ostream which directly uses the file.</span>
+      <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">odirectstream</span><span class="special">&gt;(</span><span class="identifier">h</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">()));</span>
+      <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">ret</span><span class="special">);</span>
+    <span class="special">});</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span> <span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">current_exception</span><span class="special">();</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+          Finally the input and output streams. The input stream is unchanged, whilst
+          the output stream destructor now simply atomically renames the temp file
+          to "0" using the parent directory handle as the base for the
+          rename target in order to ensure race freedom.
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">asio</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">asio</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">empty</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">error_code</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">generic_category</span><span class="special">;</span>
+
+<span class="comment">// A special allocator of highly efficient file i/o memory</span>
+<span class="keyword">using</span> <span class="identifier">file_buffer_type</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">utils</span><span class="special">::</span><span class="identifier">page_allocator</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">&gt;&gt;;</span>
+
+<span class="comment">// An iostream which reads directly from a memory mapped AFIO file</span>
+<span class="keyword">struct</span> <span class="identifier">idirectstream</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span>
+<span class="special">{</span>
+  <span class="keyword">struct</span> <span class="identifier">directstreambuf</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span>
+  <span class="special">{</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">;</span>  <span class="comment">// Holds the file open</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;</span> <span class="identifier">buffer</span><span class="special">;</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle</span><span class="special">::</span><span class="identifier">mapped_file_ptr</span> <span class="identifier">mfp</span><span class="special">;</span>
+    <span class="comment">// From a mmap</span>
+    <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_h</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle</span><span class="special">::</span><span class="identifier">mapped_file_ptr</span> <span class="identifier">_mfp</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_h</span><span class="special">)),</span> <span class="identifier">mfp</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_mfp</span><span class="special">))</span>
+    <span class="special">{</span>
+      <span class="comment">// Set the get buffer this streambuf is to use</span>
+      <span class="identifier">setg</span><span class="special">((</span><span class="keyword">char</span> <span class="special">*)</span> <span class="identifier">mfp</span><span class="special">-&gt;</span><span class="identifier">addr</span><span class="special">,</span> <span class="special">(</span><span class="keyword">char</span> <span class="special">*)</span> <span class="identifier">mfp</span><span class="special">-&gt;</span><span class="identifier">addr</span><span class="special">,</span> <span class="special">(</span><span class="keyword">char</span> <span class="special">*)</span> <span class="identifier">mfp</span><span class="special">-&gt;</span><span class="identifier">addr</span> <span class="special">+</span> <span class="identifier">length</span><span class="special">);</span>
+    <span class="special">}</span>
+    <span class="comment">// From a malloc</span>
+    <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_h</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;</span> <span class="identifier">_buffer</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_h</span><span class="special">)),</span> <span class="identifier">buffer</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_buffer</span><span class="special">))</span>
+    <span class="special">{</span>
+      <span class="comment">// Set the get buffer this streambuf is to use</span>
+      <span class="identifier">setg</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">length</span><span class="special">);</span>
+    <span class="special">}</span>
+  <span class="special">};</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">unique_ptr</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span><span class="special">&gt;</span> <span class="identifier">buf</span><span class="special">;</span>
+  <span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">U</span><span class="special">&gt;</span> <span class="identifier">idirectstream</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">,</span> <span class="identifier">U</span> <span class="special">&amp;&amp;</span><span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span><span class="special">(</span><span class="keyword">new</span> <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">h</span><span class="special">),</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">forward</span><span class="special">&lt;</span><span class="identifier">U</span><span class="special">&gt;(</span><span class="identifier">buffer</span><span class="special">),</span> <span class="identifier">length</span><span class="special">)),</span> <span class="identifier">buf</span><span class="special">(</span><span class="keyword">static_cast</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span> <span class="special">*&gt;(</span><span class="identifier">rdbuf</span><span class="special">()))</span>
+  <span class="special">{</span>
+  <span class="special">}</span>
+  <span class="keyword">virtual</span> <span class="special">~</span><span class="identifier">idirectstream</span><span class="special">()</span> <span class="identifier">override</span>
+  <span class="special">{</span>
+    <span class="comment">// Reset the stream before deleting the buffer</span>
+    <span class="identifier">rdbuf</span><span class="special">(</span><span class="keyword">nullptr</span><span class="special">);</span>
+  <span class="special">}</span>
+<span class="special">};</span>
+
+<span class="comment">// An iostream which writes to an AFIO file in 4Kb pages</span>
+<span class="keyword">struct</span> <span class="identifier">odirectstream</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span>
+<span class="special">{</span>
+  <span class="keyword">struct</span> <span class="identifier">directstreambuf</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span>
+  <span class="special">{</span>
+    <span class="keyword">using</span> <span class="identifier">int_type</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span><span class="special">::</span><span class="identifier">int_type</span><span class="special">;</span>
+    <span class="keyword">using</span> <span class="identifier">traits_type</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span><span class="special">::</span><span class="identifier">traits_type</span><span class="special">;</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">lastwrite</span><span class="special">;</span> <span class="comment">// the last async write performed</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">off_t</span> <span class="identifier">offset</span><span class="special">;</span>       <span class="comment">// offset of next write</span>
+    <span class="identifier">file_buffer_type</span> <span class="identifier">buffer</span><span class="special">;</span>  <span class="comment">// a page size on this machine</span>
+    <span class="identifier">file_buffer_type</span> <span class="identifier">lastbuffer</span><span class="special">;</span>
+    <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_h</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">lastwrite</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_h</span><span class="special">)),</span> <span class="identifier">offset</span><span class="special">(</span><span class="number">0</span><span class="special">),</span> <span class="identifier">buffer</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">utils</span><span class="special">::</span><span class="identifier">page_sizes</span><span class="special">().</span><span class="identifier">front</span><span class="special">())</span>
+    <span class="special">{</span>
+      <span class="comment">// Set the put buffer this streambuf is to use</span>
+      <span class="identifier">setp</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+    <span class="special">}</span>
+    <span class="keyword">virtual</span> <span class="special">~</span><span class="identifier">directstreambuf</span><span class="special">()</span> <span class="identifier">override</span>
+    <span class="special">{</span>
+      <span class="keyword">try</span>
+      <span class="special">{</span>
+        <span class="comment">// Flush buffers and wait until last write completes</span>
+        <span class="comment">// Schedule an asynchronous write of the buffer to storage</span>
+        <span class="identifier">size_t</span> <span class="identifier">thisbuffer</span> <span class="special">=</span> <span class="identifier">pptr</span><span class="special">()</span> <span class="special">-</span> <span class="identifier">pbase</span><span class="special">();</span>
+        <span class="keyword">if</span><span class="special">(</span><span class="identifier">thisbuffer</span><span class="special">)</span>
+          <span class="identifier">lastwrite</span> <span class="special">=</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_write</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_truncate</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">+</span><span class="identifier">thisbuffer</span><span class="special">),</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">thisbuffer</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">);</span>
+        <span class="identifier">lastwrite</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+        <span class="comment">// TODO: On Windows do I need to close and reopen the file to flush metadata before</span>
+        <span class="comment">//       the rename or does the rename do it for me?</span>
+        <span class="comment">// Get handle to the parent directory</span>
+        <span class="keyword">auto</span> <span class="identifier">dirh</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">-&gt;</span><span class="identifier">container</span><span class="special">());</span>
+        <span class="comment">// Atomically rename "tmpXXXXXXXXXXXXXXXX" to "0"</span>
+        <span class="identifier">lastwrite</span><span class="special">-&gt;</span><span class="identifier">atomic_relink</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">dirh</span><span class="special">,</span> <span class="string">"0"</span><span class="special">));</span>
+<span class="preprocessor">#ifdef</span> <span class="identifier">__linux__</span>
+        <span class="comment">// Journalled Linux filing systems don't need this, but if you enabled afio::file_flags::always_sync</span>
+        <span class="comment">// you might want to issue this too.</span>
+        <span class="identifier">afio</span><span class="special">::</span><span class="identifier">sync</span><span class="special">(</span><span class="identifier">dirh</span><span class="special">);</span>
+<span class="preprocessor">#endif</span>
+      <span class="special">}</span>
+      <span class="keyword">catch</span><span class="special">(...)</span>
+      <span class="special">{</span>
+      <span class="special">}</span>
+    <span class="special">}</span>
+    <span class="keyword">virtual</span> <span class="identifier">int_type</span> <span class="identifier">overflow</span><span class="special">(</span><span class="identifier">int_type</span> <span class="identifier">c</span><span class="special">)</span> <span class="identifier">override</span>
+    <span class="special">{</span>
+      <span class="identifier">size_t</span> <span class="identifier">thisbuffer</span><span class="special">=</span><span class="identifier">pptr</span><span class="special">()-</span><span class="identifier">pbase</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">thisbuffer</span><span class="special">&gt;=</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">())</span>
+        <span class="identifier">sync</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">c</span><span class="special">!=</span><span class="identifier">traits_type</span><span class="special">::</span><span class="identifier">eof</span><span class="special">())</span>
+      <span class="special">{</span>
+        <span class="special">*</span><span class="identifier">pptr</span><span class="special">()=(</span><span class="keyword">char</span><span class="special">)</span><span class="identifier">c</span><span class="special">;</span>
+        <span class="identifier">pbump</span><span class="special">(</span><span class="number">1</span><span class="special">);</span>
+        <span class="keyword">return</span> <span class="identifier">traits_type</span><span class="special">::</span><span class="identifier">to_int_type</span><span class="special">(</span><span class="identifier">c</span><span class="special">);</span>
+      <span class="special">}</span>
+      <span class="keyword">return</span> <span class="identifier">traits_type</span><span class="special">::</span><span class="identifier">eof</span><span class="special">();</span>
+    <span class="special">}</span>
+    <span class="keyword">virtual</span> <span class="keyword">int</span> <span class="identifier">sync</span><span class="special">()</span> <span class="identifier">override</span>
+    <span class="special">{</span>
+      <span class="comment">// Wait for the last write to complete, propagating any exceptions</span>
+      <span class="identifier">lastwrite</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+      <span class="identifier">size_t</span> <span class="identifier">thisbuffer</span><span class="special">=</span><span class="identifier">pptr</span><span class="special">()-</span><span class="identifier">pbase</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">thisbuffer</span> <span class="special">&gt;</span> <span class="number">0</span><span class="special">)</span>
+      <span class="special">{</span>
+        <span class="comment">// Detach the current buffer and replace with a fresh one to allow the kernel to steal the page</span>
+        <span class="identifier">lastbuffer</span><span class="special">=</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">);</span>
+        <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">resize</span><span class="special">(</span><span class="identifier">lastbuffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+        <span class="identifier">setp</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+        <span class="comment">// Schedule an extension of physical storage by an extra page</span>
+        <span class="identifier">lastwrite</span> <span class="special">=</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_truncate</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">,</span> <span class="identifier">offset</span> <span class="special">+</span> <span class="identifier">thisbuffer</span><span class="special">);</span>
+        <span class="comment">// Schedule an asynchronous write of the buffer to storage</span>
+        <span class="identifier">lastwrite</span><span class="special">=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_write</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">,</span> <span class="identifier">lastbuffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">thisbuffer</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">);</span>
+        <span class="identifier">offset</span><span class="special">+=</span><span class="identifier">thisbuffer</span><span class="special">;</span>
+      <span class="special">}</span>
+      <span class="keyword">return</span> <span class="number">0</span><span class="special">;</span>
+    <span class="special">}</span>
+  <span class="special">};</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">unique_ptr</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span><span class="special">&gt;</span> <span class="identifier">buf</span><span class="special">;</span>
+  <span class="identifier">odirectstream</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">(</span><span class="keyword">new</span> <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">h</span><span class="special">))),</span> <span class="identifier">buf</span><span class="special">(</span><span class="keyword">static_cast</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span> <span class="special">*&gt;(</span><span class="identifier">rdbuf</span><span class="special">()))</span>
+  <span class="special">{</span>
+  <span class="special">}</span>
+  <span class="keyword">virtual</span> <span class="special">~</span><span class="identifier">odirectstream</span><span class="special">()</span> <span class="identifier">override</span>
+  <span class="special">{</span>
+    <span class="comment">// Reset the stream before deleting the buffer</span>
+    <span class="identifier">rdbuf</span><span class="special">(</span><span class="keyword">nullptr</span><span class="special">);</span>
+  <span class="special">}</span>
+<span class="special">};</span>
+</pre>
+<p>
+          Obviously enough we don't have any garbage collection in here for failed
+          or aborted writes. Thanks to the unique naming of those files, these are
+          very easy to spot during a GC pass and if they had a last modified date
+          several days ago they would ideal for purging. Implementing one of those
+          is easy using <a class="link" href="../../reference/functions/enumerate.html" title="Functions for enumerating directory contents and fetching file metadata"><code class="computeroutput"><span class="identifier">async_enumerate</span><span class="special">()</span></code></a>,
+          and is left as an exercise for the reader.
+        </p>
+<div class="table">
+<a name="afio.quickstart.workshop.atomic_updates.conditions"></a><p class="title"><b>Table&#160;1.7.&#160;This second generation solution will perform reasonably well under
+          these conditions:</b></p>
+<div class="table-contents"><table class="table" summary="This second generation solution will perform reasonably well under
+          these conditions:">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                </th>
+<th>
+                  <p>
+                    Condition
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    On Microsoft Windows you can place the store deep in a directory
+                    hierarchy and use long key names.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Third party threads and processes can rename the location of
+                    the store during use.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    The size of <span class="emphasis"><em>all</em></span> the values being read at
+                    any given time fits into your virtual address space (which is
+                    at least 2Gb on 32 bit, 8Tb on 64 bit).
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    As many processes and threads may read and write to the store
+                    concurrently as you like, including any mix of CIFS and NFS clients.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Processes may unexpectedly exit during modifies with no consequence
+                    on consistency.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Maximum performance isn't important to you.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Sudden power loss may not maintain original write ordering across
+                    multiple key-value updates, however each key will have some complete
+                    value which it had at some point in history.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    You don't need to update more than one key-value at once.
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><div class="footnotes">
+<br><hr width="100" align="left">
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f0" href="#afio.quickstart.workshop.atomic_updates.f0" class="para">6</a>] </sup>
+                This operation is not possible on Microsoft Windows using the Win32
+                API &#8212; nowhere in the Win32 API is this operation made available.
+                However the NT kernel API does provide this operation, hence AFIO
+                can provide POSIX atomic relink guarantees on Windows.
+              </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f1" href="#afio.quickstart.workshop.atomic_updates.f1" class="para">7</a>] </sup>
+                This may not be true on older NFS mounts, or NFS mounts with the
+                wrong configuration. See the NFS documentation. It is also possible
+                to configure Samba in a way which breaks the atomicity of atomic
+                renaming, see the Samba documentation.
+              </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.workshop.atomic_updates.f2" href="#afio.quickstart.workshop.atomic_updates.f2" class="para">8</a>] </sup>
+            This is as yet untested by empirical testing, however AFIO does no magic
+            tricks, it just thinly wraps the operating system APIs.
+          </p></div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="naive_afio_async/naive_racy.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="atomic_updates/atomic_updates_problems.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,700 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Write ordering data and durability: why does it matter?</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../acid_write_ordering.html" title="Write ordering constraints, and how these can be used to achieve some of the Durability in ACID without needing fsync()">
+<link rel="prev" href="background.html" title="Background on how filing systems work">
+<link rel="next" href="../../compilation.html" title="Compilation">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="background.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../acid_write_ordering.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../../compilation.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.design.acid_write_ordering.write_ordering_data"></a><a class="link" href="write_ordering_data.html" title="Write ordering data and durability: why does it matter?">Write
+        ordering data and durability: why does it matter?</a>
+</h4></div></div></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'design_rationale';
+var disqus_title = 'Boost.AFIO Design Introduction and Rationale';
+</script>
+        </p>
+<div class="note"><table border="0" summary="Note">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="../../../../../doc/src/images/note.png"></td>
+<th align="left">Note</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+            You may find the paper presented at C++ Now 2014 <a href="http://arxiv.org/abs/1405.3323" target="_top"><span class="quote">&#8220;<span class="quote">Large
+            Code Base Change Ripple Management in C++: My thoughts on how a new Boost
+            C++ Library could help</span>&#8221;</span></a> of interest here.
+          </p></td></tr>
+</table></div>
+<p>
+          Implementing performant Durability essentially reduces down to answering
+          two questions: (i) how long does it take to restore a consistent state
+          after an unexpected power loss, and (ii) how much of your most recent data
+          are you willing to lose? AFIO has been designed and written as the asynchronous
+          file i/o portability layer for the forthcoming direct filing system graphstore
+          database TripleGit which, like as with ZFS, implements late Durability
+          i.e. you are guaranteed that your writes from some wall clock distance
+          from now can never be lost. As discussing how TripleGit will use AFIO is
+          probably useful to many others, that is what the remainder of this section
+          does.
+        </p>
+<p>
+          TripleGit will achieve the Consistent and Isolated parts of being a reliable
+          database by placing abortable, garbage collectable concurrent writes of
+          new data into separate files, and pushing the atomicity enforcement into
+          a very small piece of ordering logic in order to reduce transaction contention
+          by multiple writers as much as possible. If you wish to never lose most
+          recent data, to implement a transaction one (i) writes one's data to the
+          filing system, (ii) ensure it has reached non-volatile storage, (iii) appends
+          the knowledge it definitely is on non-volatile storage to the intent log,
+          and then (iv) ensure one's append also has reached non-volatile storage.
+          This is presently the only way to ensure that valuable data definitely
+          is never lost on any filing system that I know of. The obvious problem
+          is that this method involves writing all your data with <code class="computeroutput"><span class="identifier">O_SYNC</span></code>
+          and using <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code>
+          on the intent log. This might perform okay with a single writer, but with
+          multiple writers performance is usually awful, especially on storage incapable
+          of high queue depths and potentially many hundreds of milliseconds of latency
+          (e.g. SD Cards). Despite the performance issues, there are many valid use
+          cases for especially precious data, and TripleGit of course will offer
+          such a facility, at both the per-graph and per-update levels.
+        </p>
+<p>
+          TripleGit's normal persistence strategy is a bit more clever: write all
+          your data, but keep a hash like a SHA of its contents as you write it<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f0" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f0" class="footnote">3</a>]</sup>. When you write your intent log, atomically append all the
+          SHAs of the items you just wrote and skip <code class="computeroutput"><span class="identifier">O_DATA</span></code>
+          and <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code>
+          completely. If power gets removed before all the data is written to non-volatile
+          storage, you can figure out that the database is dirty easily enough, and
+          you simply parse from the end of the intent log backwards, checking each
+          item's contents to ensure their SHAs match up, throwing away any transaction
+          where any file is missing or any file's contents don't match. On a filing
+          system such as ext4 where data is guaranteed to be sent to non-volatile
+          storage after one minute<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f1" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f1" class="footnote">4</a>]</sup>, and of course so long as you don't mind losing up to one minute's
+          worth of data, this solution can have much better performance than the
+          previous solution with lots of simultaneous writers.
+        </p>
+<p>
+          The problem though is that while better, performance is still far less
+          than optimal. Firstly, you have to calculate a whole load of hashes all
+          the time, and that isn't trivial especially on lower end platforms like
+          a mobile phone where 25-30 cycles per byte SHA256 performance might be
+          typical. Secondly, dirty database reconstruction is rather like how ext2
+          had to call <code class="computeroutput"><span class="identifier">fsck</span></code> on boot:
+          a whole load of time and i/o must be expended to fix up damage in the store,
+          and while it's running one generally must wait.
+        </p>
+<p>
+          What would be really, really useful is if the filing system exposed its
+          internal write ordering constraint implementation to user mode code, so
+          one could say <span class="quote">&#8220;<span class="quote">schedule writing A, B, C and D in any order whenever
+          you get round to it, but you <span class="emphasis"><em>must</em></span> write all of those
+          before you write any of E, F and G</span>&#8221;</span>. Such an ability gives maximum
+          scope to the filing system to reorder and coalesce writes as it sees fit,
+          but still allows database implementations to ensure that a transaction's
+          intent log entry can never appear without all the data it refers to. Such
+          an ability would eliminate the need for expensive dirty database checking
+          and reconstruction, or the need for any journalling infrastructure used
+          to skip the manual integrity checking.
+        </p>
+<p>
+          Unfortunately I know of no filing system which makes publicly available
+          such a facility. The closest that I know of is ZFS which internally uses
+          a concept of transaction groups which are, for all intents and purposes,
+          partial whole filing system snapshots issued once every five seconds. Data
+          writes may be reordered into any order within a transaction group, but
+          transaction group commits are strongly tied to the wall clock and are
+          <span class="bold"><strong>always</strong></span> committed sequentially. Since the
+          addition of the ZFS Write Throttle, the default settings are to accept
+          new writes as fast as RAM can handle, buffering up to thirty wall clock
+          seconds of writes before pacing the acceptance of new write data to match
+          the speed of the non-volatile storage (which may be a ZFS Intent Log (ZIL)
+          device if you're doing synchronous writes). This implies up to thirty seconds
+          of buffered data could be lost, but note that ZFS still guarantees transaction
+          group sequential write order. Therefore, what ZFS is in fact guaranteeing
+          is this: <span class="quote">&#8220;<span class="quote">we may reorder your write by up to five seconds away from
+          the sequence in which you wrote it and other writes surrounding it. Other
+          than that, we guarantee the order in which you write is the order in which
+          that data reaches physical storage.</span>&#8221;</span> <sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f2" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f2" class="footnote">5</a>]</sup>
+        </p>
+<p>
+          What this means is this: on ZFS, TripleGit can turn off all write synchronisation
+          and replace it with a five second delay between writing new data and updating
+          the intent log, and in so doing guaranteeing that the intent log's contents
+          will <span class="bold"><strong>always</strong></span> refer to data definitely on
+          storage (or rather, close enough that one need not perform a lot of repair
+          work on first use after power loss). One can additionally skip SHA hashing
+          on reads because ZFS guarantees file and metadata will always match and
+          as TripleGit always copy on writes data, either a copy's length matches
+          the intent log's or it doesn't (i.e. the file's length as reported by the
+          filing system really is how much true data it contains), plus the file
+          modified timestamp always reflects the actual last modifed timestamp of
+          the data.
+        </p>
+<p>
+          Note that ext3 and ext4 can also guarantee that file and metadata will
+          always match using the (IOPS expensive) mount option <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">journal</span></code>,
+          which can be detected from <code class="computeroutput"><span class="special">/</span><span class="identifier">proc</span><span class="special">/</span><span class="identifier">mounts</span></code>. If combined with the proprietary
+          Linux call <code class="computeroutput"><span class="identifier">syncfs</span><span class="special">()</span></code>,
+          one can reasonably emulate ZFS's behaviour, albeit rather inefficiently.
+          Another option is to have an idle thread issue fsync for writes in the
+          order they were issued after some timeout period, thus making sure that
+          writes definitely will reach physical storage within some given timeout
+          and in their order of issue &#8212; this can be used to emulate the ZFS
+          wall clock based write order consistency guarantees.
+        </p>
+<div class="note"><table border="0" summary="Note">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="../../../../../doc/src/images/note.png"></td>
+<th align="left">Note</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+            You may find the tutorial of interest which implements an ACID transactional
+            key-value store using the theory in this section.
+          </p></td></tr>
+</table></div>
+<p>
+          Sadly, most use of TripleGit and Boost.AFIO will be without the luxury
+          of ZFS, so here is a quick table of power loss data safety. Once again,
+          I reiterate that errors and omissions are my fault alone.
+        </p>
+<div class="table">
+<a name="afio.design.acid_write_ordering.write_ordering_data.power_loss_safety"></a><p class="title"><b>Table&#160;1.2.&#160;Power loss safety matrix: What non-trivially reconstructible data
+          can you lose if power is suddenly lost? <span class="bold">Any help
+          which can be supplied in filling in the unknowns in this table would be
+          hugely appreciated</span>.</b></p>
+<div class="table-contents"><table class="table" summary="Power loss safety matrix: What non-trivially reconstructible data
+          can you lose if power is suddenly lost? Any help
+          which can be supplied in filling in the unknowns in this table would be
+          hugely appreciated.">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Newly created file content corruptable
+                    after close</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">File data content rewrite corruptable
+                    after close</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Cosmic ray bitrot corruptable</span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Can punch holes into physical storage
+                    of files<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f3" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f3" class="footnote">a</a>]</sup></span>
+                  </p>
+                </th>
+<th>
+                  <p>
+                    <span class="aligncenter">Default max seconds of writes reordered
+                    without using <code class="computeroutput"><span class="identifier">fsync</span><span class="special">()</span></code></span>
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">FAT32</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">?</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext2</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">writeback</span></code></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f4" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f4" class="footnote">b</a>]</sup></span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">ordered</span></code>
+                    (default)</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">35</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">UFS + soft updates<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f5" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f5" class="footnote">c</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span><sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f6" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f6" class="footnote">d</a>]</sup>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">HFS+</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">?</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">NTFS<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f7" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f7" class="footnote">e</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">Until idle or write limit</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ext3/4 <code class="computeroutput"><span class="identifier">data</span><span class="special">=</span><span class="identifier">journal</span></code></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="red">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">ext4 only</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">5</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">BTRFS<sup>[<a name="afio.design.acid_write_ordering.write_ordering_data.f8" href="#ftn.afio.design.acid_write_ordering.write_ordering_data.f8" class="footnote">f</a>]</sup></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ReFS</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">not if integrity
+                    streams enabled</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">not if integrity
+                    streams enabled</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">Until idle or write limit</span>
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    <span class="alignright">ZFS</span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10008;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter"><span class="green">&#10004;</span></span>
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="aligncenter">30</span>
+                  </p>
+                </td>
+</tr>
+</tbody>
+<tbody class="footnotes"><tr><td colspan="6">
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f3" href="#afio.design.acid_write_ordering.write_ordering_data.f3" class="para">a</a>] </sup>
+                      This is where a filing system permits you to deallocate the
+                      physical storage of a region of a file, so a file claiming
+                      to occupy 8Mb could be reduced to 1Mb of actual storage consumption.
+                      This may sound like sparse file support, but transparent compression
+                      support also counts as it would reduce a region written with
+                      all zeros to nearly zero physical storage
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f4" href="#afio.design.acid_write_ordering.write_ordering_data.f4" class="para">b</a>] </sup>
+                      This is the <code class="computeroutput"><span class="identifier">commit</span></code>
+                      mount setting added to the <code class="computeroutput"><span class="special">/</span><span class="identifier">proc</span><span class="special">/</span><span class="identifier">sys</span><span class="special">/</span><span class="identifier">vm</span><span class="special">/</span><span class="identifier">dirty_expire_centiseconds</span></code>
+                      value. Sources: <a href="https://www.kernel.org/doc/Documentation/filesystems/ext4.txt" target="_top">https://www.kernel.org/doc/Documentation/filesystems/ext4.txt</a>
+                      and <a href="http://www.westnet.com/~gsmith/content/linux-pdflush.htm" target="_top">http://www.westnet.com/~gsmith/content/linux-pdflush.htm</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f5" href="#afio.design.acid_write_ordering.write_ordering_data.f5" class="para">c</a>] </sup>
+                      Source: <a href="http://www.freebsd.org/cgi/man.cgi?query=syncer" target="_top">http://www.freebsd.org/cgi/man.cgi?query=syncer</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f6" href="#afio.design.acid_write_ordering.write_ordering_data.f6" class="para">d</a>] </sup>
+                      BSD automatically detects extended regions of all bits zero,
+                      and eliminates their physical representation on storage.
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f7" href="#afio.design.acid_write_ordering.write_ordering_data.f7" class="para">e</a>] </sup>
+                      Source: <a href="http://technet.microsoft.com/en-us/library/bb742613.aspx" target="_top">http://technet.microsoft.com/en-us/library/bb742613.aspx</a>
+                    </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f8" href="#afio.design.acid_write_ordering.write_ordering_data.f8" class="para">f</a>] </sup>
+                      Source: <a href="https://wiki.archlinux.org/index.php/Btrfs" target="_top">https://wiki.archlinux.org/index.php/Btrfs</a>
+                    </p></div>
+</td></tr></tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+        </p>
+<div class="footnotes">
+<br><hr width="100" align="left">
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f0" href="#afio.design.acid_write_ordering.write_ordering_data.f0" class="para">3</a>] </sup>
+            TripleGit actually uses a different, much faster 256 bit 3 cycles/byte
+            cryptographic hash called <a href="https://blake2.net/" target="_top">Blake2</a>
+            by default, but one can force use of SHA256/512 on a per-graph basis,
+            or indeed if your CPU has SHA hardware offload instructions these may
+            be used by default.
+          </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f1" href="#afio.design.acid_write_ordering.write_ordering_data.f1" class="para">4</a>] </sup>
+            This is the default, and it may be changed by a system e.g. I have seen
+            thirty minutes set for laptops. Note that the Linux-specific call <code class="computeroutput"><span class="identifier">syncfs</span><span class="special">()</span></code>
+            lets one artifically schedule whole filing system flushes.
+          </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.design.acid_write_ordering.write_ordering_data.f2" href="#afio.design.acid_write_ordering.write_ordering_data.f2" class="para">5</a>] </sup>
+            Source: <a href="http://www.c0t0d0s0.org/archives/5343-Insights-into-ZFS-today-The-nature-of-writing-things.html" target="_top">http://www.c0t0d0s0.org/archives/5343-Insights-into-ZFS-today-The-nature-of-writing-things.html</a>
+          </p></div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="background.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../acid_write_ordering.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../../compilation.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

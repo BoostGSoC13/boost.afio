@@ -1,0 +1,528 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Using AFIO really slows down my compile times. Can't you do something about that?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="foreign_fd.html" title="How do I configure my own file descriptor or HANDLE in AFIO?">
+<link rel="next" href="fatal_error_read.html" title="Why do I get a fatal application exit with FATAL EXCEPTION: Failed to read all buffers when I read a file?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="foreign_fd.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="fatal_error_read.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.slow_compile"></a><a class="link" href="slow_compile.html" title="Using AFIO really slows down my compile times. Can't you do something about that?">Using AFIO really slows down my
+      compile times. Can't you do something about that?</a>
+</h3></div></div></div>
+<p>
+        You'll find a huge amount depends on your compiler. Here are some build time
+        benchmarks for my developer workstation:
+      </p>
+<div class="table">
+<a name="afio.FAQ.slow_compile.build_time"></a><p class="title"><b>Table&#160;1.17.&#160;Single thread build times for AFIO v1.3 for various compilers and
+        options on a 3.5Ghz Intel Core i7 3770K</b></p>
+<div class="table-contents"><table class="table" summary="Single thread build times for AFIO v1.3 for various compilers and
+        options on a 3.5Ghz Intel Core i7 3770K">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                <p>
+                  Build flags
+                </p>
+              </th>
+<th>
+                <p>
+                  Microsoft Windows 8.1 x64 with Visual Studio 2013
+                </p>
+              </th>
+<th>
+                <p>
+                  Ubuntu 14.04 LTS Linux x64 with GCC 4.9 and gold linker
+                </p>
+              </th>
+<th>
+                <p>
+                  Ubuntu 14.04 LTS Linux x64 with clang 3.4 and gold linker
+                </p>
+              </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span>
+                  <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="green">0m55s</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  3m53s
+                </p>
+              </td>
+<td>
+                <p>
+                  asio failure
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  2m10s
+                </p>
+              </td>
+<td>
+                <p>
+                  10m26s
+                </p>
+              </td>
+<td>
+                <p>
+                  5m46s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">lto</span>
+                  <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  5m37s
+                </p>
+              </td>
+<td>
+                <p>
+                  GCC ICE
+                </p>
+              </td>
+<td>
+                <p>
+                  5m42s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="identifier">pch</span><span class="special">=</span><span class="identifier">off</span> <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  7m17s
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="red">12m0s</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  5m45s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span>
+                  <span class="identifier">release</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  1m10s
+                </p>
+              </td>
+<td>
+                <p>
+                  3m22s
+                </p>
+              </td>
+<td>
+                <p>
+                  asio failure
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="identifier">release</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  2m58s
+                </p>
+              </td>
+<td>
+                <p>
+                  9m57s
+                </p>
+              </td>
+<td>
+                <p>
+                  8m10s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">lto</span>
+                  <span class="identifier">release</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  7m30s
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="red">13m0s</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  8m11s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  standalone alltests release
+                </p>
+              </td>
+<td>
+                <p>
+                  0m20s
+                </p>
+              </td>
+<td>
+                <p>
+                  0m51s
+                </p>
+              </td>
+<td>
+                <p>
+                  0m42s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  standalone multiabi alltests release
+                </p>
+              </td>
+<td>
+                <p>
+                  0m39s
+                </p>
+              </td>
+<td>
+                <p>
+                  1m34s
+                </p>
+              </td>
+<td>
+                <p>
+                  1m13s
+                </p>
+              </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><div class="table">
+<a name="afio.FAQ.slow_compile.build_time0"></a><p class="title"><b>Table&#160;1.18.&#160;Single thread build times for AFIO v1.2 for various compilers and
+        options on a 3.5Ghz Intel Core i7 3770K</b></p>
+<div class="table-contents"><table class="table" summary="Single thread build times for AFIO v1.2 for various compilers and
+        options on a 3.5Ghz Intel Core i7 3770K">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                <p>
+                  Build flags
+                </p>
+              </th>
+<th>
+                <p>
+                  Microsoft Windows 8 x64 with Visual Studio 2013
+                </p>
+              </th>
+<th>
+                <p>
+                  Ubuntu 12.04 LTS Linux x64 with GCC 4.8 and gold linker
+                </p>
+              </th>
+<th>
+                <p>
+                  Ubuntu 12.04 LTS Linux x64 with clang 3.4 and gold linker
+                </p>
+              </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span>
+                  <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  01m43s
+                </p>
+              </td>
+<td>
+                <p>
+                  03m31s<sup>[<a name="afio.FAQ.slow_compile.f0" href="#ftn.afio.FAQ.slow_compile.f0" class="footnote">a</a>]</sup>
+                </p>
+              </td>
+<td>
+                <p>
+                  fails
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  02m40s
+                </p>
+              </td>
+<td>
+                <p>
+                  06m15s
+                </p>
+              </td>
+<td>
+                <p>
+                  04m24s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">lto</span>
+                  <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  <span class="red">09m36s</span>
+                </p>
+              </td>
+<td>
+                <p>
+                  06m23s
+                </p>
+              </td>
+<td>
+                <p>
+                  04m32s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="identifier">pch</span><span class="special">=</span><span class="identifier">off</span> <span class="identifier">debug</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  06m12s
+                </p>
+              </td>
+<td>
+                <p>
+                  08m01s
+                </p>
+              </td>
+<td>
+                <p>
+                  04m26s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span>
+                  <span class="identifier">release</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  02m01s
+                </p>
+              </td>
+<td>
+                <p>
+                  03m15s<sup>[<a name="afio.FAQ.slow_compile.f1" href="#ftn.afio.FAQ.slow_compile.f1" class="footnote">b</a>]</sup>
+                </p>
+              </td>
+<td>
+                <p>
+                  fails
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="identifier">release</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  03m09s
+                </p>
+              </td>
+<td>
+                <p>
+                  06m28s
+                </p>
+              </td>
+<td>
+                <p>
+                  06m06s
+                </p>
+              </td>
+</tr>
+<tr>
+<td>
+                <p>
+                  <code class="computeroutput"><span class="special">--</span><span class="identifier">link</span><span class="special">-</span><span class="identifier">test</span>
+                  <span class="special">--</span><span class="identifier">lto</span>
+                  <span class="identifier">release</span></code>
+                </p>
+              </td>
+<td>
+                <p>
+                  10m24s
+                </p>
+              </td>
+<td>
+                <p>
+                  07m08s
+                </p>
+              </td>
+<td>
+                <p>
+                  06m14s
+                </p>
+              </td>
+</tr>
+</tbody>
+<tbody class="footnotes"><tr><td colspan="4">
+<div class="footnote"><p><sup>[<a id="ftn.afio.FAQ.slow_compile.f0" href="#afio.FAQ.slow_compile.f0" class="para">a</a>] </sup>
+                    ASIO has a link error without <code class="computeroutput"><span class="identifier">link</span><span class="special">=</span><span class="keyword">static</span></code>
+                  </p></div>
+<div class="footnote"><p><sup>[<a id="ftn.afio.FAQ.slow_compile.f1" href="#afio.FAQ.slow_compile.f1" class="para">b</a>] </sup>
+                    ASIO has a link error without <code class="computeroutput"><span class="identifier">link</span><span class="special">=</span><span class="keyword">static</span></code>
+                  </p></div>
+</td></tr></tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+        You'll note that v1.3 is substantially faster than v1.2 to build on MSVC
+        for some odd reason, despite considerably more metaprogramming, code, and
+        tests. The rises in times like with GCC and clang make more sense.
+      </p>
+<p>
+        The benefit of <code class="computeroutput"><span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span></code>
+        grows exponentially the less powerful the CPU: on my Intel Atom 220 netbook
+        <code class="computeroutput"><span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span></code>
+        gets total build times under five minutes which is impressive compared to
+        the twenty or so minutes without that flag.
+      </p>
+<p>
+        <code class="computeroutput"><span class="special">--</span><span class="identifier">fast</span><span class="special">-</span><span class="identifier">build</span></code>
+        works by defining <code class="computeroutput"><span class="identifier">BOOST_AFIO_HEADERS_ONLY</span></code>
+        to 0 for each compiland, and linking to the AFIO shared library instead.
+        It also does the same for ASIO by defining <code class="computeroutput"><span class="identifier">BOOST_ASIO_SEPARATE_COMPILATION</span></code>
+        and <code class="computeroutput"><span class="identifier">BOOST_ASIO_DYN_LINK</span></code> for
+        each compiland, and links to the ASIO shared library instead (which is built
+        via <code class="computeroutput"><span class="identifier">boost</span><span class="special">/</span><span class="identifier">asio</span><span class="special">/</span><span class="identifier">impl</span><span class="special">/</span><span class="identifier">src</span><span class="special">.</span><span class="identifier">hpp</span></code>, see ASIO's docs).
+      </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="foreign_fd.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="fatal_error_read.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

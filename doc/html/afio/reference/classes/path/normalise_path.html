@@ -1,0 +1,208 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>normalise_path</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../path.html" title="path">
+<link rel="prev" href="path_make_absolute.html" title="path::make_absolute">
+<link rel="next" href="path_hash.html" title="path_hash">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="path_make_absolute.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../path.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="path_hash.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.classes.path.normalise_path"></a><a class="link" href="normalise_path.html" title="normalise_path">normalise_path</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'normalise_path';
+var disqus_title = 'Boost.AFIO normalise_path';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp17335256"></a>
+Return a normalised filesystem::path from an AFIO path.
+          </p>
+<h6>
+<a name="afio.reference.classes.path.normalise_path.h0"></a>
+            <span><a name="afio.reference.classes.path.normalise_path.description"></a></span><a class="link" href="normalise_path.html#afio.reference.classes.path.normalise_path.description">Description</a>
+          </h6>
+<p>
+            On POSIX this passes through its input unchanged.
+          </p>
+<p>
+            On Windows AFIO exclusively uses NT kernel paths which are not necessarily
+            trivially convertible to Win32 paths. As an example, the Win32 path
+            <code class="literal"><code class="computeroutput"><span class="identifier">C</span><span class="special">:\\</span><span class="identifier">Foo</span></code></code> might be <code class="literal"><code class="computeroutput"><span class="special">\\??\\</span><span class="identifier">C</span><span class="special">:\\</span><span class="identifier">Foo</span></code></code>
+            or even <code class="literal"><code class="computeroutput"><span class="special">\\</span><span class="identifier">Device</span><span class="special">\\</span><span class="identifier">HarddiskVolume1</span><span class="special">\\</span><span class="identifier">Foo</span></code></code>.
+            This function will convert any NT kernel path into something which can
+            be fed to normal Win32 APIs - a drive letter if available, else a GUID
+            volume path, and with an extended path prefix if the path is sufficiently
+            long. It also scans the path for characters illegal under Win32 or paths
+            which begin with a space or end with a period, and will extended path
+            prefix such paths as well.
+          </p>
+<h6>
+<a name="afio.reference.classes.path.normalise_path.h1"></a>
+            <span><a name="afio.reference.classes.path.normalise_path.synopsis"></a></span><a class="link" href="normalise_path.html#afio.reference.classes.path.normalise_path.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">normalise_path</span><span class="special">(</span><span class="identifier">path</span> <span class="identifier">p</span><span class="special">,</span> <span class="identifier">path_normalise</span> <span class="identifier">type</span> <span class="special">=</span> <span class="identifier">path_normalise</span><span class="special">::</span><span class="identifier">dos</span><span class="special">)</span></pre>
+<h6>
+<a name="afio.reference.classes.path.normalise_path.h2"></a>
+            <span><a name="afio.reference.classes.path.normalise_path.parameters"></a></span><a class="link" href="normalise_path.html#afio.reference.classes.path.normalise_path.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Type
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Concept
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Name
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                    <p>
+                      path
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      p
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Path to be normalised
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      path_normalise
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      type
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      A path_normalise enum
+                    </p>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.path.normalise_path.h3"></a>
+            <span><a name="afio.reference.classes.path.normalise_path.header"></a></span><a class="link" href="normalise_path.html#afio.reference.classes.path.normalise_path.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="path_make_absolute.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../path.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="path_hash.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

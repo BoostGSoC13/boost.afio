@@ -1,0 +1,192 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>random_string</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../function.html" title="Functions in namespace utils">
+<link rel="prev" href="from_hex_string.html" title="from_hex_string">
+<link rel="next" href="../../../release_notes.html" title="Release Notes">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="from_hex_string.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../function.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../../../release_notes.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.utilities.function.random_string"></a><a class="link" href="random_string.html" title="random_string">random_string</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'random_string';
+var disqus_title = 'Boost.AFIO random_string';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp32489200"></a>
+Returns a cryptographically random string capable of being used as a
+            filename. Essentially random_fill() + to_hex_string().
+          </p>
+<h6>
+<a name="afio.reference.utilities.function.random_string.h0"></a>
+            <span><a name="afio.reference.utilities.function.random_string.synopsis"></a></span><a class="link" href="random_string.html#afio.reference.utilities.function.random_string.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">utils</span><span class="special">::</span><span class="identifier">random_string</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">randomlen</span><span class="special">)</span></pre>
+<h6>
+<a name="afio.reference.utilities.function.random_string.h1"></a>
+            <span><a name="afio.reference.utilities.function.random_string.parameters"></a></span><a class="link" href="random_string.html#afio.reference.utilities.function.random_string.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Type
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Concept
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Name
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody><tr>
+<td>
+                    <p>
+                      size_t
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      randomlen
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The number of bytes of randomness to use for the string.
+                    </p>
+                  </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.utilities.function.random_string.h2"></a>
+            <span><a name="afio.reference.utilities.function.random_string.returns"></a></span><a class="link" href="random_string.html#afio.reference.utilities.function.random_string.returns">Returns</a>
+          </h6>
+<p>
+            A string representing the randomness at a 2x ratio, so if 32 bytes were
+            requested, this string would be 64 bytes long.
+          </p>
+<h6>
+<a name="afio.reference.utilities.function.random_string.h3"></a>
+            <span><a name="afio.reference.utilities.function.random_string.header"></a></span><a class="link" href="random_string.html#afio.reference.utilities.function.random_string.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<h6>
+<a name="afio.reference.utilities.function.random_string.h4"></a>
+            <span><a name="afio.reference.utilities.function.random_string.complexity"></a></span><a class="link" href="random_string.html#afio.reference.utilities.function.random_string.complexity">Complexity</a>
+          </h6>
+<p>
+            Whatever the system API takes.
+          </p>
+<h6>
+<a name="afio.reference.utilities.function.random_string.h5"></a>
+            <span><a name="afio.reference.utilities.function.random_string.exception_model"></a></span><a class="link" href="random_string.html#afio.reference.utilities.function.random_string.exception_model">Exception
+            Model</a>
+          </h6>
+<p>
+            Any error from the operating system.
+          </p>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="from_hex_string.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../function.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../../../release_notes.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

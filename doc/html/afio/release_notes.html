@@ -1,0 +1,821 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Release Notes</title>
+<link rel="stylesheet" href="../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="prev" href="reference/utilities/function/random_string.html" title="random_string">
+<link rel="next" href="FAQ.html" title="Frequently Asked Questions">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../boost.png"></td>
+<td align="center"><a href="../../../index.html">Home</a></td>
+<td align="center"><a href="../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="reference/utilities/function/random_string.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="FAQ.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="afio.release_notes"></a><a class="link" href="release_notes.html" title="Release Notes">Release Notes</a>
+</h2></div></div></div>
+<h4>
+<a name="afio.release_notes.h0"></a>
+      <span><a name="afio.release_notes.known_deviations_in_this_version"></a></span><a class="link" href="release_notes.html#afio.release_notes.known_deviations_in_this_version">Known
+      deviations in this version being presented for Boost peer review from version
+      to enter Boost if accepted</a>
+    </h4>
+<p>
+      This peer review edition of AFIO v1.4 has been <span class="quote">&#8220;<span class="quote">mocked up</span>&#8221;</span> with
+      an API which should very closely resemble the eventual API in the v1.4 engine
+      which will be rewritten to use the just written lightweight future-promise
+      factory toolkit in forthcoming <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>.
+      It is, however, still in fact the mature v1.3 engine with a faked wrapper API
+      simulating the v1.4 engine. Known deviations from the eventual v1.4 release:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+          AFIO's <code class="computeroutput"><span class="identifier">future</span></code> is a shim
+          type standing in for the eventual custom Boost.Monad based future. Continuations
+          work, but are horribly hacked together &#8212; if your continuation returns
+          a Boost.Monad future, it shims in a one way conversion to lightweight futures.
+          If your continuation returns anything else, including an AFIO future, it
+          stays within AFIO &lt; v1.4's fairly broken future semantics (AFIO was
+          first written back in 2012 when the Concurrency TS looked very different
+          indeed, and AFIO has not kept up).
+        </li></ul></div>
+<div class="warning"><table border="0" summary="Warning">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Warning]" src="../../../doc/src/images/warning.png"></td>
+<th align="left">Warning</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+        AFIO's future shim type can't do continuations on anything but <code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span></code>.
+        For any <code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code> it
+        actually executes the continuation immediately which will usually just happen
+        to work through fortune as the continuation usually does a <code class="computeroutput"><span class="identifier">get</span><span class="special">()</span></code>.
+      </p></td></tr>
+</table></div>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Relatedly, because AFIO &lt; v1.4 implemented future continuations atop
+          STL and Boost futures using an internal hash table to look up the associated
+          extra operation metadata per future, these APIs will also be vanishing:
+          <div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">async_io_dispatcher_base</span><span class="special">::</span><span class="identifier">completion</span><span class="special">()</span></code> - replaced with future.then()
+              </li>
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">async_io_dispatcher_base</span><span class="special">::</span><span class="identifier">call</span><span class="special">()</span></code> - replaced with future.then()
+              </li>
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">async_io_dispatcher_base</span><span class="special">::</span><span class="identifier">barrier</span><span class="special">()</span></code> - replaced with when_all().
+              </li>
+</ul></div>
+        </li>
+<li class="listitem">
+          Lightweight future-promise also enables C++ 1z coroutines, and therefore
+          the code examples in the documentation can then be rewritten to use C++
+          1z coroutines where appropriate. This should particularly aid the find
+          regex in files tutorial example which is currently very messy.
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h1"></a>
+      <span><a name="afio.release_notes.anticipated_forthcoming_features"></a></span><a class="link" href="release_notes.html#afio.release_notes.anticipated_forthcoming_features">Anticipated
+      forthcoming features in future versions</a>
+    </h4>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          The v1.4 engine will be rewritten yet again to use a new custom future
+          implementation whereby async_io_op shall become afio::future&lt;T&gt;.
+          This should let the API no longer return two sets of futures when returning
+          results (async_io_op therefore matches afio::future&lt;void&gt;), plus
+          make best use of the proposed concurrent_unordered_map by finally actually
+          processing batches of operations as a batch, instead of one at a time.
+        </li>
+<li class="listitem">
+          The v1.4 engine afio::future&lt;T&gt; ought to transparently support Boost.Fiber,
+          this should let you program against AFIO using awaitable resumable functions
+          which is much cleaner. The v1.3 engine already reduced latency by 50% over
+          the v1.2 engine, but with Fibers we finally ought to eliminate the O(waiters)
+          scaling for op completions in favour of O(1) to waiters.
+        </li>
+<li class="listitem">
+          AFIO v1.5 will abstract out all the OS specific code into a C (not C++)
+          abstraction layer. This makes it far easier to reuse the same code for
+          a later AFIO based Filesystem TS implementation. It also eliminates the
+          use of C++ exceptions at the OS specific layer. Note I may still use lambdas
+          in the C abstraction layer, if compiled as C these appear as C callbacks
+          but if compiled as C++ they are some callable type.
+        </li>
+<li class="listitem">
+          It is hoped that the v1.5 engine will have two additional bindings, one
+          for Microsoft COM thanks to John Bandela's CppComponents (https://github.com/jbandela/cppcomponents)
+          and another with plain C bindings (which actually wrap the COM object).
+          Both these bindings have no requirement for anything Microsoft, and work
+          as expected on POSIX.
+        </li>
+<li class="listitem">
+          The v1.5 engine will finally make use of the API support for alternative
+          async_io_dispatcher implementations, adding at least one for temp file
+          support with special temp file semantics, and maybe others with transparent
+          hashing and bit flip healing (see below). The temp file support will allow
+          anonymous and named temp files which can be device volume matched to some
+          path, thus allowing file move to be done without copying. Anonymous temp
+          files can use Linux specific facilities for those.
+        </li>
+<li class="listitem">
+          Finally, making good use of the new coroutine support the v1.5 engine should
+          have an async fast batch hash engine which provides transparent hashing
+          of all async reads and writes with optional SECDEC ECC calculation. Hashes
+          will probably be initially limited to Blake2b (crypto strong and very fast,
+          even on ARM) and SpookyHash (not crypto strong, but superbly fast and for
+          small blocks), though I may dust off my 4-SHA SSE2/NEON SHA256 engine for
+          Intel and ARM for the giggle. In addition to fast batch hashing, the coroutine
+          support should make filing system tree algorithms enormously easier to
+          write, so expect an optimally fast race free directory tree visitor, deleter,
+          mover and copier which is the find in files tutorial made generic.
+        </li>
+</ul></div>
+<h6>
+<a name="afio.release_notes.h2"></a>
+      <span><a name="afio.release_notes.in_some_later_version_in_order"></a></span><a class="link" href="release_notes.html#afio.release_notes.in_some_later_version_in_order">In
+      some later version, in order:</a>
+    </h6>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          When ignoring the close of a cached directory handle, kick out its weak_ptr
+          from the central directory cache if its reference count is 1.
+        </li>
+<li class="listitem">
+          Individual file change monitoring. This would be very useful for implementing
+          distributed mutual exclusion algorithms to avoid spinning on file updates.
+        </li>
+<li class="listitem">
+          Related to the preceding item, formal async lock file support with deadline
+          timeouts.
+        </li>
+<li class="listitem">
+          Portable fast file byte range advisory locking which works across network
+          shares, but can still utilise shared memory when possible.
+        </li>
+<li class="listitem">
+          Related to locking files, the ability to copy files (unwritten destination
+          locked until complete) using a variety of algorithms (including cheap copies
+          on btrfs [cp --reflink=auto]) with progress notification via the file change
+          monitoring. Extend rename file and delete file with lock file options.
+        </li>
+<li class="listitem">
+          Also related to locking files, DeleteOnClose should use advisory locks
+          to have the last handle close do the file delete on POSIX.
+        </li>
+<li class="listitem">
+          Right now specifying an empty path with precondition to mean same as precondition
+          is inefficient and racy: it opens the containing directory and uses the
+          containing directory as the base with its leafname. What it should do is
+          to duplicate the handle and use fnctl() etc to reopen the handle with the
+          desired access and flags.
+        </li>
+<li class="listitem">
+          Extended attributes support. TripleGit could use this to avoid a second
+          file handle open of metadata per graph object read. Unsure if NTFS is any
+          faster opening EA though, need to test.
+        </li>
+<li class="listitem">
+          AFIO's stable DLL ABI is intentionally C compatible, so all one needs is
+          a libclang tool for generating C wrappers for the DLL ABI which massage
+          C arrays into pseudo std::vector const lvalue refs. Such C bindings would
+          be all batch and have none of the friendliness of programming AFIO in C++,
+          but they ought to work quite well.
+        </li>
+<li class="listitem">
+          Kernel side file &lt;=&gt; socket data copying via sendfile and splice
+          on Linux. Integrating splice as async with ASIO is unfortunately painful
+          :(
+        </li>
+<li class="listitem">
+          async_io_dispatcher_base::read_partial() to read as much of a single buffer
+          as possible, rather than only complete buffers.
+        </li>
+<li class="listitem">
+          Fast, scalable portable directory contents change monitoring. It should
+          be able to monitor a 1M entry directory experiencing 1% entry changes per
+          second without using a shocking amount of RAM.
+        </li>
+<li class="listitem">
+          ACL support
+        </li>
+<li class="listitem">
+          Asynchronous file handle closing in ~async_io_handle() (currently if not
+          explicitly closed, the async_io_handle destructor must synchronously close)
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h3"></a>
+      <span><a name="afio.release_notes.boost_1_59_afio_v1_40_beta"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_59_afio_v1_40_beta">Boost
+      1.59 AFIO v1.40 beta</a>
+    </h4>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Unit tests were not trapping exception throws from normalise_path(path_normalise::guid_all),
+          link() or file(file_flags::create_compressed). This caused test failure
+          on FAT32 and ReFS volumes on Windows as those operations are not supported.
+        </li>
+<li class="listitem">
+          Rename file_buffer_allocator to page_allocator. Fixes issue #95 from review.
+        </li>
+<li class="listitem">
+          Replace all use of std::cerr with BOOST_AFIO_LOG_FATAL_EXIT(). Fixes issue
+          #104 from review.
+        </li>
+<li class="listitem">
+          All synchronous free functions not returning anything now return a void.
+          Fixes issue #107 from review.
+        </li>
+<li class="listitem">
+          ASIO_STANDALONE is now detected using #ifdef not #if. Fixes issue #113
+          from review.
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h4"></a>
+      <span><a name="afio.release_notes.boost_1_59_afio_v1_40_alpha_21st"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_59_afio_v1_40_alpha_21st">Boost
+      1.59 AFIO v1.40 alpha 21st August 2015 Boost peer review 1 edition</a>
+    </h4>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Removed VS2013 support as lightweight future-promise will require VS2015:
+          <div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<li class="listitem">
+                Replaced all BOOST_NOEXCEPT and BOOST_NOEXCEPT_OR_NOTHROW with noexcept
+              </li>
+<li class="listitem">
+                Replaced all BOOST_CONSTEXPR with constexpr
+              </li>
+</ul></div>
+        </li>
+<li class="listitem">
+          Replaced camel cased items in file_flags with Boost compliant forms.
+        </li>
+<li class="listitem">
+          Replaced all async_io_op with afio::future&lt;void&gt;. async_io_op::get()
+          is now called future&lt;&gt;::get_handle(), plus the former structure members
+          are now member function accessors.
+        </li>
+<li class="listitem">
+          Replaced all functions returning pairs of futures with afio::future&lt;T&gt;
+          instead.
+        </li>
+<li class="listitem">
+          Docs now contain commenting facility per reference page plus on some of
+          the essay pages.
+        </li>
+<li class="listitem">
+          Online docs now include a "Try AFIO now in online compiler" button
+          every page.
+        </li>
+<li class="listitem">
+          Implemented multi-version compatibility, and backported that patch to the
+          v1.3 branch. The v1.3 branch is now included in the v1.4 branch as v1.
+        </li>
+<li class="listitem">
+          Implemented free functions for future continuation for all AFIO operations.
+        </li>
+<li class="listitem">
+          async_io_handle is now handle. Instead of explicit std::shared_ptr&lt;async_io_handle&gt;
+          we now have handle_ptr.
+        </li>
+<li class="listitem">
+          async_file_io_dispatcher_base is now dispatcher. Instead of explicit std::shared_ptr&lt;async_file_io_dispatcher_base&gt;
+          we now have dispatcher_ptr. make_async_io_dispatcher() is now make_dispatcher().
+        </li>
+<li class="listitem">
+          make_dispatcher() now takes a URI and returns a monad.
+        </li>
+<li class="listitem">
+          Fixed issue #84 Symlinks were never being followed on Windows.
+        </li>
+<li class="listitem">
+          Fixed issue #83 Fix failure to handle Dedup reparse point types.
+        </li>
+<li class="listitem">
+          async_data_op_req is now io_req, similarly for make_async_data_op_req.
+        </li>
+<li class="listitem">
+          async_enumerate_op_req is now enumerate_req.
+        </li>
+<li class="listitem">
+          async_path_op_req is now path_req.
+        </li>
+<li class="listitem">
+          Added optional additional target parameter to symlink().
+        </li>
+<li class="listitem">
+          Added reparse_point flag to stat_t.
+        </li>
+<li class="listitem">
+          Verified as working with Boost 1.59 release.
+        </li>
+<li class="listitem">
+          <code class="computeroutput"><span class="identifier">handle</span><span class="special">::</span><span class="identifier">try_mapfile</span><span class="special">()</span></code>
+          is no more, we now have <code class="computeroutput"><span class="identifier">handle</span><span class="special">::</span><span class="identifier">map_file</span><span class="special">()</span></code> which can also map writeable files now
+          plus map offsets.
+        </li>
+</ul></div>
+<p>
+      Still to do in this release:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          ADD URI REGEX REGISTRATION SYSTEM (need priorities? Need to do some research.
+          Make sure it's DLL unload safe).
+        </li>
+<li class="listitem">
+          Add unit test for multi-version use within the same translation unit.
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h5"></a>
+      <span><a name="afio.release_notes.boost_1_58_afio_v1_31_18th_april"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_58_afio_v1_31_18th_april">Boost
+      1.58 AFIO v1.31 18th April 2015</a>
+    </h4>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Added Appveyor CI support which complements the Travis CI support.
+        </li>
+<li class="listitem">
+          Verified as working with Boost 1.58 release.
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h6"></a>
+      <span><a name="afio.release_notes.boost_1_57_afio_v1_30_18th_march"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_57_afio_v1_30_18th_march">Boost
+      1.57 AFIO v1.30 18th March 2015</a>
+    </h4>
+<p>
+      AFIO is now a Boost.BindLib based library. This has resulted in an enormous
+      change set which is only barely summarised here:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          AFIO is now capable of:
+          <div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<li class="listitem">
+                Being used standalone, or as a Boost module, or if you have inline
+                namespace support in your compiler then both simultaneously in the
+                same translation unit or in the same binary, including any combination
+                of the following library dependency configurations (config macro
+                and its default is shown):
+              </li>
+<li class="listitem">
+                Using Boost.Atomic, Boost.Chrono and Boost.Thread OR the C++ 11 STL
+                (BOOST_AFIO_USE_BOOST_THREAD=0).
+              </li>
+<li class="listitem">
+                Using Boost.Filesystem OR the C++ 1z Filesystem TS (BOOST_AFIO_USE_BOOST_FILESYSTEM=1,
+                except on VS2015 which provides Filesystem).
+              </li>
+<li class="listitem">
+                Using Boost.ASIO OR standalone ASIO (ASIO_STANDALONE=1)
+              </li>
+</ul></div>
+          <p>
+            That makes eight different potential configurations, and all eight can
+            coexist in the same translation unit, though you will find compilation
+            time becomes enormous.
+          </p>
+        </li>
+<li class="listitem">
+          AFIO's unit test suite no longer requires Boost.Test, and can now alternatively
+          use CATCH C++ (BOOST_AFIO_USE_BOOST_UNIT_TEST=0) via BindLib.
+        </li>
+<li class="listitem">
+          Dropped support for these compiler versions due to insufficient C++ 11
+          support:
+          <div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<li class="listitem">
+                Anything before GCC 4.7, as these lack template alias support.
+              </li>
+<li class="listitem">
+                Anything before VS2013, as these lack template alias support. I took
+                the opportunity to clean out the VS2010 special code paths and all
+                the variadic template emulation.
+              </li>
+</ul></div>
+        </li>
+<li class="listitem">
+          symlink() now can create file symbolic links on Windows (it'll probably
+          error out due to lack of privileges held by the user, but it can now at
+          least try).
+        </li>
+<li class="listitem">
+          Added the TemporaryFile and DeleteOnClose file_flags. These improve lock
+          file performance on Windows by about 60%.
+        </li>
+<li class="listitem">
+          Added sparse file support. AFIO now always creates sparse file where possible,
+          and converts any files it opens for writing into a sparse file where possible.
+          You can disable that behaviour using the NoSparse flag.
+        </li>
+<li class="listitem">
+          stat_t now contains member flags indicating if a file entry is sparse and/or
+          compressed.
+        </li>
+<li class="listitem">
+          Added a new api zero() which can very efficiently zero ranges in a file
+          by deallocating them on physical storage (<span class="quote">&#8220;<span class="quote">hole punching</span>&#8221;</span>).
+        </li>
+<li class="listitem">
+          Added a new api extents() which lets you query which ranges in a file contain
+          valid data.
+        </li>
+<li class="listitem">
+          Added a new api statfs() which returns a statfs_t which lets you query
+          the volume on which a file or directory lives. Again, thanks to using the
+          NT kernel API directly the structure on Windows is almost as complete as
+          on POSIX.
+        </li>
+<li class="listitem">
+          Improved unit testing, especially unit testing of error handling, and indeed
+          found that on Windows an invalid handle object generated by a failed open
+          or an explicit close caused the next dependant operation to segfault. Also
+          on Windows any errors generated during read() and write() were being lost
+          and the dispatcher hanged instead of being reported (oops!).
+        </li>
+<li class="listitem">
+          Added an extra section to the tutorial on how to implement an atomic log
+          file using the new features in AFIO.
+        </li>
+<li class="listitem">
+          Completely rewrote the async_data_op_req metaprogramming which assembles
+          ASIO scatter gather buffers from types and containers supplied to read()
+          and write(). The old system which had to work on VS2010 was basically a
+          set of repetitive hardcoded template specialisation overloads for void
+          *, T *, std::array, std::vector and std::basic_string. The new much more
+          sophisticated metaprogramming (with an unfortunate corresponding increase
+          in compilation times) now understands any STL like container (detected
+          using SFINAE std::begin() and std::end()), including nested STL like containers,
+          and will correctly generate ASIO scatter gather buffers from say something
+          like a std::list&lt;std::list&lt;std::string&gt;&gt; but also correctly
+          coalesce buffers for trivial types such as std::vector&lt;std::array&lt;trivial
+          type, N&gt;&gt; where it spots that only one ASIO scatter gather buffer
+          is needed. Const types were supported before in that only an asio::const_buffer
+          could be constructed from the limited list of supported input types, but
+          now the metaprogramming asks STL like containers if their values are const
+          (e.g. unordered_set), and if so it will always generate an asio::const_buffer,
+          which of course means that such STL like containers can only be used for
+          writing only and not reading.
+        </li>
+<li class="listitem">
+          Fixed memory corruption in async_file_io_dispatcher destructor which only
+          occurred when there were extant ops during destruction.
+        </li>
+<li class="listitem">
+          Use rename to random name before deletion pattern in rmfile() to work around
+          Windows refusing new file creation with the same name as a recently deleted
+          file. enumerate() now filters out such zombied pending delete files automatically.
+          This makes AFIO rmfile() work on Windows with POSIX semantics.
+        </li>
+<li class="listitem">
+          Fixed bug where direntry() was using lstat() instead of fstat() on POSIX
+          and therefore failing if the file handle had been deleted.
+        </li>
+<li class="listitem">
+          symlink() no longer opens target file on POSIX, and instead returns a closed
+          handle. The previous behaviour was throwing exceptions when the symlink
+          was broken.
+        </li>
+<li class="listitem">
+          Made async_io_handle::path() virtual and now capable of asking for the
+          current path of the file handle even after the file has been renamed or
+          deleted. Doing this required a refactoring of the error generation code
+          which previously consumed a const filesystem::path &amp;, now it consumes
+          a lambda which generates the path on demand.
+        </li>
+<li class="listitem">
+          File handles now refresh their path() to their true path on open, and again
+          at various points during execution. A careful audit was undertaken to spot
+          all instances where a fresh path is really needed versus a stale path,
+          nevertheless some instances may have been missed. Nevertheless, this now
+          means that AFIO can work with files whose names and locations change throughout
+          the time that AFIO holds a path open to them, though note that inevitably
+          this support will be racy if the filename changes between AFIO's refresh
+          and the operation.
+        </li>
+<li class="listitem">
+          Replaced all use of filesystem::path with afio::path which on Windows enforces
+          NT kernel path naming and ensures that multiple conversions from win32
+          path to NT paths are no longer done. Support is also now provided for converting
+          the NT kernel paths AFIO uses to traditional DOS ones.
+        </li>
+<li class="listitem">
+          directory_entry::name() is now a string instead of a path.
+        </li>
+<li class="listitem">
+          Thanks to Travis CI adding Mac OS X as a CI target, added OS X support
+          to AFIO. This involved writing an expect-based lldb automator to get stack
+          backtraces of failures, which was tedious.
+        </li>
+<li class="listitem">
+          Added APIs random_fill() and random_string() useful for generating crypto
+          strong random file names.
+        </li>
+<li class="listitem">
+          page_size() has become page_sizes(), and now can return large/huge page
+          sizes. A file_buffer_default_size() new API will return the closest page
+          size to 1Mb.
+        </li>
+<li class="listitem">
+          Added page_allocator, a STL allocator suitable for allocating efficient
+          large file buffers.
+        </li>
+<li class="listitem">
+          stat_t flags, gen and birthtime weren't being set on FreeBSD. Sorry.
+        </li>
+<li class="listitem">
+          Made big changes to how async_path_op_req works and is used. Instead of
+          hard coded overloads, async_path_op_req now takes a template parameter
+          for the path and has metaprogramming for converting that into an afio::path.
+          You can also now supply absolute and relative-to-the-precondition paths
+          via <code class="computeroutput"><span class="identifier">async_path_op_req</span><span class="special">::</span><span class="identifier">absolute</span></code> and <code class="computeroutput"><span class="identifier">async_path_op_req</span><span class="special">::</span><span class="identifier">relative</span></code>,
+          plus you can supply a bare precondition which finally allows rmfile() et
+          al to directly delete inputs by op handle. Also added a depends() API which
+          lets you return one op handle only when another op handle completes.
+        </li>
+<li class="listitem">
+          Made AFIO provide <span class="bold"><strong>much</strong></span> stronger filing
+          system race condition protection. This comes with a performance cost, so
+          a new file_flags::no_race_protection can disable the new semantics. Renamed
+          file_flags::fast_directory_enumeration to file_flags::hold_parent_open
+          as enabling HoldParentOpen will make most of the performance cost of race
+          protection disappear.
+        </li>
+<li class="listitem">
+          Implemented WillBeSequentiallyAccessed and WillBeRandomlyAccessed for POSIX.
+        </li>
+<li class="listitem">
+          Added is_open() to async_io_handle. Made pseudo deleted file filtering
+          optional in enumerate().
+        </li>
+<li class="listitem">
+          Stack backtraces are now retained per exception throw as well as per op
+          schedule if BOOST_AFIO_OP_STACKBACKTRACEDEPTH is defined (defaults to yes
+          if NDEBUG is not defined). Also added MSVC and FreeBSD support, and exceptions
+          returned by the future handle now provide stack backtraces.
+        </li>
+<li class="listitem">
+          Added virtual member functions link(), unlink() and atomic_relink() to
+          async_io_handle, plus adjusted the engine to always call these instead
+          of performing those operations unilaterally.
+        </li>
+<li class="listitem">
+          Added a race protection unit test.
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h7"></a>
+      <span><a name="afio.release_notes.boost_1_57_afio_v1_22_stable_bra"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_57_afio_v1_22_stable_bra">Boost
+      1.57 AFIO v1.22 stable branch tagged</a>
+    </h4>
+<p>
+      Fixed buffer underflow when decoding Win32 error codes to strings. Thanks to
+      ariccio for reporting this.
+    </p>
+<p>
+      Relocated docs from ci.nedprod.com to http://boostgsoc13.github.io/boost.afio/
+    </p>
+<p>
+      Updated the stale CI test dashboard copy in the DocBook edition.
+    </p>
+<h4>
+<a name="afio.release_notes.h8"></a>
+      <span><a name="afio.release_notes.boost_1_56_afio_v1_21_10th_aug_2"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_56_afio_v1_21_10th_aug_2">Boost
+      1.56 AFIO v1.21 10th Aug 2014</a>
+    </h4>
+<p>
+      Finished getting a ThreadSanitizer (tsan) + UndefinedBehaviorSanitizer (ubsan)
+      pass running per-commit on Travis CI (&gt;= v1.2 was tsan clean, I just hadn't
+      bothered getting a CI to verify it to be so per commit).
+    </p>
+<p>
+      Fixed bug where --lto wasn't turning on the optimiser for LTO output. Sorry.
+    </p>
+<p>
+      Added a benchmark testing for latency under concurrency loads.
+    </p>
+<p>
+      Added a new FAQ entry on AFIO execution latencies.
+    </p>
+<p>
+      Reorganised source code structure to fit modular Boost. AFIO is now a Boost
+      v1.56 module just like any other. Obviously this will break source code compatibility
+      with all preceding Boosts.
+    </p>
+<h4>
+<a name="afio.release_notes.h9"></a>
+      <span><a name="afio.release_notes.boost_1_55_afio_v1_21_23rd_mar_2"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_55_afio_v1_21_23rd_mar_2">Boost
+      1.55 AFIO v1.21 23rd Mar 2014</a>
+    </h4>
+<p>
+      Fixed a bug in the custom unit testing framework which was throwing away any
+      exceptions being thrown by the tests (thanks to Paul Kirth for finding this
+      and reporting it). Fixing this bug revealed that enumerate() with a glob on
+      Windows has never worked properly and the exception thrown by MSVC's checked
+      iterators was hiding the problem, so fixed that bug too.
+    </p>
+<p>
+      Added async_io_dispatcher_base::post_op_filter() and async_io_dispatcher_base::post_readwrite_filter(),
+      including documentation examples and integrating filters into the unit testing.
+      post_readwrite_filter() ought to be particularly useful to those seeking deep
+      ASIO integration. Thanks to Bjorn Reese for the long discussions leading up
+      to this choice of improved ASIO support.
+    </p>
+<p>
+      During updating the benchmarks below now I have regained access to my developer
+      workstation, discovered a severe performance regression in the v1.2 engine
+      of around 27% over the v1.1 engine. Steps taken:
+    </p>
+<p>
+      1. The shared state in every async_io_op was a shared_ptr, now it is the underlying
+      shared_future. Eliminated copies of shared_ptr, now we always use the shared_future
+      in enqueued_task directly. This reduced regression to 18%.
+    </p>
+<p>
+      2. Removed more code from inside the TSX locks. This reduced regression to
+      16%.
+    </p>
+<p>
+      3. Removed the second TSX lock from complete_async_op(). This eliminated the
+      regression and actually added 2% to the v1.1 engine.
+    </p>
+<p>
+      4. Removed the second TSX lock from chain_async_op(). This added a further
+      10% over the v1.1 engine, so we are now 12% faster which is about right given
+      the v1.2 engine removed 15% of code.
+    </p>
+<p>
+      Added nested TSX transaction support.
+    </p>
+<p>
+      The CI shows that clang 3.1 now produces segfaulting binaries with this release,
+      so rather than debug clang, I simply dropped clang 3.1 support. AFIO now requires
+      clang 3.2 or better.
+    </p>
+<h4>
+<a name="afio.release_notes.h10"></a>
+      <span><a name="afio.release_notes.boost_1_55_afio_v1_20_5th_feb_20"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_55_afio_v1_20_5th_feb_20">Boost
+      1.55 AFIO v1.20 5th Feb 2014</a>
+    </h4>
+<p>
+      This is a major refactor of AFIO's core op dispatch engine to trim it down
+      by about 15%. Key breaking differences from the v1.1 series of AFIO are as
+      follows:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Replaced all use of packaged_task with enqueued_task, a custom implementation
+          which makes possible many performance improvements throughout the engine.
+        </li>
+<li class="listitem">
+          thread_source::enqueue() now can take a preprepared enqueued_task.
+        </li>
+<li class="listitem">
+          thread_source::enqueue() now always returns a shared_future instead of
+          a future. This has had knock on effects throughout AFIO, so many futures
+          are now shared_future.
+        </li>
+<li class="listitem">
+          Completion handler spec has changed from:
+<pre class="programlisting"><span class="identifier">pair</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">,</span> <span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">async_io_handle</span><span class="special">&gt;&gt;</span> <span class="special">(*)(</span><span class="identifier">size_t</span> <span class="identifier">id</span><span class="special">,</span> <span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">async_io_handle</span><span class="special">&gt;</span> <span class="identifier">h</span><span class="special">,</span> <span class="identifier">exception_ptr</span> <span class="special">*</span><span class="identifier">e</span><span class="special">)</span>
+</pre>
+          <p>
+            to:
+          </p>
+<pre class="programlisting"><span class="identifier">pair</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">,</span> <span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">async_io_handle</span><span class="special">&gt;&gt;</span> <span class="special">(*)(</span><span class="identifier">size_t</span> <span class="identifier">id</span><span class="special">,</span> <span class="identifier">async_io_op</span> <span class="identifier">preceding</span><span class="special">)</span>
+</pre>
+          <p>
+            This substantially improves performance, simplifies the implementation,
+            and lets completion handlers more readily retrieve the error state of
+            preceding operations and react appropriately.
+          </p>
+        </li>
+<li class="listitem">
+          All restrictions on immediate completions have been removed. You can now
+          do anything in an immediate completion that you can do in a normal completion.
+        </li>
+<li class="listitem">
+          async_io_op::h now always refers to a correct future i.e. the future is
+          no longer lazily allocated.
+        </li>
+<li class="listitem">
+          Now that op futures are always correct, when_all(ops) has been drastically
+          simplified to an implementation which literally assembles the futures into
+          a list and passes them to boost::wait_for_all().
+        </li>
+<li class="listitem">
+          Added when_any(ops).
+        </li>
+</ul></div>
+<h4>
+<a name="afio.release_notes.h11"></a>
+      <span><a name="afio.release_notes.boost_1_55_afio_v1_11"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_55_afio_v1_11">Boost
+      1.55 AFIO v1.11</a>
+    </h4>
+<p>
+      Added --fast-build to test Jamfile to preserve my sanity attempting to work
+      with AFIO on an Intel Atom 220 netbook.
+    </p>
+<p>
+      Fixed failure to auto-const an async_data_op_req&lt;boost::asio::mutable_buffer&gt;
+      when used for writing. Thanks to Bjorn Reese for reporting this.
+    </p>
+<p>
+      Replaced use of std::runtime_error with std::invalid_argument where that makes
+      sense. Thanks to Bjorn Reese for reporting this.
+    </p>
+<p>
+      Replaced throwing of std::ios_base::failure with std::system_error. Thanks
+      to Bjorn Reese for suggesting and submitting a patch for this.
+    </p>
+<p>
+      async_io_dispatcher_base::enumerate() did not take a metadata_flags, and it
+      was supposed to. Thanks to Bjorn Reese for reporting this.
+    </p>
+<p>
+      Added a unit compilation test to ensure that implicit construction from a single
+      arg to the op convenience classes works as intended.
+    </p>
+<p>
+      Significantly optimised build system and added in precompiled headers support.
+      Combined with --fast-build this provides an 8x build time improvement.
+    </p>
+<p>
+      boost::afio::stat_t::st_type() is now a boost::filesystem::file_type instead
+      of replicating the POSIX file type codes. Thanks to Bjorn Reese for suggesting
+      this.
+    </p>
+<p>
+      boost::afio::stat_t::st_mode() is now st_perms(). Also disabled unused fields
+      in stat_t on Windows. Thanks to Bjorn Reese for suggesting this.
+    </p>
+<h4>
+<a name="afio.release_notes.h12"></a>
+      <span><a name="afio.release_notes.boost_1_55_afio_v1_1_1st_nov_201"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_55_afio_v1_1_1st_nov_201">Boost
+      1.55 AFIO v1.1 1st Nov 2013</a>
+    </h4>
+<p>
+      Immediate completions no longer hold the opslock, which meant the opslock could
+      be changed from a recursive mutex to a spinlock. The new, more parallelised,
+      behaviour illuminated a number of new race conditions in when_all() which have
+      been fixed.
+    </p>
+<p>
+      Completely gutted dispatch engine and replaced with a new, almost entirely
+      wait free implementation based on throwing atomics at the problem. If it weren't
+      for the spin lock around the central ops hash table, AFIO would now be an entirely
+      wait free design.
+    </p>
+<p>
+      In order to do something about that spin lock, replaced all locking in AFIO
+      (apart from the directory file handle cache) with memory transactions instead.
+      This does CPUID at runtime and will use Intel's TSX-NI memory transaction implementation
+      if available, if not it falls back to a spin lock based emulation. On memory
+      transaction capable CPUs, AFIO is now almost entirely wait free, apart from
+      when it has to fetch memory from the kernel.
+    </p>
+<p>
+      Made AFIO usable as headers only.
+    </p>
+<h4>
+<a name="afio.release_notes.h13"></a>
+      <span><a name="afio.release_notes.boost_1_55_afio_v1_0_27th_sep_20"></a></span><a class="link" href="release_notes.html#afio.release_notes.boost_1_55_afio_v1_0_27th_sep_20">Boost
+      1.55 AFIO v1.0 27th Sep 2013</a>
+    </h4>
+<p>
+      First release for end of Google Summer of Code 2013.
+    </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="reference/utilities/function/random_string.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="FAQ.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

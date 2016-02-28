@@ -1,0 +1,299 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>async_zero</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../zero.html" title="Functions for deallocating/zeroing physical storage">
+<link rel="prev" href="zero_2_batch.html" title="zero (batch)">
+<link rel="next" href="zero_2_throwing.html" title="zero (throwing)">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="zero_2_batch.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../zero.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="zero_2_throwing.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.functions.zero.async_zero"></a><a class="link" href="async_zero.html" title="async_zero">async_zero</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'async_zero';
+var disqus_title = 'Boost.AFIO async_zero';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp26342896"></a>
+Asynchronous zeroing and deallocation of physical storage ("hole
+            punching") after a preceding operation.
+          </p>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h0"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.description"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.description">Description</a>
+          </h6>
+<p>
+            Most extent based filing systems provide an optimised way of zeroing
+            parts of a file by deallocating the storage backing those regions, and
+            marking those regions as unwritten instead of actually writing zero bytes
+            to storage. They appear as zeroes to anything reading those ranges, and
+            have the big advantage of not consuming any actual physical storage.
+            On Windows, extent deallocation writes zeros for ordinary files and only
+            actually deallocates physical storage if the file is sparse or compressed
+            (note that AFIO by default creates sparse files where possible, and converts
+            any file opened for writing to a sparse file). For your information,
+            deallocation on NTFS is on a 64Kb granularity, but the zeros are written
+            at a byte granularity. On Linux, an attempt is made to use FALLOC_FL_PUNCH_HOLE
+            which if it fails then a write of zeros corresponding to the same ranges
+            is made instead. On FreeBSD, long runs of zeros are automatically detected
+            and eliminated on physical storage, and so zeros are simply written.
+            On OS X, there is no formal hole punching API that we are aware of, and
+            so zeros are simply written.
+          </p>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h1"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.synopsis"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="identifier">future</span> <span class="identifier">async_zero</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span> <span class="identifier">off_t</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="special">&gt;&gt;</span> <span class="identifier">ranges</span><span class="special">)</span></pre>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h2"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.parameters"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Type
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Concept
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Name
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                    <p>
+                      future&lt;&gt;
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _precondition
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The precondition to use.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      std::vector&lt; std::pair&lt; off_t, off_t &gt;&gt;
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      ranges
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      A sequence of extents to zero and deallocate
+                    </p>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h3"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.returns"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.returns">Returns</a>
+          </h6>
+<p>
+            A future&lt;void&gt;
+          </p>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h4"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.header"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h5"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.complexity"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.complexity">Complexity</a>
+          </h6>
+<p>
+            Amortised O(1) to dispatch. Amortised O(1) to complete if deallocation
+            is constant time.
+          </p>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h6"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.exception_model"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.exception_model">Exception
+            Model</a>
+          </h6>
+<p>
+            Propagates the exception of any input precondition with an errored state
+            at the point of dispatch, and throws a <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">invalid_argument</span></code>
+            if any inputs have values which could not possibly be correct. Note that
+            error code returning functions may still throw exceptions e.g. failure
+            to allocate memory.
+          </p>
+<h6>
+<a name="afio.reference.functions.zero.async_zero.h7"></a>
+            <span><a name="afio.reference.functions.zero.async_zero.example"></a></span><a class="link" href="async_zero.html#afio.reference.functions.zero.async_zero.example">Example</a>
+          </h6>
+<pre class="programlisting"><span class="comment">// Create a dispatcher</span>
+<span class="keyword">auto</span> <span class="identifier">dispatcher</span> <span class="special">=</span> <span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+<span class="comment">// Schedule opening the log file for hole punching</span>
+<span class="keyword">auto</span> <span class="identifier">logfilez</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read_write</span><span class="special">)));</span>
+<span class="comment">// Schedule opening the log file for atomic appending of log entries</span>
+<span class="keyword">auto</span> <span class="identifier">logfilea</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">append</span><span class="special">)));</span>
+<span class="comment">// Retrieve any errors which occurred</span>
+<span class="identifier">logfilez</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+<span class="identifier">logfilea</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+<span class="comment">// Initialise a random number generator</span>
+<span class="identifier">ranctx</span> <span class="identifier">ctx</span><span class="special">;</span>
+<span class="identifier">raninit</span><span class="special">(&amp;</span><span class="identifier">ctx</span><span class="special">,</span> <span class="special">(</span><span class="identifier">u4</span><span class="special">)</span> <span class="identifier">n</span><span class="special">);</span>
+<span class="keyword">while</span><span class="special">(!</span><span class="identifier">done</span><span class="special">)</span>
+<span class="special">{</span>
+  <span class="comment">// Each log entry is 32 bytes in length</span>
+  <span class="keyword">union</span>
+  <span class="special">{</span>
+    <span class="keyword">char</span> <span class="identifier">bytes</span><span class="special">[</span><span class="number">32</span><span class="special">];</span>
+    <span class="keyword">struct</span>
+    <span class="special">{</span>
+      <span class="identifier">uint64</span> <span class="identifier">id</span><span class="special">;</span>      <span class="comment">// The id of the writer</span>
+      <span class="identifier">uint64</span> <span class="identifier">r</span><span class="special">;</span>       <span class="comment">// A random number</span>
+      <span class="identifier">uint64</span> <span class="identifier">h1</span><span class="special">,</span> <span class="identifier">h2</span><span class="special">;</span>  <span class="comment">// A hash of the previous two items</span>
+    <span class="special">};</span>
+  <span class="special">}</span> <span class="identifier">buffer</span><span class="special">;</span>
+  <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">id</span> <span class="special">=</span> <span class="identifier">n</span><span class="special">;</span>
+  <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">r</span> <span class="special">=</span> <span class="identifier">ranval</span><span class="special">(&amp;</span><span class="identifier">ctx</span><span class="special">);</span>
+  <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">h1</span> <span class="special">=</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">h2</span> <span class="special">=</span> <span class="number">1</span><span class="special">;</span>
+  <span class="identifier">SpookyHash</span><span class="special">::</span><span class="identifier">Hash128</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span> <span class="number">16</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">h1</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">h2</span><span class="special">);</span>
+  <span class="comment">// Atomically append the log entry to the log file and wait for it</span>
+  <span class="comment">// to complete, then fetch the new size of the log file.</span>
+  <span class="identifier">stat_t</span> <span class="identifier">s</span> <span class="special">=</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">logfilea</span><span class="special">,</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span> <span class="number">32</span><span class="special">,</span> <span class="number">0</span><span class="special">))-&gt;</span><span class="identifier">lstat</span><span class="special">();</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="identifier">s</span><span class="special">.</span><span class="identifier">st_allocated</span> <span class="special">&gt;</span> <span class="number">8192</span> <span class="special">||</span> <span class="identifier">s</span><span class="special">.</span><span class="identifier">st_size</span> <span class="special">&gt;</span> <span class="number">8192</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="comment">// Allocated space exceeds 8Kb. The actual file size reported may be</span>
+    <span class="comment">// many times larger if the filing system supports hole punching.</span>
+
+    <span class="comment">// Get the list of allocated extents</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">off_t</span><span class="special">,</span> <span class="identifier">off_t</span><span class="special">&gt;&gt;</span> <span class="identifier">extents</span> <span class="special">=</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">extents</span><span class="special">(</span><span class="identifier">logfilez</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+    <span class="comment">// Filing system may not yet have allocated any storage ...</span>
+    <span class="keyword">if</span><span class="special">(!</span><span class="identifier">extents</span><span class="special">.</span><span class="identifier">empty</span><span class="special">())</span>
+    <span class="special">{</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">extents</span><span class="special">.</span><span class="identifier">back</span><span class="special">().</span><span class="identifier">second</span> <span class="special">&gt;</span> <span class="number">1024</span><span class="special">)</span>
+        <span class="identifier">extents</span><span class="special">.</span><span class="identifier">back</span><span class="special">().</span><span class="identifier">second</span> <span class="special">-=</span> <span class="number">1024</span><span class="special">;</span>
+      <span class="keyword">else</span>
+        <span class="identifier">extents</span><span class="special">.</span><span class="identifier">resize</span><span class="special">(</span><span class="identifier">extents</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">-</span> <span class="number">1</span><span class="special">);</span>
+      <span class="keyword">if</span><span class="special">(!</span><span class="identifier">extents</span><span class="special">.</span><span class="identifier">empty</span><span class="special">())</span>
+      <span class="special">{</span>
+        <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">zero</span><span class="special">(</span><span class="identifier">logfilez</span><span class="special">,</span> <span class="identifier">extents</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+      <span class="special">}</span>
+    <span class="special">}</span>
+    <span class="keyword">else</span>
+      <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"NOTE: extents() returns empty despite "</span> <span class="special">&lt;&lt;</span> <span class="identifier">s</span><span class="special">.</span><span class="identifier">st_allocated</span> <span class="special">&lt;&lt;</span> <span class="string">" bytes allocated (possibly delayed allocation)"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="zero_2_batch.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../zero.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="zero_2_throwing.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

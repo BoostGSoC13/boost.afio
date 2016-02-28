@@ -1,0 +1,73 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>What is the latency of AFIO's closure execution engine aka how quickly can I push a single op with AFIO?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="closure_performance.html" title="What is the maximum throughput of AFIO's closure execution engine aka how many IOPS can I push with AFIO?">
+<link rel="next" href="stuck_ops.html" title="I'm seeing &#8220;WARNING: ~async_file_dispatcher_base() detects stuck async_io_op in total of X ops&#8221; during process close. What does this mean?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="closure_performance.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="stuck_ops.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.closure_latency"></a><a class="link" href="closure_latency.html" title="What is the latency of AFIO's closure execution engine aka how quickly can I push a single op with AFIO?">What is the latency of AFIO's
+      closure execution engine aka how quickly can I push a single op with AFIO?</a>
+</h3></div></div></div>
+<p>
+        For v1.3 of the engine on a quad core hyperthreading 3.5Ghz Intel Core i7
+        3770K, I found the following latency graph which is in CPU cycles:
+      </p>
+<p>
+        <span class="aligncenter"><span class="inlinemediaobject"><img src="../../../../libs/afio/doc/src/images/a/b/../../afio_latencies.png"></span></span>
+      </p>
+<p>
+        The solid lines represent average dispatch to execution and execution finish
+        to completion notification latencies and are cumulative on the left scale,
+        whilst the dotted lines represent minimum latencies and are cumulative on
+        the right scale. As one can see, one can expect a minimum of around 6,000
+        CPU cycles between dispatch and the operation beginning, and a minimum of
+        around 4,000 cycles between the operation completing and its op reference
+        becoming signalled, thus making total minimum latency per op around 10,000
+        CPU cycles, or around 2.5 microseconds.
+      </p>
+<p>
+        Average latency is rather worse of course, but if you don't exceed CPU cores
+        you can expect a 60,000 CPU cycle total latency with a 95% confidence interval
+        of plus/minus 600 CPU cycles, which is 15 microseconds plus/minus 0.15 microseconds.
+        Given that a filing system on a PCIe SSD might have a 80 microsecond latency,
+        AFIO could be adding 20% to that, however do bear in mind that a thread sleep
+        and wake costs 52 microseconds so we are operating pretty close to hardware
+        limits here.
+      </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="closure_performance.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="stuck_ops.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

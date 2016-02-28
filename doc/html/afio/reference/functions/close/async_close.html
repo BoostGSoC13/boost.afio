@@ -1,0 +1,292 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>async_close</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../close.html" title="Functions for closing open handles">
+<link rel="prev" href="close_1_batch.html" title="close (batch)">
+<link rel="next" href="close_1_throwing.html" title="close (throwing)">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="close_1_batch.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../close.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="close_1_throwing.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.functions.close.async_close"></a><a class="link" href="async_close.html" title="async_close">async_close</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'async_close';
+var disqus_title = 'Boost.AFIO async_close';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp26878360"></a>
+Asynchronous file or directory handle close after a preceding operation.
+          </p>
+<h6>
+<a name="afio.reference.functions.close.async_close.h0"></a>
+            <span><a name="afio.reference.functions.close.async_close.description"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.description">Description</a>
+          </h6>
+<p>
+            Note this is ignored for handles where available_to_directory_cache()
+            is true as those cannot be explicitly closed. Note that failure to explicitly
+            schedule closing a file handle using this call means it will be <span class="bold"><strong>synchronously</strong></span> closed on last reference count by
+            <code class="literal"><code class="computeroutput"><a class="link" href="../../classes/handle.html" title="handle"><code class="computeroutput"><span class="identifier">handle</span></code></a></code></code>. This
+            can consume considerable time, especially if SyncOnClose is enabled.
+          </p>
+<h6>
+<a name="afio.reference.functions.close.async_close.h1"></a>
+            <span><a name="afio.reference.functions.close.async_close.synopsis"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="identifier">future</span> <span class="identifier">async_close</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">)</span></pre>
+<h6>
+<a name="afio.reference.functions.close.async_close.h2"></a>
+            <span><a name="afio.reference.functions.close.async_close.parameters"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Type
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Concept
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Name
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody><tr>
+<td>
+                    <p>
+                      future&lt;&gt;
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      _precondition
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The precondition to use.
+                    </p>
+                  </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.functions.close.async_close.h3"></a>
+            <span><a name="afio.reference.functions.close.async_close.returns"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.returns">Returns</a>
+          </h6>
+<p>
+            A future&lt;void&gt;
+          </p>
+<h6>
+<a name="afio.reference.functions.close.async_close.h4"></a>
+            <span><a name="afio.reference.functions.close.async_close.header"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<h6>
+<a name="afio.reference.functions.close.async_close.h5"></a>
+            <span><a name="afio.reference.functions.close.async_close.complexity"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.complexity">Complexity</a>
+          </h6>
+<p>
+            Amortised O(1) to dispatch. Amortised O(1) to complete if closing handles
+            is constant time.
+          </p>
+<h6>
+<a name="afio.reference.functions.close.async_close.h6"></a>
+            <span><a name="afio.reference.functions.close.async_close.exception_model"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.exception_model">Exception
+            Model</a>
+          </h6>
+<p>
+            Propagates the exception of any input precondition with an errored state
+            at the point of dispatch, and throws a <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">invalid_argument</span></code>
+            if any inputs have values which could not possibly be correct. Note that
+            error code returning functions may still throw exceptions e.g. failure
+            to allocate memory.
+          </p>
+<h6>
+<a name="afio.reference.functions.close.async_close.h7"></a>
+            <span><a name="afio.reference.functions.close.async_close.example"></a></span><a class="link" href="async_close.html#afio.reference.functions.close.async_close.example">Example</a>
+          </h6>
+<pre class="programlisting"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">rmdir</span><span class="special">;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher</span><span class="special">&gt;</span> <span class="identifier">dispatcher</span> <span class="special">=</span>
+<span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+<span class="identifier">current_dispatcher_guard</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">);</span>
+
+<span class="comment">// Free function</span>
+<span class="keyword">try</span>
+<span class="special">{</span>
+  <span class="comment">// Schedule creating a directory called testdir</span>
+  <span class="keyword">auto</span> <span class="identifier">mkdir</span><span class="special">(</span><span class="identifier">async_dir</span><span class="special">(</span><span class="string">"testdir"</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+  <span class="comment">// Schedule creating a file called testfile in testdir only when testdir has been</span>
+  <span class="comment">// created</span>
+  <span class="keyword">auto</span> <span class="identifier">mkfile</span><span class="special">(</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"testfile"</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+  <span class="comment">// Schedule creating a symbolic link called linktodir to the item referred to by</span>
+  <span class="comment">// the precondition</span>
+  <span class="comment">// i.e. testdir. Note that on Windows you can only symbolic link directories.</span>
+  <span class="keyword">auto</span> <span class="identifier">mklink</span><span class="special">(</span>
+  <span class="identifier">async_symlink</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"linktodir"</span><span class="special">,</span> <span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+
+  <span class="comment">// Schedule deleting the symbolic link only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmlink</span><span class="special">(</span><span class="identifier">async_rmsymlink</span><span class="special">(</span><span class="identifier">mklink</span><span class="special">));</span>
+  <span class="comment">// Schedule deleting the file only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmfile</span><span class="special">(</span><span class="identifier">async_close</span><span class="special">(</span><span class="identifier">async_rmfile</span><span class="special">(</span><span class="identifier">mkfile</span><span class="special">)));</span>
+  <span class="comment">// Schedule waiting until both the preceding operations have finished</span>
+  <span class="keyword">auto</span> <span class="identifier">barrier</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">barrier</span><span class="special">({</span><span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">}));</span>
+  <span class="comment">// Schedule deleting the directory only after the barrier completes</span>
+  <span class="keyword">auto</span> <span class="identifier">rmdir</span><span class="special">(</span><span class="identifier">async_rmdir</span><span class="special">(</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">barrier</span><span class="special">.</span><span class="identifier">front</span><span class="special">(),</span> <span class="identifier">mkdir</span><span class="special">)));</span>
+  <span class="comment">// Check ops for errors</span>
+  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">mkfile</span><span class="special">,</span> <span class="identifier">mklink</span><span class="special">,</span> <span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">,</span> <span class="identifier">rmdir</span><span class="special">).</span><span class="identifier">wait</span><span class="special">();</span>
+<span class="special">}</span>
+<span class="keyword">catch</span><span class="special">(...)</span>
+<span class="special">{</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">current_exception_diagnostic_information</span><span class="special">(</span><span class="keyword">true</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">throw</span><span class="special">;</span>
+<span class="special">}</span>
+
+<span class="comment">// Batch</span>
+<span class="keyword">try</span>
+<span class="special">{</span>
+  <span class="comment">// Schedule creating a directory called testdir</span>
+  <span class="keyword">auto</span> <span class="identifier">mkdir</span><span class="special">(</span>
+  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                  <span class="number">1</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">(</span>
+                     <span class="string">"testdir"</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule creating a file called testfile in testdir only when testdir has been</span>
+  <span class="comment">// created</span>
+  <span class="keyword">auto</span> <span class="identifier">mkfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                               <span class="number">1</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span>
+                                  <span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"testfile"</span><span class="special">,</span>
+                                  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule creating a symbolic link called linktodir to the item referred to by</span>
+  <span class="comment">// the precondition</span>
+  <span class="comment">// i.e. testdir. Note that on Windows you can only symbolic link directories.</span>
+  <span class="comment">// Note that creating</span>
+  <span class="comment">// symlinks must *always* be as an absolute path, as that is how they are stored.</span>
+  <span class="keyword">auto</span> <span class="identifier">mklink</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">symlink</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                                  <span class="number">1</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">absolute</span><span class="special">(</span>
+                                     <span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"testdir/linktodir"</span><span class="special">,</span>
+                                     <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+
+  <span class="comment">// Schedule deleting the symbolic link only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmlink</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">close</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">future</span><span class="special">&lt;&gt;&gt;(</span>
+                                <span class="number">1</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">rmsymlink</span><span class="special">(</span><span class="identifier">mklink</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule deleting the file only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmfile</span><span class="special">(</span>
+  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">close</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">future</span><span class="special">&lt;&gt;&gt;(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">rmfile</span><span class="special">(</span><span class="identifier">mkfile</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule waiting until both the preceding operations have finished</span>
+  <span class="keyword">auto</span> <span class="identifier">barrier</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">barrier</span><span class="special">({</span><span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">}));</span>
+  <span class="comment">// Schedule deleting the directory only after the barrier completes</span>
+  <span class="keyword">auto</span> <span class="identifier">rmdir</span><span class="special">(</span>
+  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">rmdir</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                    <span class="number">1</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">barrier</span><span class="special">.</span><span class="identifier">front</span><span class="special">(),</span> <span class="identifier">mkdir</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Check ops for errors</span>
+  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">mkfile</span><span class="special">,</span> <span class="identifier">mklink</span><span class="special">,</span> <span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">,</span> <span class="identifier">rmdir</span><span class="special">).</span><span class="identifier">wait</span><span class="special">();</span>
+<span class="special">}</span>
+<span class="keyword">catch</span><span class="special">(...)</span>
+<span class="special">{</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">current_exception_diagnostic_information</span><span class="special">(</span><span class="keyword">true</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">throw</span><span class="special">;</span>
+<span class="special">}</span>
+</pre>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="close_1_batch.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../close.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="close_1_throwing.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Frequently Asked Questions</title>
+<link rel="stylesheet" href="../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="prev" href="release_notes.html" title="Release Notes">
+<link rel="next" href="FAQ/closure_performance.html" title="What is the maximum throughput of AFIO's closure execution engine aka how many IOPS can I push with AFIO?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../boost.png"></td>
+<td align="center"><a href="../../../index.html">Home</a></td>
+<td align="center"><a href="../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="release_notes.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="FAQ/closure_performance.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="afio.FAQ"></a><a class="link" href="FAQ.html" title="Frequently Asked Questions">Frequently Asked Questions</a>
+</h2></div></div></div>
+<div class="toc"><dl>
+<dt><span class="section"><a href="FAQ/closure_performance.html">What is the maximum throughput
+      of AFIO's closure execution engine aka how many IOPS can I push with AFIO?</a></span></dt>
+<dt><span class="section"><a href="FAQ/closure_latency.html">What is the latency of AFIO's
+      closure execution engine aka how quickly can I push a single op with AFIO?</a></span></dt>
+<dt><span class="section"><a href="FAQ/stuck_ops.html">I'm seeing <span class="quote">&#8220;<span class="quote">WARNING: <code class="computeroutput"><span class="special">~</span><span class="identifier">async_file_dispatcher_base</span><span class="special">()</span></code> detects stuck <code class="computeroutput"><span class="identifier">async_io_op</span></code>
+      in total of X ops</span>&#8221;</span> during process close. What does this mean?</a></span></dt>
+<dt><span class="section"><a href="FAQ/vector_use.html">Why did you use <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;&gt;</span></code> as the ops batch container instead
+      of a generic iterator range?</a></span></dt>
+<dt><span class="section"><a href="FAQ/foreign_fd.html">How do I configure my own file descriptor
+      or HANDLE in AFIO?</a></span></dt>
+<dt><span class="section"><a href="FAQ/slow_compile.html">Using AFIO really slows down my
+      compile times. Can't you do something about that?</a></span></dt>
+<dt><span class="section"><a href="FAQ/fatal_error_read.html">Why do I get a fatal application
+      exit with <code class="computeroutput"><span class="identifier">FATAL</span> <span class="identifier">EXCEPTION</span><span class="special">:</span> <span class="identifier">Failed</span> <span class="identifier">to</span> <span class="identifier">read</span> <span class="identifier">all</span> <span class="identifier">buffers</span></code>
+      when I read a file?</a></span></dt>
+<dt><span class="section"><a href="FAQ/async_metadata.html"><code class="computeroutput"><span class="identifier">async_io_handle</span><span class="special">::</span><span class="identifier">direntry</span><span class="special">()</span></code> and <code class="computeroutput"><span class="identifier">async_io_handle</span><span class="special">::</span><span class="identifier">lstat</span><span class="special">()</span></code>
+      are both synchronous functions which block. How then can I get metadata about
+      files and directories asynchronously?</a></span></dt>
+<dt><span class="section"><a href="FAQ/deleting_open_files.html">I thought on Windows it
+      is impossible to delete a file which is still open for use. How does AFIO achieve
+      this?</a></span></dt>
+<dt><span class="section"><a href="FAQ/multi_abi.html">How do I reconfigure AFIO within
+      the same translation unit to use a different ABI?</a></span></dt>
+</dl></div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="release_notes.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="FAQ/closure_performance.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

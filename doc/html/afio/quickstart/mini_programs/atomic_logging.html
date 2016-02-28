@@ -1,0 +1,1821 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Achieving atomicity on the filing system</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../mini_programs.html" title="Example mini-programs written using AFIO">
+<link rel="prev" href="file_concat.html" title="A less toy example: Concatenating files">
+<link rel="next" href="filesystem_races.html" title="Handling races on the filing system">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="file_concat.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../mini_programs.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="filesystem_races.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.quickstart.mini_programs.atomic_logging"></a><a class="link" href="atomic_logging.html" title="Achieving atomicity on the filing system">Achieving
+        atomicity on the filing system</a>
+</h4></div></div></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'atomic_logging';
+var disqus_title = 'Boost.AFIO Achieving atomicity on the filing system';
+</script>
+        </p>
+<p>
+          TripleGit, the forthcoming reliable graph database store, ideally needs
+          to allow multiple processes to concurrently read and write the graph store
+          without mutual exclusion where possible. Each collection of hashes which
+          form the tree which makes up some given version of the graph is itself
+          a hashed object in the content addressable store, and you can have multiple
+          named graphs in the graph store which may or may not share nodes. One problem
+          as with all databases is how to efficiently issue an atomic transaction
+          which updates multiple graphs simultaneously and atomically when there
+          is the potential of concurrent writers also trying to issue write transactions
+          which may, or may not, cause conflict with other transactions.
+        </p>
+<p>
+          The really naive solution is to keep a single lock file which is created
+          using O_EXCL i.e. fail if you didn't create the file for the entire graph
+          store. This serialises all transactions, and therefore eliminates any problems
+          with updates clashing. This is usefully well supported by all operating
+          systems, and by NFS and Samba.
+        </p>
+<p>
+          A less naive solution is to keep one lock file per graph, and to use a
+          multiple lock and backoff strategy to lock the requisite number of graphs
+          for some given transaction. The big problem with this approach is that
+          you are unfairly penalised for especially large multi-graph transactions
+          over others with smaller transactions as lock complexity is worse than
+          linear. Nevertheless performance is actually not bad: these are results
+          for my 3.9Ghz i7-3770K workstation using AFIO to implement the lock file
+          with various numbers of concurrent writers (note that Windows provides
+          magic flags for telling it about lock files, if not used expect a 40% performance
+          reduction):
+        </p>
+<div class="table">
+<a name="afio.quickstart.mini_programs.atomic_logging.lock_file_performance"></a><p class="title"><b>Table&#160;1.11.&#160;Lock file performance on various operating systems:</b></p>
+<div class="table-contents"><table class="table" summary="Lock file performance on various operating systems:">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    writers
+                  </p>
+                </th>
+<th>
+                  <p>
+                    lock files
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Win8.1 x64 NTFS HD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Win8.1 x64 NTFS SSD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Linux x64 ext4 SSD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    FreeBSD 10.1 ZFS SSD
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2468
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2295
+                  </p>
+                </td>
+<td>
+                  <p>
+                    3590
+                  </p>
+                </td>
+<td>
+                  <p>
+                    9922
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    2
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2507
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2385
+                  </p>
+                </td>
+<td>
+                  <p>
+                    3583
+                  </p>
+                </td>
+<td>
+                  <p>
+                    9903
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    4
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1966
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2161
+                  </p>
+                </td>
+<td>
+                  <p>
+                    3664
+                  </p>
+                </td>
+<td>
+                  <p>
+                    9684
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1400
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1851
+                  </p>
+                </td>
+<td>
+                  <p>
+                    3703
+                  </p>
+                </td>
+<td>
+                  <p>
+                    6537
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    16
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    742
+                  </p>
+                </td>
+<td>
+                  <p>
+                    602
+                  </p>
+                </td>
+<td>
+                  <p>
+                    3833
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1251
+                  </p>
+                </td>
+</tr>
+<tr></tr>
+<tr>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    826
+                  </p>
+                </td>
+<td>
+                  <p>
+                    888
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1378
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2455
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    2
+                  </p>
+                </td>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    508
+                  </p>
+                </td>
+<td>
+                  <p>
+                    637
+                  </p>
+                </td>
+<td>
+                  <p>
+                    576
+                  </p>
+                </td>
+<td>
+                  <p>
+                    917
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    4
+                  </p>
+                </td>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    67
+                  </p>
+                </td>
+<td>
+                  <p>
+                    167
+                  </p>
+                </td>
+<td>
+                  <p>
+                    417
+                  </p>
+                </td>
+<td>
+                  <p>
+                    63
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    37
+                  </p>
+                </td>
+<td>
+                  <p>
+                    117
+                  </p>
+                </td>
+<td>
+                  <p>
+                    106
+                  </p>
+                </td>
+<td>
+                  <p>
+                    0.55
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    16
+                  </p>
+                </td>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    33
+                  </p>
+                </td>
+<td>
+                  <p>
+                    77
+                  </p>
+                </td>
+<td>
+                  <p>
+                    26
+                  </p>
+                </td>
+<td>
+                  <p>
+                    0.5
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+          As you can see, Linux does a very good job of O(1) to waiters complexity,
+          but performance on Windows and FreeBSD collapses once you exceed CPU cores.
+          Also, Windows is sensitive to device block size &#8212; the hard drive
+          outperforms the SSD because it has 512 byte sectors and the SSD has 4096
+          byte sectors. I suspect that internally Windows memcpy()'s in device native
+          sector sizes, or is actually sending data to physical storage despite us
+          marking this file as temporary. One very striking observation is how FreeBSD
+          is a full 2.76x the performance of Linux and 4.32x that of Windows.
+        </p>
+<p>
+          A much more intelligent way of solving this problem is to figure out which
+          graphs are common across each of the transactions currently pending, and
+          to strictly order the transactions in the sequence which maximises throughput
+          without updates clashing. One way of many distributed writers constructing
+          a shared graph of dependencies is to append messages into a shared file,
+          and then one can deploy a distributed mutual exclusion algorithm of which
+          those by Suzuki and Kasami, Maekawa and Ricart and Agrawala are the most
+          famous. This requires the ability to atomically append to the shared file,
+          something guaranteed on all operating systems, but unfortunately not guaranteed
+          by NFS nor Samba (though when combined with advisory file locking those
+          do work as expected, albeit with poor performance). This means that on
+          an all-Windows setup, or if on POSIX and not using NFS nor Samba, the atomic
+          append method could be valuable, especially as the cost of locking multiple
+          actors is pretty much the same as locking a single actor so you get eight
+          graphs locked for the same cost as locking one.
+        </p>
+<div class="table">
+<a name="afio.quickstart.mini_programs.atomic_logging.atomic_append_performance"></a><p class="title"><b>Table&#160;1.12.&#160;Atomic append lock performance on various operating systems:</b></p>
+<div class="table-contents"><table class="table" summary="Atomic append lock performance on various operating systems:">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    writers
+                  </p>
+                </th>
+<th>
+                  <p>
+                    lock files
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Win8.1 x64 NTFS HD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Win8.1 x64 NTFS SSD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Linux x64 ext4 SSD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    FreeBSD 10.1 ZFS SSD
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2592
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2875
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1198
+                  </p>
+                </td>
+<td>
+                  <p>
+                    29
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    2
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1284
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2565
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1344
+                  </p>
+                </td>
+<td>
+                  <p>
+                    25
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    4
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1420
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2384
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1327
+                  </p>
+                </td>
+<td>
+                  <p>
+                    35
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1262
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1764
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1254
+                  </p>
+                </td>
+<td>
+                  <p>
+                    55
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    16
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    428
+                  </p>
+                </td>
+<td>
+                  <p>
+                    520
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1260
+                  </p>
+                </td>
+<td>
+                  <p>
+                    37
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+          Linux once against does a great job of O(1) to waiters complexity, but
+          at the third of the speed of a simple lock file and up to half the speed
+          of Windows. Windows does better than Linux here especially on SSDs where
+          it is faster than a simple lock file, but doesn't scale to waiters once
+          they pass CPU core count. FreeBSD is two orders of magnitude slower which
+          is because ZFS checksums and copy on writes file changes, so every time
+          we append 16 bytes we are forcing a full copy of the 128Kb extent to be
+          issued. It would appear that ZFS syncs its internal buffers when a different
+          file descriptor atomic appends to the same file &#8212; this has the above
+          pathological performance outcome unfortunately.
+        </p>
+<p>
+          This introduces the final potential solution which is that of the quagmire
+          of advisory file locking. This is an area where Windows and POSIX diverge
+          very significantly, and the interactions between Windows and POSIX when
+          Windows locks regions in a file on a Samba share on a POSIX machine or
+          when POSIX does byte range locking at all (there is a very fun stanza in
+          the POSIX standard which basically releases all your locks on first file
+          descriptor close) are full of quirks, races and other nasties. For this
+          reason you should avoid the very temporary and experimental code currently
+          in AFIO which implements Samba and NFS safe file range locking where theoretically
+          both Windows and POSIX code can safely lock ranges in files concurrently,
+          those APIs are not documented for good reason! Still, performance with
+          these &#8212; despite the hoop jumping inefficiencies AFIO leaps through
+          to implement relatively sane semantics &#8212; is impressive.
+        </p>
+<div class="table">
+<a name="afio.quickstart.mini_programs.atomic_logging.advisory_lock_file_performance"></a><p class="title"><b>Table&#160;1.13.&#160;Advisory lock file performance on various operating systems:</b></p>
+<div class="table-contents"><table class="table" summary="Advisory lock file performance on various operating systems:">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    writers
+                  </p>
+                </th>
+<th>
+                  <p>
+                    lock files
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Win8.1 x64 NTFS HD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Win8.1 x64 NTFS SSD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Linux x64 ext4 SSD
+                  </p>
+                </th>
+<th>
+                  <p>
+                    FreeBSD 10.1 ZFS SSD
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5799
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5166
+                  </p>
+                </td>
+<td>
+                  <p>
+                    3466
+                  </p>
+                </td>
+<td>
+                  <p>
+                    21536
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    2
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5788
+                  </p>
+                </td>
+<td>
+                  <p>
+                    6656
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2215
+                  </p>
+                </td>
+<td>
+                  <p>
+                    11654
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    4
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5775
+                  </p>
+                </td>
+<td>
+                  <p>
+                    7020
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1073
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5384
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    8
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5773
+                  </p>
+                </td>
+<td>
+                  <p>
+                    6738
+                  </p>
+                </td>
+<td>
+                  <p>
+                    518
+                  </p>
+                </td>
+<td>
+                  <p>
+                    2584
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    16
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5695
+                  </p>
+                </td>
+<td>
+                  <p>
+                    5617
+                  </p>
+                </td>
+<td>
+                  <p>
+                    360
+                  </p>
+                </td>
+<td>
+                  <p>
+                    1326
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+          Fascinatingly the tables suddenly switch here: Windows sees O(1) to waiters
+          complexity, whilst Linux and FreeBSD sees a mostly O(N) to waiters complexity
+          drop in performance. FreeBSD, as with the simple lock file performance,
+          blows all others out of the water again in advisory lock performance too.
+          I should add here that because POSIX advisory locks are per process, the
+          Linux and FreeBSD benchmarks were generated by running N copies of the
+          benchmark program whereas the NT kernel inherits the really excellent and
+          well thought through file byte range locking model of DEC VMS and treats
+          locks as effectively reference counted byte ranges, and therefore works
+          as expected from a single process. I have yet to add process-local byte
+          range locking to simulate sane range locking for POSIX, so expect the numbers
+          above to worsen.
+        </p>
+<p>
+          After all of that, we are left with this locking strategy matrix for TripleGit:
+        </p>
+<div class="table">
+<a name="afio.quickstart.mini_programs.atomic_logging.best_locking_strategy_matrix"></a><p class="title"><b>Table&#160;1.14.&#160;Fastest file system locking strategy for various operating systems:</b></p>
+<div class="table-contents"><table class="table" summary="Fastest file system locking strategy for various operating systems:">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Operating system
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Best locking policy
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    Win8.1 x64 NTFS
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Advisory locks fastest, then atomic append locks, finally lock
+                    files
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    Linux x64 ext4
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Lock files fastest, then advisory locks, finally atomic append
+                    locks
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    FreeBSD 10.1 ZFS
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Advisory locks fastest, then lock files, avoid atomic append
+                    locks at all costs
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break"><p>
+          I should <span class="bold"><strong>emphasise</strong></span> once again that the
+          advisory locking code is riddled with bugs and you should not use it in
+          your code at this time. Once I have a CI testing all possible combinations
+          of locking and nothing is erroring out I'll release that code for production
+          use, probably in v1.4.
+        </p>
+<p>
+          All these benchmarks came from this benchmarking program I wrote using
+          AFIO which illustrates how you might implement the techniques used above:
+        </p>
+<pre class="programlisting"><span class="keyword">int</span> <span class="identifier">main</span><span class="special">(</span><span class="keyword">int</span> <span class="identifier">argc</span><span class="special">,</span> <span class="keyword">const</span> <span class="keyword">char</span> <span class="special">*</span><span class="identifier">argv</span><span class="special">[])</span>
+<span class="special">{</span>
+  <span class="keyword">using</span> <span class="keyword">namespace</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">;</span>
+  <span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">off_t</span><span class="special">;</span>
+  <span class="keyword">typedef</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration</span><span class="special">&lt;</span><span class="keyword">double</span><span class="special">,</span> <span class="identifier">ratio</span><span class="special">&lt;</span><span class="number">1</span><span class="special">,</span> <span class="number">1</span><span class="special">&gt;&gt;</span> <span class="identifier">secs_type</span><span class="special">;</span>
+  <span class="keyword">double</span> <span class="identifier">traditional_locks</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">atomic_log_locks</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">remove_all</span><span class="special">(</span><span class="string">"testdir"</span><span class="special">);</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span><span class="special">(...)</span>
+  <span class="special">{</span>
+  <span class="special">}</span>
+
+  <span class="identifier">size_t</span> <span class="identifier">totalwriters</span> <span class="special">=</span> <span class="number">2</span><span class="special">,</span> <span class="identifier">writers</span> <span class="special">=</span> <span class="identifier">totalwriters</span><span class="special">;</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="identifier">argc</span> <span class="special">&gt;</span> <span class="number">1</span><span class="special">)</span>
+    <span class="identifier">writers</span> <span class="special">=</span> <span class="identifier">totalwriters</span> <span class="special">=</span> <span class="identifier">atoi</span><span class="special">(</span><span class="identifier">argv</span><span class="special">[</span><span class="number">1</span><span class="special">]);</span>
+  <span class="special">{</span>
+    <span class="keyword">auto</span> <span class="identifier">dispatcher</span> <span class="special">=</span> <span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir1</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"1"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir2</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"2"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir3</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"3"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir4</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"4"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir5</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"5"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir6</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"6"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir7</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"7"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">mkdir8</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"8"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">)));</span>
+    <span class="keyword">auto</span> <span class="identifier">statfs_</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">statfs</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">fs_metadata_flags</span><span class="special">::</span><span class="identifier">All</span><span class="special">));</span>
+    <span class="keyword">auto</span> <span class="identifier">statfs</span><span class="special">(</span><span class="identifier">statfs_</span><span class="special">.</span><span class="identifier">get</span><span class="special">());</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"The filing system holding our test directory is "</span>
+              <span class="special">&lt;&lt;</span> <span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_fstypename</span> <span class="special">&lt;&lt;</span> <span class="string">" and has features:"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+<span class="preprocessor">#define</span> <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">field</span><span class="special">,</span> <span class="special">...)</span>                                                     <span class="special">\</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"  f_flags."</span> <span class="special">#</span><span class="identifier">field</span> <span class="string">": "</span><span class="special">;</span>                                            <span class="special">\</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_flags</span><span class="special">.</span><span class="identifier">field</span> <span class="identifier">__VA_ARGS__</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">rdonly</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">noexec</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">nosuid</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">acls</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">xattr</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">compression</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">extents</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">filecompression</span><span class="special">);</span>
+<span class="preprocessor">#undef</span> <span class="identifier">PRINT_FIELD</span>
+<span class="preprocessor">#define</span> <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">field</span><span class="special">,</span> <span class="special">...)</span>                                                     <span class="special">\</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"  f_"</span> <span class="special">#</span><span class="identifier">field</span> <span class="string">": "</span><span class="special">;</span>                                                  <span class="special">\</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_</span><span class="special">##</span><span class="identifier">field</span> <span class="identifier">__VA_ARGS__</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">bsize</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">iosize</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">blocks</span><span class="special">,</span> <span class="special">&lt;&lt;</span> <span class="string">" ("</span> <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_blocks</span> <span class="special">*</span> <span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_bsize</span> <span class="special">/</span> <span class="number">1024.0</span> <span class="special">/</span>
+                                    <span class="number">1024.0</span> <span class="special">/</span> <span class="number">1024.0</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">" Gb)"</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">bfree</span><span class="special">,</span> <span class="special">&lt;&lt;</span> <span class="string">" ("</span> <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_bfree</span> <span class="special">*</span> <span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_bsize</span> <span class="special">/</span> <span class="number">1024.0</span> <span class="special">/</span>
+                                   <span class="number">1024.0</span> <span class="special">/</span> <span class="number">1024.0</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">" Gb)"</span><span class="special">);</span>
+    <span class="identifier">PRINT_FIELD</span><span class="special">(</span><span class="identifier">bavail</span><span class="special">,</span> <span class="special">&lt;&lt;</span> <span class="string">" ("</span> <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_bavail</span> <span class="special">*</span> <span class="identifier">statfs</span><span class="special">.</span><span class="identifier">f_bsize</span> <span class="special">/</span> <span class="number">1024.0</span> <span class="special">/</span>
+                                    <span class="number">1024.0</span> <span class="special">/</span> <span class="number">1024.0</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">" Gb)"</span><span class="special">);</span>
+<span class="preprocessor">#undef</span> <span class="identifier">PRINT_FIELD</span>
+  <span class="special">}</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="number">1</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"\nBenchmarking a single traditional lock file with "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span>
+              <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers ...\n"</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">thread</span><span class="special">&gt;</span> <span class="identifier">threads</span><span class="special">;</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">&gt;</span> <span class="identifier">done</span><span class="special">(</span><span class="keyword">true</span><span class="special">);</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="identifier">size_t</span><span class="special">&gt;</span> <span class="identifier">attempts</span><span class="special">(</span><span class="number">0</span><span class="special">),</span> <span class="identifier">successes</span><span class="special">(</span><span class="number">0</span><span class="special">);</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">writers</span><span class="special">;</span> <span class="identifier">n</span><span class="special">++)</span>
+    <span class="special">{</span>
+      <span class="identifier">threads</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">thread</span><span class="special">(</span>
+      <span class="special">[&amp;</span><span class="identifier">done</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">attempts</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">successes</span><span class="special">,</span> <span class="identifier">n</span><span class="special">]</span>
+      <span class="special">{</span>
+        <span class="keyword">try</span>
+        <span class="special">{</span>
+          <span class="comment">// Create a dispatcher</span>
+          <span class="keyword">auto</span> <span class="identifier">dispatcher</span> <span class="special">=</span> <span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Schedule opening the log file for writing log entries</span>
+          <span class="keyword">auto</span> <span class="identifier">logfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span>
+          <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read_write</span><span class="special">)));</span>
+          <span class="comment">// Retrieve any errors which occurred</span>
+          <span class="identifier">logfile</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Wait until all threads are ready</span>
+          <span class="keyword">while</span><span class="special">(</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">yield</span><span class="special">();</span>
+          <span class="special">}</span>
+          <span class="keyword">while</span><span class="special">(!</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="comment">// Traditional file locks are very simple: try to exclusively create the</span>
+            <span class="comment">// lock file.</span>
+            <span class="comment">// If you succeed, you have the lock.</span>
+            <span class="keyword">auto</span> <span class="identifier">lockfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">)));</span>
+            <span class="identifier">attempts</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+            <span class="comment">// v1.4 of the AFIO engine will return error_code instead of exceptions</span>
+            <span class="comment">// for this</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">logentry</span><span class="special">(</span><span class="string">"I am log writer "</span><span class="special">),</span> <span class="identifier">mythreadid</span><span class="special">(</span><span class="identifier">to_string</span><span class="special">(</span><span class="identifier">n</span><span class="special">)),</span>
+            <span class="identifier">logentryend</span><span class="special">(</span><span class="string">"!\n"</span><span class="special">);</span>
+            <span class="comment">// Fetch the size</span>
+            <span class="identifier">off_t</span> <span class="identifier">where</span> <span class="special">=</span> <span class="identifier">logfile</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">().</span><span class="identifier">st_size</span><span class="special">,</span>
+                  <span class="identifier">entrysize</span> <span class="special">=</span>
+                  <span class="identifier">logentry</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">mythreadid</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">logentryend</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span>
+            <span class="comment">// Schedule extending the log file</span>
+            <span class="keyword">auto</span> <span class="identifier">extendlog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">truncate</span><span class="special">(</span><span class="identifier">logfile</span><span class="special">,</span> <span class="identifier">where</span> <span class="special">+</span> <span class="identifier">entrysize</span><span class="special">));</span>
+            <span class="comment">// Schedule writing the new entry</span>
+            <span class="keyword">auto</span> <span class="identifier">writetolog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span>
+            <span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">extendlog</span><span class="special">,</span> <span class="special">{</span><span class="identifier">logentry</span><span class="special">,</span> <span class="identifier">mythreadid</span><span class="special">,</span> <span class="identifier">logentryend</span><span class="special">},</span> <span class="identifier">where</span><span class="special">)));</span>
+            <span class="identifier">writetolog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">extendlog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">successes</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+          <span class="special">}</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via system_error code "</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">code</span><span class="special">().</span><span class="identifier">value</span><span class="special">()</span>
+                    <span class="special">&lt;&lt;</span> <span class="string">"("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">exception</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via exception ("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span>
+                    <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(...)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via unknown exception"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+      <span class="special">}));</span>
+    <span class="special">}</span>
+    <span class="keyword">auto</span> <span class="identifier">begin</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">sleep_for</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">seconds</span><span class="special">(</span><span class="number">20</span><span class="special">));</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Waiting for threads to exit ..."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">threads</span><span class="special">)</span>
+      <span class="identifier">i</span><span class="special">.</span><span class="identifier">join</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">end</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">diff</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration_cast</span><span class="special">&lt;</span><span class="identifier">secs_type</span><span class="special">&gt;(</span><span class="identifier">end</span> <span class="special">-</span> <span class="identifier">begin</span><span class="special">);</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"For "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span> <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers, achieved "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">attempts</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" attempts per second with a "</span>
+                                              <span class="string">"success rate of "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" writes per second which is a "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="number">100.0</span> <span class="special">*</span> <span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">attempts</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">"% success rate."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="identifier">traditional_locks</span> <span class="special">=</span> <span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">();</span>
+  <span class="special">}</span>
+
+  <span class="keyword">if</span><span class="special">(</span><span class="number">1</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"\nBenchmarking eight traditional lock files with "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span>
+              <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers ...\n"</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">thread</span><span class="special">&gt;</span> <span class="identifier">threads</span><span class="special">;</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">&gt;</span> <span class="identifier">done</span><span class="special">(</span><span class="keyword">true</span><span class="special">);</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="identifier">size_t</span><span class="special">&gt;</span> <span class="identifier">attempts</span><span class="special">(</span><span class="number">0</span><span class="special">),</span> <span class="identifier">successes</span><span class="special">(</span><span class="number">0</span><span class="special">);</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">writers</span><span class="special">;</span> <span class="identifier">n</span><span class="special">++)</span>
+    <span class="special">{</span>
+      <span class="identifier">threads</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">thread</span><span class="special">(</span>
+      <span class="special">[&amp;</span><span class="identifier">done</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">attempts</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">successes</span><span class="special">,</span> <span class="identifier">n</span><span class="special">]</span>
+      <span class="special">{</span>
+        <span class="keyword">try</span>
+        <span class="special">{</span>
+          <span class="comment">// Create a dispatcher</span>
+          <span class="keyword">auto</span> <span class="identifier">dispatcher</span> <span class="special">=</span> <span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Schedule opening the log file for writing log entries</span>
+          <span class="keyword">auto</span> <span class="identifier">logfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span>
+          <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read_write</span><span class="special">)));</span>
+          <span class="comment">// Retrieve any errors which occurred</span>
+          <span class="identifier">logfile</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Wait until all threads are ready</span>
+          <span class="keyword">while</span><span class="special">(</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">yield</span><span class="special">();</span>
+          <span class="special">}</span>
+          <span class="keyword">while</span><span class="special">(!</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="comment">// Parallel try to exclusively create all eight lock files</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">path_req</span><span class="special">&gt;</span> <span class="identifier">lockfiles</span><span class="special">;</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">reserve</span><span class="special">(</span><span class="number">8</span><span class="special">);</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/1/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/2/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/3/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/4/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/5/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/6/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/7/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="identifier">lockfiles</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+            <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/8/log.lock"</span><span class="special">,</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create_only_if_not_exist</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span>
+                     <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">temporary_file</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">delete_on_close</span><span class="special">));</span>
+            <span class="keyword">auto</span> <span class="identifier">lockfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">lockfiles</span><span class="special">));</span>
+            <span class="identifier">attempts</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+<span class="preprocessor">#if</span> <span class="number">1</span>
+            <span class="comment">// v1.4 of the AFIO engine will return error_code instead of exceptions</span>
+            <span class="comment">// for this</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">7</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">6</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">5</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">4</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">3</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">2</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">1</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="identifier">lockfile</span><span class="special">[</span><span class="number">0</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+<span class="preprocessor">#else</span>  <span class="comment">/*_ 1 _*/</span>
+            <span class="keyword">try</span>
+            <span class="special">{</span>
+              <span class="keyword">auto</span> <span class="identifier">barrier</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">barrier</span><span class="special">(</span><span class="identifier">lockfile</span><span class="special">));</span>
+              <span class="comment">// v1.4 of the AFIO engine will return error_code instead of exceptions</span>
+              <span class="comment">// for this</span>
+              <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="number">8</span><span class="special">;</span> <span class="identifier">n</span><span class="special">++)</span>
+                <span class="identifier">barrier</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="special">}</span>
+            <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+            <span class="special">{</span>
+              <span class="keyword">continue</span><span class="special">;</span>
+            <span class="special">}</span>
+<span class="preprocessor">#endif</span>  <span class="comment">/*_ 1 _*/</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">logentry</span><span class="special">(</span><span class="string">"I am log writer "</span><span class="special">),</span> <span class="identifier">mythreadid</span><span class="special">(</span><span class="identifier">to_string</span><span class="special">(</span><span class="identifier">n</span><span class="special">)),</span>
+            <span class="identifier">logentryend</span><span class="special">(</span><span class="string">"!\n"</span><span class="special">);</span>
+            <span class="comment">// Fetch the size</span>
+            <span class="identifier">off_t</span> <span class="identifier">where</span> <span class="special">=</span> <span class="identifier">logfile</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">().</span><span class="identifier">st_size</span><span class="special">,</span>
+                  <span class="identifier">entrysize</span> <span class="special">=</span>
+                  <span class="identifier">logentry</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">mythreadid</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">logentryend</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span>
+            <span class="comment">// Schedule extending the log file</span>
+            <span class="keyword">auto</span> <span class="identifier">extendlog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">truncate</span><span class="special">(</span><span class="identifier">logfile</span><span class="special">,</span> <span class="identifier">where</span> <span class="special">+</span> <span class="identifier">entrysize</span><span class="special">));</span>
+            <span class="comment">// Schedule writing the new entry</span>
+            <span class="keyword">auto</span> <span class="identifier">writetolog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span>
+            <span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">extendlog</span><span class="special">,</span> <span class="special">{</span><span class="identifier">logentry</span><span class="special">,</span> <span class="identifier">mythreadid</span><span class="special">,</span> <span class="identifier">logentryend</span><span class="special">},</span> <span class="identifier">where</span><span class="special">)));</span>
+            <span class="comment">// Fetch errors from the last operation first to avoid sleep-wake cycling</span>
+            <span class="identifier">writetolog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">extendlog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">successes</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+          <span class="special">}</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via system_error code "</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">code</span><span class="special">().</span><span class="identifier">value</span><span class="special">()</span>
+                    <span class="special">&lt;&lt;</span> <span class="string">"("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">exception</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via exception ("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span>
+                    <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(...)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via unknown exception"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+      <span class="special">}));</span>
+    <span class="special">}</span>
+    <span class="keyword">auto</span> <span class="identifier">begin</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">sleep_for</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">seconds</span><span class="special">(</span><span class="number">20</span><span class="special">));</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Waiting for threads to exit ..."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">threads</span><span class="special">)</span>
+      <span class="identifier">i</span><span class="special">.</span><span class="identifier">join</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">end</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">diff</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration_cast</span><span class="special">&lt;</span><span class="identifier">secs_type</span><span class="special">&gt;(</span><span class="identifier">end</span> <span class="special">-</span> <span class="identifier">begin</span><span class="special">);</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"For "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span> <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers, achieved "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">attempts</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" attempts per second with a "</span>
+                                              <span class="string">"success rate of "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" writes per second which is a "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="number">100.0</span> <span class="special">*</span> <span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">attempts</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">"% success rate."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="special">}</span>
+
+  <span class="comment">// **** WARNING UNSUPPORTED UNDOCUMENTED API DO NOT USE IN YOUR CODE ****</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="number">1</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"\nBenchmarking a ranged file lock with "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span>
+              <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers ...\n"</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">thread</span><span class="special">&gt;</span> <span class="identifier">threads</span><span class="special">;</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">&gt;</span> <span class="identifier">done</span><span class="special">(</span><span class="keyword">true</span><span class="special">);</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="identifier">size_t</span><span class="special">&gt;</span> <span class="identifier">attempts</span><span class="special">(</span><span class="number">0</span><span class="special">),</span> <span class="identifier">successes</span><span class="special">(</span><span class="number">0</span><span class="special">);</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">writers</span><span class="special">;</span> <span class="identifier">n</span><span class="special">++)</span>
+    <span class="special">{</span>
+      <span class="identifier">threads</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">thread</span><span class="special">(</span>
+      <span class="special">[&amp;</span><span class="identifier">done</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">attempts</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">successes</span><span class="special">,</span> <span class="identifier">n</span><span class="special">]</span>
+      <span class="special">{</span>
+        <span class="keyword">try</span>
+        <span class="special">{</span>
+          <span class="comment">// Create a dispatcher</span>
+          <span class="keyword">auto</span> <span class="identifier">dispatcher</span> <span class="special">=</span> <span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Schedule opening the log file for writing log entries</span>
+          <span class="keyword">auto</span> <span class="identifier">logfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span>
+          <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read_write</span> <span class="special">|</span>
+                                  <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">os_lockable</span><span class="special">)));</span>
+          <span class="comment">// Retrieve any errors which occurred</span>
+          <span class="identifier">logfile</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Wait until all threads are ready</span>
+          <span class="keyword">while</span><span class="special">(</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">yield</span><span class="special">();</span>
+          <span class="special">}</span>
+          <span class="keyword">while</span><span class="special">(!</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="identifier">attempts</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+            <span class="comment">// **** WARNING UNSUPPORTED UNDOCUMENTED API DO NOT USE IN YOUR CODE ****</span>
+            <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">lock</span><span class="special">({</span><span class="identifier">logfile</span><span class="special">}).</span><span class="identifier">front</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">logentry</span><span class="special">(</span><span class="string">"I am log writer "</span><span class="special">),</span> <span class="identifier">mythreadid</span><span class="special">(</span><span class="identifier">to_string</span><span class="special">(</span><span class="identifier">n</span><span class="special">)),</span>
+            <span class="identifier">logentryend</span><span class="special">(</span><span class="string">"!\n"</span><span class="special">);</span>
+            <span class="comment">// Fetch the size</span>
+            <span class="identifier">off_t</span> <span class="identifier">where</span> <span class="special">=</span> <span class="identifier">logfile</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">().</span><span class="identifier">st_size</span><span class="special">,</span>
+                  <span class="identifier">entrysize</span> <span class="special">=</span>
+                  <span class="identifier">logentry</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">mythreadid</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">logentryend</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span>
+            <span class="comment">// Schedule extending the log file</span>
+            <span class="keyword">auto</span> <span class="identifier">extendlog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">truncate</span><span class="special">(</span><span class="identifier">logfile</span><span class="special">,</span> <span class="identifier">where</span> <span class="special">+</span> <span class="identifier">entrysize</span><span class="special">));</span>
+            <span class="comment">// Schedule writing the new entry</span>
+            <span class="keyword">auto</span> <span class="identifier">writetolog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span>
+            <span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">extendlog</span><span class="special">,</span> <span class="special">{</span><span class="identifier">logentry</span><span class="special">,</span> <span class="identifier">mythreadid</span><span class="special">,</span> <span class="identifier">logentryend</span><span class="special">},</span> <span class="identifier">where</span><span class="special">)));</span>
+            <span class="identifier">writetolog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">extendlog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">successes</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+            <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">lock</span><span class="special">({{</span><span class="identifier">logfile</span><span class="special">,</span> <span class="keyword">nullptr</span><span class="special">}}).</span><span class="identifier">front</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="special">}</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via system_error code "</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">code</span><span class="special">().</span><span class="identifier">value</span><span class="special">()</span>
+                    <span class="special">&lt;&lt;</span> <span class="string">"("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">exception</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via exception ("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span>
+                    <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(...)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via unknown exception"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+      <span class="special">}));</span>
+    <span class="special">}</span>
+    <span class="keyword">auto</span> <span class="identifier">begin</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">sleep_for</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">seconds</span><span class="special">(</span><span class="number">20</span><span class="special">));</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Waiting for threads to exit ..."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">threads</span><span class="special">)</span>
+      <span class="identifier">i</span><span class="special">.</span><span class="identifier">join</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">end</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">diff</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration_cast</span><span class="special">&lt;</span><span class="identifier">secs_type</span><span class="special">&gt;(</span><span class="identifier">end</span> <span class="special">-</span> <span class="identifier">begin</span><span class="special">);</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"For "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span> <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers, achieved "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">attempts</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" attempts per second with a "</span>
+                                              <span class="string">"success rate of "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" writes per second which is a "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="number">100.0</span> <span class="special">*</span> <span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">attempts</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">"% success rate."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="special">}</span>
+
+  <span class="keyword">if</span><span class="special">(</span><span class="number">1</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"\nBenchmarking file locks via atomic append with "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span>
+              <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers ...\n"</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">thread</span><span class="special">&gt;</span> <span class="identifier">threads</span><span class="special">;</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">&gt;</span> <span class="identifier">done</span><span class="special">(</span><span class="keyword">true</span><span class="special">);</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="identifier">size_t</span><span class="special">&gt;</span> <span class="identifier">attempts</span><span class="special">(</span><span class="number">0</span><span class="special">),</span> <span class="identifier">successes</span><span class="special">(</span><span class="number">0</span><span class="special">);</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">thread</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">thread</span> <span class="special">&lt;</span> <span class="identifier">writers</span><span class="special">;</span> <span class="identifier">thread</span><span class="special">++)</span>
+    <span class="special">{</span>
+      <span class="identifier">threads</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">thread</span><span class="special">(</span>
+      <span class="special">[&amp;</span><span class="identifier">done</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">attempts</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">successes</span><span class="special">,</span> <span class="identifier">thread</span><span class="special">]</span>
+      <span class="special">{</span>
+        <span class="keyword">try</span>
+        <span class="special">{</span>
+          <span class="comment">// Create a dispatcher</span>
+          <span class="keyword">auto</span> <span class="identifier">dispatcher</span> <span class="special">=</span> <span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="comment">// Schedule opening the log file for writing log entries</span>
+          <span class="keyword">auto</span> <span class="identifier">logfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span>
+          <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read_write</span><span class="special">)));</span>
+          <span class="comment">// Schedule opening the lock file for scanning and hole punching</span>
+          <span class="keyword">auto</span> <span class="identifier">lockfilez</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">(</span>
+          <span class="string">"testdir/log.lock"</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read_write</span><span class="special">)));</span>
+          <span class="comment">// Schedule opening the lock file for atomic appending</span>
+          <span class="keyword">auto</span> <span class="identifier">lockfilea</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span>
+          <span class="identifier">path_req</span><span class="special">(</span><span class="string">"testdir/log.lock"</span><span class="special">,</span>
+                   <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">append</span><span class="special">)));</span>
+          <span class="comment">// Retrieve any errors which occurred</span>
+          <span class="identifier">lockfilea</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="identifier">lockfilez</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="identifier">logfile</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="keyword">while</span><span class="special">(!</span><span class="identifier">done</span><span class="special">)</span>
+          <span class="special">{</span>
+            <span class="comment">// Each lock log entry is 16 bytes in length.</span>
+            <span class="keyword">enum</span> <span class="keyword">class</span> <span class="identifier">message_code_t</span> <span class="special">:</span> <span class="identifier">uint8_t</span>
+            <span class="special">{</span>
+              <span class="identifier">unlock</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span>
+              <span class="identifier">havelock</span> <span class="special">=</span> <span class="number">1</span><span class="special">,</span>
+              <span class="identifier">rescind</span> <span class="special">=</span> <span class="number">2</span><span class="special">,</span>
+              <span class="identifier">interest</span> <span class="special">=</span> <span class="number">3</span><span class="special">,</span>
+              <span class="identifier">nominate</span> <span class="special">=</span> <span class="number">5</span>
+            <span class="special">};</span>
+<span class="preprocessor">#pragma</span> <span class="identifier">pack</span><span class="special">(</span><span class="identifier">push</span><span class="special">,</span> <span class="number">1</span><span class="special">)</span>
+            <span class="keyword">union</span> <span class="identifier">message_t</span>
+            <span class="special">{</span>
+              <span class="keyword">char</span> <span class="identifier">bytes</span><span class="special">[</span><span class="number">16</span><span class="special">];</span>
+              <span class="keyword">struct</span>
+              <span class="special">{</span>
+                <span class="identifier">message_code_t</span> <span class="identifier">code</span><span class="special">;</span>
+                <span class="keyword">char</span> <span class="identifier">__padding1</span><span class="special">[</span><span class="number">3</span><span class="special">];</span>
+                <span class="identifier">uint32_t</span> <span class="identifier">timestamp</span><span class="special">;</span>  <span class="comment">// time_t</span>
+                <span class="identifier">uint64_t</span> <span class="identifier">uniqueid</span><span class="special">;</span>
+              <span class="special">};</span>
+            <span class="special">};</span>
+<span class="preprocessor">#pragma</span> <span class="identifier">pack</span><span class="special">(</span><span class="identifier">pop</span><span class="special">)</span>
+            <span class="keyword">static_assert</span><span class="special">(</span><span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">message_t</span><span class="special">)</span> <span class="special">==</span> <span class="number">16</span><span class="special">,</span>
+                          <span class="string">"message_t is not 16 bytes long!"</span><span class="special">);</span>
+            <span class="keyword">auto</span> <span class="identifier">gettime</span> <span class="special">=</span> <span class="special">[]</span>
+            <span class="special">{</span>
+              <span class="keyword">return</span> <span class="special">(</span><span class="identifier">uint32_t</span><span class="special">)(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">time</span><span class="special">(</span><span class="keyword">nullptr</span><span class="special">)</span> <span class="special">-</span> <span class="number">1420070400UL</span> <span class="comment">/* 1st Jan 2015*/</span><span class="special">);</span>
+            <span class="special">};</span>
+            <span class="identifier">message_t</span> <span class="identifier">temp</span><span class="special">,</span> <span class="identifier">buffers</span><span class="special">[</span><span class="number">256</span><span class="special">];</span>
+            <span class="identifier">off_t</span> <span class="identifier">buffersoffset</span><span class="special">;</span>
+            <span class="identifier">uint32_t</span> <span class="identifier">nowtimestamp</span> <span class="special">=</span> <span class="identifier">gettime</span><span class="special">();</span>
+            <span class="comment">// TODO FIXME: If multiple machines are all accessing the lock file,</span>
+            <span class="comment">// nowtimestamp</span>
+            <span class="comment">//             ought to be corrected for drift</span>
+
+            <span class="comment">// Step 1: Register my interest</span>
+            <span class="identifier">memset</span><span class="special">(</span><span class="identifier">temp</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span> <span class="number">0</span><span class="special">,</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">temp</span><span class="special">));</span>
+            <span class="identifier">temp</span><span class="special">.</span><span class="identifier">code</span> <span class="special">=</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">interest</span><span class="special">;</span>
+            <span class="identifier">temp</span><span class="special">.</span><span class="identifier">timestamp</span> <span class="special">=</span> <span class="identifier">nowtimestamp</span><span class="special">;</span>
+            <span class="identifier">temp</span><span class="special">.</span><span class="identifier">uniqueid</span> <span class="special">=</span> <span class="identifier">thread</span><span class="special">;</span>  <span class="comment">// TODO FIXME: Needs to be a VERY random number</span>
+                                     <span class="comment">// to prevent collision.</span>
+            <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">lockfilea</span><span class="special">,</span> <span class="identifier">temp</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">temp</span><span class="special">),</span> <span class="number">0</span><span class="special">))</span>
+            <span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+
+            <span class="comment">// Step 2: Wait until my interest message appears, also figure out what</span>
+            <span class="comment">// interests precede</span>
+            <span class="comment">//         mine and where my start of interest begins, and if someone</span>
+            <span class="comment">//         currently has the lock</span>
+            <span class="identifier">off_t</span> <span class="identifier">startofinterest</span> <span class="special">=</span>
+            <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">extents</span><span class="special">(</span><span class="identifier">lockfilez</span><span class="special">).</span><span class="identifier">get</span><span class="special">().</span><span class="identifier">front</span><span class="special">().</span><span class="identifier">first</span><span class="special">;</span>
+            <span class="identifier">off_t</span> <span class="identifier">myuniqueid</span> <span class="special">=</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">;</span>
+            <span class="keyword">bool</span> <span class="identifier">findPreceding</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">,</span> <span class="identifier">off_t</span><span class="special">&gt;&gt;</span> <span class="identifier">preceding</span><span class="special">;</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">,</span> <span class="identifier">off_t</span><span class="special">&gt;</span> <span class="identifier">lockid</span><span class="special">;</span>
+            <span class="keyword">auto</span> <span class="identifier">iterate</span> <span class="special">=</span> <span class="special">[&amp;]</span>
+            <span class="special">{</span>
+              <span class="identifier">size_t</span> <span class="identifier">validPrecedingCount</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+              <span class="identifier">off_t</span> <span class="identifier">lockfilesize</span> <span class="special">=</span> <span class="identifier">lockfilez</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">(</span><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">).</span><span class="identifier">st_size</span><span class="special">;</span>
+              <span class="identifier">buffersoffset</span> <span class="special">=</span>
+              <span class="identifier">lockfilesize</span> <span class="special">&gt;</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">)</span> <span class="special">?</span> <span class="identifier">lockfilesize</span> <span class="special">-</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">)</span> <span class="special">:</span> <span class="number">0</span><span class="special">;</span>
+              <span class="comment">// buffersoffset-=buffersoffset % sizeof(buffers[0]);</span>
+              <span class="keyword">for</span><span class="special">(;</span> <span class="special">!</span><span class="identifier">validPrecedingCount</span> <span class="special">&amp;&amp;</span> <span class="identifier">buffersoffset</span> <span class="special">&gt;=</span> <span class="identifier">startofinterest</span> <span class="special">&amp;&amp;</span>
+                    <span class="identifier">buffersoffset</span> <span class="special">&lt;</span> <span class="identifier">lockfilesize</span><span class="special">;</span>
+                  <span class="identifier">buffersoffset</span> <span class="special">-=</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">))</span>
+              <span class="special">{</span>
+                <span class="identifier">size_t</span> <span class="identifier">amount</span> <span class="special">=</span> <span class="special">(</span><span class="identifier">size_t</span><span class="special">)(</span><span class="identifier">lockfilesize</span> <span class="special">-</span> <span class="identifier">buffersoffset</span><span class="special">);</span>
+                <span class="keyword">if</span><span class="special">(</span><span class="identifier">amount</span> <span class="special">&gt;</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">))</span>
+                  <span class="identifier">amount</span> <span class="special">=</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">);</span>
+                <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">read</span><span class="special">(</span><span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">lockfilez</span><span class="special">,</span> <span class="special">(</span><span class="keyword">void</span> <span class="special">*)</span> <span class="identifier">buffers</span><span class="special">,</span> <span class="identifier">amount</span><span class="special">,</span>
+                                             <span class="identifier">buffersoffset</span><span class="special">)).</span><span class="identifier">get</span><span class="special">();</span>
+                <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span> <span class="special">=</span> <span class="identifier">amount</span> <span class="special">/</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">])</span> <span class="special">-</span> <span class="number">1</span><span class="special">;</span>
+                    <span class="special">!</span><span class="identifier">validPrecedingCount</span> <span class="special">&amp;&amp;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">amount</span> <span class="special">/</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">]);</span> <span class="identifier">n</span><span class="special">--)</span>
+                <span class="special">{</span>
+                  <span class="comment">// Early exit if messages have become stale</span>
+                  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">timestamp</span> <span class="special">||</span>
+                     <span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">timestamp</span> <span class="special">&lt;</span> <span class="identifier">nowtimestamp</span> <span class="special">&amp;&amp;</span>
+                      <span class="identifier">nowtimestamp</span> <span class="special">-</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">timestamp</span> <span class="special">&gt;</span> <span class="number">20</span><span class="special">))</span>
+                  <span class="special">{</span>
+                    <span class="identifier">startofinterest</span> <span class="special">=</span> <span class="identifier">buffersoffset</span> <span class="special">+</span> <span class="identifier">n</span> <span class="special">*</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">]);</span>
+                    <span class="keyword">break</span><span class="special">;</span>
+                  <span class="special">}</span>
+                  <span class="comment">// Find if he is locked or unlocked</span>
+                  <span class="keyword">if</span><span class="special">(</span><span class="identifier">lockid</span><span class="special">.</span><span class="identifier">second</span> <span class="special">==</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">)</span>
+                  <span class="special">{</span>
+                    <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">unlock</span><span class="special">)</span>
+                      <span class="identifier">lockid</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">false</span><span class="special">,</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span><span class="special">);</span>
+                    <span class="keyword">else</span> <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">havelock</span><span class="special">)</span>
+                      <span class="identifier">lockid</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">true</span><span class="special">,</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span><span class="special">);</span>
+                  <span class="special">}</span>
+                  <span class="comment">// Am I searching for my interest?</span>
+                  <span class="keyword">if</span><span class="special">(</span><span class="identifier">myuniqueid</span> <span class="special">==</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">)</span>
+                  <span class="special">{</span>
+                    <span class="keyword">if</span><span class="special">(!</span><span class="identifier">memcmp</span><span class="special">(</span><span class="identifier">buffers</span> <span class="special">+</span> <span class="identifier">n</span><span class="special">,</span> <span class="special">&amp;</span><span class="identifier">temp</span><span class="special">,</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">temp</span><span class="special">)))</span>
+                      <span class="identifier">myuniqueid</span> <span class="special">=</span> <span class="identifier">buffersoffset</span> <span class="special">+</span> <span class="identifier">n</span> <span class="special">*</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">]);</span>
+                  <span class="special">}</span>
+                  <span class="keyword">else</span> <span class="keyword">if</span><span class="special">(</span><span class="identifier">findPreceding</span> <span class="special">&amp;&amp;</span>
+                          <span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span> <span class="special">&lt;</span> <span class="identifier">myuniqueid</span> <span class="special">||</span>
+                           <span class="identifier">buffersoffset</span> <span class="special">+</span> <span class="identifier">n</span> <span class="special">*</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">])</span> <span class="special">&lt;</span> <span class="identifier">myuniqueid</span><span class="special">))</span>
+                  <span class="special">{</span>
+                    <span class="comment">// We are searching for preceding claims now</span>
+                    <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">rescind</span> <span class="special">||</span>
+                       <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">unlock</span><span class="special">)</span>
+                      <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+                      <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">false</span><span class="special">,</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span><span class="special">));</span>
+                    <span class="keyword">else</span> <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">nominate</span> <span class="special">||</span>
+                            <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">havelock</span><span class="special">)</span>
+                    <span class="special">{</span>
+                      <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span> <span class="special">&lt;</span> <span class="identifier">myuniqueid</span> <span class="special">&amp;&amp;</span>
+                         <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">()</span> <span class="special">==</span>
+                         <span class="identifier">std</span><span class="special">::</span><span class="identifier">find</span><span class="special">(</span>
+                         <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">begin</span><span class="special">(),</span> <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">(),</span>
+                         <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">false</span><span class="special">,</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span><span class="special">)))</span>
+                      <span class="special">{</span>
+                        <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span>
+                        <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">true</span><span class="special">,</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">uniqueid</span><span class="special">));</span>
+                        <span class="identifier">validPrecedingCount</span><span class="special">++;</span>
+                      <span class="special">}</span>
+                    <span class="special">}</span>
+                    <span class="keyword">else</span> <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="identifier">n</span><span class="special">].</span><span class="identifier">code</span> <span class="special">==</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">interest</span><span class="special">)</span>
+                    <span class="special">{</span>
+                      <span class="keyword">if</span><span class="special">(</span><span class="identifier">buffersoffset</span> <span class="special">+</span> <span class="identifier">n</span> <span class="special">*</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">])</span> <span class="special">&lt;</span> <span class="identifier">myuniqueid</span> <span class="special">&amp;&amp;</span>
+                         <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">()</span> <span class="special">==</span>
+                         <span class="identifier">std</span><span class="special">::</span><span class="identifier">find</span><span class="special">(</span><span class="identifier">preceding</span><span class="special">.</span><span class="identifier">begin</span><span class="special">(),</span> <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">(),</span>
+                                   <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">false</span><span class="special">,</span> <span class="identifier">buffersoffset</span> <span class="special">+</span>
+                                                         <span class="identifier">n</span> <span class="special">*</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">]))))</span>
+                      <span class="special">{</span>
+                        <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span>
+                        <span class="keyword">true</span><span class="special">,</span> <span class="identifier">buffersoffset</span> <span class="special">+</span> <span class="identifier">n</span> <span class="special">*</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">buffers</span><span class="special">[</span><span class="number">0</span><span class="special">])));</span>
+                        <span class="identifier">validPrecedingCount</span><span class="special">++;</span>
+                      <span class="special">}</span>
+                    <span class="special">}</span>
+                  <span class="special">}</span>
+                <span class="special">}</span>
+              <span class="special">}</span>
+<span class="preprocessor">#if</span> <span class="number">0</span>
+                <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">thread</span> <span class="special">&lt;&lt;</span> <span class="string">": myuniqueid="</span> <span class="special">&lt;&lt;</span> <span class="identifier">myuniqueid</span> <span class="special">&lt;&lt;</span> <span class="string">" startofinterest="</span> <span class="special">&lt;&lt;</span> <span class="identifier">startofinterest</span> <span class="special">&lt;&lt;</span> <span class="string">" size="</span> <span class="special">&lt;&lt;</span> <span class="identifier">lockfilez</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">(</span><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">).</span><span class="identifier">st_size</span> <span class="special">&lt;&lt;</span> <span class="string">" lockid="</span> <span class="special">&lt;&lt;</span> <span class="identifier">lockid</span><span class="special">.</span><span class="identifier">first</span> <span class="special">&lt;&lt;</span> <span class="string">","</span> <span class="special">&lt;&lt;</span> <span class="identifier">lockid</span><span class="special">.</span><span class="identifier">second</span> <span class="special">&lt;&lt;</span> <span class="string">" preceding="</span><span class="special">;</span>
+                <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">preceding</span><span class="special">)</span>
+                  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">first</span> <span class="special">&lt;&lt;</span> <span class="string">","</span> <span class="special">&lt;&lt;</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">second</span> <span class="special">&lt;&lt;</span> <span class="string">";"</span><span class="special">;</span>
+                <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+<span class="preprocessor">#endif</span>  <span class="comment">/*_ 0 _*/</span>
+              <span class="keyword">if</span><span class="special">(</span><span class="identifier">findPreceding</span><span class="special">)</span>
+              <span class="special">{</span>
+                <span class="comment">// Remove all rescinded interests preceding ours</span>
+                <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">erase</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">remove_if</span><span class="special">(</span><span class="identifier">preceding</span><span class="special">.</span><span class="identifier">begin</span><span class="special">(),</span> <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">(),</span>
+                                               <span class="special">[](</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">,</span> <span class="identifier">off_t</span><span class="special">&gt;</span> <span class="special">&amp;</span><span class="identifier">i</span><span class="special">)</span>
+                                               <span class="special">{</span>
+                                                 <span class="keyword">return</span> <span class="special">!</span><span class="identifier">i</span><span class="special">.</span><span class="identifier">first</span><span class="special">;</span>
+                                               <span class="special">}),</span>
+                                <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">());</span>
+                <span class="identifier">std</span><span class="special">::</span><span class="identifier">sort</span><span class="special">(</span><span class="identifier">preceding</span><span class="special">.</span><span class="identifier">begin</span><span class="special">(),</span> <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">end</span><span class="special">());</span>
+                <span class="identifier">findPreceding</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+              <span class="special">}</span>
+            <span class="special">};</span>
+            <span class="keyword">do</span>
+            <span class="special">{</span>
+              <span class="identifier">lockid</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">false</span><span class="special">,</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">);</span>
+              <span class="identifier">iterate</span><span class="special">();</span>
+              <span class="comment">// Didn't find it, so sleep and retry, maybe st_size will have updated</span>
+              <span class="comment">// by then</span>
+              <span class="keyword">if</span><span class="special">(</span><span class="identifier">myuniqueid</span> <span class="special">==</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">)</span>
+                <span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">sleep_for</span><span class="special">(</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">milliseconds</span><span class="special">(</span><span class="number">1</span><span class="special">));</span>
+            <span class="special">}</span> <span class="keyword">while</span><span class="special">(</span><span class="identifier">myuniqueid</span> <span class="special">==</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">);</span>
+
+            <span class="comment">// Step 3: If there is no lock and no interest precedes mine, claim the</span>
+            <span class="comment">// mutex. Else issue a nominate for myself,</span>
+            <span class="comment">//         once per ten seconds.</span>
+            <span class="special">{</span>
+              <span class="identifier">nowtimestamp</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+              <span class="identifier">mutex</span> <span class="identifier">m</span><span class="special">;</span>
+              <span class="identifier">condition_variable</span> <span class="identifier">c</span><span class="special">;</span>
+              <span class="identifier">unique_lock</span><span class="special">&lt;</span><span class="keyword">decltype</span><span class="special">(</span><span class="identifier">m</span><span class="special">)&gt;</span> <span class="identifier">l</span><span class="special">(</span><span class="identifier">m</span><span class="special">);</span>
+              <span class="identifier">atomic</span><span class="special">&lt;</span><span class="keyword">bool</span><span class="special">&gt;</span> <span class="identifier">fileChanged</span><span class="special">(</span><span class="keyword">false</span><span class="special">);</span>
+              <span class="keyword">for</span><span class="special">(;;)</span>
+              <span class="special">{</span>
+                <span class="identifier">attempts</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+                <span class="identifier">temp</span><span class="special">.</span><span class="identifier">timestamp</span> <span class="special">=</span> <span class="identifier">gettime</span><span class="special">();</span>
+                <span class="identifier">temp</span><span class="special">.</span><span class="identifier">uniqueid</span> <span class="special">=</span> <span class="identifier">myuniqueid</span><span class="special">;</span>
+                <span class="keyword">if</span><span class="special">(</span><span class="identifier">preceding</span><span class="special">.</span><span class="identifier">empty</span><span class="special">())</span>
+                <span class="special">{</span>
+                  <span class="identifier">temp</span><span class="special">.</span><span class="identifier">code</span> <span class="special">=</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">havelock</span><span class="special">;</span>
+                  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">lockfilea</span><span class="special">,</span> <span class="identifier">temp</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">temp</span><span class="special">),</span>
+                                                <span class="number">0</span><span class="special">)).</span><span class="identifier">get</span><span class="special">();</span>
+                  <span class="comment">// Zero the range between startofinterest and myuniqueid</span>
+                  <span class="keyword">if</span><span class="special">(</span><span class="identifier">startofinterest</span> <span class="special">&lt;</span> <span class="identifier">myuniqueid</span><span class="special">)</span>
+                  <span class="special">{</span>
+                    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">off_t</span><span class="special">,</span> <span class="identifier">off_t</span><span class="special">&gt;&gt;</span> <span class="identifier">range</span> <span class="special">=</span> <span class="special">{</span>
+                    <span class="special">{</span><span class="identifier">startofinterest</span><span class="special">,</span> <span class="identifier">myuniqueid</span> <span class="special">-</span> <span class="identifier">startofinterest</span><span class="special">}};</span>
+                    <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">zero</span><span class="special">(</span><span class="identifier">lockfilez</span><span class="special">,</span> <span class="identifier">range</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+                    <span class="comment">//                    std::cout &lt;&lt; thread &lt;&lt; ": lock taken for</span>
+                    <span class="comment">//                    myuniqueid=" &lt;&lt; myuniqueid &lt;&lt; ", zeroing "</span>
+                    <span class="comment">//                    &lt;&lt; range.front().first &lt;&lt; ", " &lt;&lt;</span>
+                    <span class="comment">//                    range.front().second &lt;&lt; std::endl;</span>
+                  <span class="special">}</span>
+                  <span class="keyword">break</span><span class="special">;</span>
+                <span class="special">}</span>
+                <span class="keyword">else</span>
+                <span class="special">{</span>
+                  <span class="keyword">auto</span> <span class="identifier">lockfilechanged</span> <span class="special">=</span> <span class="special">[&amp;]</span>
+                  <span class="special">{</span>
+                    <span class="identifier">fileChanged</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+                    <span class="identifier">c</span><span class="special">.</span><span class="identifier">notify_all</span><span class="special">();</span>
+                  <span class="special">};</span>
+                  <span class="comment">// TODO FIXME: Put a modify watch on the lockfile instead of</span>
+                  <span class="comment">// spinning</span>
+                  <span class="keyword">if</span><span class="special">(</span><span class="identifier">temp</span><span class="special">.</span><span class="identifier">timestamp</span> <span class="special">-</span> <span class="identifier">nowtimestamp</span> <span class="special">&gt;=</span> <span class="number">10</span><span class="special">)</span>
+                  <span class="special">{</span>
+                    <span class="identifier">temp</span><span class="special">.</span><span class="identifier">code</span> <span class="special">=</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">nominate</span><span class="special">;</span>
+                    <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">lockfilea</span><span class="special">,</span> <span class="identifier">temp</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span>
+                                                  <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">temp</span><span class="special">),</span> <span class="number">0</span><span class="special">)).</span><span class="identifier">get</span><span class="special">();</span>
+                    <span class="identifier">nowtimestamp</span> <span class="special">=</span> <span class="identifier">temp</span><span class="special">.</span><span class="identifier">timestamp</span><span class="special">;</span>
+                  <span class="special">}</span>
+                  <span class="comment">// c.wait_for(l, chrono::milliseconds(1), [&amp;fileChanged]{ return</span>
+                  <span class="comment">// fileChanged==true; });</span>
+                  <span class="identifier">fileChanged</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+                  <span class="identifier">preceding</span><span class="special">.</span><span class="identifier">clear</span><span class="special">();</span>
+                  <span class="identifier">findPreceding</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+                  <span class="identifier">lockid</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">make_pair</span><span class="special">(</span><span class="keyword">false</span><span class="special">,</span> <span class="special">(</span><span class="identifier">off_t</span><span class="special">)</span> <span class="special">-</span><span class="number">1</span><span class="special">);</span>
+                  <span class="identifier">iterate</span><span class="special">();</span>
+                <span class="special">}</span>
+              <span class="special">}</span>
+            <span class="special">}</span>
+
+            <span class="comment">// Step 4: I now have the lock, so do my thing</span>
+            <span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">logentry</span><span class="special">(</span><span class="string">"I am log writer "</span><span class="special">),</span> <span class="identifier">mythreadid</span><span class="special">(</span><span class="identifier">to_string</span><span class="special">(</span><span class="identifier">thread</span><span class="special">)),</span>
+            <span class="identifier">logentryend</span><span class="special">(</span><span class="string">"!\n"</span><span class="special">);</span>
+            <span class="comment">// Fetch the size</span>
+            <span class="identifier">off_t</span> <span class="identifier">where</span> <span class="special">=</span> <span class="identifier">logfile</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">().</span><span class="identifier">st_size</span><span class="special">,</span>
+                  <span class="identifier">entrysize</span> <span class="special">=</span>
+                  <span class="identifier">logentry</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">mythreadid</span><span class="special">.</span><span class="identifier">size</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">logentryend</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span>
+            <span class="comment">// Schedule extending the log file</span>
+            <span class="keyword">auto</span> <span class="identifier">extendlog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">truncate</span><span class="special">(</span><span class="identifier">logfile</span><span class="special">,</span> <span class="identifier">where</span> <span class="special">+</span> <span class="identifier">entrysize</span><span class="special">));</span>
+            <span class="comment">// Schedule writing the new entry</span>
+            <span class="keyword">auto</span> <span class="identifier">writetolog</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span>
+            <span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">extendlog</span><span class="special">,</span> <span class="special">{</span><span class="identifier">logentry</span><span class="special">,</span> <span class="identifier">mythreadid</span><span class="special">,</span> <span class="identifier">logentryend</span><span class="special">},</span> <span class="identifier">where</span><span class="special">)));</span>
+            <span class="comment">// Fetch errors from the last operation first to avoid sleep-wake cycling</span>
+            <span class="identifier">writetolog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">extendlog</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+            <span class="identifier">successes</span><span class="special">.</span><span class="identifier">fetch_add</span><span class="special">(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">memory_order_relaxed</span><span class="special">);</span>
+            <span class="comment">//              std::cout &lt;&lt; thread &lt;&lt; ": doing work for myuniqueid=" &lt;&lt;</span>
+            <span class="comment">//              myuniqueid &lt;&lt; std::endl;</span>
+            <span class="comment">//              this_thread::sleep_for(chrono::milliseconds(250));</span>
+
+            <span class="comment">// Step 5: Release the lock</span>
+            <span class="identifier">temp</span><span class="special">.</span><span class="identifier">code</span> <span class="special">=</span> <span class="identifier">message_code_t</span><span class="special">::</span><span class="identifier">unlock</span><span class="special">;</span>
+            <span class="identifier">temp</span><span class="special">.</span><span class="identifier">timestamp</span> <span class="special">=</span> <span class="identifier">gettime</span><span class="special">();</span>
+            <span class="identifier">temp</span><span class="special">.</span><span class="identifier">uniqueid</span> <span class="special">=</span> <span class="identifier">myuniqueid</span><span class="special">;</span>
+            <span class="comment">//              std::cout &lt;&lt; thread &lt;&lt; ": lock released for myuniqueid="</span>
+            <span class="comment">//              &lt;&lt; myuniqueid &lt;&lt; std::endl;</span>
+            <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">make_io_req</span><span class="special">(</span><span class="identifier">lockfilea</span><span class="special">,</span> <span class="identifier">temp</span><span class="special">.</span><span class="identifier">bytes</span><span class="special">,</span> <span class="keyword">sizeof</span><span class="special">(</span><span class="identifier">temp</span><span class="special">),</span> <span class="number">0</span><span class="special">))</span>
+            <span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+          <span class="special">}</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">system_error</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via system_error code "</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">code</span><span class="special">().</span><span class="identifier">value</span><span class="special">()</span>
+                    <span class="special">&lt;&lt;</span> <span class="string">"("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">exception</span> <span class="special">&amp;</span><span class="identifier">e</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via exception ("</span> <span class="special">&lt;&lt;</span> <span class="identifier">e</span><span class="special">.</span><span class="identifier">what</span><span class="special">()</span> <span class="special">&lt;&lt;</span> <span class="string">")"</span>
+                    <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+        <span class="keyword">catch</span><span class="special">(...)</span>
+        <span class="special">{</span>
+          <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: test exits via unknown exception"</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+          <span class="identifier">abort</span><span class="special">();</span>
+        <span class="special">}</span>
+      <span class="special">}));</span>
+    <span class="special">}</span>
+    <span class="keyword">auto</span> <span class="identifier">begin</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">this_thread</span><span class="special">::</span><span class="identifier">sleep_for</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">seconds</span><span class="special">(</span><span class="number">20</span><span class="special">));</span>
+    <span class="identifier">done</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Waiting for threads to exit ..."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">threads</span><span class="special">)</span>
+      <span class="identifier">i</span><span class="special">.</span><span class="identifier">join</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">end</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">high_resolution_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">diff</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration_cast</span><span class="special">&lt;</span><span class="identifier">secs_type</span><span class="special">&gt;(</span><span class="identifier">end</span> <span class="special">-</span> <span class="identifier">begin</span><span class="special">);</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"For "</span> <span class="special">&lt;&lt;</span> <span class="identifier">writers</span> <span class="special">&lt;&lt;</span> <span class="string">" concurrent writers, achieved "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">attempts</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" attempts per second with a "</span>
+                                              <span class="string">"success rate of "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">())</span> <span class="special">&lt;&lt;</span> <span class="string">" writes per second which is a "</span>
+              <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="number">100.0</span> <span class="special">*</span> <span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">attempts</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">"% success rate."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="identifier">atomic_log_locks</span> <span class="special">=</span> <span class="identifier">successes</span> <span class="special">/</span> <span class="identifier">diff</span><span class="special">.</span><span class="identifier">count</span><span class="special">();</span>
+  <span class="special">}</span>
+  <span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">remove_all</span><span class="special">(</span><span class="string">"testdir"</span><span class="special">);</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Traditional locks were "</span> <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">traditional_locks</span> <span class="special">/</span> <span class="identifier">atomic_log_locks</span><span class="special">)</span>
+            <span class="special">&lt;&lt;</span> <span class="string">" times faster."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">return</span> <span class="number">0</span><span class="special">;</span>
+<span class="special">}</span>
+</pre>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="file_concat.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../mini_programs.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="filesystem_races.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

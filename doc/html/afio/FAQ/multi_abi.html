@@ -1,0 +1,97 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>How do I reconfigure AFIO within the same translation unit to use a different ABI?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="deleting_open_files.html" title="I thought on Windows it is impossible to delete a file which is still open for use. How does AFIO achieve this?">
+<link rel="next" href="../acknowledgments.html" title="Acknowledgments">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="deleting_open_files.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../acknowledgments.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.multi_abi"></a><a class="link" href="multi_abi.html" title="How do I reconfigure AFIO within the same translation unit to use a different ABI?">How do I reconfigure AFIO within
+      the same translation unit to use a different ABI?</a>
+</h3></div></div></div>
+<p>
+        Here is how the unit test does it:
+      </p>
+<pre class="programlisting"><span class="comment">// Reduce unit testing</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_AFIO_RUNNING_IN_CI</span> <span class="number">1</span>
+<span class="comment">// Use the Boost.Test emulation in Boost.BindLib as Boost.Test isn't multi ABI capable.</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_AFIO_USE_BOOST_UNIT_TEST</span> <span class="number">0</span>
+
+<span class="preprocessor">#define</span> <span class="identifier">STRINGIZE2</span><span class="special">(</span><span class="identifier">a</span><span class="special">)</span> <span class="special">#</span><span class="identifier">a</span>
+<span class="preprocessor">#define</span> <span class="identifier">STRINGIZE</span><span class="special">(</span><span class="identifier">a</span><span class="special">,</span> <span class="identifier">b</span><span class="special">)</span> <span class="identifier">STRINGIZE2</span><span class="special">(</span><span class="identifier">a</span> <span class="special">##</span> <span class="identifier">b</span><span class="special">)</span>
+
+<span class="comment">// Make unit test names be different</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_CATCH_AUTO_TEST_CASE_NAME</span><span class="special">(</span><span class="identifier">name</span><span class="special">)</span> <span class="identifier">STRINGIZE</span><span class="special">(</span><span class="number">1</span><span class="identifier">_</span><span class="special">,</span> <span class="identifier">name</span><span class="special">)</span>
+
+<span class="comment">// A copy of AFIO + unit tests completely standalone apart from Boost.Filesystem</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_AFIO_USE_BOOST_THREAD</span> <span class="number">0</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_AFIO_USE_BOOST_FILESYSTEM</span> <span class="number">1</span>
+<span class="preprocessor">#define</span> <span class="identifier">ASIO_STANDALONE</span> <span class="number">1</span>
+<span class="preprocessor">#include</span> <span class="string">"test_all.cpp"</span>
+<span class="preprocessor">#undef</span> <span class="identifier">BOOST_AFIO_USE_BOOST_THREAD</span>
+<span class="preprocessor">#undef</span> <span class="identifier">BOOST_AFIO_USE_BOOST_FILESYSTEM</span>
+<span class="preprocessor">#undef</span> <span class="identifier">ASIO_STANDALONE</span>
+
+<span class="comment">// Force unit test utilities to be reincluded</span>
+<span class="preprocessor">#undef</span> <span class="identifier">BOOST_AFIO_TEST_FUNCTIONS_HPP</span>
+<span class="preprocessor">#undef</span> <span class="identifier">BOOST_CATCH_AUTO_TEST_CASE_NAME</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_CATCH_AUTO_TEST_CASE_NAME</span><span class="special">(</span><span class="identifier">name</span><span class="special">)</span> <span class="identifier">STRINGIZE</span><span class="special">(</span><span class="number">2</span><span class="identifier">_</span><span class="special">,</span> <span class="identifier">name</span><span class="special">)</span>
+
+<span class="comment">// A copy of AFIO + unit tests using Boost.Thread, Boost.Filesystem and Boost.ASIO</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_AFIO_USE_BOOST_THREAD</span> <span class="number">1</span>
+<span class="preprocessor">#define</span> <span class="identifier">BOOST_AFIO_USE_BOOST_FILESYSTEM</span> <span class="number">1</span>
+<span class="comment">// ASIO_STANDALONE undefined</span>
+<span class="preprocessor">#include</span> <span class="string">"test_all.cpp"</span>
+</pre>
+<p>
+        So, simply <code class="computeroutput"><span class="preprocessor">#undef</span></code> and re-<code class="computeroutput"><span class="preprocessor">#define</span></code> the configuration macros you
+        want and reinclude <code class="computeroutput"><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span></code>. You can do this every time you switch
+        between configuration in a translation unit, so you can return to a previously
+        included translation BUT note that you cannot later include a new header
+        not previously included during that configuration's previous existence. In
+        other words, include all the headers you are ever going to use in that translation
+        unit just after the first time you configure that configuration.
+      </p>
+<p>
+        The situation is very similar for including hard version dependencies. You
+        cannot include a newer version of AFIO after including a previous version
+        as some version of AFIO must be the most recent version in order for something
+        to live at <code class="computeroutput"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span></code>. Just always include the newest version
+        first.
+      </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="deleting_open_files.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../acknowledgments.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

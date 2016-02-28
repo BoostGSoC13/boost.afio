@@ -1,0 +1,317 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>3. World's simplest named blob store in AFIO (asynchronous)</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../workshop.html" title="Step by step workshop building an AFIO-based key-value store">
+<link rel="prev" href="naive_afio.html" title="2. World's simplest named blob store in AFIO (synchronous)">
+<link rel="next" href="naive_afio_async/naive_racy.html" title="The problems with this naive design">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="naive_afio.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="naive_afio_async/naive_racy.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.quickstart.workshop.naive_afio_async"></a><a class="link" href="naive_afio_async.html" title="3. World's simplest named blob store in AFIO (asynchronous)">3. World's
+        simplest named blob store in AFIO (asynchronous)</a>
+</h4></div></div></div>
+<div class="toc"><dl><dt><span class="section"><a href="naive_afio_async/naive_racy.html">The
+          problems with this naive design</a></span></dt></dl></div>
+<p>
+          Let's see the same exact thing as in the last section, but this time with
+          a fully asynchronous public interface. Instead of returning <code class="computeroutput"><span class="identifier">outcome</span><span class="special">&lt;&gt;</span></code>,
+          we now return <code class="computeroutput"><span class="identifier">shared_future</span><span class="special">&lt;&gt;</span></code>:
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">afio</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">;</span>
+<span class="keyword">namespace</span> <span class="identifier">filesystem</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">lightweight_futures</span><span class="special">::</span><span class="identifier">shared_future</span><span class="special">;</span>
+
+<span class="keyword">class</span> <span class="identifier">data_store</span>
+<span class="special">{</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher_ptr</span> <span class="identifier">_dispatcher</span><span class="special">;</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_store</span><span class="special">;</span>
+<span class="keyword">public</span><span class="special">:</span>
+  <span class="comment">// Type used for read streams</span>
+  <span class="keyword">using</span> <span class="identifier">istream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write streams</span>
+  <span class="keyword">using</span> <span class="identifier">ostream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for lookup</span>
+  <span class="keyword">using</span> <span class="identifier">lookup_result_type</span> <span class="special">=</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write</span>
+  <span class="keyword">using</span> <span class="identifier">write_result_type</span> <span class="special">=</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+
+  <span class="comment">// Disposition flags</span>
+  <span class="keyword">static</span> <span class="keyword">constexpr</span> <span class="identifier">size_t</span> <span class="identifier">writeable</span> <span class="special">=</span> <span class="special">(</span><span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">0</span><span class="special">);</span>
+
+  <span class="comment">// Open a data store at path</span>
+  <span class="identifier">data_store</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">flags</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span> <span class="special">=</span> <span class="string">"store"</span><span class="special">);</span>
+
+  <span class="comment">// Look up item named name for reading, returning an istream for the item</span>
+  <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+  <span class="comment">// Look up item named name for writing, returning an ostream for that item</span>
+  <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+<span class="special">};</span>
+</pre>
+<p>
+          An extension to the Concurrency TS futures is that Boost.Monad futures
+          are also monads, and therefore implicitly convert from their allowed monadic
+          input types without you needing to write <code class="computeroutput"><span class="identifier">make_ready_future</span><span class="special">(</span><span class="identifier">T</span><span class="special">)</span></code>
+          as with the Concurrency TS.
+        </p>
+<p>
+          You may be interested to know that the benchmarking harness code is 100%
+          identical for all three of these implementations. This is because <code class="computeroutput"><span class="identifier">outcome</span><span class="special">&lt;&gt;</span></code>
+          is sufficiently API-identical to <code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;&gt;</span></code> that identical code can drive all
+          three implementations.
+        </p>
+<p>
+          <code class="computeroutput"><span class="identifier">write</span><span class="special">()</span></code>
+          is now implemented by scheduling the file to be opened for write access
+          and attaching a continuation which will propagate any error, and if no
+          error returns via the shared future the shared pointer to the output stream.
+        </p>
+<pre class="programlisting"><span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">is_valid_name</span><span class="special">(</span><span class="identifier">name</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EINVAL</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="comment">// Schedule the opening of the file for writing</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">_store</span><span class="special">,</span> <span class="identifier">name</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span><span class="special">));</span>
+    <span class="comment">// When it completes, call this continuation</span>
+    <span class="keyword">return</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">then</span><span class="special">([](</span><span class="keyword">const</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">h</span><span class="special">)</span> <span class="special">-&gt;</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="special">{</span>
+      <span class="comment">// If file didn't open, return the error or exception immediately</span>
+      <span class="identifier">BOOST_OUTCOME_PROPAGATE</span><span class="special">(</span><span class="identifier">h</span><span class="special">);</span>
+      <span class="comment">// Create an ostream which directly uses the file.</span>
+      <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">ostream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">odirectstream</span><span class="special">&gt;(</span><span class="identifier">h</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">()));</span>
+      <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">ret</span><span class="special">);</span>
+    <span class="special">});</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span> <span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="comment">// Boost.Monad futures are also monads, so this implies a make_ready_future()</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">current_exception</span><span class="special">();</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+          <code class="computeroutput"><span class="identifier">lookup</span><span class="special">()</span></code>
+          takes the chaining of continuations one sequence further. It schedules
+          the file to be opened for reading and attaches a continuation which firstly
+          propagates any error, and then if the file is big enough it memory maps
+          the file and returns the input stream. If the file is small enough it schedules
+          a read of the entire file, attaching a second continuation to return the
+          input stream.
+        </p>
+<p>
+          The below pattern is 100% pure soon-to-be-standardised Concurrency TS future
+          continuations which can be easily coroutinised automatically on a C++ 1z
+          Coroutines supporting compiler (simply insert <code class="computeroutput"><span class="identifier">await</span></code>
+          before any AFIO <code class="computeroutput"><span class="identifier">async_XXX</span></code>
+          function). Apart from the fact that <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>
+          lightweight futures also provide an <code class="computeroutput"><span class="identifier">error_code</span></code>
+          transport, there is nothing below which wouldn't work with an upcoming
+          standard C++ library (unless the TS changes substantially, which is very
+          unlikely at this late stage).
+        </p>
+<div class="note"><table border="0" summary="Note">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="../../../../../doc/src/images/note.png"></td>
+<th align="left">Note</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+            This peer review edition of AFIO v1.40 provides a shim future type standing
+            in for an eventual lightweight future implementation. C++ 1z coroutine
+            support is not implemented for the shim future type.
+          </p></td></tr>
+</table></div>
+<pre class="programlisting"><span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span>
+<span class="special">{</span>
+  <span class="keyword">if</span><span class="special">(!</span><span class="identifier">is_valid_name</span><span class="special">(</span><span class="identifier">name</span><span class="special">))</span>
+    <span class="keyword">return</span> <span class="identifier">error_code</span><span class="special">(</span><span class="identifier">EINVAL</span><span class="special">,</span> <span class="identifier">generic_category</span><span class="special">());</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="comment">// Schedule the opening of the file for reading</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">_store</span><span class="special">,</span> <span class="identifier">name</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read</span><span class="special">));</span>
+    <span class="comment">// When it completes, call this continuation</span>
+    <span class="keyword">return</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">then</span><span class="special">([](</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">_h</span><span class="special">)</span> <span class="special">-&gt;</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="special">{</span>
+      <span class="comment">// If file didn't open, return the error or exception immediately</span>
+      <span class="identifier">BOOST_OUTCOME_PROPAGATE</span><span class="special">(</span><span class="identifier">_h</span><span class="special">);</span>
+      <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">=(</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">_h</span><span class="special">-&gt;</span><span class="identifier">lstat</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">).</span><span class="identifier">st_size</span><span class="special">;</span>
+      <span class="comment">// Is a memory map more appropriate?</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">length</span><span class="special">&gt;=</span><span class="number">128</span><span class="special">*</span><span class="number">1024</span><span class="special">)</span>
+      <span class="special">{</span>
+        <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle</span><span class="special">::</span><span class="identifier">mapped_file_ptr</span> <span class="identifier">mfp</span><span class="special">;</span>
+        <span class="keyword">if</span><span class="special">((</span><span class="identifier">mfp</span><span class="special">=</span><span class="identifier">_h</span><span class="special">-&gt;</span><span class="identifier">map_file</span><span class="special">()))</span>
+        <span class="special">{</span>
+          <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">idirectstream</span><span class="special">&gt;(</span><span class="identifier">_h</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">(),</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">mfp</span><span class="special">),</span> <span class="identifier">length</span><span class="special">));</span>
+          <span class="keyword">return</span> <span class="identifier">ret</span><span class="special">;</span>
+        <span class="special">}</span>
+      <span class="special">}</span>
+      <span class="comment">// Schedule the reading of the file into a buffer</span>
+      <span class="keyword">auto</span> <span class="identifier">buffer</span><span class="special">=</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;(</span><span class="identifier">length</span><span class="special">);</span>
+      <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_read</span><span class="special">(</span><span class="identifier">_h</span><span class="special">,</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">length</span><span class="special">,</span> <span class="number">0</span><span class="special">));</span>
+      <span class="comment">// When the read completes call this continuation</span>
+      <span class="keyword">return</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">then</span><span class="special">([</span><span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">length</span><span class="special">](</span><span class="keyword">const</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="special">&amp;</span><span class="identifier">h</span><span class="special">)</span> <span class="special">-&gt;</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="special">{</span>
+        <span class="comment">// If read failed, return the error or exception immediately</span>
+        <span class="identifier">BOOST_OUTCOME_PROPAGATE</span><span class="special">(</span><span class="identifier">h</span><span class="special">);</span>
+        <span class="identifier">data_store</span><span class="special">::</span><span class="identifier">istream</span> <span class="identifier">ret</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_shared</span><span class="special">&lt;</span><span class="identifier">idirectstream</span><span class="special">&gt;(</span><span class="identifier">h</span><span class="special">.</span><span class="identifier">get_handle</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">length</span><span class="special">));</span>
+        <span class="keyword">return</span> <span class="identifier">ret</span><span class="special">;</span>
+      <span class="special">});</span>
+    <span class="special">});</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span><span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="comment">// Boost.Monad futures are also monads, so this implies a make_ready_future()</span>
+    <span class="keyword">return</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">current_exception</span><span class="special">();</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+</pre>
+<p>
+          The input and output stream implementations are pretty similar to before,
+          but here they are for reference:
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">asio</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">asio</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">error_code</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">generic_category</span><span class="special">;</span>
+
+<span class="comment">// A special allocator of highly efficient file i/o memory</span>
+<span class="keyword">using</span> <span class="identifier">file_buffer_type</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">utils</span><span class="special">::</span><span class="identifier">page_allocator</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">&gt;&gt;;</span>
+
+<span class="comment">// An iostream which reads directly from a memory mapped AFIO file</span>
+<span class="keyword">struct</span> <span class="identifier">idirectstream</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span>
+<span class="special">{</span>
+  <span class="keyword">struct</span> <span class="identifier">directstreambuf</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span>
+  <span class="special">{</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">;</span>  <span class="comment">// Holds the file open</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;</span> <span class="identifier">buffer</span><span class="special">;</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle</span><span class="special">::</span><span class="identifier">mapped_file_ptr</span> <span class="identifier">mfp</span><span class="special">;</span>
+    <span class="comment">// From a mmap</span>
+    <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_h</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle</span><span class="special">::</span><span class="identifier">mapped_file_ptr</span> <span class="identifier">_mfp</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_h</span><span class="special">)),</span> <span class="identifier">mfp</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_mfp</span><span class="special">))</span>
+    <span class="special">{</span>
+      <span class="comment">// Set the get buffer this streambuf is to use</span>
+      <span class="identifier">setg</span><span class="special">((</span><span class="keyword">char</span> <span class="special">*)</span> <span class="identifier">mfp</span><span class="special">-&gt;</span><span class="identifier">addr</span><span class="special">,</span> <span class="special">(</span><span class="keyword">char</span> <span class="special">*)</span> <span class="identifier">mfp</span><span class="special">-&gt;</span><span class="identifier">addr</span><span class="special">,</span> <span class="special">(</span><span class="keyword">char</span> <span class="special">*)</span> <span class="identifier">mfp</span><span class="special">-&gt;</span><span class="identifier">addr</span> <span class="special">+</span> <span class="identifier">length</span><span class="special">);</span>
+    <span class="special">}</span>
+    <span class="comment">// From a malloc</span>
+    <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_h</span><span class="special">,</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;</span> <span class="identifier">_buffer</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_h</span><span class="special">)),</span> <span class="identifier">buffer</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_buffer</span><span class="special">))</span>
+    <span class="special">{</span>
+      <span class="comment">// Set the get buffer this streambuf is to use</span>
+      <span class="identifier">setg</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">length</span><span class="special">);</span>
+    <span class="special">}</span>
+  <span class="special">};</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">unique_ptr</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span><span class="special">&gt;</span> <span class="identifier">buf</span><span class="special">;</span>
+  <span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">U</span><span class="special">&gt;</span> <span class="identifier">idirectstream</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">,</span> <span class="identifier">U</span> <span class="special">&amp;&amp;</span><span class="identifier">buffer</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span><span class="special">(</span><span class="keyword">new</span> <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">h</span><span class="special">),</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">forward</span><span class="special">&lt;</span><span class="identifier">U</span><span class="special">&gt;(</span><span class="identifier">buffer</span><span class="special">),</span> <span class="identifier">length</span><span class="special">)),</span> <span class="identifier">buf</span><span class="special">(</span><span class="keyword">static_cast</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span> <span class="special">*&gt;(</span><span class="identifier">rdbuf</span><span class="special">()))</span>
+  <span class="special">{</span>
+  <span class="special">}</span>
+  <span class="keyword">virtual</span> <span class="special">~</span><span class="identifier">idirectstream</span><span class="special">()</span> <span class="identifier">override</span>
+  <span class="special">{</span>
+    <span class="comment">// Reset the stream before deleting the buffer</span>
+    <span class="identifier">rdbuf</span><span class="special">(</span><span class="keyword">nullptr</span><span class="special">);</span>
+  <span class="special">}</span>
+<span class="special">};</span>
+
+<span class="comment">// An iostream which writes to an AFIO file in 4Kb pages</span>
+<span class="keyword">struct</span> <span class="identifier">odirectstream</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span>
+<span class="special">{</span>
+  <span class="keyword">struct</span> <span class="identifier">directstreambuf</span> <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span>
+  <span class="special">{</span>
+    <span class="keyword">using</span> <span class="identifier">int_type</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span><span class="special">::</span><span class="identifier">int_type</span><span class="special">;</span>
+    <span class="keyword">using</span> <span class="identifier">traits_type</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">streambuf</span><span class="special">::</span><span class="identifier">traits_type</span><span class="special">;</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">lastwrite</span><span class="special">;</span> <span class="comment">// the last async write performed</span>
+    <span class="identifier">afio</span><span class="special">::</span><span class="identifier">off_t</span> <span class="identifier">offset</span><span class="special">;</span>       <span class="comment">// offset of next write</span>
+    <span class="identifier">file_buffer_type</span> <span class="identifier">buffer</span><span class="special">;</span>  <span class="comment">// a page size on this machine</span>
+    <span class="identifier">file_buffer_type</span> <span class="identifier">lastbuffer</span><span class="special">;</span>
+    <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_h</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">lastwrite</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">_h</span><span class="special">)),</span> <span class="identifier">offset</span><span class="special">(</span><span class="number">0</span><span class="special">),</span> <span class="identifier">buffer</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">utils</span><span class="special">::</span><span class="identifier">page_sizes</span><span class="special">().</span><span class="identifier">front</span><span class="special">())</span>
+    <span class="special">{</span>
+      <span class="comment">// Set the put buffer this streambuf is to use</span>
+      <span class="identifier">setp</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+    <span class="special">}</span>
+    <span class="keyword">virtual</span> <span class="special">~</span><span class="identifier">directstreambuf</span><span class="special">()</span> <span class="identifier">override</span>
+    <span class="special">{</span>
+      <span class="keyword">try</span>
+      <span class="special">{</span>
+        <span class="comment">// Flush buffers and wait until last write completes</span>
+        <span class="comment">// Schedule an asynchronous write of the buffer to storage</span>
+        <span class="identifier">size_t</span> <span class="identifier">thisbuffer</span> <span class="special">=</span> <span class="identifier">pptr</span><span class="special">()</span> <span class="special">-</span> <span class="identifier">pbase</span><span class="special">();</span>
+        <span class="keyword">if</span><span class="special">(</span><span class="identifier">thisbuffer</span><span class="special">)</span>
+          <span class="identifier">lastwrite</span> <span class="special">=</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_write</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_truncate</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">+</span><span class="identifier">thisbuffer</span><span class="special">),</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">thisbuffer</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">);</span>
+        <span class="identifier">lastwrite</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+      <span class="special">}</span>
+      <span class="keyword">catch</span><span class="special">(...)</span>
+      <span class="special">{</span>
+      <span class="special">}</span>
+    <span class="special">}</span>
+    <span class="keyword">virtual</span> <span class="identifier">int_type</span> <span class="identifier">overflow</span><span class="special">(</span><span class="identifier">int_type</span> <span class="identifier">c</span><span class="special">)</span> <span class="identifier">override</span>
+    <span class="special">{</span>
+      <span class="identifier">size_t</span> <span class="identifier">thisbuffer</span><span class="special">=</span><span class="identifier">pptr</span><span class="special">()-</span><span class="identifier">pbase</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">thisbuffer</span><span class="special">&gt;=</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">())</span>
+        <span class="identifier">sync</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">c</span><span class="special">!=</span><span class="identifier">traits_type</span><span class="special">::</span><span class="identifier">eof</span><span class="special">())</span>
+      <span class="special">{</span>
+        <span class="special">*</span><span class="identifier">pptr</span><span class="special">()=(</span><span class="keyword">char</span><span class="special">)</span><span class="identifier">c</span><span class="special">;</span>
+        <span class="identifier">pbump</span><span class="special">(</span><span class="number">1</span><span class="special">);</span>
+        <span class="keyword">return</span> <span class="identifier">traits_type</span><span class="special">::</span><span class="identifier">to_int_type</span><span class="special">(</span><span class="identifier">c</span><span class="special">);</span>
+      <span class="special">}</span>
+      <span class="keyword">return</span> <span class="identifier">traits_type</span><span class="special">::</span><span class="identifier">eof</span><span class="special">();</span>
+    <span class="special">}</span>
+    <span class="keyword">virtual</span> <span class="keyword">int</span> <span class="identifier">sync</span><span class="special">()</span> <span class="identifier">override</span>
+    <span class="special">{</span>
+      <span class="comment">// Wait for the last write to complete, propagating any exceptions</span>
+      <span class="identifier">lastwrite</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+      <span class="identifier">size_t</span> <span class="identifier">thisbuffer</span><span class="special">=</span><span class="identifier">pptr</span><span class="special">()-</span><span class="identifier">pbase</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">thisbuffer</span> <span class="special">&gt;</span> <span class="number">0</span><span class="special">)</span>
+      <span class="special">{</span>
+        <span class="comment">// Detach the current buffer and replace with a fresh one to allow the kernel to steal the page</span>
+        <span class="identifier">lastbuffer</span><span class="special">=</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">);</span>
+        <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">resize</span><span class="special">(</span><span class="identifier">lastbuffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+        <span class="identifier">setp</span><span class="special">(</span><span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">buffer</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+        <span class="comment">// Schedule an extension of physical storage by an extra page</span>
+        <span class="identifier">lastwrite</span> <span class="special">=</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_truncate</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">,</span> <span class="identifier">offset</span> <span class="special">+</span> <span class="identifier">thisbuffer</span><span class="special">);</span>
+        <span class="comment">// Schedule an asynchronous write of the buffer to storage</span>
+        <span class="identifier">lastwrite</span><span class="special">=</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">async_write</span><span class="special">(</span><span class="identifier">lastwrite</span><span class="special">,</span> <span class="identifier">lastbuffer</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">thisbuffer</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">);</span>
+        <span class="identifier">offset</span><span class="special">+=</span><span class="identifier">thisbuffer</span><span class="special">;</span>
+      <span class="special">}</span>
+      <span class="keyword">return</span> <span class="number">0</span><span class="special">;</span>
+    <span class="special">}</span>
+  <span class="special">};</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">unique_ptr</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span><span class="special">&gt;</span> <span class="identifier">buf</span><span class="special">;</span>
+  <span class="identifier">odirectstream</span><span class="special">(</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">h</span><span class="special">)</span> <span class="special">:</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">(</span><span class="keyword">new</span> <span class="identifier">directstreambuf</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">move</span><span class="special">(</span><span class="identifier">h</span><span class="special">))),</span> <span class="identifier">buf</span><span class="special">(</span><span class="keyword">static_cast</span><span class="special">&lt;</span><span class="identifier">directstreambuf</span> <span class="special">*&gt;(</span><span class="identifier">rdbuf</span><span class="special">()))</span>
+  <span class="special">{</span>
+  <span class="special">}</span>
+  <span class="keyword">virtual</span> <span class="special">~</span><span class="identifier">odirectstream</span><span class="special">()</span> <span class="identifier">override</span>
+  <span class="special">{</span>
+    <span class="comment">// Reset the stream before deleting the buffer</span>
+    <span class="identifier">rdbuf</span><span class="special">(</span><span class="keyword">nullptr</span><span class="special">);</span>
+  <span class="special">}</span>
+<span class="special">};</span>
+</pre>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="naive_afio.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../workshop.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="naive_afio_async/naive_racy.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

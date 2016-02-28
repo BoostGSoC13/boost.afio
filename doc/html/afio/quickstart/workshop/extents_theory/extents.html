@@ -1,0 +1,487 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>The final named blob store design</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../extents_theory.html" title="5. Third attempt at a key-value store: Thinking like a filing system">
+<link rel="prev" href="../extents_theory.html" title="5. Third attempt at a key-value store: Thinking like a filing system">
+<link rel="next" href="extents_problems.html" title="The performance of and problems with this third generation design">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="../extents_theory.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../extents_theory.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="extents_problems.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.quickstart.workshop.extents_theory.extents"></a><a class="link" href="extents.html" title="The final named blob store design">The
+          final named blob store design</a>
+</h5></div></div></div>
+<div class="caution"><table border="0" summary="Caution">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Caution]" src="../../../../../../doc/src/images/caution.png"></td>
+<th align="left">Caution</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+              This section was not finished in time for the beginning of the Boost
+              peer review due a hard drive failure induced by the testing of AFIO-based
+              key-value stores in this workshop tutorial (sigh!), but it will be
+              finished shortly after I get up and running again on a new hard drive
+              (as I write this, the drive is being cloned in between periods it hangs
+              and I have to power cycle to get it back for more cloning). The page
+              content is representative of the final edition, however the source
+              code listed has not been debugged nor tuned for performance yet and
+              is therefore not listed here. The benchmarks are obviously missing
+              for this solution on the next page.
+            </p></td></tr>
+</table></div>
+<p>
+            As you might have guessed from the theory on the preceding page, the
+            final design of the key-value store is radically different to before.
+            Instead of storing each value in its own file, we have this store structure
+            instead:
+          </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">index</span></code>
+                <p>
+                  This always growing file is a simple linear history of snapshot
+                  state of the key-value store with a full copy of all the key-value
+                  pairs being written per transaction as a single shot atomic append.
+                  The blobs are referred to by unique integer index into a linked
+                  small blob index (see below). The key-value pairs are stored on-disk
+                  as a dense hash map which is very friendly to memory maps, eight
+                  bytes per entry, with the key strings stored contiguously after
+                  the hash array.
+                </p>
+                <p>
+                  Each index record appended to the index is content hashed, and
+                  if during later parsing the hash does not match the contents the
+                  record is ignored. If after power loss the end of the index is
+                  trashed, the solution below will replay the history of transactions
+                  from the beginning, skipping any deallocated extents, until it
+                  finds the most recent complete undamaged index which does not refer
+                  to damaged blobs (see below).
+                </p>
+              </li>
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">large_blob_store</span></code>
+              </li>
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">large_blob_store</span><span class="special">.</span><span class="identifier">ecc</span></code>
+                <p>
+                  We don't implement the large blob store in the solution below to
+                  keep the code brief, however it is intended to house any blob sized
+                  4Kb or above as memory maps are a much superior way of working
+                  with larger values and keeping large blobs separately makes extent
+                  fragmentation from hole punching much less expensive. Unlike the
+                  other files, the large blob store is not necessarily always atomic
+                  appended, a deallocated extent might be reallocated for example.
+                  This eliminates the problem of ever exceeding a <code class="computeroutput"><span class="number">2</span><span class="special">^</span><span class="number">64</span></code>
+                  maximum file size.
+                </p>
+                <p>
+                  Each large blob is <span class="bold"><strong>always</strong></span> aligned
+                  to a 4Kb boundary to allow memory mapping. The large blob store
+                  is quite stupid and contains no metadata at all &#8212; it relies
+                  on the small blob store for all metadata. This stupidity, and the
+                  fact it is a separate file, allows you to speculatively allocate
+                  new blob value storage before a new value is written such that
+                  one writes directly into the final storage from the beginning with
+                  no unneeded memory copying. One then either commits the new value
+                  or throws it away by punching a hole over it. You will notice below
+                  that each blob keeps an age from a monotonically increase count
+                  based on updates, this is used to keep a blob pinned into existence
+                  for a period even if it is not in use.
+                </p>
+                <p>
+                  In short, the large blob file provides a large number of useful
+                  optimisations, but is not strictly speaking necessary. You could
+                  just use the small blob file for all blobs, and that is what this
+                  simplified implementation does for brevity.
+                </p>
+                <p>
+                  You are probably curious about the ECC file. The ECC file is a
+                  SECDED 32784,32768 Hamming code, so 16 bits (2 bytes) of ECC per
+                  4096 bytes. This file allows single bit flips to be healed which
+                  can save a blob from being invalidated due to failing its hash
+                  check. We don't bother using this for either the index or the small
+                  blob store as almost all bit flips seen in a computer system stem
+                  from non-ECC RAM rather than long term storage, and the overhead
+                  of ECC calculation is probably not worth it except for large BLOBs
+                  given the statistical chance of a bit flip. AFIO provides a very
+                  fast SECDED implementation in <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">utils</span><span class="special">::</span><span class="identifier">secded_ecc</span><span class="special">&lt;&gt;</span></code>.
+                </p>
+              </li>
+<li class="listitem">
+                <code class="computeroutput"><span class="identifier">store</span><span class="special">/</span><span class="identifier">small_blob_store</span></code>
+                <p>
+                  The small blob store is where all the blob values live. To add
+                  a new value, one simply constructs a blob value record and atomically
+                  appends it in a single shot. Each blob has a hash of its content,
+                  and if the hash does not match its contents it is considered invalid
+                  and pending deallocation via hole punching.
+                </p>
+              </li>
+</ul></div>
+<p>
+            The operations involved in opening a data store for use become these:
+          </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+                Create/open the store directory.
+              </li>
+<li class="listitem">
+                Create/open for atomic append only the <code class="computeroutput"><span class="identifier">index</span></code>
+                and <code class="computeroutput"><span class="identifier">small_blob_store</span></code>
+                files.
+              </li>
+<li class="listitem">
+                Open for read write the <code class="computeroutput"><span class="identifier">index</span></code>
+                and <code class="computeroutput"><span class="identifier">small_blob_store</span></code>
+                files into a second open handle.
+              </li>
+<li class="listitem">
+                If either the <code class="computeroutput"><span class="identifier">index</span></code>
+                or <code class="computeroutput"><span class="identifier">small_blob_store</span></code>
+                files have zero length, atomic append into each their 32 byte header.
+                This is racy, but safe as spurious additional 32 byte headers are
+                ignored by the parsing code.
+              </li>
+<li class="listitem">
+                If either the <code class="computeroutput"><span class="identifier">index</span></code>
+                or <code class="computeroutput"><span class="identifier">small_blob_store</span></code>
+                files specify a last known length which is greater than the size
+                reported by the operating system, or the last good index specified
+                by the header points to a corrupted index, we consider either or
+                both to be dirty. We firstly replay the small blob store from the
+                beginning, skipping any deallocated extents, and we atomic append
+                a blob store index (a map of content hashes to offsets in either
+                the small or large blob store), updating the header to point at the
+                new blob store index.
+                <p>
+                  We then replay the index from the beginning, skipping any deallocated
+                  extents, matching off valid index records against our most recently
+                  generated blob store index. We choose the last uncorrupted index
+                  which does not refer to hashes of unavailable content.
+                </p>
+              </li>
+</ol></div>
+<p>
+            If two processes concurrently open the same dirty data store and both
+            repair the store, you will note that the above healing process is invariant
+            to concurrent heals. Again, the parsing code correctly skips spurious
+            atomic writes.
+          </p>
+<p>
+            The operations involved for reading a key-value:
+          </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+                We reload the index and blob store index loaded into memory if it
+                has changed (by simply checking if the file size for either has grown).
+              </li>
+<li class="listitem">
+                We look up the blob index mapped by the key.
+              </li>
+<li class="listitem">
+                We look up the blob store file linked to by the index and get the
+                offset and file for the content.
+              </li>
+<li class="listitem">
+                We read the value to be delivered using the input stream, similar
+                to the second generation key-value store.
+              </li>
+</ol></div>
+<p>
+            The operations involved for writing a key-value:
+          </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+                We hand out an output stream which records all output to memory.
+              </li>
+<li class="listitem">
+                On the destruction of the output stream, we build the gather write
+                buffers for writing a blob with this value (i.e. hashing the contents
+                etc).
+              </li>
+<li class="listitem">
+                We refresh the blob store index and see if this blob is already stored
+                with an age less than 50. If so, we update its age to 0 along with
+                all other blobs referred to by the index. If not, we atomic append
+                the new blob and loop trying to atomic append an updated canonical
+                blob store index until success (we must loop as we must reconcile
+                with other concurrent writers). On success, we update the header
+                at the front of the small blob store file to point at the new canonical
+                blob store index with an incremented time count (this being a monotonically
+                increasing count of successful blob store updates).
+              </li>
+<li class="listitem">
+                We refresh the index and update or add the key mapping to the map
+                of keys to blob store index item, atomically appending the new index.
+                If someone else wrote a new index between our starting index and
+                our just written index, we return a transaction conflict error. On
+                success, we update the header at the front of the index file to point
+                at the new canonical index.
+              </li>
+<li class="listitem">
+                Every few thousand new indices we punch a hole earlier in index history
+                by calling <a class="link" href="../../../reference/functions/zero.html" title="Functions for deallocating/zeroing physical storage"><code class="computeroutput"><span class="identifier">async_zero</span><span class="special">()</span></code></a>.
+                We always leave around a few thousand indices for replay after sudden
+                power loss.
+              </li>
+</ol></div>
+<p>
+            It may now seem that there is a big race condition in between atomic
+            appends of a new canonical index for either store and the updating of
+            the header at the front of the file. This is correct, but is solved by
+            the following index parsing algorithm for both store files:
+          </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+                Read the header at the front of the file for the hint to the current
+                canonical index.
+              </li>
+<li class="listitem">
+                Parse each record from the hint onwards until the end of the file.
+              </li>
+</ol></div>
+<p>
+            In other words, a racily written hint adds a small bit of work to the
+            parser, but nothing important. All we care is that it is approximately
+            correct.
+          </p>
+<p>
+            We don't implement item deletion as we didn't in either of the previous
+            two generation key-value stores, however if one were to implement it
+            it would have these operations:
+          </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+                For all blobs in the blob store index with an age greater than 100
+                (this implies that writer concurrency must never exceed 50), and
+                where their contiguous storage exceeds 4Kb, we remove those entries
+                from the blob store index and write a new canonical blob store index.
+              </li>
+<li class="listitem">
+                If entries were removed, we calculate a set of extents to be deallocated
+                and fire and forget a call to batch <a class="link" href="../../../reference/functions/zero.html" title="Functions for deallocating/zeroing physical storage"><code class="computeroutput"><span class="identifier">async_zero</span><span class="special">()</span></code></a>.
+                The extents to be deallocated are calculated by walking the small
+                blob index and keeping a record of extents not referred to (i.e.
+                the gaps between blobs stored). For each of those containing an aligned
+                4Kb quantity or more we rewrite the record header to have any parser
+                skip the deallocated extent, and deallocate the rest.
+              </li>
+</ol></div>
+<p>
+            So let's look at our new interface file. It looks pretty similar to before,
+            the only real change is the many new private member variable <code class="computeroutput"><span class="identifier">handle_ptr</span></code>'s to the store files described
+            above. Another change is that we now return a <code class="computeroutput"><span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;</span></code> for writing but a <code class="computeroutput"><span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;</span></code> for reading &#8212; this is because
+            as explained earlier, writes are now fully buffered to memory before
+            being hashed and committed as a transaction, so by explicitly returning
+            a monad we are saying that this is now a synchronous operation (one could
+            just return an already ready shared future, but this method makes public
+            API assurances, and because a <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>
+            future is a monad, your code will likely not even notice).
+          </p>
+<pre class="programlisting"><span class="keyword">namespace</span> <span class="identifier">afio</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">;</span>
+<span class="keyword">namespace</span> <span class="identifier">filesystem</span> <span class="special">=</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">outcome</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_OUTCOME_V1_NAMESPACE</span><span class="special">::</span><span class="identifier">lightweight_futures</span><span class="special">::</span><span class="identifier">shared_future</span><span class="special">;</span>
+
+<span class="keyword">class</span> <span class="identifier">data_store</span>
+<span class="special">{</span>
+  <span class="keyword">struct</span> <span class="identifier">_ostream</span><span class="special">;</span>
+  <span class="keyword">friend</span> <span class="keyword">struct</span> <span class="identifier">_ostream</span><span class="special">;</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher_ptr</span> <span class="identifier">_dispatcher</span><span class="special">;</span>
+  <span class="comment">// The small blob store keeps non-memory mappable blobs at 32 byte alignments</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_small_blob_store</span><span class="special">,</span> <span class="identifier">_small_blob_store_append</span><span class="special">,</span> <span class="identifier">_small_blob_store_ecc</span><span class="special">;</span>
+  <span class="comment">// The large blob store keeps memory mappable blobs at 4Kb alignments</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_large_blob_store</span><span class="special">,</span> <span class="identifier">_large_blob_store_append</span><span class="special">,</span> <span class="identifier">_large_blob_store_ecc</span><span class="special">;</span>
+  <span class="comment">// The index is where we keep the map of keys to blobs</span>
+  <span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span> <span class="identifier">_index_store</span><span class="special">,</span> <span class="identifier">_index_store_append</span><span class="special">,</span> <span class="identifier">_index_store_ecc</span><span class="special">;</span>
+  <span class="keyword">struct</span> <span class="identifier">index</span><span class="special">;</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">unique_ptr</span><span class="special">&lt;</span><span class="identifier">index</span><span class="special">&gt;</span> <span class="identifier">_index</span><span class="special">;</span>
+<span class="keyword">public</span><span class="special">:</span>
+  <span class="comment">// Type used for read streams</span>
+  <span class="keyword">using</span> <span class="identifier">istream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write streams</span>
+  <span class="keyword">using</span> <span class="identifier">ostream</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for lookup</span>
+  <span class="keyword">using</span> <span class="identifier">lookup_result_type</span> <span class="special">=</span> <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;;</span>
+  <span class="comment">// Type used for write</span>
+  <span class="keyword">using</span> <span class="identifier">write_result_type</span> <span class="special">=</span> <span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;;</span>
+
+  <span class="comment">// Disposition flags</span>
+  <span class="keyword">static</span> <span class="keyword">constexpr</span> <span class="identifier">size_t</span> <span class="identifier">writeable</span> <span class="special">=</span> <span class="special">(</span><span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">0</span><span class="special">);</span>
+
+  <span class="comment">// Open a data store at path</span>
+  <span class="identifier">data_store</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">flags</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span> <span class="special">=</span> <span class="string">"store"</span><span class="special">);</span>
+
+  <span class="comment">// Look up item named name for reading, returning an istream for the item</span>
+  <span class="identifier">shared_future</span><span class="special">&lt;</span><span class="identifier">istream</span><span class="special">&gt;</span> <span class="identifier">lookup</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+  <span class="comment">// Look up item named name for writing, returning an ostream for that item</span>
+  <span class="identifier">outcome</span><span class="special">&lt;</span><span class="identifier">ostream</span><span class="special">&gt;</span> <span class="identifier">write</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">string</span> <span class="identifier">name</span><span class="special">)</span> <span class="keyword">noexcept</span><span class="special">;</span>
+<span class="special">};</span>
+</pre>
+<p>
+            More code is to come ...
+          </p>
+<div class="table">
+<a name="afio.quickstart.workshop.extents_theory.extents.conditions"></a><p class="title"><b>Table&#160;1.9.&#160;This third generation solution will perform excellently under
+            these conditions:</b></p>
+<div class="table-contents"><table class="table" summary="This third generation solution will perform excellently under
+            these conditions:">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  </th>
+<th>
+                    <p>
+                      Condition
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      On Microsoft Windows you can place the store deep in a directory
+                      hierarchy and use long key names.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Third party threads and processes can rename the location of
+                      the store during use.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      The size of <span class="emphasis"><em>all</em></span> the values being read
+                      at any given time fits into your virtual address space (which
+                      is at least 2Gb on 32 bit, 8Tb on 64 bit).
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      As many processes and threads may read and write to the store
+                      concurrently as you like, including CIFS clients but excluding
+                      NFS clients.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Processes may unexpectedly exit during modifies with no consequence
+                      on consistency.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Lookup performance is breathtakingly swift and close to invariant
+                      to item count. Write performance is much slower, but a lot
+                      faster than the atomic rename based design.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Sudden power loss will restore the key-value store to some
+                      point in history preserving the exact ordering of updates.
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      <span class="aligncenter"><span class="green">&#10004;</span></span>
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      This design allows the atomic transactional update of as many
+                      key-value item at once as you like.
+                    </p>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<br class="table-break">
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="../extents_theory.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../extents_theory.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="extents_problems.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>future</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../classes.html" title="Classes">
+<link rel="prev" href="enqueued_task_r___.html" title="enqueued_task&lt; R()&gt;">
+<link rel="next" href="future_void_.html" title="future&lt; void &gt;">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="enqueued_task_r___.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="future_void_.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.classes.future"></a><a class="link" href="future.html" title="future">future</a>
+</h4></div></div></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'future';
+var disqus_title = 'Boost.AFIO future';
+</script>
+        </p>
+<p>
+          <a class="indexterm" name="idp16349248"></a>
+The future status of a scheduled asynchronous operation.
+        </p>
+<h6>
+<a name="afio.reference.classes.future.h0"></a>
+          <span><a name="afio.reference.classes.future.description"></a></span><a class="link" href="future.html#afio.reference.classes.future.description">Description</a>
+        </h6>
+<p>
+          Other than the fact that <code class="literal"><code class="computeroutput"><span class="identifier">get</span><span class="special">()</span></code></code> returns a <code class="literal"><code class="computeroutput"><span class="identifier">T</span></code></code> and <code class="literal"><code class="computeroutput"><span class="identifier">get_handle</span><span class="special">()</span></code></code>
+          returns a handle, the errored and excepted state for both is identical
+          and non-consuming for both.
+        </p>
+<p>
+          Finally, note that there is a freely available type slice from <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code></code>
+          to <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span></code></code>
+          which moves/copies only the <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span></code></code> part of the <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code></code>,
+          leaving the <code class="literal"><code class="computeroutput"><span class="identifier">T</span></code></code>
+          behind. This is because the AFIO engine resides behind a stable ABI layer
+          which cannot know anything about arbitrary types, and therefore it accepts
+          only <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="keyword">void</span><span class="special">&gt;</span></code></code>.
+          Equally, this means you can supply a <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code></code> as a precondition to another
+          op safe in the knowledge that any <code class="literal"><code class="computeroutput"><span class="identifier">T</span></code></code>
+          part will remain untouched for later consumption.
+        </p>
+<h6>
+<a name="afio.reference.classes.future.h1"></a>
+          <span><a name="afio.reference.classes.future.synopsis"></a></span><a class="link" href="future.html#afio.reference.classes.future.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">,</span> <span class="special">&gt;</span>
+<span class="keyword">class</span> <span class="identifier">future</span>
+<span class="special">{</span>
+  <span class="comment">// ...</span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.classes.future.h2"></a>
+          <span><a name="afio.reference.classes.future.template_parameter_s"></a></span><a class="link" href="future.html#afio.reference.classes.future.template_parameter_s">Template parameter(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Parameter
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Default
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    class T
+                  </p>
+                </td>
+<td>
+                  <p>
+                    void
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    Any returned result. Note this is defaulted to <code class="literal"><code class="computeroutput"><span class="keyword">void</span></code></code> for you, so usually
+                    you write <code class="literal"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;&gt;</span></code></code>. As of v1.4
+                    of the AFIO engine, the legacy <code class="literal"><code class="computeroutput"><span class="identifier">async_io_op</span></code></code>
+                    struct has been replaced with this custom future type based on
+                    the lightweight future-promise factory toolkit in forthcoming
+                    Boost.Monad. This custom future type consists of two pieces of
+                    future data each with different semantics:A <code class="literal"><code class="computeroutput"><span class="identifier">handle_ptr</span></code></code> retrieved
+                    using <code class="literal"><code class="computeroutput"><span class="identifier">get_handle</span><span class="special">()</span></code></code>, <code class="literal"><code class="computeroutput"><span class="keyword">operator</span><span class="special">*</span></code></code>
+                    and <code class="literal"><code class="computeroutput"><span class="keyword">operator</span><span class="special">-&gt;</span></code></code> - this is the
+                    shared i/o handle returned by the asynchronous operation. This
+                    has non-consuming semantics i.e. you can call <code class="literal"><code class="computeroutput"><span class="identifier">get_handle</span><span class="special">()</span></code></code>
+                    as many times as you like. Note that for legacy compatibility
+                    reasons, calling <code class="literal"><code class="computeroutput"><span class="identifier">get_handle</span><span class="special">()</span></code></code> on an invalid instance
+                    returns a null shared pointer instead of an exception throw.If
+                    T is non-void, any type <code class="literal"><code class="computeroutput"><span class="identifier">T</span></code></code>
+                    - this is any additional data returned by an asynchronous operation
+                    above and beyond the i/o handle (e.g. <code class="literal"><code class="computeroutput"><span class="identifier">enumerate</span><span class="special">()</span></code></code>
+                    returns a <code class="literal"><code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span></code><code class="computeroutput"><span class="identifier">directory_entry</span></code><code class="computeroutput"><span class="special">&gt;,</span> <span class="keyword">bool</span><span class="special">&gt;</span></code></code>. This has <span class="emphasis"><em>consuming</em></span>
+                    semantics, so calling <code class="literal"><code class="computeroutput"><span class="identifier">get</span><span class="special">()</span></code></code> returns the result
+                    exactly once.
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.future.h3"></a>
+          <span><a name="afio.reference.classes.future.constructor_s"></a></span><a class="link" href="future.html#afio.reference.classes.future.constructor_s">Constructor(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">future</span><span class="special">()</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">future</span><span class="special">(</span><span class="identifier">dispatcher</span> <span class="special">*</span> <span class="identifier">parent</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">id</span><span class="special">,</span> <span class="identifier">shared_future</span><span class="special">&lt;</span> <span class="identifier">handle_ptr</span> <span class="special">&gt;</span> <span class="identifier">handle</span><span class="special">,</span>
+        <span class="identifier">stl_future</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;</span> <span class="identifier">result</span><span class="special">,</span> <span class="keyword">bool</span> <span class="identifier">check_handle</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">,</span> <span class="keyword">bool</span> <span class="identifier">validate</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>dispatcher *</strong></span>: <span class="emphasis"><em>parent</em></span>:
+                    The dispatcher this op belongs to.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>id</em></span>:
+                    The unique non-zero id of this op.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>shared_future&lt; handle_ptr &gt;</strong></span>:
+                    <span class="emphasis"><em>handle</em></span>: A shared_future to shared state
+                    between all instances of this reference.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>stl_future&lt; T &gt;</strong></span>: <span class="emphasis"><em>result</em></span>:
+                    A future to any result from the operation.
+                  </p>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>check_handle</em></span>:
+                    Whether to have validation additionally check if a handle is
+                    not null
+                  </p>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>validate</em></span>:
+                    Whether to check the inputs and shared state for valid (and not
+                    errored) values
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">future</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;</span> <span class="keyword">void</span> <span class="special">&gt;</span> <span class="special">&amp;&amp;</span> <span class="identifier">o</span><span class="special">,</span> <span class="identifier">stl_future</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;</span> <span class="special">&amp;&amp;</span> <span class="identifier">result</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>future&lt; void &gt; &amp;&amp;</strong></span>:
+                    <span class="emphasis"><em>o</em></span>: The future&lt;void&gt;
+                  </p>
+                  <p>
+                    <span class="bold"><strong>stl_future&lt; T &gt; &amp;&amp;</strong></span>:
+                    <span class="emphasis"><em>result</em></span>: The future&lt;T&gt; to add
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.future.h4"></a>
+          <span><a name="afio.reference.classes.future.member_function_s"></a></span><a class="link" href="future.html#afio.reference.classes.future.member_function_s">Member
+          Function(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Returns
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">valid</span><span class="special">(</span><span class="keyword">bool</span> <span class="identifier">just_handle</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    True if this future is valid.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>just_handle</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">T</span> <span class="identifier">get</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Waits for the future to become ready, returning any value or
+                    rethrowing any exception found. Throws a <code class="literal"><code class="computeroutput"><span class="identifier">future_errc</span><span class="special">::</span><span class="identifier">no_state</span></code></code> if this
+                    future is invalid.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">U</span><span class="special">&gt;</span>
+<span class="keyword">auto</span> <span class="identifier">then</span><span class="special">(</span><span class="identifier">U</span> <span class="special">&amp;&amp;</span> <span class="identifier">f</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Schedules a callable to be invoked after this future becomes
+                    ready. If this future is null, use the current async file i/o
+                    dispatcher.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>U &amp;&amp;</strong></span>: <span class="emphasis"><em>f</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.future.h5"></a>
+          <span><a name="afio.reference.classes.future.header"></a></span><a class="link" href="future.html#afio.reference.classes.future.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="enqueued_task_r___.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="future_void_.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

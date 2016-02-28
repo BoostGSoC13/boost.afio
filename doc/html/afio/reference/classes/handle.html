@@ -1,0 +1,593 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>handle</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../classes.html" title="Classes">
+<link rel="prev" href="future_void_.html" title="future&lt; void &gt;">
+<link rel="next" href="handle/open_states.html" title="open_states">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="future_void_.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="handle/open_states.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.classes.handle"></a><a class="link" href="handle.html" title="handle">handle</a>
+</h4></div></div></div>
+<div class="toc"><dl>
+<dt><span class="section"><a href="handle/open_states.html">open_states</a></span></dt>
+<dt><span class="section"><a href="handle/handle_mapped_file.html">handle::mapped_file</a></span></dt>
+<dt><span class="section"><a href="handle/path.html">path</a></span></dt>
+<dt><span class="section"><a href="handle/direntry.html">direntry</a></span></dt>
+<dt><span class="section"><a href="handle/target.html">target</a></span></dt>
+<dt><span class="section"><a href="handle/link.html">link</a></span></dt>
+<dt><span class="section"><a href="handle/unlink.html">unlink</a></span></dt>
+<dt><span class="section"><a href="handle/atomic_relink.html">atomic_relink</a></span></dt>
+</dl></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'handle';
+var disqus_title = 'Boost.AFIO handle';
+</script>
+
+        </p>
+<p>
+          <a class="indexterm" name="idp16641520"></a>
+The abstract base class encapsulating a platform-specific file handle.
+        </p>
+<h6>
+<a name="afio.reference.classes.handle.h0"></a>
+          <span><a name="afio.reference.classes.handle.description"></a></span><a class="link" href="handle.html#afio.reference.classes.handle.description">Description</a>
+        </h6>
+<p>
+          Note that failure to explicitly schedule closing a file handle in the dispatcher
+          means it will be synchronously closed on last reference count by handle.
+          This can consume considerable time, especially if SyncOnClose is enabled.
+        </p>
+<h6>
+<a name="afio.reference.classes.handle.h1"></a>
+          <span><a name="afio.reference.classes.handle.synopsis"></a></span><a class="link" href="handle.html#afio.reference.classes.handle.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">class</span> <span class="identifier">handle</span>
+      <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">enable_shared_from_this</span><span class="special">&lt;</span> <span class="identifier">handle</span> <span class="special">&gt;</span>
+<span class="special">{</span>
+  <span class="comment">// ...</span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.classes.handle.h2"></a>
+          <span><a name="afio.reference.classes.handle.constructor_s"></a></span><a class="link" href="handle.html#afio.reference.classes.handle.constructor_s">Constructor(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+</tr></thead>
+<tbody><tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="special">~</span><span class="identifier">handle</span><span class="special">()</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.handle.h3"></a>
+          <span><a name="afio.reference.classes.handle.member_function_s"></a></span><a class="link" href="handle.html#afio.reference.classes.handle.member_function_s">Member
+          Function(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Returns
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">dispatcher</span> <span class="special">*</span> <span class="identifier">parent</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the parent of this io handle.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">handle_ptr</span> <span class="identifier">container</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns a handle to the directory containing this handle. Only
+                    works if <code class="literal"><code class="computeroutput"><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">hold_parent_open</span></code></code>
+                    was specified when this handle was opened.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">open_states</span> <span class="identifier">is_open</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns if this handle is opened or not.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="special">*</span> <span class="identifier">native_handle</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the native handle of this io handle. On POSIX, you can
+                    cast this to a fd using <code class="literal"><code class="computeroutput"><span class="special">(</span><span class="keyword">int</span><span class="special">)(</span><span class="identifier">size_t</span><span class="special">)</span>
+                    </code><code class="computeroutput"><span class="identifier">native_handle</span><span class="special">()</span></code></code>. On Windows it's
+                    a simple <code class="literal"><code class="computeroutput"><span class="special">(</span><span class="identifier">HANDLE</span><span class="special">)</span>
+                    </code><code class="computeroutput"><span class="identifier">native_handle</span><span class="special">()</span></code></code>.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">const</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">system_clock</span><span class="special">::</span><span class="identifier">time_point</span> <span class="special">&amp;</span> <span class="identifier">opened</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns when this handle was opened.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span><span class="special">(</span><span class="keyword">bool</span> <span class="identifier">refresh</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the path of this i/o handle right now if the handle is
+                    open and <span class="emphasis"><em>refresh</em></span> is true, else last known
+                    good. May be null if the file has been deleted.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>refresh</em></span>:
+                    Whether to ask the OS for the current path of this handle.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    The path of this i/o handle right now.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">path</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the last known good path of this i/o handle. May be null
+                    if the file has been deleted.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">file_flags</span> <span class="identifier">flags</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the final flags used when this handle was opened.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">opened_as_file</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    True if this handle was opened as a file.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">opened_as_dir</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    True if this handle was opened as a directory.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">opened_as_symlink</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    True if this handle was opened as a symlink.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">available_to_directory_cache</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    True if this handle is used by the directory handle cache (not
+                    UniqueDirectoryHandle and is open for write and not open for
+                    write)
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">off_t</span> <span class="identifier">read_count</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns how many bytes have been read since this handle was opened.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">off_t</span> <span class="identifier">write_count</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns how many bytes have been written since this handle was
+                    opened.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">off_t</span> <span class="identifier">write_count_since_fsync</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns how many bytes have been written since this handle was
+                    last fsynced.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span> <span class="identifier">direntry</span><span class="special">(</span><span class="identifier">metadata_flags</span> <span class="identifier">wanted</span> <span class="special">=</span> <span class="identifier">directory_entry</span><span class="special">::</span><span class="identifier">metadata_fastpath</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns a mostly filled directory_entry for the file or directory
+                    referenced by this handle. Use <code class="literal"><code class="computeroutput"><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">All</span></code></code>
+                    if you want it as complete as your platform allows, even at the
+                    cost of severe performance loss.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>wanted</em></span>:
+                    The metadata wanted.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A directory entry for this handle.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">stat_t</span> <span class="identifier">lstat</span><span class="special">(</span><span class="identifier">metadata_flags</span> <span class="identifier">wanted</span> <span class="special">=</span> <span class="identifier">directory_entry</span><span class="special">::</span><span class="identifier">metadata_fastpath</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns a mostly filled stat_t structure for the file or directory
+                    referenced by this handle. Use <code class="literal"><code class="computeroutput"><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">All</span></code></code>
+                    if you want it as complete as your platform allows, even at the
+                    cost of severe performance loss. Calls direntry(), so same race
+                    guarantees as that call.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>wanted</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">target</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns the target path of this handle if it is a symbolic link.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    The path the symbolic link points to. May not exist or even be
+                    valid.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">mapped_file_ptr</span> <span class="identifier">map_file</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">length</span> <span class="special">=</span> <span class="special">(</span><span class="identifier">size_t</span><span class="special">)-</span><span class="number">1</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="identifier">offset</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="keyword">bool</span> <span class="identifier">read_only</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Maps the file into memory, returning a null pointer if couldn't
+                    map (e.g. address space exhaustion). Do NOT mix this with <code class="literal"><code class="computeroutput"><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">os_direct</span></code></code>!
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>length</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>off_t</strong></span>: <span class="emphasis"><em>offset</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>bool</strong></span>: <span class="emphasis"><em>read_only</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="identifier">link</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">path_req</span> <span class="special">&amp;</span> <span class="identifier">req</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Hard links the file to a new location on the same volume.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const path_req &amp;</strong></span>: <span class="emphasis"><em>req</em></span>:
+                    The absolute or relative (in which case precondition specifies
+                    a directory) path to create a hard link at.
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="identifier">unlink</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Unlinks the file from its present location as determined by path(true),
+                    which could be any hard link on those operating systems with
+                    an unstable path(true). Other links may remain to the same file.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">void</span> <span class="identifier">atomic_relink</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">path_req</span> <span class="special">&amp;</span> <span class="identifier">req</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Links the file to a new location and unlinks the file from its
+                    present location as determined by path(true), <span class="emphasis"><em>atomically
+                    overwriting any file entry at the new location</em></span>. Very
+                    useful for preparing file content elsewhere and once ready, atomically
+                    making it visible at some named location to other processes.
+                    Note that operating systems with an unstable path(true) may relink
+                    any hard link to the file to the new location.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const path_req &amp;</strong></span>: <span class="emphasis"><em>req</em></span>:
+                    The absolute or relative (in which case precondition specifies
+                    a directory) path to relink to.
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.handle.h4"></a>
+          <span><a name="afio.reference.classes.handle.header"></a></span><a class="link" href="handle.html#afio.reference.classes.handle.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="future_void_.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="handle/open_states.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

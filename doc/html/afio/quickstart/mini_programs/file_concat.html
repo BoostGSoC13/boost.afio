@@ -1,0 +1,338 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>A less toy example: Concatenating files</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../mini_programs.html" title="Example mini-programs written using AFIO">
+<link rel="prev" href="hello_world.html" title="Hello World, asynchronously!">
+<link rel="next" href="atomic_logging.html" title="Achieving atomicity on the filing system">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="hello_world.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../mini_programs.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="atomic_logging.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.quickstart.mini_programs.file_concat"></a><a class="link" href="file_concat.html" title="A less toy example: Concatenating files">A less toy
+        example: Concatenating files</a>
+</h4></div></div></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'file_concat';
+var disqus_title = 'Boost.AFIO Concatenating files';
+</script>
+        </p>
+<p>
+          The Hello World example didn't really demonstrate why using AFIO is any
+          better than using STL iostreams. The final example in this quick start
+          will give a <span class="quote">&#8220;<span class="quote">real world</span>&#8221;</span> and unfortunately somewhat overwhelming
+          in complexity example of how AFIO can run rings around STL iostreams (complete
+          with benchmarks!), so as an intermediate &#8212; and hopefully not as
+          overwhelming &#8212; step here is a simple file copy utility which can
+          also concatenate multiple source files into a destination file<sup>[<a name="afio.quickstart.mini_programs.file_concat.f0" href="#ftn.afio.quickstart.mini_programs.file_concat.f0" class="footnote">9</a>]</sup>.
+        </p>
+<pre class="programlisting"><span class="keyword">namespace</span>
+<span class="special">{</span>
+  <span class="keyword">using</span> <span class="keyword">namespace</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">;</span>
+  <span class="keyword">using</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">off_t</span><span class="special">;</span>
+
+  <span class="comment">// Keep memory buffers around</span>
+  <span class="comment">// A special allocator of highly efficient file i/o memory</span>
+  <span class="keyword">typedef</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">,</span> <span class="identifier">utils</span><span class="special">::</span><span class="identifier">page_allocator</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">&gt;&gt;</span> <span class="identifier">file_buffer_type</span><span class="special">;</span>
+  <span class="keyword">static</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">unique_ptr</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;&gt;</span> <span class="identifier">buffers</span><span class="special">;</span>
+
+  <span class="comment">// Parallel copy files in sources into dest, concatenating</span>
+  <span class="identifier">stl_future</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">handle_ptr</span><span class="special">&gt;&gt;</span>
+  <span class="identifier">async_concatenate_files</span><span class="special">(</span><span class="identifier">atomic</span><span class="special">&lt;</span><span class="identifier">off_t</span><span class="special">&gt;</span> <span class="special">&amp;</span><span class="identifier">written</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="special">&amp;</span><span class="identifier">totalbytes</span><span class="special">,</span>
+                          <span class="identifier">dispatcher_ptr</span> <span class="identifier">dispatcher</span><span class="special">,</span>
+                          <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">dest</span><span class="special">,</span>
+                          <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span><span class="special">&gt;</span> <span class="identifier">sources</span><span class="special">,</span>
+                          <span class="identifier">size_t</span> <span class="identifier">chunk_size</span> <span class="special">=</span> <span class="number">1024</span> <span class="special">*</span> <span class="number">1024</span> <span class="comment">/* 1Mb */</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="comment">// Schedule the opening of the output file for writing</span>
+    <span class="keyword">auto</span> <span class="identifier">oh</span> <span class="special">=</span> <span class="identifier">async_file</span><span class="special">(</span><span class="identifier">dest</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">write</span><span class="special">);</span>
+    <span class="comment">// Schedule the opening of all the input files for reading as a batch</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">path_req</span><span class="special">&gt;</span> <span class="identifier">ihs_reqs</span><span class="special">;</span>
+    <span class="identifier">ihs_reqs</span><span class="special">.</span><span class="identifier">reserve</span><span class="special">(</span><span class="identifier">sources</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;&amp;</span><span class="identifier">source</span> <span class="special">:</span> <span class="identifier">sources</span><span class="special">)</span>
+      <span class="identifier">ihs_reqs</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">path_req</span><span class="special">(</span>
+      <span class="identifier">source</span><span class="special">,</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">read</span> <span class="special">|</span> <span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">will_be_sequentially_accessed</span><span class="special">));</span>
+    <span class="keyword">auto</span> <span class="identifier">ihs</span> <span class="special">=</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">ihs_reqs</span><span class="special">);</span>
+    <span class="comment">// Retrieve any error from opening the output</span>
+    <span class="identifier">oh</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+    <span class="comment">// Wait for the input file handles to open so we can get their sizes</span>
+    <span class="comment">// (plus any failures to open)</span>
+    <span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">ihs</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+
+    <span class="comment">// Need to figure out the sizes of the sources so we can resize output</span>
+    <span class="comment">// correctly. We also need to allocate scratch buffers for each source.</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">tuple</span><span class="special">&lt;</span><span class="identifier">off_t</span><span class="special">,</span> <span class="identifier">off_t</span><span class="special">&gt;&gt;</span> <span class="identifier">offsets</span><span class="special">;</span>
+    <span class="identifier">offsets</span><span class="special">.</span><span class="identifier">reserve</span><span class="special">(</span><span class="identifier">ihs</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+    <span class="identifier">off_t</span> <span class="identifier">offset</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">max_individual</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">ih</span> <span class="special">:</span> <span class="identifier">ihs</span><span class="special">)</span>
+    <span class="special">{</span>
+      <span class="comment">// Get the file's size in bytes</span>
+      <span class="identifier">off_t</span> <span class="identifier">bytes</span> <span class="special">=</span> <span class="identifier">ih</span><span class="special">-&gt;</span><span class="identifier">direntry</span><span class="special">(</span><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">).</span><span class="identifier">st_size</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">bytes</span> <span class="special">&gt;</span> <span class="identifier">max_individual</span><span class="special">)</span>
+        <span class="identifier">max_individual</span> <span class="special">=</span> <span class="identifier">bytes</span><span class="special">;</span>
+      <span class="comment">// std::cout &lt;&lt; "File " &lt;&lt; ih-&gt;path() &lt;&lt; " size " &lt;&lt; bytes &lt;&lt; " to offset " &lt;&lt;</span>
+      <span class="comment">// offset &lt;&lt; std::endl;</span>
+      <span class="comment">// Push the offset to write at, amount to write, and a scratch buffer</span>
+      <span class="identifier">offsets</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">make_tuple</span><span class="special">(</span><span class="identifier">offset</span><span class="special">,</span> <span class="identifier">bytes</span><span class="special">));</span>
+      <span class="identifier">buffers</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">detail</span><span class="special">::</span><span class="identifier">make_unique</span><span class="special">&lt;</span><span class="identifier">file_buffer_type</span><span class="special">&gt;(</span><span class="identifier">chunk_size</span><span class="special">));</span>
+      <span class="identifier">offset</span> <span class="special">+=</span> <span class="identifier">bytes</span><span class="special">;</span>
+    <span class="special">}</span>
+    <span class="comment">// Schedule resizing output to correct size, retrieving errors</span>
+    <span class="identifier">totalbytes</span> <span class="special">=</span> <span class="identifier">offset</span><span class="special">;</span>
+    <span class="keyword">auto</span> <span class="identifier">ohresize</span> <span class="special">=</span> <span class="identifier">async_truncate</span><span class="special">(</span><span class="identifier">oh</span><span class="special">,</span> <span class="identifier">offset</span><span class="special">);</span>
+    <span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">ohresize</span><span class="special">).</span><span class="identifier">get</span><span class="special">();</span>
+
+    <span class="comment">// Schedule the parallel processing of all input files, sequential per file,</span>
+    <span class="comment">// but only after the output file has been resized</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">future</span><span class="special">&lt;&gt;&gt;</span> <span class="identifier">lasts</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">i</span> <span class="special">:</span> <span class="identifier">ihs</span><span class="special">)</span>
+      <span class="identifier">lasts</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">ohresize</span><span class="special">,</span> <span class="identifier">i</span><span class="special">));</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">off_t</span> <span class="identifier">o</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">o</span> <span class="special">&lt;</span> <span class="identifier">max_individual</span><span class="special">;</span> <span class="identifier">o</span> <span class="special">+=</span> <span class="identifier">chunk_size</span><span class="special">)</span>
+    <span class="special">{</span>
+      <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">idx</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">idx</span> <span class="special">&lt;</span> <span class="identifier">ihs_reqs</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span> <span class="identifier">idx</span><span class="special">++)</span>
+      <span class="special">{</span>
+        <span class="keyword">auto</span> <span class="identifier">offset</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">get</span><span class="special">&lt;</span><span class="number">0</span><span class="special">&gt;(</span><span class="identifier">offsets</span><span class="special">[</span><span class="identifier">idx</span><span class="special">]),</span> <span class="identifier">bytes</span> <span class="special">=</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">get</span><span class="special">&lt;</span><span class="number">1</span><span class="special">&gt;(</span><span class="identifier">offsets</span><span class="special">[</span><span class="identifier">idx</span><span class="special">]);</span>
+        <span class="keyword">auto</span> <span class="special">&amp;</span><span class="identifier">buffer</span> <span class="special">=</span> <span class="identifier">buffers</span><span class="special">[</span><span class="identifier">idx</span><span class="special">];</span>
+        <span class="keyword">if</span><span class="special">(</span><span class="identifier">o</span> <span class="special">&lt;</span> <span class="identifier">bytes</span><span class="special">)</span>
+        <span class="special">{</span>
+          <span class="identifier">off_t</span> <span class="identifier">thischunk</span> <span class="special">=</span> <span class="identifier">bytes</span> <span class="special">-</span> <span class="identifier">o</span><span class="special">;</span>
+          <span class="keyword">if</span><span class="special">(</span><span class="identifier">thischunk</span> <span class="special">&gt;</span> <span class="identifier">chunk_size</span><span class="special">)</span>
+            <span class="identifier">thischunk</span> <span class="special">=</span> <span class="identifier">chunk_size</span><span class="special">;</span>
+          <span class="comment">// std::cout &lt;&lt; "Writing " &lt;&lt; thischunk &lt;&lt; " from offset " &lt;&lt; o &lt;&lt; " in  "</span>
+          <span class="comment">// &lt;&lt; lasts[idx]-&gt;path() &lt;&lt; std::endl;</span>
+          <span class="comment">// Schedule a filling of buffer from offset o after last has completed</span>
+          <span class="keyword">auto</span> <span class="identifier">readchunk</span> <span class="special">=</span>
+          <span class="identifier">async_read</span><span class="special">(</span><span class="identifier">lasts</span><span class="special">[</span><span class="identifier">idx</span><span class="special">],</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span> <span class="special">(</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">thischunk</span><span class="special">,</span> <span class="identifier">o</span><span class="special">);</span>
+          <span class="comment">// Schedule a writing of buffer to offset offset+o after readchunk is ready</span>
+          <span class="comment">// Note the call to dispatcher-&gt;depends() to make sure the write only</span>
+          <span class="comment">// occurs</span>
+          <span class="comment">// after the read completes</span>
+          <span class="keyword">auto</span> <span class="identifier">writechunk</span> <span class="special">=</span> <span class="identifier">async_write</span><span class="special">(</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">readchunk</span><span class="special">,</span> <span class="identifier">ohresize</span><span class="special">),</span> <span class="identifier">buffer</span><span class="special">-&gt;</span><span class="identifier">data</span><span class="special">(),</span>
+                                        <span class="special">(</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">thischunk</span><span class="special">,</span> <span class="identifier">offset</span> <span class="special">+</span> <span class="identifier">o</span><span class="special">);</span>
+          <span class="comment">// Schedule incrementing written after write has completed</span>
+          <span class="keyword">auto</span> <span class="identifier">incwritten</span> <span class="special">=</span> <span class="identifier">writechunk</span><span class="special">.</span><span class="identifier">then</span><span class="special">([&amp;</span><span class="identifier">written</span><span class="special">,</span> <span class="identifier">thischunk</span><span class="special">](</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">f</span><span class="special">)</span>
+                                            <span class="special">{</span>
+                                              <span class="identifier">written</span> <span class="special">+=</span> <span class="identifier">thischunk</span><span class="special">;</span>
+                                              <span class="keyword">return</span> <span class="identifier">f</span><span class="special">;</span>
+                                            <span class="special">});</span>
+          <span class="comment">// Don't do next read until written is incremented</span>
+          <span class="identifier">lasts</span><span class="special">[</span><span class="identifier">idx</span><span class="special">]</span> <span class="special">=</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">incwritten</span><span class="special">,</span> <span class="identifier">readchunk</span><span class="special">);</span>
+        <span class="special">}</span>
+      <span class="special">}</span>
+    <span class="special">}</span>
+    <span class="comment">// Having scheduled all the reads and write, return a stl_future which returns</span>
+    <span class="comment">// when</span>
+    <span class="comment">// they're done</span>
+    <span class="keyword">return</span> <span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">lasts</span><span class="special">);</span>
+  <span class="special">}</span>
+<span class="special">}</span>
+
+<span class="keyword">int</span> <span class="identifier">main</span><span class="special">(</span><span class="keyword">int</span> <span class="identifier">argc</span><span class="special">,</span> <span class="keyword">const</span> <span class="keyword">char</span> <span class="special">*</span><span class="identifier">argv</span><span class="special">[])</span>
+<span class="special">{</span>
+  <span class="keyword">using</span> <span class="keyword">namespace</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">;</span>
+  <span class="keyword">using</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">off_t</span><span class="special">;</span>
+  <span class="keyword">typedef</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration</span><span class="special">&lt;</span><span class="keyword">double</span><span class="special">,</span> <span class="identifier">ratio</span><span class="special">&lt;</span><span class="number">1</span><span class="special">,</span> <span class="number">1</span><span class="special">&gt;&gt;</span> <span class="identifier">secs_type</span><span class="special">;</span>
+  <span class="keyword">if</span><span class="special">(</span><span class="identifier">argc</span> <span class="special">&lt;</span> <span class="number">3</span><span class="special">)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: Need to specify destination path and source paths"</span>
+              <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="keyword">return</span> <span class="number">1</span><span class="special">;</span>
+  <span class="special">}</span>
+  <span class="keyword">try</span>
+  <span class="special">{</span>
+    <span class="identifier">atomic</span><span class="special">&lt;</span><span class="identifier">off_t</span><span class="special">&gt;</span> <span class="identifier">written</span><span class="special">(</span><span class="number">0</span><span class="special">);</span>
+    <span class="identifier">off_t</span> <span class="identifier">totalbytes</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher</span><span class="special">&gt;</span> <span class="identifier">dispatcher</span> <span class="special">=</span>
+    <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+    <span class="comment">// Set a dispatcher as current for this thread</span>
+    <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">current_dispatcher_guard</span> <span class="identifier">guard</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">);</span>
+
+    <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span> <span class="identifier">dest</span> <span class="special">=</span> <span class="identifier">argv</span><span class="special">[</span><span class="number">1</span><span class="special">];</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span><span class="special">&gt;</span> <span class="identifier">sources</span><span class="special">;</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"Concatenating into "</span> <span class="special">&lt;&lt;</span> <span class="identifier">dest</span> <span class="special">&lt;&lt;</span> <span class="string">" the files "</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="keyword">int</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">2</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">argc</span><span class="special">;</span> <span class="special">++</span><span class="identifier">n</span><span class="special">)</span>
+    <span class="special">{</span>
+      <span class="identifier">sources</span><span class="special">.</span><span class="identifier">push_back</span><span class="special">(</span><span class="identifier">argv</span><span class="special">[</span><span class="identifier">n</span><span class="special">]);</span>
+      <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">sources</span><span class="special">.</span><span class="identifier">back</span><span class="special">();</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">argc</span> <span class="special">-</span> <span class="number">1</span><span class="special">)</span>
+        <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">", "</span><span class="special">;</span>
+    <span class="special">}</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">" ..."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+
+    <span class="keyword">auto</span> <span class="identifier">begin</span> <span class="special">=</span> <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">steady_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">();</span>
+    <span class="keyword">auto</span> <span class="identifier">h</span> <span class="special">=</span> <span class="identifier">async_concatenate_files</span><span class="special">(</span><span class="identifier">written</span><span class="special">,</span> <span class="identifier">totalbytes</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">,</span> <span class="identifier">dest</span><span class="special">,</span> <span class="identifier">sources</span><span class="special">);</span>
+    <span class="comment">// Print progress once a second until it's done</span>
+    <span class="keyword">while</span><span class="special">(</span><span class="identifier">future_status</span><span class="special">::</span><span class="identifier">timeout</span> <span class="special">==</span> <span class="identifier">h</span><span class="special">.</span><span class="identifier">wait_for</span><span class="special">(</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">seconds</span><span class="special">(</span><span class="number">1</span><span class="special">)))</span>
+    <span class="special">{</span>
+      <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"\r"</span> <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="number">100</span> <span class="special">*</span> <span class="identifier">written</span><span class="special">)</span> <span class="special">/</span> <span class="identifier">totalbytes</span> <span class="special">&lt;&lt;</span> <span class="string">"% complete ("</span> <span class="special">&lt;&lt;</span> <span class="identifier">written</span>
+                <span class="special">&lt;&lt;</span> <span class="string">" out of "</span> <span class="special">&lt;&lt;</span> <span class="identifier">totalbytes</span> <span class="special">&lt;&lt;</span> <span class="string">" @ "</span>
+                <span class="special">&lt;&lt;</span> <span class="special">(</span><span class="identifier">written</span> <span class="special">/</span>
+                    <span class="identifier">chrono</span><span class="special">::</span><span class="identifier">duration_cast</span><span class="special">&lt;</span><span class="identifier">secs_type</span><span class="special">&gt;(</span><span class="identifier">chrono</span><span class="special">::</span><span class="identifier">steady_clock</span><span class="special">::</span><span class="identifier">now</span><span class="special">()</span> <span class="special">-</span>
+                                                     <span class="identifier">begin</span><span class="special">).</span><span class="identifier">count</span><span class="special">()</span> <span class="special">/</span>
+                    <span class="number">1024</span> <span class="special">/</span> <span class="number">1024</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="string">"Mb/sec) ..."</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">flush</span><span class="special">;</span>
+    <span class="special">}</span>
+    <span class="comment">// Retrieve any errors</span>
+    <span class="identifier">h</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="special">}</span>
+  <span class="keyword">catch</span><span class="special">(...)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: "</span> <span class="special">&lt;&lt;</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">current_exception_diagnostic_information</span><span class="special">(</span><span class="keyword">true</span><span class="special">)</span>
+              <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+    <span class="keyword">return</span> <span class="number">1</span><span class="special">;</span>
+  <span class="special">}</span>
+  <span class="comment">// Make sure output really is input concatenated</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cout</span> <span class="special">&lt;&lt;</span> <span class="string">"CRC checking that the output exactly matches the inputs ..."</span>
+            <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="identifier">uint32_t</span> <span class="identifier">crc1</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">crc2</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+  <span class="identifier">off_t</span> <span class="identifier">offset</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">ifstream</span> <span class="identifier">o</span><span class="special">(</span><span class="identifier">argv</span><span class="special">[</span><span class="number">1</span><span class="special">],</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ifstream</span><span class="special">::</span><span class="identifier">in</span><span class="special">);</span>
+  <span class="keyword">for</span><span class="special">(</span><span class="keyword">int</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">2</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">argc</span><span class="special">;</span> <span class="identifier">n</span><span class="special">++)</span>
+  <span class="special">{</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">ifstream</span> <span class="identifier">i</span><span class="special">(</span><span class="identifier">argv</span><span class="special">[</span><span class="identifier">n</span><span class="special">],</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">ifstream</span><span class="special">::</span><span class="identifier">in</span><span class="special">);</span>
+    <span class="identifier">i</span><span class="special">.</span><span class="identifier">seekg</span><span class="special">(</span><span class="number">0</span><span class="special">,</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">end</span><span class="special">);</span>
+    <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="keyword">char</span><span class="special">&gt;</span> <span class="identifier">buffer1</span><span class="special">((</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">tellg</span><span class="special">()),</span> <span class="identifier">buffer2</span><span class="special">((</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">tellg</span><span class="special">());</span>
+    <span class="identifier">i</span><span class="special">.</span><span class="identifier">seekg</span><span class="special">(</span><span class="number">0</span><span class="special">,</span> <span class="identifier">i</span><span class="special">.</span><span class="identifier">beg</span><span class="special">);</span>
+    <span class="identifier">o</span><span class="special">.</span><span class="identifier">read</span><span class="special">(</span><span class="identifier">buffer1</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer1</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+    <span class="identifier">i</span><span class="special">.</span><span class="identifier">read</span><span class="special">(</span><span class="identifier">buffer2</span><span class="special">.</span><span class="identifier">data</span><span class="special">(),</span> <span class="identifier">buffer2</span><span class="special">.</span><span class="identifier">size</span><span class="special">());</span>
+    <span class="keyword">bool</span> <span class="identifier">quiet</span> <span class="special">=</span> <span class="keyword">false</span><span class="special">;</span>
+    <span class="keyword">for</span><span class="special">(</span><span class="identifier">size_t</span> <span class="identifier">n</span> <span class="special">=</span> <span class="number">0</span><span class="special">;</span> <span class="identifier">n</span> <span class="special">&lt;</span> <span class="identifier">buffer1</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span> <span class="identifier">n</span> <span class="special">+=</span> <span class="number">64</span><span class="special">)</span>
+    <span class="special">{</span>
+      <span class="identifier">crc1</span> <span class="special">=</span> <span class="identifier">crc32</span><span class="special">(</span><span class="identifier">buffer1</span><span class="special">.</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">n</span><span class="special">,</span> <span class="number">64</span><span class="special">,</span> <span class="identifier">crc1</span><span class="special">);</span>
+      <span class="identifier">crc2</span> <span class="special">=</span> <span class="identifier">crc32</span><span class="special">(</span><span class="identifier">buffer2</span><span class="special">.</span><span class="identifier">data</span><span class="special">()</span> <span class="special">+</span> <span class="identifier">n</span><span class="special">,</span> <span class="number">64</span><span class="special">,</span> <span class="identifier">crc2</span><span class="special">);</span>
+      <span class="keyword">if</span><span class="special">(</span><span class="identifier">crc1</span> <span class="special">!=</span> <span class="identifier">crc2</span> <span class="special">&amp;&amp;</span> <span class="special">!</span><span class="identifier">quiet</span><span class="special">)</span>
+      <span class="special">{</span>
+        <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="string">"ERROR: Offset "</span> <span class="special">&lt;&lt;</span> <span class="identifier">offset</span> <span class="special">+</span> <span class="identifier">n</span> <span class="special">&lt;&lt;</span> <span class="string">" not copied correctly!"</span>
+                  <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+        <span class="identifier">quiet</span> <span class="special">=</span> <span class="keyword">true</span><span class="special">;</span>
+      <span class="special">}</span>
+    <span class="special">}</span>
+    <span class="identifier">offset</span> <span class="special">+=</span> <span class="identifier">buffer1</span><span class="special">.</span><span class="identifier">size</span><span class="special">();</span>
+  <span class="special">}</span>
+  <span class="keyword">return</span> <span class="number">0</span><span class="special">;</span>
+<span class="special">}</span>
+</pre>
+<p>
+          This example consists of a function called <code class="computeroutput"><span class="identifier">async_concatenate_files</span><span class="special">()</span></code> which will asynchronously append those
+          file paths in <span class="emphasis"><em>sources</em></span> into the file path in <span class="emphasis"><em>dest</em></span>,
+          with the <code class="computeroutput"><span class="identifier">main</span><span class="special">()</span></code>
+          function simply parsing arguments and printing progress every second. I
+          won't explain the example hugely &#8212; it's pretty straightforward,
+          it simply parallel reads all source files in <code class="computeroutput"><span class="identifier">chunk_size</span></code>
+          chunks, writing them to their appropriate offset into the output file.
+          It is a very good example, incidentally, of why C++11 is like a whole new
+          language over C++98 even for simple systems programming tasks like this
+          one.
+        </p>
+<p>
+          You may note that the temporary buffers for each chunk are allocated using
+          a special <code class="computeroutput"><span class="identifier">page_allocator</span></code>.
+          If your operating system allows it, regions of memory returned by this
+          allocator have the maximum possible scatter gather DMA efficiency possible.
+          Even if your operating system doesn't allow it, it does no harm to use
+          this allocator instead of the system allocator.
+        </p>
+<p>
+          The chances are that this file copying implementation would be little faster
+          than a naive implementation however (unless the source files are on different
+          physical devices, in which case you'd see maximum performance). Some might
+          also argue that firing a consumer producer thread per source file would
+          be just as easy, albeit that output file position management across threads
+          might be slightly tricky.
+        </p>
+<p>
+          Let us start into where the AFIO implementation starts to deliver real
+          value add: a multiprocess safe log file and finding which files in a directory
+          tree contain a regular expression.
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+        </p>
+<div class="footnotes">
+<br><hr width="100" align="left">
+<div class="footnote"><p><sup>[<a id="ftn.afio.quickstart.mini_programs.file_concat.f0" href="#afio.quickstart.mini_programs.file_concat.f0" class="para">9</a>] </sup>
+            My thanks to Artur Laksberg, Dev Lead of the Microsoft Visual C++ Parallel
+            Libraries team, for suggesting this as a good demonstration of an asynchronous
+            file i/o library. I had been until then quite stumped for an intermediate
+            quick start example between the first and last examples.
+          </p></div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="hello_world.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../mini_programs.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="atomic_logging.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>target</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../handle.html" title="handle">
+<link rel="prev" href="direntry.html" title="direntry">
+<link rel="next" href="link.html" title="link">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="direntry.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../handle.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="link.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.classes.handle.target"></a><a class="link" href="target.html" title="target">target</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'target';
+var disqus_title = 'Boost.AFIO target';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp16879664"></a>
+Returns the target path of this handle if it is a symbolic link.
+          </p>
+<h6>
+<a name="afio.reference.classes.handle.target.h0"></a>
+            <span><a name="afio.reference.classes.handle.target.description"></a></span><a class="link" href="target.html#afio.reference.classes.handle.target.description">Description</a>
+          </h6>
+<p>
+            Be aware that on Windows AFIO operates exclusively in the NT kernel namespace,
+            NOT the Win32 namespace, and therefore paths you supply are converted
+            by <code class="literal"><code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span></code></code> in NT kernel namespace
+            paths. <code class="literal"><code class="computeroutput"><span class="identifier">normalise_path</span><span class="special">()</span></code></code> can convert an afio path
+            back to a Filesystem TS path for you, but note that this may not be the
+            path that was supplied originally. NT kernel namespace paths have a 32,767
+            character limit and an almost POSIX like lack of restrictions on naming
+            or historical behaviour quirks, but as a result AFIO does not support
+            DOS short names or any of the other historical Win32 filing system baggage.
+          </p>
+<h6>
+<a name="afio.reference.classes.handle.target.h1"></a>
+            <span><a name="afio.reference.classes.handle.target.synopsis"></a></span><a class="link" href="target.html#afio.reference.classes.handle.target.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="keyword">virtual</span> <span class="identifier">path</span> <span class="identifier">handle</span><span class="special">::</span><span class="identifier">target</span><span class="special">()</span></pre>
+<h6>
+<a name="afio.reference.classes.handle.target.h2"></a>
+            <span><a name="afio.reference.classes.handle.target.parameters"></a></span><a class="link" href="target.html#afio.reference.classes.handle.target.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<tbody><tr>
+<td>
+                    <p>
+                      Type
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Concept
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Name
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Description
+                    </p>
+                  </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.handle.target.h3"></a>
+            <span><a name="afio.reference.classes.handle.target.returns"></a></span><a class="link" href="target.html#afio.reference.classes.handle.target.returns">Returns</a>
+          </h6>
+<p>
+            The path the symbolic link points to. May not exist or even be valid.
+          </p>
+<h6>
+<a name="afio.reference.classes.handle.target.h4"></a>
+            <span><a name="afio.reference.classes.handle.target.header"></a></span><a class="link" href="target.html#afio.reference.classes.handle.target.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<h6>
+<a name="afio.reference.classes.handle.target.h5"></a>
+            <span><a name="afio.reference.classes.handle.target.race_guarantees"></a></span><a class="link" href="target.html#afio.reference.classes.handle.target.race_guarantees">Race Guarantees</a>
+          </h6>
+<p>
+            </p>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>Operating system</th>
+<th>Race guarantees under a changing file system</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>FreeBSD</td>
+<td>Race free up to the containing directory.</td>
+</tr>
+<tr>
+<td>Linux, Windows</td>
+<td>Race free
+            if handle open, else up to the containing directory.</td>
+</tr>
+<tr>
+<td>OS X</td>
+<td>No guarantees.</td>
+</tr>
+</tbody>
+</table></div>
+<p>
+          </p>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="direntry.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../handle.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="link.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

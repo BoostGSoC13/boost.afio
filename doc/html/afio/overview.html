@@ -1,0 +1,889 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>AFIO single page cheat sheet for the very impatient</title>
+<link rel="stylesheet" href="../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="prev" href="introduction.html" title="Introduction">
+<link rel="next" href="design.html" title="Design Introduction and Rationale">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../boost.png"></td>
+<td align="center"><a href="../../../index.html">Home</a></td>
+<td align="center"><a href="../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="introduction.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="design.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="afio.overview"></a><a class="link" href="overview.html" title="AFIO single page cheat sheet for the very impatient">AFIO single page cheat sheet for the very
+    impatient</a>
+</h2></div></div></div>
+<p>
+      <script type="text/javascript">
+var disqus_identifier = 'overview';
+var disqus_title = 'Boost.AFIO Single page cheat sheet';
+</script>
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          AFIO models file descriptors/handles as a reference counted <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><a class="link" href="reference/classes/handle.html" title="handle"><code class="computeroutput"><span class="identifier">handle</span></code></a><span class="special">&gt;</span></code> (aliased as <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">handle_ptr</span></code>)
+          where <code class="computeroutput"><span class="identifier">handle</span></code> is an opaque
+          abstract base class. <code class="computeroutput"><span class="identifier">handle</span></code>
+          may, or may not, refer to a currently open file descriptor/handle i.e.
+          it is possible to close it before the reference count reaches zero. You
+          can create your own custom implementations of <code class="computeroutput"><span class="identifier">handle</span></code>.
+        </li>
+<li class="listitem">
+          AFIO models a filesystem as a reference counted <code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><a class="link" href="reference/classes/dispatcher.html" title="dispatcher"><code class="computeroutput"><span class="identifier">dispatcher</span></code></a><span class="special">&gt;</span></code>
+          (aliased as <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher_ptr</span></code>) where <code class="computeroutput"><span class="identifier">dispatcher</span></code>
+          is also an opaque abstract base class. When constructed using <a class="link" href="reference/functions/make_dispatcher.html" title="make_dispatcher"><code class="computeroutput"><span class="identifier">make_dispatcher</span><span class="special">()</span></code></a>
+          you specify a URI such as <span class="bold"><strong><code class="computeroutput">file:///</code></strong></span>
+          which specifies what namespace the dispatcher will dispatch onto. You can
+          create your own custom <code class="computeroutput"><span class="identifier">dispatcher</span></code>
+          implementations for some URI regex pattern too.
+        </li>
+<li class="listitem">
+          AFIO provides its own custom future type <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><a class="link" href="reference/classes/future.html" title="future"><code class="computeroutput"><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">T</span><span class="special">&gt;</span></code></a><span class="special">&lt;</span><span class="identifier">T</span> <span class="special">=</span> <span class="keyword">void</span><span class="special">&gt;</span></code>
+          which <span class="bold"><strong>always</strong></span> represents a future <code class="computeroutput"><span class="identifier">handle_ptr</span></code> plus an optional <code class="computeroutput"><span class="identifier">T</span></code> which is usually <code class="computeroutput"><span class="keyword">void</span></code>
+          (hence defaulting <code class="computeroutput"><span class="identifier">T</span></code> to
+          <code class="computeroutput"><span class="keyword">void</span></code>). This custom future
+          type is implemented using <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>'s
+          lightweight monadic future factory toolkit, and therefore provides all
+          the C++ 1z Concurrency TS and <a href="http://www.boost.org/libs/thread/" target="_top">Boost.Thread</a>
+          extensions including continuations and wait composure. Note that lightweight
+          futures can carry an <code class="computeroutput"><span class="identifier">error_code</span></code>
+          as well as an <code class="computeroutput"><span class="identifier">exception_ptr</span></code>,
+          and therefore much of the need for non-throwing <code class="computeroutput"><span class="identifier">error_code</span></code>
+          taking API overloads is not needed (though any function not returning a
+          future still uses that idiom).
+        </li>
+<li class="listitem">
+          AFIO provides its own custom filesystem path type <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><a class="link" href="reference/classes/path.html" title="path"><code class="computeroutput"><span class="identifier">path</span></code></a></code> which is a thin wrap
+          of your STL/Boost Filesystem path. This is done because on Microsoft Windows,
+          AFIO <span class="bold"><strong>always</strong></span> uses NT kernel paths, never
+          Win32 paths. By skipping the Win32 translation layer one achieves significantly
+          better performance and much closer to POSIX semantics including case sensitivity,
+          plus there are no issues with path length limits. On Windows <code class="computeroutput"><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path</span></code> (NT kernel paths) will usually auto
+          convert to and from <code class="computeroutput"><span class="identifier">filesystem</span><span class="special">::</span><span class="identifier">path</span></code>
+          (Win32 paths), however do note there is not always a one to one mapping
+          from a NT kernel path to a Win32 path in which case the Win32 paths to
+          send in will never be the Win32 paths you get out. See the documentation
+          for <a class="link" href="reference/classes/path.html" title="path"><code class="computeroutput"><span class="identifier">path</span></code></a>.
+          <div class="caution"><table border="0" summary="Caution">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Caution]" src="../../../doc/src/images/caution.png"></td>
+<th align="left">Caution</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+              Until <a href="https://github.com/BoostGSoC13/boost.afio/issues/79" target="_top">issue
+              #79</a> is resolved, don't do directory enumerations from an x86
+              binary on a x64 Windows system. This is due to a bug in Microsoft's
+              WOW64 syscall translation layer which Microsoft have decided is wontfix.
+            </p></td></tr>
+</table></div>
+        </li>
+<li class="listitem">
+          Error reporting <span class="bold"><strong>always</strong></span> follows the <span class="quote">&#8220;<span class="quote">earliest
+          possible reporting</span>&#8221;</span> rule. As absolutely everything is asynchronous
+          in AFIO, that also means that error and exception handling also occurs
+          asynchronously. So if you try to use a future as an input and that future
+          is errored at the point of use, the errored state is immediately rethrown.
+          As futures may become errored asynchronously, that means you must always
+          write code which assumes any API which consumes a future can throw (unless
+          you know for a fact the future is ready and not errored).
+          <div class="note"><table border="0" summary="Note">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="../../../doc/src/images/note.png"></td>
+<th align="left">Note</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+              Gathering error states from many futures at once is made easier using
+              the <code class="computeroutput"><span class="identifier">when_all_p</span><span class="special">()</span></code>
+              (when all propagating) extended wait composure function from <a href="https://ned14.github.io/boost.outcome/group__future__promise.html" target="_top">Boost.Outcome</a>
+              &#8212; this propagates any error in any of the entry futures into
+              the composed output future, thus saving you having to check the futures
+              for errors by hand.
+            </p></td></tr>
+</table></div>
+        </li>
+<li class="listitem">
+          Handles to directories may ignore requests to close them i.e. <code class="computeroutput"><span class="identifier">handle_ptr</span><span class="special">-&gt;</span><span class="identifier">close</span><span class="special">()</span></code>
+          is a no-op. This is due to a performance feature called <span class="quote">&#8220;<span class="quote">directory
+          handle caching</span>&#8221;</span> which shares read-only directory handles amongst
+          all users unless specifically requested not to do so. You can test for
+          this using the <code class="computeroutput"><span class="identifier">available_to_directory_cache</span><span class="special">()</span></code> member function of <code class="computeroutput"><span class="identifier">handle</span></code>.
+        </li>
+<li class="listitem">
+          As a general rule, AFIO spots when you try to delete a currently open file
+          handle where that is illegal on your platform (Microsoft Windows) and will
+          instead rename the file to a cryptographically strong random name of the
+          form <code class="computeroutput"><span class="special">&lt;</span><span class="number">32</span>
+          <span class="identifier">chars</span> <span class="identifier">of</span>
+          <span class="identifier">random</span> <span class="identifier">hex</span><span class="special">&gt;.</span><span class="identifier">afiod</span></code>
+          and ask the operating system to delete it later when the last handle is
+          closed. Any enumerations of directories containing these randomised named
+          files will omit those entries by default. This emulates POSIX semantics,
+          albeit imperfectly. One caveat is it cannot always do this with directories,
+          though it tries hard to try again later where it can. A future version
+          of AFIO will add <code class="computeroutput"><span class="identifier">tmpfs</span></code>
+          support which will let us relocate troublesome directories into the temp
+          directory where they can be deleted much later, thus more closely matching
+          POSIX semantics still further.
+        </li>
+</ul></div>
+<p>
+      Boost.AFIO version 1.4 provides the following operations:
+    </p>
+<div class="informaltable">
+<a name="afio.overview.supported_operations"></a><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+              <p>
+                Operation
+              </p>
+            </th>
+<th>
+              <p>
+                Asynchronous batch <code class="computeroutput"><a class="link" href="reference/classes/dispatcher.html" title="dispatcher"><code class="computeroutput"><span class="identifier">dispatcher</span></code></a></code> functions
+              </p>
+            </th>
+<th>
+              <p>
+                Synchronous <code class="computeroutput"><a class="link" href="reference/classes/handle.html" title="handle"><code class="computeroutput"><span class="identifier">handle</span></code></a></code> functions
+              </p>
+            </th>
+<th>
+              <p>
+                Asynchronous free functions
+              </p>
+            </th>
+<th>
+              <p>
+                Synchronous free functions
+              </p>
+            </th>
+<th>
+              <p>
+                Related types
+              </p>
+            </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/dir.html" title="Functions for opening/creating directories">Open/create a directory:
+                <code class="computeroutput"><span class="identifier">dir</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/rmdir.html" title="Functions for deleting directories">Delete a directory:
+                <code class="computeroutput"><span class="identifier">rmdir</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/file.html" title="Functions for opening/creating files">Open/create a file:
+                <code class="computeroutput"><span class="identifier">file</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/rmfile.html" title="Functions for deleting files">Delete a file: <code class="computeroutput"><span class="identifier">rmfile</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/symlink.html" title="Functions for opening/creating symlinks">Open/create a symlink:
+                <code class="computeroutput"><span class="identifier">symlink</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/rmsymlink.html" title="Functions for deleting symlinks">Delete a symlink:
+                <code class="computeroutput"><span class="identifier">rmsymlink</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/sync.html" title="Functions for synchronising changes to physical storage">Synchronise changes
+                to physical storage: <code class="computeroutput"><span class="identifier">sync</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/zero.html" title="Functions for deallocating/zeroing physical storage">Deallocate/zero physical
+                storage: <code class="computeroutput"><span class="identifier">zero</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/close.html" title="Functions for closing open handles">Close a fd/handle:
+                <code class="computeroutput"><span class="identifier">close</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/read.html" title="Functions for scatter reading file contents">Scatter read file contents:
+                <code class="computeroutput"><span class="identifier">read</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/io_req.html" title="io_req"><code class="computeroutput"><span class="identifier">io_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/write.html" title="Functions for gather writing file contents">Gather write file
+                contents: <code class="computeroutput"><span class="identifier">write</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                4
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/io_req.html" title="io_req"><code class="computeroutput"><span class="identifier">io_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/truncate.html" title="Functions for setting maximum file extent">Set maximum file
+                extent: <code class="computeroutput"><span class="identifier">truncate</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/enumerate.html" title="Functions for enumerating directory contents and fetching file metadata">Enumerate directory
+                contents/ fetch file metadata: <code class="computeroutput"><span class="identifier">enumerate</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                3
+              </p>
+            </td>
+<td>
+              <p>
+                6
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/enumerate_req.html" title="enumerate_req"><code class="computeroutput"><span class="identifier">enumerate_req</span></code></a>, <a class="link" href="reference/classes/directory_entry.html" title="directory_entry"><code class="computeroutput"><span class="identifier">directory_entry</span></code></a>, <a class="link" href="reference/structs/stat_t.html" title="stat_t"><code class="computeroutput"><span class="identifier">stat_t</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/extents.html" title="Functions for enumerating file physical storage extents">Enumerate file physical
+                storage extents: <code class="computeroutput"><span class="identifier">extents</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/functions/statfs.html" title="Functions for fetching storage volume metadata">Examine mounted storage
+                volume: <code class="computeroutput"><span class="identifier">statfs</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/statfs_t.html" title="statfs_t"><code class="computeroutput"><span class="identifier">statfs_t</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle/path.html" title="path">Get current path
+                of an open fd/handle even if other processes are renaming it (Linux,
+                Windows; FreeBSD directories only; not OS X): <code class="computeroutput"><span class="identifier">path</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/classes/path.html" title="path"><code class="computeroutput"><span class="identifier">path</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle/direntry.html" title="direntry">Get open fd/handle
+                metadata: <code class="computeroutput"><span class="identifier">direntry</span><span class="special">()</span></code>, <code class="computeroutput"><span class="identifier">lstat</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                2
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/classes/directory_entry.html" title="directory_entry"><code class="computeroutput"><span class="identifier">directory_entry</span></code></a>, <a class="link" href="reference/structs/stat_t.html" title="stat_t"><code class="computeroutput"><span class="identifier">stat_t</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle/target.html" title="target">Get target path
+                of a symlink: <code class="computeroutput"><span class="identifier">target</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle.html" title="handle">Map a read-only file
+                into memory: <code class="computeroutput"><span class="identifier">try_mapfile</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle/link.html" title="link">Hard link an open
+                fd/handle to a new path: <code class="computeroutput"><span class="identifier">link</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle/unlink.html" title="unlink">Unlink an open
+                fd/handle from its existing path (caution!): <code class="computeroutput"><span class="identifier">unlink</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+<tr>
+<td>
+              <p>
+                <a class="link" href="reference/classes/handle/atomic_relink.html" title="atomic_relink"><span class="emphasis"><em>Strong
+                guaranteed atomically</em></span> relink an open fd/handle from its
+                existing path to a different path: <code class="computeroutput"><span class="identifier">atomic_relink</span><span class="special">()</span></code></a>
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                1
+              </p>
+            </td>
+<td>
+            </td>
+<td>
+            </td>
+<td>
+              <p>
+                <a class="link" href="reference/structs/path_req.html" title="path_req"><code class="computeroutput"><span class="identifier">path_req</span></code></a>
+              </p>
+            </td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>
+      Planned new operations coming next version of AFIO so you know what's coming
+      next:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Mutual exclusion and locking which works across NFS and Samba:
+          <div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<li class="listitem">
+                The ability to tag many <code class="computeroutput"><span class="identifier">handle</span></code>'s
+                with what locking to do per operation.
+              </li>
+<li class="listitem">
+                Asynchronous exclusive lock files.
+              </li>
+<li class="listitem">
+                Asynchronous multi-file byte range locking.
+              </li>
+<li class="listitem">
+                Individual file change monitoring (needed to implement locking).
+              </li>
+</ul></div>
+        </li>
+<li class="listitem">
+          <span class="bold"><strong><code class="computeroutput"><span class="identifier">tmp</span><span class="special">://</span></code></strong></span> URI backend for a temporary
+          file filesystem.
+        </li>
+<li class="listitem">
+          Optional inline hashing of file reads and writes with SpookyHash/Blake2b/SHA256.
+        </li>
+<li class="listitem">
+          Maybe Boost.Fiber support to gain coroutines on all compilers.
+        </li>
+</ul></div>
+<p>
+      </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+    </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="introduction.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="design.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

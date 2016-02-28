@@ -1,0 +1,422 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>io_req&lt; const T &gt;</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../io_req.html" title="io_req">
+<link rel="prev" href="io_req.html" title="io_req">
+<link rel="next" href="io_req_void_.html" title="io_req&lt; void &gt;">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="io_req.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../io_req.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="io_req_void_.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.structs.io_req.io_req_constt_"></a><a class="link" href="io_req_constt_.html" title="io_req&lt; const T &gt;">io_req&lt;
+          const T &gt;</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'io_req_constt_';
+var disqus_title = 'Boost.AFIO io_req< const T >';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp15170232"></a>
+A convenience bundle of precondition, data and where for reading into
+            a T as specified by its to_asio_buffers() overload. Data <span class="bold"><strong>MUST</strong></span>
+            stay around until the operation completes.
+          </p>
+<h6>
+<a name="afio.reference.structs.io_req.io_req_constt_.h0"></a>
+            <span><a name="afio.reference.structs.io_req.io_req_constt_.synopsis"></a></span><a class="link" href="io_req_constt_.html#afio.reference.structs.io_req.io_req_constt_.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">&gt;</span>
+<span class="keyword">struct</span> <span class="identifier">io_req</span><span class="special">&lt;</span> <span class="keyword">const</span> <span class="identifier">T</span> <span class="special">&gt;</span>
+      <span class="special">:</span> <span class="keyword">public</span> <span class="identifier">detail</span><span class="special">::</span><span class="identifier">io_req_impl</span><span class="special">&lt;</span> <span class="keyword">true</span> <span class="special">&gt;</span>
+<span class="special">{</span>
+  <span class="identifier">future</span> <span class="identifier">precondition</span><span class="special">;</span>                        <span class="comment">// A precondition containing an open file handle for this operation. </span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span> <span class="identifier">asio</span><span class="special">::</span><span class="identifier">const_buffer</span> <span class="special">&gt;</span> <span class="identifier">buffers</span><span class="special">;</span>  <span class="comment">// A sequence of const Boost.ASIO buffers to write from. </span>
+  <span class="identifier">off_t</span> <span class="identifier">where</span><span class="special">;</span>                                <span class="comment">// The offset at which to write. </span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.structs.io_req.io_req_constt_.h1"></a>
+            <span><a name="afio.reference.structs.io_req.io_req_constt_.template_parameter_s"></a></span><a class="link" href="io_req_constt_.html#afio.reference.structs.io_req.io_req_constt_.template_parameter_s">Template
+            parameter(s)</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Parameter
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody><tr>
+<td>
+                    <p>
+                      class T
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Any readable (if const) or writable (if non-const) type T as
+                      specified by its to_asio_buffers() overload.
+                    </p>
+                  </td>
+</tr></tbody>
+</table></div>
+<h6>
+<a name="afio.reference.structs.io_req.io_req_constt_.h2"></a>
+            <span><a name="afio.reference.structs.io_req.io_req_constt_.member_function_s"></a></span><a class="link" href="io_req_constt_.html#afio.reference.structs.io_req.io_req_constt_.member_function_s">Member
+            Function(s)</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Function
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Parameters
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Returns
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="identifier">validate</span><span class="special">()</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Validates contents for correctness.
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      True if contents are correct
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span><span class="special">()</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Default constructor.
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">io_req</span> <span class="special">&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Copy constructor.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>const io_req &amp;</strong></span>: <span class="emphasis"><em>o</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span><span class="special">(</span><span class="identifier">io_req</span> <span class="special">&amp;&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Move constructor.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>io_req &amp;&amp;</strong></span>: <span class="emphasis"><em>o</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">io_req</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;</span> <span class="special">&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Copy constructor.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>const io_req&lt; T &gt; &amp;</strong></span>:
+                      <span class="emphasis"><em>o</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span><span class="special">(</span><span class="identifier">io_req</span><span class="special">&lt;</span> <span class="identifier">T</span> <span class="special">&gt;</span> <span class="special">&amp;&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Move constructor.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>io_req&lt; T &gt; &amp;&amp;</strong></span>:
+                      <span class="emphasis"><em>o</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span> <span class="special">&amp;</span> <span class="keyword">operator</span><span class="special">=(</span><span class="keyword">const</span> <span class="identifier">io_req</span> <span class="special">&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Copy assignment.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>const io_req &amp;</strong></span>: <span class="emphasis"><em>o</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span> <span class="special">&amp;</span> <span class="keyword">operator</span><span class="special">=(</span><span class="identifier">io_req</span> <span class="special">&amp;&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Move assignment.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>io_req &amp;&amp;</strong></span>: <span class="emphasis"><em>o</em></span>:
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">io_req</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">T</span> <span class="special">*</span> <span class="identifier">v</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">_length</span><span class="special">,</span>
+       <span class="identifier">off_t</span> <span class="identifier">_where</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Constructs an instance.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>_precondition</em></span>:
+                      An optional precondition for this operation
+                    </p>
+                    <p>
+                      <span class="bold"><strong>const T *</strong></span>: <span class="emphasis"><em>v</em></span>:
+                      A pointer to memory or reference to object into which to read
+                      or write
+                    </p>
+                    <p>
+                      <span class="bold"><strong>size_t</strong></span>: <span class="emphasis"><em>_length</em></span>:
+                      The number of items to transfer
+                    </p>
+                    <p>
+                      <span class="bold"><strong>off_t</strong></span>: <span class="emphasis"><em>_where</em></span>:
+                      The offset at which to transfer
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">U</span><span class="special">&gt;</span>
+ <span class="identifier">io_req</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">U</span> <span class="special">&amp;</span> <span class="identifier">v</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="identifier">_where</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Constructs an instance.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>_precondition</em></span>:
+                      An optional precondition for this operation
+                    </p>
+                    <p>
+                      <span class="bold"><strong>const U &amp;</strong></span>: <span class="emphasis"><em>v</em></span>:
+                      A pointer to memory or reference to object into which to read
+                      or write
+                    </p>
+                    <p>
+                      <span class="bold"><strong>off_t</strong></span>: <span class="emphasis"><em>_where</em></span>:
+                      The offset at which to transfer
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">U</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">N</span><span class="special">&gt;</span>
+ <span class="identifier">io_req</span><span class="special">(</span><span class="identifier">future</span><span class="special">&lt;&gt;</span> <span class="identifier">_precondition</span><span class="special">,</span> <span class="keyword">const</span> <span class="identifier">U</span><span class="special">(&amp;)</span> <span class="identifier">v</span><span class="special">,</span> <span class="identifier">off_t</span> <span class="identifier">_where</span><span class="special">)</span></pre>
+                  </td>
+<td>
+                    <p>
+                      Constructs an instance.
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      <span class="bold"><strong>future&lt;&gt;</strong></span>: <span class="emphasis"><em>_precondition</em></span>:
+                      An optional precondition for this operation
+                    </p>
+                    <p>
+                      <span class="bold"><strong>const U(&amp;)</strong></span>: <span class="emphasis"><em>v</em></span>:
+                      A pointer to memory or reference to object into which to read
+                      or write
+                    </p>
+                    <p>
+                      <span class="bold"><strong>off_t</strong></span>: <span class="emphasis"><em>_where</em></span>:
+                      The offset at which to transfer
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.structs.io_req.io_req_constt_.h3"></a>
+            <span><a name="afio.reference.structs.io_req.io_req_constt_.header"></a></span><a class="link" href="io_req_constt_.html#afio.reference.structs.io_req.io_req_constt_.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="io_req.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../io_req.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="io_req_void_.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

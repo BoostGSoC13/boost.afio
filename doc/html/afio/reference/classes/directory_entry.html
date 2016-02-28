@@ -1,0 +1,878 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>directory_entry</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../classes.html" title="Classes">
+<link rel="prev" href="current_dispatcher_guard.html" title="current_dispatcher_guard">
+<link rel="next" href="directory_entry/directory_entry_hash.html" title="directory_entry_hash">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="current_dispatcher_guard.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="directory_entry/directory_entry_hash.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.classes.directory_entry"></a><a class="link" href="directory_entry.html" title="directory_entry">directory_entry</a>
+</h4></div></div></div>
+<div class="toc"><dl><dt><span class="section"><a href="directory_entry/directory_entry_hash.html">directory_entry_hash</a></span></dt></dl></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'directory_entry';
+var disqus_title = 'Boost.AFIO directory_entry';
+</script>
+        </p>
+<p>
+          <a class="indexterm" name="idp15745432"></a>
+The abstract base class for an entry in a directory with lazily filled
+          metadata.
+        </p>
+<h6>
+<a name="afio.reference.classes.directory_entry.h0"></a>
+          <span><a name="afio.reference.classes.directory_entry.description"></a></span><a class="link" href="directory_entry.html#afio.reference.classes.directory_entry.description">Description</a>
+        </h6>
+<p>
+          Note that <code class="literal"><code class="computeroutput"><span class="identifier">directory_entry_hash</span></code></code>
+          will hash one of these for you, and a <code class="literal"><code class="computeroutput"><span class="identifier">std</span><span class="special">::</span><span class="identifier">hash</span><span class="special">&lt;</span></code><code class="computeroutput"><span class="identifier">directory_entry</span></code><code class="computeroutput"><span class="special">&gt;</span></code></code> specialisation is defined
+          for you so you ought to be able to use directory_entry directly in an
+          <code class="literal"><code class="computeroutput"><span class="identifier">unordered_map</span><span class="special">&lt;&gt;</span></code></code>.
+        </p>
+<p>
+          See <code class="literal"><code class="computeroutput"><a class="link" href="../structs/stat_t.html" title="stat_t"><code class="computeroutput"><span class="identifier">stat_t</span></code></a></code></code> for explanations
+          of the fields.
+        </p>
+<h6>
+<a name="afio.reference.classes.directory_entry.h1"></a>
+          <span><a name="afio.reference.classes.directory_entry.synopsis"></a></span><a class="link" href="directory_entry.html#afio.reference.classes.directory_entry.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">class</span> <span class="identifier">directory_entry</span>
+<span class="special">{</span>
+  <span class="comment">// ...</span>
+<span class="special">};</span>
+</pre>
+<h6>
+<a name="afio.reference.classes.directory_entry.h2"></a>
+          <span><a name="afio.reference.classes.directory_entry.constructor_s"></a></span><a class="link" href="directory_entry.html#afio.reference.classes.directory_entry.constructor_s">Constructor(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    Default constructor.
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span><span class="special">(</span><span class="identifier">path</span><span class="special">::</span><span class="identifier">string_type</span> <span class="identifier">_leafname</span><span class="special">,</span> <span class="identifier">stat_t</span> <span class="identifier">__stat</span><span class="special">,</span> <span class="identifier">metadata_flags</span> <span class="identifier">_have_metadata</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Default constructor.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>path::string_type</strong></span>: <span class="emphasis"><em>_leafname</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>stat_t</strong></span>: <span class="emphasis"><em>__stat</em></span>:
+                  </p>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>_have_metadata</em></span>:
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em></em></span>:
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span><span class="special">(</span><span class="identifier">directory_entry</span> <span class="special">&amp;&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>directory_entry &amp;&amp;</strong></span>:
+                    <span class="emphasis"><em>o</em></span>:
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.directory_entry.h3"></a>
+          <span><a name="afio.reference.classes.directory_entry.member_function_s"></a></span><a class="link" href="directory_entry.html#afio.reference.classes.directory_entry.member_function_s">Member
+          Function(s)</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Function
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Parameters
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Returns
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="keyword">operator</span><span class="special">=(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em></em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="keyword">operator</span><span class="special">=(</span><span class="identifier">directory_entry</span> <span class="special">&amp;&amp;</span> <span class="identifier">o</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>directory_entry &amp;&amp;</strong></span>:
+                    <span class="emphasis"><em>o</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="keyword">operator</span><span class="special">==(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="identifier">rhs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em>rhs</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="keyword">operator</span><span class="special">!=(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="identifier">rhs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em>rhs</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="keyword">operator</span><span class="special">&lt;(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="identifier">rhs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em>rhs</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="keyword">operator</span><span class="special">&lt;=(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="identifier">rhs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em>rhs</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="keyword">operator</span><span class="special">&gt;(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="identifier">rhs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em>rhs</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="keyword">bool</span> <span class="keyword">operator</span><span class="special">&gt;=(</span><span class="keyword">const</span> <span class="identifier">directory_entry</span> <span class="special">&amp;</span> <span class="identifier">rhs</span><span class="special">)</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>const directory_entry &amp;</strong></span>:
+                    <span class="emphasis"><em>rhs</em></span>:
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">path</span><span class="special">::</span><span class="identifier">string_type</span> <span class="identifier">name</span><span class="special">()</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    The name of the directory entry. May be empty if the file is
+                    deleted.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">metadata_flags</span> <span class="identifier">metadata_ready</span><span class="special">()</span></pre>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+<td>
+                  <p>
+                    A bitfield of what metadata is ready right now
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">metadata_flags</span> <span class="identifier">fetch_metadata</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span><span class="special">,</span> <span class="identifier">metadata_flags</span> <span class="identifier">wanted</span><span class="special">)</span></pre>
+                </td>
+<td>
+                  <p>
+                    Fetches the specified metadata, returning that newly available.
+                    This is a blocking call if wanted metadata is not yet ready.
+                    Note that if the call blocks and the leafname no longer exists
+                    or the directory handle is null, an exception is thrown.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An open handle to the entry's containing directory. You can get
+                    this from an op ref using dirop.get_handle().
+                  </p>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>wanted</em></span>:
+                    A bitfield of the metadata to fetch. This does not replace existing
+                    metadata.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    The metadata now available in this directory entry.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">stat_t</span> <span class="identifier">fetch_lstat</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span><span class="special">,</span> <span class="identifier">metadata_flags</span> <span class="identifier">wanted</span> <span class="special">=</span> <span class="identifier">directory_entry</span><span class="special">::</span><span class="identifier">metadata_fastpath</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns a copy of the internal <code class="literal"><code class="computeroutput"><span class="identifier">stat_t</span></code></code>
+                    structure. This is a blocking call if wanted metadata is not
+                    yet ready. Note that if the call blocks and the leafname no longer
+                    exists or the directory handle is null, an exception is thrown.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An open handle to the entry's containing directory. You can get
+                    this from an op ref using dirop.get_handle().
+                  </p>
+                  <p>
+                    <span class="bold"><strong>metadata_flags</strong></span>: <span class="emphasis"><em>wanted</em></span>:
+                    A bitfield of the metadata to fetch. This does not replace existing
+                    metadata.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    A copy of the internal <code class="literal"><code class="computeroutput"><span class="identifier">stat_t</span></code></code>
+                    structure.
+                  </p>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_dev</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_dev.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_ino</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_ino.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_type</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_type.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_perms</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_perms.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_nlink</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_nlink.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_uid</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_uid.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_gid</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_gid.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_rdev</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_rdev.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_atim</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_atim.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_mtim</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_mtim.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_ctim</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_ctim.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_size</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_size.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_allocated</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_allocated.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_blocks</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_blocks.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_blksize</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_blksize.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_flags</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_flags.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_gen</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_gen.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">fieldtype</span> <span class="identifier">st_birthtim</span><span class="special">(</span><span class="identifier">handle_ptr</span> <span class="identifier">dirh</span> <span class="special">=</span> <span class="identifier">handle_ptr</span><span class="special">())</span></pre>
+                </td>
+<td>
+                  <p>
+                    Returns st_birthtim.
+                  </p>
+                </td>
+<td>
+                  <p>
+                    <span class="bold"><strong>handle_ptr</strong></span>: <span class="emphasis"><em>dirh</em></span>:
+                    An optional open handle to the entry's containing directory if
+                    fetching missing metadata is desired (an exception is thrown
+                    otherwise). You can get this from an op ref using dirop.get_handle().
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">metadata_flags</span> <span class="identifier">metadata_supported</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    A bitfield of what metadata is available on this platform. This
+                    doesn't mean all is available for every filing system.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">metadata_flags</span> <span class="identifier">metadata_fastpath</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    A bitfield of what metadata is fast on this platform. This doesn't
+                    mean all is available for every filing system.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+<pre xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="table-programlisting"><span class="identifier">size_t</span> <span class="identifier">compatibility_maximum</span><span class="special">()</span></pre>
+                </td>
+<td>
+                  <p>
+                    The maximum number of entries which is "usual" to fetch
+                    at once i.e. what your libc does.
+                  </p>
+                </td>
+<td>
+                </td>
+<td>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.classes.directory_entry.h4"></a>
+          <span><a name="afio.reference.classes.directory_entry.header"></a></span><a class="link" href="directory_entry.html#afio.reference.classes.directory_entry.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="current_dispatcher_guard.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../classes.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="directory_entry/directory_entry_hash.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

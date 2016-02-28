@@ -1,0 +1,168 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Quick Start Tutorial</title>
+<link rel="stylesheet" href="../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="prev" href="compilation.html" title="Compilation">
+<link rel="next" href="quickstart/workshop.html" title="Step by step workshop building an AFIO-based key-value store">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../boost.png"></td>
+<td align="center"><a href="../../../index.html">Home</a></td>
+<td align="center"><a href="../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="compilation.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="quickstart/workshop.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="afio.quickstart"></a><a class="link" href="quickstart.html" title="Quick Start Tutorial">Quick Start Tutorial</a>
+</h2></div></div></div>
+<div class="toc"><dl>
+<dt><span class="section"><a href="quickstart/workshop.html">Step by step workshop building
+      an AFIO-based key-value store</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="quickstart/workshop/naive.html">1. World's simplest
+        named blob store in STL iostreams</a></span></dt>
+<dt><span class="section"><a href="quickstart/workshop/naive_afio.html">2. World's simplest
+        named blob store in AFIO (synchronous)</a></span></dt>
+<dt><span class="section"><a href="quickstart/workshop/naive_afio_async.html">3. World's
+        simplest named blob store in AFIO (asynchronous)</a></span></dt>
+<dd><dl><dt><span class="section"><a href="quickstart/workshop/naive_afio_async/naive_racy.html">The
+          problems with this naive design</a></span></dt></dl></dd>
+<dt><span class="section"><a href="quickstart/workshop/atomic_updates.html">4. Second
+        attempt at a key-value store: How to implement atomic value updates and therefore
+        Atomicity, Consistency, Isolation and Durability</a></span></dt>
+<dd><dl><dt><span class="section"><a href="quickstart/workshop/atomic_updates/atomic_updates_problems.html">The
+          performance of and problems with this second generation design</a></span></dt></dl></dd>
+<dt><span class="section"><a href="quickstart/workshop/extents_theory.html">5. Third attempt
+        at a key-value store: Thinking like a filing system</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="quickstart/workshop/extents_theory/extents.html">The
+          final named blob store design</a></span></dt>
+<dt><span class="section"><a href="quickstart/workshop/extents_theory/extents_problems.html">The
+          performance of and problems with this third generation design</a></span></dt>
+</dl></dd>
+</dl></dd>
+<dt><span class="section"><a href="quickstart/mini_programs.html">Example mini-programs
+      written using AFIO</a></span></dt>
+<dd><dl>
+<dt><span class="section"><a href="quickstart/mini_programs/hello_world.html">Hello World,
+        asynchronously!</a></span></dt>
+<dt><span class="section"><a href="quickstart/mini_programs/file_concat.html">A less toy
+        example: Concatenating files</a></span></dt>
+<dt><span class="section"><a href="quickstart/mini_programs/atomic_logging.html">Achieving
+        atomicity on the filing system</a></span></dt>
+<dt><span class="section"><a href="quickstart/mini_programs/filesystem_races.html">Handling
+        races on the filing system</a></span></dt>
+<dt><span class="section"><a href="quickstart/mini_programs/so_what.html">What performance
+        benefit does asynchronous file i/o bring me? A demonstration</a></span></dt>
+</dl></dd>
+</dl></div>
+<p>
+      So why bother with Boost.AFIO? What's wrong with the STL iostreams and Filesystem?
+    </p>
+<p>
+      The answer is that there is nothing wrong with either for 95% of use cases.
+      Performance of both is pretty good in fact most of the time &#8212; which
+      actually isn't that surprising as C++ is a pay-for-what-you-use systems language,
+      and you'll see how well STL iostreams does later on in this tutorial.
+    </p>
+<p>
+      However a surprising amount of production code out there is highly unreliable
+      when used on a filing system experiencing rapid change, or even just a filing
+      system mounted on a network. In many ways it is when your code needs to <span class="quote">&#8220;<span class="quote">grow
+      up</span>&#8221;</span> from assuming a never changing static filesystem into a more realistic
+      model is when you ought to reach AFIO which has hopefully abstracted away all
+      those tedious platform specific and filing system specific quirks for you.
+    </p>
+<p>
+      The quick start tutorial is broken into two sections:
+    </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+          A step by step workshop in building an AFIO program which can concurrently
+          read/write an indexed blobstore. This workshop was presented at CppCon
+          2015 and the slides and materials can be found at &lt;TBD LINK&gt;. Issues
+          covered:
+          <div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+                Files being renamed, created or deleted by others when you are using
+                them.
+              </li>
+<li class="listitem">
+                Directories being renamed, created or deleted by others when you
+                are using them.
+              </li>
+<li class="listitem">
+                Windows only: how to correctly delete a directory tree on Windows,
+                and why almost every implementation of directory tree deletion for
+                Windows is unreliable.
+              </li>
+<li class="listitem">
+                Techniques for avoiding filing system races:
+                <div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<li class="listitem">
+                      Inode checking
+                    </li>
+<li class="listitem">
+                      Lock files
+                    </li>
+<li class="listitem">
+                      Atomic renames
+                    </li>
+<li class="listitem">
+                      Never use absolute paths
+                    </li>
+</ul></div>
+              </li>
+</ul></div>
+        </li>
+<li class="listitem">
+          Real world sample mini-programs written using AFIO which show various filing
+          system algorithms and strategies in action.
+          <div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+                Hello world
+              </li>
+<li class="listitem">
+                Concatenating files
+              </li>
+<li class="listitem">
+                Atomicity on the filing system
+              </li>
+<li class="listitem">
+                Races on the filing system
+              </li>
+<li class="listitem">
+                Find regular expression in files in directory tree
+              </li>
+</ul></div>
+        </li>
+</ol></div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="compilation.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="quickstart/workshop.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

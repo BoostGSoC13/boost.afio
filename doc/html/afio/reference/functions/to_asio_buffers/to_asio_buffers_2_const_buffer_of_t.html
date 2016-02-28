@@ -1,0 +1,214 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>to_asio_buffers (const buffer of T)</title>
+<link rel="stylesheet" href="../../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../to_asio_buffers.html" title="Specialisations for how types should be parsed into ASIO scatter/gather buffers">
+<link rel="prev" href="to_asio_buffers_2_buffer_of_t.html" title="to_asio_buffers (buffer of T)">
+<link rel="next" href="to_asio_buffers_2_buffer.html" title="to_asio_buffers (buffer)">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="to_asio_buffers_2_buffer_of_t.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../to_asio_buffers.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="to_asio_buffers_2_buffer.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h5 class="title">
+<a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t"></a><a class="link" href="to_asio_buffers_2_const_buffer_of_t.html" title="to_asio_buffers (const buffer of T)">to_asio_buffers
+          (const buffer of T)</a>
+</h5></div></div></div>
+<p>
+            <script type="text/javascript">
+var disqus_identifier = 'to_asio_buffers_2_const_buffer_of_t';
+var disqus_title = 'Boost.AFIO to_asio_buffers (const buffer of T)';
+</script>
+          </p>
+<p>
+            <a class="indexterm" name="idp31970312"></a>
+A buffer at v sized length*sizeof(T)
+          </p>
+<h6>
+<a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.h0"></a>
+            <span><a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.synopsis"></a></span><a class="link" href="to_asio_buffers_2_const_buffer_of_t.html#afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.synopsis">Synopsis</a>
+          </h6>
+<pre class="programlisting"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">class</span> <span class="identifier">T</span><span class="special">&gt;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">asio</span><span class="special">::</span><span class="identifier">const_buffer</span><span class="special">&gt;</span> <span class="identifier">to_asio_buffers</span><span class="special">(</span><span class="keyword">const</span> <span class="identifier">T</span> <span class="special">*</span> <span class="identifier">v</span><span class="special">,</span> <span class="identifier">size_t</span> <span class="identifier">length</span><span class="special">)</span></pre>
+<h6>
+<a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.h1"></a>
+            <span><a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.parameters"></a></span><a class="link" href="to_asio_buffers_2_const_buffer_of_t.html#afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.parameters">Parameters</a>
+          </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                    <p>
+                      Type
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Concept
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Name
+                    </p>
+                  </th>
+<th>
+                    <p>
+                      Description
+                    </p>
+                  </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                    <p>
+                      class T
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Any trivial type T
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      -
+                    </p>
+                  </td>
+<td>
+                    <p>
+                      Must be specified
+                    </p>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      const T *
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      v
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+<tr>
+<td>
+                    <p>
+                      size_t
+                    </p>
+                  </td>
+<td>
+                  </td>
+<td>
+                    <p>
+                      length
+                    </p>
+                  </td>
+<td>
+                  </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.h2"></a>
+            <span><a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.returns"></a></span><a class="link" href="to_asio_buffers_2_const_buffer_of_t.html#afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.returns">Returns</a>
+          </h6>
+<p>
+            A vector of ASIO buffers
+          </p>
+<h6>
+<a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.h3"></a>
+            <span><a name="afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.header"></a></span><a class="link" href="to_asio_buffers_2_const_buffer_of_t.html#afio.reference.functions.to_asio_buffers.to_asio_buffers_2_const_buffer_of_t.header">Header</a>
+          </h6>
+<p>
+            <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+          </p>
+<p>
+            </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+          </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="to_asio_buffers_2_buffer_of_t.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../to_asio_buffers.html"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../../afio.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="to_asio_buffers_2_buffer.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

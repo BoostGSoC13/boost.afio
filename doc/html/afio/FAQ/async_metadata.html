@@ -1,0 +1,56 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>async_io_handle::direntry() and async_io_handle::lstat() are both synchronous functions which block. How then can I get metadata about files and directories asynchronously?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="fatal_error_read.html" title="Why do I get a fatal application exit with FATAL EXCEPTION: Failed to read all buffers when I read a file?">
+<link rel="next" href="deleting_open_files.html" title="I thought on Windows it is impossible to delete a file which is still open for use. How does AFIO achieve this?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="fatal_error_read.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="deleting_open_files.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.async_metadata"></a><a class="link" href="async_metadata.html" title="async_io_handle::direntry() and async_io_handle::lstat() are both synchronous functions which block. How then can I get metadata about files and directories asynchronously?"><code class="computeroutput"><span class="identifier">async_io_handle</span><span class="special">::</span><span class="identifier">direntry</span><span class="special">()</span></code> and <code class="computeroutput"><span class="identifier">async_io_handle</span><span class="special">::</span><span class="identifier">lstat</span><span class="special">()</span></code>
+      are both synchronous functions which block. How then can I get metadata about
+      files and directories asynchronously?</a>
+</h3></div></div></div>
+<p>
+        This is easy, if not terribly obvious: call <a class="link" href="../reference/functions/enumerate.html" title="Functions for enumerating directory contents and fetching file metadata"><code class="computeroutput"><span class="identifier">async_enumerate</span><span class="special">()</span></code></a>
+        on the containing directory of the file you want metadata for with a shell
+        glob exactly matching the file name and with the minimum metadata you are
+        looking for. AFIO will then asynchronously fetch that metadata for you, returning
+        it in the future <code class="computeroutput"><span class="identifier">directory_entry</span></code>
+        returned by <code class="computeroutput"><span class="identifier">enumerate</span><span class="special">()</span></code>.
+      </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="fatal_error_read.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="deleting_open_files.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

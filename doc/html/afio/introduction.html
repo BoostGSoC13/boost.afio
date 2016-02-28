@@ -1,0 +1,446 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Introduction</title>
+<link rel="stylesheet" href="../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="prev" href="../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="next" href="overview.html" title="AFIO single page cheat sheet for the very impatient">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../boost.png"></td>
+<td align="center"><a href="../../../index.html">Home</a></td>
+<td align="center"><a href="../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../afio.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="overview.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="afio.introduction"></a><a class="link" href="introduction.html" title="Introduction">Introduction</a>
+</h2></div></div></div>
+<p>
+      <script type="text/javascript">
+var disqus_identifier = 'introduction';
+var disqus_title = 'Boost.AFIO Introduction';
+</script>
+    </p>
+<p>
+      Boost.AFIO is a C++ library which lets you schedule an ordered dependency graph
+      of file and filesystem input/output operations to be executed asynchronously
+      to the maximum capacity of your hardware. If you want to do portable asynchronous
+      filesystem and file i/o in C++, especially if you need to easily order issues
+      of reads and writes, this is the correct library to be looking at.
+    </p>
+<p>
+      As a quick check list, if you have ever experienced any of these problems,
+      then AFIO may be useful to you:
+    </p>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+          Your spinning magnetic rust hard drive goes bananas when some routine in
+          your code tries to do something to storage, and latency per op starts heading
+          into the seconds range.
+        </li>
+<li class="listitem">
+          Your super fast SSD which is supposed to be delivering hundreds of thousands
+          of ops/sec is barely managing a tenth of its supposed ability with your
+          code. After reading about the importance of high queue depth to maximising
+          performance from SSDs, you try opening many handles to the same file and
+          firing an army of thread pool workers at the problem to try and increase
+          queue depth, but your performance actually drops over the single threaded
+          case.
+        </li>
+<li class="listitem">
+          Your code has to interact with a regularly changing filesystem and not
+          get weird race errors e.g. you try to create a new file in path /X/Y/Z,
+          but some other program has just renamed directory /X/Y to /A/B in the time
+          between you deciding on /X/Y/Z and getting round to it.
+        </li>
+<li class="listitem">
+          Your code keeps file handles open a long time in a place where others might
+          delete or rename them, including any part of the directory hierarchy preceding
+          the file.
+        </li>
+<li class="listitem">
+          Deleting directory trees randomly fails on Microsoft Windows for no obvious
+          reason.
+        </li>
+<li class="listitem">
+          Your code needs to read and write files concurrently to other code without
+          resorting to shared memory region tricks e.g. if the files reside on a
+          Samba or NFS network shared drive.
+        </li>
+<li class="listitem">
+          Your CPU needs to be doing more useful work instead of copying memory to
+          and from disc i/o buffers. As great as the STL iostream buffering is, unless
+          disabled it doubles the LL cache pressure on your CPU, evicting other more
+          useful data. The STL iostreams design almost certainly won't allow the
+          kernel use VM tricks to directly busmaster DMA from its buffers to the
+          hard drive, so the kernel will have to copy those buffers a third time.
+          That means that for every 1Kb you read or write you are evicted, as a minimum,
+          3Kb from the LL caches in your CPU, all of which must be refilled with
+          more useful data later.
+        </li>
+<li class="listitem">
+          Your code wants to experience various filing system features identically
+          across platforms which also work on shared Samba and NFS network drives,
+          such as:
+          <div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+                Deleting and renaming open files.
+              </li>
+<li class="listitem">
+                Files having unique inode values.
+              </li>
+<li class="listitem">
+                POSIX timestamping of last accessed, last modified, last status changed
+                and created.
+              </li>
+<li class="listitem">
+                File extent management and traversal.
+              </li>
+<li class="listitem">
+                Explicitly documented filing system race guarantees.
+              </li>
+<li class="listitem">
+                Interrogation of filing system characteristics, devices and mount
+                points.
+              </li>
+<li class="listitem">
+                Ten million item directories, or more. We have tested twenty five
+                million item directories on NTFS and ext4 and performance was actually
+                tolerable with under a second pause. Ten million item directories
+                is plenty fast, and one million item directories you won't notice
+                over a ten item directory. Note that your GUI file explorer will
+                very likely hang on ten million item directories, indeed so do most
+                command line tools.
+              </li>
+<li class="listitem">
+                Exclusive lock files (manually operated support already there, async
+                support coming in v1.5).
+              </li>
+<li class="listitem">
+                File change monitoring (coming in v1.5).
+              </li>
+<li class="listitem">
+                File byte range advisory locking (coming in v1.5).
+              </li>
+</ul></div>
+        </li>
+</ol></div>
+<div class="note"><table border="0" summary="Note">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="../../../doc/src/images/note.png"></td>
+<th align="left">Note</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+        Lest there be any disappointment in expectations, <span class="bold"><strong>using
+        AFIO alone will not magically improve your filesystem performance</strong></span>,
+        if anything there is a performance penalty in naive use of AFIO as a direct
+        replacement for naive synchronous file i/o. What AFIO gives you is a large
+        amount of <span class="emphasis"><em>control</em></span> with easy to twiddle knobs for benchmarking
+        optimal filesystem strategies under various use cases. In other words, using
+        AFIO lets you more easily write and test code that <span class="emphasis"><em>never performs
+        really badly</em></span> in corner cases.
+      </p></td></tr>
+</table></div>
+<p>
+      Boost.AFIO is a <a href="https://github.com/ned14/Boost.APIBind" target="_top">Boost.APIBind</a>
+      based Boost library, and therefore is capable of any combination of the following
+      build configurations:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Uses either Boost OR the C++ 11 STL for atomic, thread, future, chrono
+          etc.
+        </li>
+<li class="listitem">
+          Uses either Boost OR the C++ 1y STL for Fileystem. At the time of writing,
+          only VS2015 provides Filesystem in its STL though libstdc++ 6.0 is expected
+          to also do so.
+        </li>
+<li class="listitem">
+          Uses either Boost OR standalone ASIO for the i/o engine.
+        </li>
+</ul></div>
+<p>
+      You may note that as a result AFIO can be used as a <a href="https://boostgsoc13.github.io/boost.afio/afio-stable.tar.bz2" target="_top">completely
+      standalone header-only library totally independent from any dependencies on
+      Boost</a> which can be dropped into any existing build system as <a href="https://boostgsoc13.github.io/boost.afio/afio-single-header.hpp.bz2" target="_top">a
+      simple single header include</a>. This, incidentally, also extends to its
+      unit test suite which can use either <a href="http://www.boost.org/libs/iostreams/" target="_top">Boost.Test</a>
+      OR <a href="https://github.com/philsquared/Catch" target="_top">https://github.com/philsquared/Catch</a>
+      (actually my own thread safe fork of CATCH).
+    </p>
+<p>
+      Boost.AFIO provides a pure portable POSIX file i/o backend and specialised
+      file i/o backends making use of host OS asynchronous file i/o facilities are
+      provided for:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Windows NT IOCP (since v1.0)
+        </li>
+<li class="listitem">
+          Linux KAIO (planned, would reduce thread pool blocking for read() and write()
+          only)
+        </li>
+<li class="listitem">
+          POSIX AIO, suitable for BSD only (planned, would reduce thread pool blocking
+          for read() and write() only)
+        </li>
+<li class="listitem">
+          WinRT (if there is demand, currently WinRT is not supported at all)
+        </li>
+</ul></div>
+<p>
+      Boost.AFIO is regularly compiled and per-commit unit tested on these platforms:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Android with ext4 (libc++ STL toolchain only).
+        </li>
+<li class="listitem">
+          Apple Mac OS X 10.9 with HFS+ (should still work on 10.5). Note that OS
+          X does not provide race free filesystem due to insufficient APIs provided.
+        </li>
+<li class="listitem">
+          FreeBSD 10.1 with ZFS (should also work on 10.0). Note that the BSDs only
+          provide race free filesystem for directories not files due to insufficient
+          APIs provided.
+        </li>
+<li class="listitem">
+          Linux kernels 2.6.32 to 3.13 with ext4.
+        </li>
+<li class="listitem">
+          Microsoft Windows 8.1 with NTFS (should still work on XP).
+        </li>
+</ul></div>
+<p>
+      Boost.AFIO extends <a href="http://www.boost.org/libs/asio/" target="_top">Boost.ASIO</a>
+      and is therefore dependent on ASIO (Boost or standalone). With a good modern
+      compiler <a class="link" href="FAQ/closure_performance.html" title="What is the maximum throughput of AFIO's closure execution engine aka how many IOPS can I push with AFIO?">you can expect 50-90%
+      of the throughput of using raw Boost.ASIO</a> at a latency of <a class="link" href="FAQ/closure_latency.html" title="What is the latency of AFIO's closure execution engine aka how quickly can I push a single op with AFIO?">about
+      60,000 +/- 600 CPU cycles to get notified of the completion of an operation</a>.
+      This library was brought to Boost as part of Google Summer of Code 2013.
+    </p>
+<p>
+      Boost.AFIO is a C++ 11 only library, and it requires, as an absolute minimum,
+      a compiler with:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Rvalue reference support.
+        </li>
+<li class="listitem">
+          Variadic templates.
+        </li>
+<li class="listitem">
+          Template aliasing.
+        </li>
+<li class="listitem">
+          Noexcept.
+        </li>
+<li class="listitem">
+          Constexpr (C++ 11).
+        </li>
+</ul></div>
+<p>
+      Some popular compilers known to be minimally sufficient thanks to <a href="https://ci.nedprod.com/" target="_top">our
+      Jenkins CI bot</a> include:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<li class="listitem">
+          Microsoft Visual Studio 2015, released in 2015. v1.0-v1.2 supported VS2010,
+          v1.3 supported VS2013.
+        </li>
+<li class="listitem">
+          GNU Compiler Collection v4.8, released in 2013. v1.0-v1.2 supported GCC
+          4.6, v1.3 supported GCC v4.7.
+        </li>
+<li class="listitem">
+          clang v3.3, released in 2013. v1.0-v1.3 supported clang v3.2. clang v3.1
+          is known to produce segfaulting binaries.
+        </li>
+</ul></div>
+<p>
+      The Jenkins CI bot runs a full suite of static analysis tools (currently clang
+      and MSVC static analysers and clang-tidy, <a href="http://ispras.linuxbase.org/index.php/ABI_compliance_checker" target="_top">the
+      ABI stability compliance checker</a> is planned), runtime analysis tools
+      (currently the clang undefined behaviour and thread sanitisers plus valgrind
+      memcheck) plus a full set of unit tests for all supported compilers on all
+      supported platforms for every single commit to master branch and every single
+      pull request. Additionally, the Travis CI bot runs a full set of code coverage
+      for the unit tests which is pushed to coveralls.io. <a class="link" href="compilation.html#unit_test_dashboard">You
+      can view the build and unit test CI dashboard for all compilers and platforms
+      here</a>.
+    </p>
+<div class="important"><table border="0" summary="Important">
+<tr>
+<td rowspan="2" align="center" valign="top" width="25"><img alt="[Important]" src="../../../doc/src/images/important.png"></td>
+<th align="left">Important</th>
+</tr>
+<tr><td align="left" valign="top"><p>
+        Note that Boost.AFIO has not passed Boost peer review, and therefore is not
+        a part of the Boost C++ libraries
+      </p></td></tr>
+</table></div>
+<p>
+      As a very quick example of minimal usage:
+    </p>
+<pre class="programlisting"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">;</span>
+<span class="keyword">using</span> <span class="identifier">BOOST_AFIO_V2_NAMESPACE</span><span class="special">::</span><span class="identifier">rmdir</span><span class="special">;</span>
+<span class="identifier">std</span><span class="special">::</span><span class="identifier">shared_ptr</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">dispatcher</span><span class="special">&gt;</span> <span class="identifier">dispatcher</span> <span class="special">=</span>
+<span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">make_dispatcher</span><span class="special">().</span><span class="identifier">get</span><span class="special">();</span>
+<span class="identifier">current_dispatcher_guard</span> <span class="identifier">h</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">);</span>
+
+<span class="comment">// Free function</span>
+<span class="keyword">try</span>
+<span class="special">{</span>
+  <span class="comment">// Schedule creating a directory called testdir</span>
+  <span class="keyword">auto</span> <span class="identifier">mkdir</span><span class="special">(</span><span class="identifier">async_dir</span><span class="special">(</span><span class="string">"testdir"</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+  <span class="comment">// Schedule creating a file called testfile in testdir only when testdir has been</span>
+  <span class="comment">// created</span>
+  <span class="keyword">auto</span> <span class="identifier">mkfile</span><span class="special">(</span><span class="identifier">async_file</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"testfile"</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+  <span class="comment">// Schedule creating a symbolic link called linktodir to the item referred to by</span>
+  <span class="comment">// the precondition</span>
+  <span class="comment">// i.e. testdir. Note that on Windows you can only symbolic link directories.</span>
+  <span class="keyword">auto</span> <span class="identifier">mklink</span><span class="special">(</span>
+  <span class="identifier">async_symlink</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"linktodir"</span><span class="special">,</span> <span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">));</span>
+
+  <span class="comment">// Schedule deleting the symbolic link only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmlink</span><span class="special">(</span><span class="identifier">async_rmsymlink</span><span class="special">(</span><span class="identifier">mklink</span><span class="special">));</span>
+  <span class="comment">// Schedule deleting the file only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmfile</span><span class="special">(</span><span class="identifier">async_close</span><span class="special">(</span><span class="identifier">async_rmfile</span><span class="special">(</span><span class="identifier">mkfile</span><span class="special">)));</span>
+  <span class="comment">// Schedule waiting until both the preceding operations have finished</span>
+  <span class="keyword">auto</span> <span class="identifier">barrier</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">barrier</span><span class="special">({</span><span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">}));</span>
+  <span class="comment">// Schedule deleting the directory only after the barrier completes</span>
+  <span class="keyword">auto</span> <span class="identifier">rmdir</span><span class="special">(</span><span class="identifier">async_rmdir</span><span class="special">(</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">barrier</span><span class="special">.</span><span class="identifier">front</span><span class="special">(),</span> <span class="identifier">mkdir</span><span class="special">)));</span>
+  <span class="comment">// Check ops for errors</span>
+  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">mkfile</span><span class="special">,</span> <span class="identifier">mklink</span><span class="special">,</span> <span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">,</span> <span class="identifier">rmdir</span><span class="special">).</span><span class="identifier">wait</span><span class="special">();</span>
+<span class="special">}</span>
+<span class="keyword">catch</span><span class="special">(...)</span>
+<span class="special">{</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">current_exception_diagnostic_information</span><span class="special">(</span><span class="keyword">true</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">throw</span><span class="special">;</span>
+<span class="special">}</span>
+
+<span class="comment">// Batch</span>
+<span class="keyword">try</span>
+<span class="special">{</span>
+  <span class="comment">// Schedule creating a directory called testdir</span>
+  <span class="keyword">auto</span> <span class="identifier">mkdir</span><span class="special">(</span>
+  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">dir</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                  <span class="number">1</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">(</span>
+                     <span class="string">"testdir"</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule creating a file called testfile in testdir only when testdir has been</span>
+  <span class="comment">// created</span>
+  <span class="keyword">auto</span> <span class="identifier">mkfile</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">file</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                               <span class="number">1</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">relative</span><span class="special">(</span>
+                                  <span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"testfile"</span><span class="special">,</span>
+                                  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule creating a symbolic link called linktodir to the item referred to by</span>
+  <span class="comment">// the precondition</span>
+  <span class="comment">// i.e. testdir. Note that on Windows you can only symbolic link directories.</span>
+  <span class="comment">// Note that creating</span>
+  <span class="comment">// symlinks must *always* be as an absolute path, as that is how they are stored.</span>
+  <span class="keyword">auto</span> <span class="identifier">mklink</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">symlink</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                                  <span class="number">1</span><span class="special">,</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">path_req</span><span class="special">::</span><span class="identifier">absolute</span><span class="special">(</span>
+                                     <span class="identifier">mkdir</span><span class="special">,</span> <span class="string">"testdir/linktodir"</span><span class="special">,</span>
+                                     <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">file_flags</span><span class="special">::</span><span class="identifier">create</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+
+  <span class="comment">// Schedule deleting the symbolic link only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmlink</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">close</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">future</span><span class="special">&lt;&gt;&gt;(</span>
+                                <span class="number">1</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">rmsymlink</span><span class="special">(</span><span class="identifier">mklink</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule deleting the file only after when it has been created</span>
+  <span class="keyword">auto</span> <span class="identifier">rmfile</span><span class="special">(</span>
+  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">close</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">future</span><span class="special">&lt;&gt;&gt;(</span><span class="number">1</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">rmfile</span><span class="special">(</span><span class="identifier">mkfile</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Schedule waiting until both the preceding operations have finished</span>
+  <span class="keyword">auto</span> <span class="identifier">barrier</span><span class="special">(</span><span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">barrier</span><span class="special">({</span><span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">}));</span>
+  <span class="comment">// Schedule deleting the directory only after the barrier completes</span>
+  <span class="keyword">auto</span> <span class="identifier">rmdir</span><span class="special">(</span>
+  <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">rmdir</span><span class="special">(</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">path_req</span><span class="special">&gt;(</span>
+                    <span class="number">1</span><span class="special">,</span> <span class="identifier">dispatcher</span><span class="special">-&gt;</span><span class="identifier">depends</span><span class="special">(</span><span class="identifier">barrier</span><span class="special">.</span><span class="identifier">front</span><span class="special">(),</span> <span class="identifier">mkdir</span><span class="special">))).</span><span class="identifier">front</span><span class="special">());</span>
+  <span class="comment">// Check ops for errors</span>
+  <span class="identifier">boost</span><span class="special">::</span><span class="identifier">afio</span><span class="special">::</span><span class="identifier">when_all_p</span><span class="special">(</span><span class="identifier">mkdir</span><span class="special">,</span> <span class="identifier">mkfile</span><span class="special">,</span> <span class="identifier">mklink</span><span class="special">,</span> <span class="identifier">rmlink</span><span class="special">,</span> <span class="identifier">rmfile</span><span class="special">,</span> <span class="identifier">rmdir</span><span class="special">).</span><span class="identifier">wait</span><span class="special">();</span>
+<span class="special">}</span>
+<span class="keyword">catch</span><span class="special">(...)</span>
+<span class="special">{</span>
+  <span class="identifier">std</span><span class="special">::</span><span class="identifier">cerr</span> <span class="special">&lt;&lt;</span> <span class="identifier">boost</span><span class="special">::</span><span class="identifier">current_exception_diagnostic_information</span><span class="special">(</span><span class="keyword">true</span><span class="special">)</span> <span class="special">&lt;&lt;</span> <span class="identifier">std</span><span class="special">::</span><span class="identifier">endl</span><span class="special">;</span>
+  <span class="keyword">throw</span><span class="special">;</span>
+<span class="special">}</span>
+</pre>
+<p>
+      </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+    </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="../afio.html"><img src="../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../afio.html"><img src="../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../afio.html"><img src="../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="overview.html"><img src="../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

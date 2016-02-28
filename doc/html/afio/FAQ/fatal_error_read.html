@@ -1,0 +1,125 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>Why do I get a fatal application exit with FATAL EXCEPTION: Failed to read all buffers when I read a file?</title>
+<link rel="stylesheet" href="../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../FAQ.html" title="Frequently Asked Questions">
+<link rel="prev" href="slow_compile.html" title="Using AFIO really slows down my compile times. Can't you do something about that?">
+<link rel="next" href="async_metadata.html" title="async_io_handle::direntry() and async_io_handle::lstat() are both synchronous functions which block. How then can I get metadata about files and directories asynchronously?">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../boost.png"></td>
+<td align="center"><a href="../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="slow_compile.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="async_metadata.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h3 class="title">
+<a name="afio.FAQ.fatal_error_read"></a><a class="link" href="fatal_error_read.html" title="Why do I get a fatal application exit with FATAL EXCEPTION: Failed to read all buffers when I read a file?">Why do I get a fatal application
+      exit with <code class="computeroutput"><span class="identifier">FATAL</span> <span class="identifier">EXCEPTION</span><span class="special">:</span> <span class="identifier">Failed</span> <span class="identifier">to</span> <span class="identifier">read</span> <span class="identifier">all</span> <span class="identifier">buffers</span></code>
+      when I read a file?</a>
+</h3></div></div></div>
+<p>
+        This is actually a safety checkpoint for your code: in complex, multi-process
+        concurrent reading and writing of the same file, it is extremely difficult
+        to coordinate changing file lengths with i/o in a way which doesn't introduce
+        race conditions OR unacceptably low performance. AFIO therefore doesn't even
+        try<sup>[<a name="afio.FAQ.fatal_error_read.f0" href="#ftn.afio.FAQ.fatal_error_read.f0" class="footnote">14</a>]</sup> and simply requires you the programmer to ALWAYS do i/o, whether
+        reading or writing, within the extent of a file. In other words, if you're
+        going to read 100 bytes from offset 100 in a file, that file better be at
+        least 200 bytes long or it's going to fail with a fatal application exit.
+      </p>
+<p>
+        This will probably seem harsh to anyone using AFIO for the first time, because
+        the following naive code will fatal exit the application if foo.txt is not
+        1024 bytes or longer:
+      </p>
+<pre class="programlisting"><span class="keyword">char</span> <span class="identifier">input</span><span class="special">[</span><span class="number">1024</span><span class="special">];</span>
+<span class="keyword">auto</span> <span class="identifier">file_opened</span> <span class="special">=</span> <span class="identifier">file</span><span class="special">(</span><span class="string">"foo.txt"</span><span class="special">);</span>
+<span class="identifier">read</span><span class="special">(</span><span class="identifier">file_opened</span><span class="special">,</span> <span class="identifier">input</span><span class="special">,</span> <span class="number">0</span><span class="special">);</span>
+</pre>
+<p>
+        With synchronous i/o a read of 1024 bytes will read <span class="emphasis"><em>up to</em></span>
+        1024 bytes, returning the amount actually read via some mechanism. With AFIO,
+        either you read <span class="bold"><strong>all</strong></span> 1024 bytes or you read
+        nothing, in which case a normal exception is thrown with whatever error the
+        operating system returned. If a <span class="emphasis"><em>partial</em></span> read happens,
+        then AFIO fatal exits the application with the above message as it is probably
+        a logic error in your code.
+      </p>
+<p>
+        You may now wonder how to easily not exceed file extents during i/o: for
+        writing, see <a class="link" href="../reference/functions/truncate.html" title="Functions for setting maximum file extent"><code class="computeroutput"><span class="identifier">async_truncate</span><span class="special">()</span></code></a>
+        to ensure a file's size before writing, or else open a file for append-only
+        in which case all writes atomically occur at the end of the file. For reading,
+        the following code is suggested:
+      </p>
+<pre class="programlisting"><span class="keyword">char</span> <span class="identifier">input</span><span class="special">[</span><span class="number">1024</span><span class="special">];</span>
+<span class="comment">// Open the file synchronously</span>
+<span class="keyword">auto</span> <span class="identifier">file_opened</span> <span class="special">=</span> <span class="identifier">file</span><span class="special">(</span><span class="string">"foo.txt"</span><span class="special">);</span>
+<span class="comment">// Fetch ONLY the size metadata. Blocks because it's synchronous!</span>
+<span class="identifier">directory_entry</span> <span class="identifier">de</span> <span class="special">=</span> <span class="identifier">file_opened</span><span class="special">-&gt;</span><span class="identifier">direntry</span><span class="special">(</span><span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">);</span>
+<span class="comment">// Read now we know the file size</span>
+<span class="identifier">read</span><span class="special">(</span><span class="identifier">file_opened</span><span class="special">,</span> <span class="special">(</span><span class="keyword">void</span> <span class="special">*)</span> <span class="identifier">input</span><span class="special">,</span>
+     <span class="special">(</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">de</span><span class="special">.</span><span class="identifier">st_size</span><span class="special">(),</span>  <span class="comment">// doesn't block, as size was fetched before.</span>
+     <span class="number">0</span><span class="special">);</span>
+</pre>
+<p>
+        If you're going to read many files from the same directory, it is far faster
+        to open a handle to the containing directory and using enumerate to fetch
+        the metadata asynchronously instead of using <code class="computeroutput"><span class="identifier">direntry</span><span class="special">()</span></code> which is synchronous:
+      </p>
+<pre class="programlisting"><span class="keyword">char</span> <span class="identifier">input</span><span class="special">[</span><span class="number">1024</span><span class="special">];</span>
+<span class="comment">// Schedule enumerating the containing directory, but only for foo.txt</span>
+<span class="keyword">auto</span> <span class="identifier">dir_opened</span> <span class="special">=</span> <span class="identifier">async_dir</span><span class="special">(</span><span class="string">""</span><span class="special">);</span>  <span class="comment">// "" means current directory in AFIO</span>
+<span class="keyword">auto</span> <span class="identifier">file_enumed</span> <span class="special">=</span>
+<span class="identifier">async_enumerate</span><span class="special">(</span><span class="identifier">dir_opened</span><span class="special">,</span> <span class="identifier">metadata_flags</span><span class="special">::</span><span class="identifier">size</span><span class="special">,</span> <span class="number">2</span><span class="special">,</span> <span class="keyword">true</span><span class="special">,</span> <span class="string">"foo.txt"</span><span class="special">);</span>
+<span class="comment">// Schedule in parallel opening the file</span>
+<span class="keyword">auto</span> <span class="identifier">file_opened</span> <span class="special">=</span> <span class="identifier">async_file</span><span class="special">(</span><span class="identifier">dir_opened</span><span class="special">,</span> <span class="string">"foo.txt"</span><span class="special">);</span>
+<span class="keyword">auto</span> <span class="identifier">file_read</span> <span class="special">=</span> <span class="identifier">file_enumed</span><span class="special">.</span><span class="identifier">then</span><span class="special">(</span>
+<span class="special">[&amp;</span><span class="identifier">input</span><span class="special">](</span><span class="identifier">future</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">pair</span><span class="special">&lt;</span><span class="identifier">std</span><span class="special">::</span><span class="identifier">vector</span><span class="special">&lt;</span><span class="identifier">directory_entry</span><span class="special">&gt;,</span> <span class="keyword">bool</span><span class="special">&gt;&gt;</span> <span class="special">&amp;</span><span class="identifier">f</span><span class="special">)</span>
+<span class="special">{</span>
+  <span class="comment">// Get the directory_entry for the first result</span>
+  <span class="identifier">directory_entry</span> <span class="special">&amp;</span><span class="identifier">de</span> <span class="special">=</span> <span class="identifier">f</span><span class="special">.</span><span class="identifier">get</span><span class="special">().</span><span class="identifier">first</span><span class="special">.</span><span class="identifier">front</span><span class="special">();</span>
+  <span class="comment">// Schedule a file read once we know the file size</span>
+  <span class="keyword">return</span> <span class="identifier">async_read</span><span class="special">(</span><span class="identifier">f</span><span class="special">,</span> <span class="special">(</span><span class="keyword">void</span> <span class="special">*)</span> <span class="identifier">input</span><span class="special">,</span>
+                    <span class="special">(</span><span class="identifier">size_t</span><span class="special">)</span> <span class="identifier">de</span><span class="special">.</span><span class="identifier">st_size</span><span class="special">(),</span>  <span class="comment">// won't block</span>
+                    <span class="number">0</span><span class="special">);</span>
+<span class="special">});</span>
+<span class="identifier">file_read</span><span class="special">.</span><span class="identifier">get</span><span class="special">();</span>
+</pre>
+<div class="footnotes">
+<br><hr width="100" align="left">
+<div class="footnote"><p><sup>[<a id="ftn.afio.FAQ.fatal_error_read.f0" href="#afio.FAQ.fatal_error_read.f0" class="para">14</a>] </sup>
+          AFIO <span class="bold"><strong>will</strong></span> try to provide a synchronised,
+          accurate file extent after fast portable file locking support has been
+          added, but until then no.
+        </p></div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="slow_compile.html"><img src="../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../FAQ.html"><img src="../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../afio.html"><img src="../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="async_metadata.html"><img src="../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

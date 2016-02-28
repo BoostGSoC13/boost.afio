@@ -1,0 +1,376 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<title>metadata_flags</title>
+<link rel="stylesheet" href="../../../../../libs/afio/doc/html/myboostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<link rel="home" href="../../../afio.html" title="Chapter&#160;1.&#160;Boost.AFIO 1.40">
+<link rel="up" href="../macros_flags.html" title="Macros and Flags">
+<link rel="prev" href="fs_metadata_flags.html" title="fs_metadata_flags">
+<link rel="next" href="../structs.html" title="Structures">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="fs_metadata_flags.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../macros_flags.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../structs.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h4 class="title">
+<a name="afio.reference.macros_flags.metadata_flags"></a><a class="link" href="metadata_flags.html" title="metadata_flags">metadata_flags</a>
+</h4></div></div></div>
+<p>
+          <script type="text/javascript">
+var disqus_identifier = 'metadata_flags';
+var disqus_title = 'Boost.AFIO metadata_flags';
+</script>
+        </p>
+<p>
+          <a class="indexterm" name="idp14890168"></a>
+<a class="indexterm" name="idp14890544"></a>
+<a class="indexterm" name="idp14890952"></a>
+<a class="indexterm" name="idp14891368"></a>
+<a class="indexterm" name="idp14891784"></a>
+<a class="indexterm" name="idp14892192"></a>
+<a class="indexterm" name="idp14892600"></a>
+<a class="indexterm" name="idp14893008"></a>
+<a class="indexterm" name="idp14893424"></a>
+<a class="indexterm" name="idp14893816"></a>
+<a class="indexterm" name="idp14894224"></a>
+<a class="indexterm" name="idp14894632"></a>
+<a class="indexterm" name="idp14895040"></a>
+<a class="indexterm" name="idp14895448"></a>
+<a class="indexterm" name="idp14895856"></a>
+<a class="indexterm" name="idp14896264"></a>
+<a class="indexterm" name="idp14896672"></a>
+<a class="indexterm" name="idp14897080"></a>
+<a class="indexterm" name="idp14897488"></a>
+<a class="indexterm" name="idp14897904"></a>
+<a class="indexterm" name="idp14898312"></a>
+<a class="indexterm" name="idp14898720"></a>
+<a class="indexterm" name="idp14899128"></a>
+<a class="indexterm" name="idp14899544"></a>
+Bitflags for availability of metadata from <code class="literal"><code class="computeroutput"><span class="keyword">struct</span>
+          </code><code class="computeroutput"><span class="identifier">stat_t</span></code></code>See
+          <span class="bold"><strong>afio_stat_t</strong></span> for explanation of meaning.
+        </p>
+<h6>
+<a name="afio.reference.macros_flags.metadata_flags.h0"></a>
+          <span><a name="afio.reference.macros_flags.metadata_flags.synopsis"></a></span><a class="link" href="metadata_flags.html#afio.reference.macros_flags.metadata_flags.synopsis">Synopsis</a>
+        </h6>
+<pre class="programlisting"><span class="keyword">enum</span> <span class="identifier">metadata_flags</span> <span class="special">{</span><span class="identifier">None</span> <span class="special">=</span> <span class="number">0</span><span class="special">,</span> <span class="identifier">dev</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">0</span><span class="special">,</span> <span class="identifier">ino</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">1</span><span class="special">,</span> <span class="identifier">type</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">2</span><span class="special">,</span> <span class="identifier">perms</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">3</span><span class="special">,</span> <span class="identifier">nlink</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">4</span><span class="special">,</span> <span class="identifier">uid</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">5</span><span class="special">,</span> <span class="identifier">gid</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">6</span><span class="special">,</span> <span class="identifier">rdev</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">7</span><span class="special">,</span> <span class="identifier">atim</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">8</span><span class="special">,</span> <span class="identifier">mtim</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">9</span><span class="special">,</span> <span class="identifier">ctim</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">10</span><span class="special">,</span> <span class="identifier">size</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">11</span><span class="special">,</span> <span class="identifier">allocated</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">12</span><span class="special">,</span> <span class="identifier">blocks</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">13</span><span class="special">,</span> <span class="identifier">blksize</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">14</span><span class="special">,</span> <span class="identifier">flags</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">15</span><span class="special">,</span> <span class="identifier">gen</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">16</span><span class="special">,</span> <span class="identifier">birthtim</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">17</span><span class="special">,</span> <span class="identifier">sparse</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">24</span><span class="special">,</span> <span class="identifier">compressed</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">25</span><span class="special">,</span> <span class="identifier">reparse_point</span> <span class="special">=</span> <span class="number">1</span><span class="special">&lt;&lt;</span><span class="number">26</span><span class="special">,</span> <span class="identifier">All</span> <span class="special">=</span> <span class="special">(</span><span class="identifier">size_t</span><span class="special">)-</span><span class="number">1</span><span class="special">};</span></pre>
+<h6>
+<a name="afio.reference.macros_flags.metadata_flags.h1"></a>
+          <span><a name="afio.reference.macros_flags.metadata_flags.values"></a></span><a class="link" href="metadata_flags.html#afio.reference.macros_flags.metadata_flags.values">Values</a>
+        </h6>
+<div class="informaltable"><table class="table">
+<colgroup>
+<col>
+<col>
+</colgroup>
+<thead><tr>
+<th>
+                  <p>
+                    Value
+                  </p>
+                </th>
+<th>
+                  <p>
+                    Description
+                  </p>
+                </th>
+</tr></thead>
+<tbody>
+<tr>
+<td>
+                  <p>
+                    None
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    dev
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    ino
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    type
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    perms
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    nlink
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    uid
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    gid
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    rdev
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    atim
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    mtim
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    ctim
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    size
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    allocated
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    blocks
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    blksize
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    flags
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    gen
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    birthtim
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    sparse
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    compressed
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    reparse_point
+                  </p>
+                </td>
+<td>
+                </td>
+</tr>
+<tr>
+<td>
+                  <p>
+                    All
+                  </p>
+                </td>
+<td>
+                  <p>
+                    Return the maximum possible metadata.
+                  </p>
+                </td>
+</tr>
+</tbody>
+</table></div>
+<h6>
+<a name="afio.reference.macros_flags.metadata_flags.h2"></a>
+          <span><a name="afio.reference.macros_flags.metadata_flags.header"></a></span><a class="link" href="metadata_flags.html#afio.reference.macros_flags.metadata_flags.header">Header</a>
+        </h6>
+<p>
+          <code class="computeroutput"><span class="preprocessor">#include</span> <span class="special">&lt;</span><span class="identifier">boost</span><span class="special">/</span><span class="identifier">afio</span><span class="special">/</span><span class="identifier">v2</span><span class="special">/</span><span class="identifier">afio</span><span class="special">.</span><span class="identifier">hpp</span><span class="special">&gt;</span></code>
+        </p>
+<p>
+          </p>
+<div>
+<a name="comments"></a><div id="disqus_thread"></div>
+<script type="text/javascript">
+
+// Get the hX element with class "title"
+var titles = document.getElementsByClassName("title");
+for (var n = 0; n < titles.length; n++) {
+  var title = titles[n];
+  if(title.lastElementChild.nodeName!="a")
+  {
+    var a_elem = document.createElement("a");
+    a_elem.setAttribute("href", "#comments");
+    var span_elem = document.createElement("span");
+    span_elem.setAttribute("class", "disqus-comment-count");
+    span_elem.setAttribute("data-disqus-identifier", disqus_identifier);
+    var text_node = document.createTextNode("Comments");
+    span_elem.appendChild(text_node);
+    a_elem.appendChild(span_elem);
+    title.parentElement.appendChild(a_elem);
+    title.setAttribute("style", "clear: both; display: inline-block;")
+  }
+}
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'boostafio';
+    
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+</div>
+<p>
+
+        </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright &#169; 2013-2015 Niall Douglas
+      and Paul Kirth<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav"><form action="http://melpon.org/wandbox/permlink/nx1G8Xn7fyQdpKLz"><input type="submit" class="tryitnowbtn" value="Try AFIO now in online web compiler"/></form>
+
+<a accesskey="p" href="fs_metadata_flags.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../macros_flags.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../../afio.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="../structs.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>
