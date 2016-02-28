@@ -4,4 +4,4 @@
 # include "boost/afio/afio.hpp"
 # include <iostream>
 # include <fstream>
-#endif
+#endif  /*_ !defined(BOOST_AFIO_PCH_HPP) _*/
