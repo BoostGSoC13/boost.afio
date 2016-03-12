@@ -13,6 +13,7 @@ backends with file open, close, clone, scatter-gather read/writes and
 truncate only.
 
 Todo:
+- [ ] Somehow implement make_errored_result(errcode, extended_msg)
 - [ ] Move caching into native_handle_type.
 - [ ] Implement [[bindlib::make_free]] which injects member functions into the enclosing
 namespace.

@@ -35,6 +35,9 @@ DEALINGS IN THE SOFTWARE.
 #include "../deadline.h"
 #include "../native_handle_type.hpp"
 
+#include <map>
+#include <vector>
+
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace detail
@@ -47,9 +50,17 @@ namespace detail
     stl1z::filesystem::path _path;
     native_handle_type _processh;
     native_handle_type _readh, _writeh, _errh;
+    std::vector<stl1z::filesystem::path::string_type> _args;
+    std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> _env;
 
   protected:
-    child_process() {}
+    child_process(stl1z::filesystem::path path, std::vector<stl1z::filesystem::path::string_type> args, std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> env)
+        : _path(std::move(path))
+        , _args(std::move(args))
+        , _env(std::move(_env))
+    {
+    }
+
   public:
     child_process(const child_process &) = delete;
     child_process(child_process &&o) noexcept = default;
@@ -58,10 +69,14 @@ namespace detail
     ~child_process();
 
     //! Launches an executable as a child process. No shell is invoked on POSIX.
-    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<child_process> launch(stl1z::filesystem::path path) noexcept;
+    static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<child_process> launch(stl1z::filesystem::path path, std::vector<stl1z::filesystem::path::string_type> args, std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> env = current_process_env()) noexcept;
 
     //! Returns the path of the executable
     const stl1z::filesystem::path &path() const noexcept { return _path; }
+    //! Returns the args used to launch the executable
+    const std::vector<stl1z::filesystem::path::string_type> &arguments() const noexcept { return _args; }
+    //! Returns the environment used to launch the executable
+    const std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> &environment() const noexcept { return _env; }
     //! Returns the process identifier
     const native_handle_type &process_native_handle() const noexcept { return _processh; }
     //! Returns the read handle
@@ -81,9 +96,22 @@ namespace detail
   };
 
   //! Returns the path of the calling process
-  BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC stl1z::filesystem::path current_process_path();
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC stl1z::filesystem::path current_process_path();
+
+  //! Returns the environment of the calling process
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> current_process_env();
 }
 
 BOOST_AFIO_V2_NAMESPACE_END
+
+#if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
+#define BOOST_AFIO_INCLUDED_BY_HEADER 1
+#ifdef WIN32
+#include "impl/windows/child_process.ipp"
+#else
+#include "impl/posix/child_process.ipp"
+#endif
+#undef BOOST_AFIO_INCLUDED_BY_HEADER
+#endif
 
 #endif

@@ -78,5 +78,26 @@
     <None Include="include\detail\impl\windows\utils.ipp">
       <Filter>include\detail\impl\windows</Filter>
     </None>
+    <None Include="include\detail\impl\posix\child_process.ipp">
+      <Filter>include\detail\impl\posix</Filter>
+    </None>
+    <None Include="include\detail\impl\posix\handle.ipp">
+      <Filter>include\detail\impl\posix</Filter>
+    </None>
+    <None Include="include\detail\impl\posix\io_service.ipp">
+      <Filter>include\detail\impl\posix</Filter>
+    </None>
+    <None Include="include\detail\impl\posix\statfs.ipp">
+      <Filter>include\detail\impl\posix</Filter>
+    </None>
+    <None Include="include\detail\impl\posix\storage_profile.ipp">
+      <Filter>include\detail\impl\posix</Filter>
+    </None>
+    <None Include="include\detail\impl\posix\utils.ipp">
+      <Filter>include\detail\impl\posix</Filter>
+    </None>
+    <None Include="include\detail\impl\windows\child_process.ipp">
+      <Filter>include\detail\impl\windows</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -34,19 +34,20 @@ DEALINGS IN THE SOFTWARE.
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-io_service::io_service() : _work_queued(0)
+io_service::io_service()
+    : _work_queued(0)
 {
-  if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &_threadh, 0, false, DUPLICATE_SAME_ACCESS))
+  if(!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &_threadh, 0, false, DUPLICATE_SAME_ACCESS))
     throw std::runtime_error("Failed to create creating thread handle");
   _threadid = GetCurrentThreadId();
 }
 
 io_service::~io_service()
 {
-  if (_work_queued)
+  if(_work_queued)
   {
     std::cerr << "WARNING: ~io_service() sees work still queued, blocking until no work queued" << std::endl;
-    while (_work_queued)
+    while(_work_queued)
       std::this_thread::yield();
   }
   CloseHandle(_threadh);
@@ -54,51 +55,35 @@ io_service::~io_service()
 
 result<bool> io_service::run_until(deadline d) noexcept
 {
-  if (!_work_queued)
+  if(!_work_queued)
     return false;
-  if (GetCurrentThreadId() != _threadid)
+  if(GetCurrentThreadId() != _threadid)
     return make_errored_result<bool>(EOPNOTSUPP);
-  stl11::chrono::steady_clock::time_point began_steady;
-  stl11::chrono::system_clock::time_point end_utc;
-  if (d)
+  try
   {
-    if (d.steady)
-      began_steady = stl11::chrono::steady_clock::now();
+    BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d);
+    BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_LOOP(d);
+    DWORD ret;
+    if(sleep_object)
+      ret = WaitForSingleObjectEx(sleep_object, INFINITE, true);
     else
-      end_utc = d.to_time_point();
-  }
-  DWORD tosleep = INFINITE;
-  if (d)
-  {
-    stl11::chrono::milliseconds ms;
-    if (d.steady)
-      ms = stl11::chrono::duration_cast<stl11::chrono::milliseconds>((began_steady + stl11::chrono::nanoseconds(d.nsecs)) - stl11::chrono::steady_clock::now());
-    else
-      ms = stl11::chrono::duration_cast<stl11::chrono::milliseconds>(end_utc - stl11::chrono::system_clock::now());
-    if (ms.count() < 0)
-      tosleep = 0;
-    else
-      tosleep = (DWORD) ms.count();
-  }
-  // Execute any APCs queued to this thread
-  if (!SleepEx(tosleep, true))
-  {
-    // Really a timeout?
-    if (d)
+      ret = SleepEx(sleep_interval, true);
+    switch(ret)
     {
-      if (d.steady)
-      {
-        if(stl11::chrono::steady_clock::now()>=(began_steady + stl11::chrono::nanoseconds(d.nsecs)))
-          return make_errored_result<bool>(ETIMEDOUT);
-      }
-      else
-      {
-        if(stl11::chrono::system_clock::now()>=end_utc)
-          return make_errored_result<bool>(ETIMEDOUT);
-      }
+    case WAIT_IO_COMPLETION:
+      break;
+    case WAIT_OBJECT_0:
+    {
+      // Really a timeout?
+      BOOST_AFIO_WIN_DEADLINE_TO_TIMEOUT(bool, d);
+      break;
     }
+    default:
+      return make_errored_result<bool>(GetLastError());
+    }
+    return _work_queued != 0;
   }
-  return _work_queued != 0;
+  BOOST_OUTCOME_CATCH_EXCEPTION_TO_RESULT(bool)
 }
 
 void io_service::post(detail::function_ptr<void(io_service *)> &&f)
@@ -108,18 +93,18 @@ void io_service::post(detail::function_ptr<void(io_service *)> &&f)
     post_info pi(this, std::move(f));
     std::lock_guard<decltype(_posts_lock)> g(_posts_lock);
     _posts.push_back(std::move(pi));
-    data = (void *)&_posts.back();
+    data = (void *) &_posts.back();
   }
   PAPCFUNC apcf = [](ULONG_PTR data) {
-    post_info *pi = (post_info *)data;
+    post_info *pi = (post_info *) data;
     pi->f(pi->service);
     pi->service->_post_done(pi);
   };
-  if (QueueUserAPC(apcf, _threadh, (ULONG_PTR)data))
+  if(QueueUserAPC(apcf, _threadh, (ULONG_PTR) data))
     _work_enqueued();
   else
   {
-    post_info *pi = (post_info *)data;
+    post_info *pi = (post_info *) data;
     pi->service->_post_done(pi);
   }
 }
