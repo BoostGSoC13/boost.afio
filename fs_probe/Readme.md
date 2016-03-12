@@ -14,9 +14,12 @@ truncate only.
 
 Todo:
 - [ ] Move caching into native_handle_type.
+- [ ] Implement [[bindlib::make_free]] which injects member functions into the enclosing
+namespace.
 - [ ] Add macro helpers to Outcome for returning outcomes out of things
 which cannot return values like constructors, and convert said exceptions/TLS
 back into outcomes.
+ - Make use of std::system_error(errno, system_category, "custom error message");
 - [ ] Get Outcome to work perfectly with exceptions and RTTI disabled, this makes
 Outcome useful in the games/audio world.
   - [ ] Where Outcome might throw, do macro based action which could be any of:
@@ -25,7 +28,11 @@ Outcome useful in the games/audio world.
 assert & trap (debug)
    - Some user based action e.g. fatal exit
   - [ ] Add unit tests proving it for all platforms.
+  - [ ] Move AFIO to being tested with exceptions and RTTI disabled.
 - [ ] There is much duplicate and sloppy code in AFIO v2. Reduce and eliminate.
+
+- [ ] C bindings for all AFIO v2 APIs. Write libclang parser which autogenerates
+SWIG interface files from the .hpp files.
 
 - [ ] Add native BSD kqueues to POSIX AIO backend as is vastly more efficient.
   - http://www.informit.com/articles/article.aspx?p=607373&seqNum=4 is a
@@ -38,10 +45,6 @@ early to run user supplied functions.
   - Unit test op codes generated per set of i/o calls 
 - [ ] Don't run the cpu and sys tests if cpu and sys ids already in fs_probe_results.yaml
   - Need to uniquely fingerprint a machine somehow?
-- [ ] C bindings for all AFIO v2 APIs
-  - Every .hpp should have a corresponding .h file
-  - Can these be auto-generated?
-  - Is SWIG worth it?
 - [ ] Fatter afio::path. We probably need to allow relative paths
 based on a handle and fragment in afio::path, therefore might as well encapsulate
 NT kernel vs win32 paths in there too.

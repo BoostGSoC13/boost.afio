@@ -30,77 +30,12 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "io_service.hpp"
+#include "native_handle_type.hpp"
 
 #ifndef BOOST_AFIO_HANDLE_H
 #define BOOST_AFIO_HANDLE_H
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
-
-//! A native handle type. 
-struct native_handle_type
-{
-  //! The type of handle.
-  BOOST_AFIO_BITFIELD_BEGIN(disposition)
-  {
-    invalid=0,              //!< Invalid handle
-
-    readable=1<<0,          //!< Is readable
-    writable=1<<1,          //!< Is writable
-    append_only=1<<2,       //!< Is append only
-
-    overlapped=1<<4,        //!< Requires additional synchronisation
-    seekable=1<<5,          //!< Is seekable
-    aligned_io=1<<6,        //!< Requires sector aligned i/o (typically 512 or 4096)
-    
-    file=1<<8,              //!< Is a regular file
-    directory=1<<9,         //!< Is a directory
-    symlink=1<<10,          //!< Is a symlink
-    multiplexer=1<<11       //!< Is a kqueue/epoll/iocp
-    
-  }
-  BOOST_AFIO_BITFIELD_END(disposition)
-  disposition behaviour;    //! The behaviour of the handle
-  union
-  {
-    intptr_t _init;
-    int fd;                 //!< A POSIX file descriptor
-    win::handle h;          //!< A Windows HANDLE
-  };
-  //! Constructs a default instance
-  constexpr native_handle_type() noexcept : behaviour(), _init(-1) {}
-  //! Construct from a POSIX file descriptor
-  constexpr native_handle_type(disposition _behaviour, int _fd) noexcept : behaviour(_behaviour), fd(_fd) { }
-  //! Construct from a Windows HANDLE
-  constexpr native_handle_type(disposition _behaviour, win::handle _h) noexcept : behaviour(_behaviour), h(_h) { }
-
-  //! True if valid
-  explicit constexpr operator bool() const noexcept { return _init != -1 && static_cast<unsigned>(behaviour) != 0; }
-  //! True if invalid
-  constexpr bool operator !() const noexcept { return _init == -1 || static_cast<unsigned>(behaviour) == 0; }
-
-  //! True if the handle is readable
-  constexpr bool is_readable() const noexcept { return behaviour && disposition::readable; }
-  //! True if the handle is writable
-  constexpr bool is_writable() const noexcept { return behaviour && disposition::writable; }
-  //! True if the handle is append only
-  constexpr bool is_append_only() const noexcept { return behaviour && disposition::append_only; }
-
-  //! True if overlapped
-  constexpr bool is_overlapped() const noexcept { return behaviour && disposition::overlapped; }
-  //! True if seekable
-  constexpr bool is_seekable() const noexcept { return behaviour && disposition::seekable; }
-  //! True if requires aligned i/o
-  constexpr bool requires_aligned_io() const noexcept { return behaviour && disposition::aligned_io; }
-
-  //! True if a regular file or device
-  constexpr bool is_regular() const noexcept { return behaviour && disposition::file; }
-  //! True if a directory
-  constexpr bool is_directory() const noexcept { return behaviour && disposition::directory; }
-  //! True if a symlink
-  constexpr bool is_symlink() const noexcept { return behaviour && disposition::symlink; }
-  //! True if a multiplexer like BSD kqueues, Linux epoll or Windows IOCP
-  constexpr bool is_multiplexer() const noexcept { return behaviour && disposition::multiplexer; }
-};
 
 //! A handle to an open something
 class BOOST_AFIO_DECL handle
@@ -117,12 +52,12 @@ public:
   enum class mode : unsigned char  // bit 0 set means writable
   {
     unchanged = 0,
-    none=2,             //!< No ability to read or write anything, but can synchronise (SYNCHRONIZE or 0)
-    attr_read=4,        //!< Ability to read attributes (FILE_READ_ATTRIBUTES|SYNCHRONIZE or O_RDONLY)
-    attr_write=5,       //!< Ability to read attributes (FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES|SYNCHRONIZE or O_RDONLY)
-    read=6,             //!< Ability to read (READ_CONTROL|FILE_READ_DATA|FILE_READ_ATTRIBUTES|FILE_READ_EA|SYNCHRONISE or O_RDONLY)
-    write=7,            //!< Ability to write (READ_CONTROL|FILE_READ_DATA|FILE_READ_ATTRIBUTES|FILE_READ_EA|FILE_WRITE_DATA|FILE_WRITE_ATTRIBUTES|FILE_WRITE_EA|FILE_APPEND_DATA|SYNCHRONISE or O_RDWR)
-    append=9            //!< All mainstream OSs and CIFS guarantee this is atomic with respect to all other appenders (FILE_APPEND_DATA|SYNCHRONISE or O_APPEND)
+    none = 2,        //!< No ability to read or write anything, but can synchronise (SYNCHRONIZE or 0)
+    attr_read = 4,   //!< Ability to read attributes (FILE_READ_ATTRIBUTES|SYNCHRONIZE or O_RDONLY)
+    attr_write = 5,  //!< Ability to read attributes (FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES|SYNCHRONIZE or O_RDONLY)
+    read = 6,        //!< Ability to read (READ_CONTROL|FILE_READ_DATA|FILE_READ_ATTRIBUTES|FILE_READ_EA|SYNCHRONISE or O_RDONLY)
+    write = 7,       //!< Ability to write (READ_CONTROL|FILE_READ_DATA|FILE_READ_ATTRIBUTES|FILE_READ_EA|FILE_WRITE_DATA|FILE_WRITE_ATTRIBUTES|FILE_WRITE_EA|FILE_APPEND_DATA|SYNCHRONISE or O_RDWR)
+    append = 9       //!< All mainstream OSs and CIFS guarantee this is atomic with respect to all other appenders (FILE_APPEND_DATA|SYNCHRONISE or O_APPEND)
   };
   //! On opening, do we also create a new file or truncate an existing one?
   enum class creation : unsigned char
@@ -130,25 +65,25 @@ public:
     open_existing = 0,
     only_if_not_exist,
     if_needed,
-    truncate            //!< Atomically truncate on open, leaving creation date unmodified.
+    truncate  //!< Atomically truncate on open, leaving creation date unmodified.
   };
   //! What i/o on the handle will complete immediately due to kernel caching
   enum class caching : unsigned char  // bit 0 set means safety fsyncs enabled
   {
-    unchanged=0,
-    none=1,                 //!< No caching whatsoever, all reads and writes come from storage (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work. <tt>flag_disable_safety_fsyncs</tt> can be used here.
-    only_metadata=2,        //!< Cache reads and writes of metadata but avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
-    reads=3,                //!< Cache reads only. Writes of data and metadata do not complete until reaching storage (<tt>O_SYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
-    reads_and_metadata=5,   //!< Cache reads and writes of metadata, but writes of data do not complete until reaching storage (<tt>O_DSYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
-    all=4,                  //!< Cache reads and writes of data and metadata so they complete immediately, sending writes to storage at some point when the kernel decides (this is the default file system caching on a system).
-    safety_fsyncs=7,        //!< Cache reads and writes of data and metadata so they complete immediately, but issue safety fsyncs at certain points. See documentation for <tt>flag_disable_safety_fsyncs</tt>.
-    temporary=6             //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight as this file is expected to be temporary (Windows only).
+    unchanged = 0,
+    none = 1,                //!< No caching whatsoever, all reads and writes come from storage (i.e. <tt>O_DIRECT|O_SYNC</tt>). Align all i/o to 4Kb boundaries for this to work. <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    only_metadata = 2,       //!< Cache reads and writes of metadata but avoid caching data (<tt>O_DIRECT</tt>), thus i/o here does not affect other cached data for other handles. Align all i/o to 4Kb boundaries for this to work.
+    reads = 3,               //!< Cache reads only. Writes of data and metadata do not complete until reaching storage (<tt>O_SYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    reads_and_metadata = 5,  //!< Cache reads and writes of metadata, but writes of data do not complete until reaching storage (<tt>O_DSYNC</tt>). <tt>flag_disable_safety_fsyncs</tt> can be used here.
+    all = 4,                 //!< Cache reads and writes of data and metadata so they complete immediately, sending writes to storage at some point when the kernel decides (this is the default file system caching on a system).
+    safety_fsyncs = 7,       //!< Cache reads and writes of data and metadata so they complete immediately, but issue safety fsyncs at certain points. See documentation for <tt>flag_disable_safety_fsyncs</tt>.
+    temporary = 6            //!< Cache reads and writes of data and metadata so they complete immediately, only sending any updates to storage on last handle close in the system or if memory becomes tight as this file is expected to be temporary (Windows only).
   };
   //! Bitwise flags which can be specified
   BOOST_AFIO_BITFIELD_BEGIN(flag)
   {
-    none=0,                 //!< No flags
-    delete_on_close=1<<0,   //!< Delete the file on last handle close
+    none = 0,                  //!< No flags
+    delete_on_close = 1 << 0,  //!< Delete the file on last handle close
     /*! Some kernel caching modes have unhelpfully inconsistent behaviours
     in getting your data onto storage, so by default unless this flag is
     specified AFIO adds extra fsyncs to the following operations for the
@@ -162,7 +97,7 @@ public:
     * caching::reads_and_metadata
     * caching::safety_fsyncs
     */
-    disable_safety_fsyncs=1<<1
+    disable_safety_fsyncs = 1 << 1
   }
   BOOST_AFIO_BITFIELD_END(flag)
 protected:
@@ -171,17 +106,35 @@ protected:
   caching _caching;
   flag _flags;
   native_handle_type _v;
-  handle(io_service *service, path_type path, caching caching, flag flags) : _service(service), _path(std::move(path)), _caching(caching), _flags(flags) { }
+  handle(io_service *service, path_type path, caching caching, flag flags)
+      : _service(service)
+      , _path(std::move(path))
+      , _caching(caching)
+      , _flags(flags)
+  {
+  }
   // Called when a move construction occurs
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC void _move_construct(handle &dest) && noexcept {}
 public:
   //! Default constructor
-  handle() : _service(nullptr), _caching(caching::none), _flags(flag::none) {}
+  handle()
+      : _service(nullptr)
+      , _caching(caching::none)
+      , _flags(flag::none)
+  {
+  }
   //! Construct a handle from a supplied native handle
-  handle(io_service *service, path_type path, native_handle_type h, caching caching=caching::none, flag flags=flag::none) : _service(service), _path(std::move(path)), _caching(caching), _flags(flags), _v(std::move(h)) { }
+  handle(io_service *service, path_type path, native_handle_type h, caching caching = caching::none, flag flags = flag::none)
+      : _service(service)
+      , _path(std::move(path))
+      , _caching(caching)
+      , _flags(flags)
+      , _v(std::move(h))
+  {
+  }
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle();
   //! Clone this handle to a different or same io_service (copy constructor is disabled to avoid accidental copying)
-  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<handle> clone(io_service &service, mode mode=mode::unchanged, caching caching=caching::unchanged) const noexcept;
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<handle> clone(io_service &service, mode mode = mode::unchanged, caching caching = caching::unchanged) const noexcept;
   handle(const handle &o) = delete;
   handle &operator=(const handle &o) = delete;
   //! Move the handle
@@ -231,9 +184,9 @@ public:
   //! True if the handle uses the kernel page cache for reads
   bool are_reads_from_cache() const noexcept { return _caching != caching::none && _caching != caching::only_metadata; }
   //! True if writes are safely on storage on completion
-  bool are_writes_durable() const noexcept { return _caching == caching::none || _caching == caching::reads || _caching==caching::reads_and_metadata; }
+  bool are_writes_durable() const noexcept { return _caching == caching::none || _caching == caching::reads || _caching == caching::reads_and_metadata; }
   //! True if issuing safety fsyncs is on
-  bool are_safety_fsyncs_issued() const noexcept { return !(_flags & flag::disable_safety_fsyncs) && !!(static_cast<int>(_caching)&1); }
+  bool are_safety_fsyncs_issued() const noexcept { return !(_flags & flag::disable_safety_fsyncs) && !!(static_cast<int>(_caching) & 1); }
 
   //! The flags this handle was opened with
   flag flags() const noexcept { return _flags; }
@@ -245,6 +198,7 @@ public:
 class BOOST_AFIO_DECL file_handle : public handle
 {
   friend class io_service;
+
 public:
   //! The scatter buffer type used by this handle
   using buffer_type = io_service::buffer_type;
@@ -255,18 +209,24 @@ public:
   //! The gather buffers type used by this handle
   using const_buffers_type = io_service::const_buffers_type;
   //! The i/o request type used by this handle
-  template<class T> using io_request = io_service::io_request<T>;
+  template <class T> using io_request = io_service::io_request<T>;
   //! The i/o result type used by this handle
-  template<class T> using io_result = io_service::io_result<T>;
+  template <class T> using io_result = io_service::io_result<T>;
 
   using handle::handle;
   //! Converting constructor
   explicit file_handle(handle &&o) noexcept : handle(std::move(o)) {}
   //! Create a handle opening access to a file on path managed using i/o service service
+  //[[bindlib::make_free]]
   static BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<file_handle> file(io_service &service, path_type _path, mode _mode = mode::read, creation _creation = creation::open_existing, caching _caching = caching::all, flag flags = flag::none) noexcept;
+
 protected:
   using shared_size_type = size_type;
-  enum class operation_t { read, write };
+  enum class operation_t
+  {
+    read,
+    write
+  };
   // Holds state for an i/o in progress. Will be subclassed with platform specific state and how to implement completion.
   // Note this is allocated using malloc not new to avoid memory zeroing, and therefore it has a custom deleter.
   struct _erased_io_state_type
@@ -275,7 +235,13 @@ protected:
     operation_t operation;
     size_t items;
     shared_size_type items_to_go;
-    constexpr _erased_io_state_type(handle *_parent, operation_t _operation, size_t _items) : parent(_parent), operation(_operation), items(_items), items_to_go(0) { }
+    constexpr _erased_io_state_type(handle *_parent, operation_t _operation, size_t _items)
+        : parent(_parent)
+        , operation(_operation)
+        , items(_items)
+        , items_to_go(0)
+    {
+    }
     /*
     For Windows:
       - errcode: GetLastError() code
@@ -287,12 +253,12 @@ protected:
       - bytes_transferred: return from aio_return(), usually bytes transferred
       - internal_state: address of pointer to struct aiocb in io_service's _aiocbsv
     */
-    virtual void operator()(long errcode, long bytes_transferred, void *internal_state) noexcept=0;
+    virtual void operator()(long errcode, long bytes_transferred, void *internal_state) noexcept = 0;
     BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~_erased_io_state_type()
     {
       // i/o still pending is very bad, this should never happen
       assert(!items_to_go);
-      if (items_to_go)
+      if(items_to_go)
       {
         BOOST_AFIO_LOG_FATAL_EXIT("FATAL: io_state destructed while i/o still in flight, the derived class should never allow this." << std::endl);
         abort();
@@ -300,13 +266,27 @@ protected:
     }
   };
   // State for an i/o in progress, but with the per operation typing
-  template<class CompletionRoutine, class BuffersType> struct _io_state_type : public _erased_io_state_type
+  template <class CompletionRoutine, class BuffersType> struct _io_state_type : public _erased_io_state_type
   {
     io_result<BuffersType> result;
     CompletionRoutine completion;
-    constexpr _io_state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _erased_io_state_type(_parent, _operation, _items), result(make_result(BuffersType())), completion(std::forward<CompletionRoutine>(f)) { }
+    constexpr _io_state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items)
+        : _erased_io_state_type(_parent, _operation, _items)
+        , result(make_result(BuffersType()))
+        , completion(std::forward<CompletionRoutine>(f))
+    {
+    }
   };
-  struct _io_state_deleter { template<class U> void operator()(U *_ptr) const { _ptr->~U(); char *ptr = (char *)_ptr; ::free(ptr); } };
+  struct _io_state_deleter
+  {
+    template <class U> void operator()(U *_ptr) const
+    {
+      _ptr->~U();
+      char *ptr = (char *) _ptr;
+      ::free(ptr);
+    }
+  };
+
 public:
   /*! Smart pointer to state of an i/o in progress. Destroying this before an i/o has completed
   is <b>blocking</b> because the i/o must be cancelled before the destructor can safely exit.
@@ -315,12 +295,11 @@ public:
   /*! Smart pointer to state of an i/o in progress. Destroying this before an i/o has completed
   is <b>blocking</b> because the i/o must be cancelled before the destructor can safely exit.
   */
-  template<class CompletionRoutine, class BuffersType> using io_state_ptr = std::unique_ptr<_io_state_type<CompletionRoutine, BuffersType>, _io_state_deleter>;
+  template <class CompletionRoutine, class BuffersType> using io_state_ptr = std::unique_ptr<_io_state_type<CompletionRoutine, BuffersType>, _io_state_deleter>;
+
 protected:
-  template<class CompletionRoutine, class BuffersType, class IORoutine>
-  result<io_state_ptr<CompletionRoutine, BuffersType>>
-    _begin_io(operation_t operation, io_request<BuffersType> reqs,
-      CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
+  template <class CompletionRoutine, class BuffersType, class IORoutine> result<io_state_ptr<CompletionRoutine, BuffersType>> _begin_io(operation_t operation, io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
+
 public:
   /*! \brief Schedule a read to occur asynchronously.
 
@@ -329,7 +308,8 @@ public:
   \param completion A callable to call upon i/o completion. Spec is void(handle *, io_result<buffers_type> &).
   Note that buffers returned may not be buffers input.
   */
-  template<class CompletionRoutine> result<io_state_ptr<CompletionRoutine, buffers_type>> async_read(io_request<buffers_type> reqs, CompletionRoutine &&completion) noexcept;
+  //[[bindlib::make_free]]
+  template <class CompletionRoutine> result<io_state_ptr<CompletionRoutine, buffers_type>> async_read(io_request<buffers_type> reqs, CompletionRoutine &&completion) noexcept;
 
   /*! \brief Schedule a write to occur asynchronously.
 
@@ -338,7 +318,8 @@ public:
   \param completion A callable to call upon i/o completion. Spec is void(handle *, io_result<const_buffers_type> &).
   Note that buffers returned may not be buffers input.
   */
-  template<class CompletionRoutine> result<io_state_ptr<CompletionRoutine, const_buffers_type>> async_write(io_request<const_buffers_type> reqs, CompletionRoutine &&completion) noexcept;
+  //[[bindlib::make_free]]
+  template <class CompletionRoutine> result<io_state_ptr<CompletionRoutine, const_buffers_type>> async_write(io_request<const_buffers_type> reqs, CompletionRoutine &&completion) noexcept;
 
   /*! \brief Read data from the open file.
 
@@ -347,6 +328,7 @@ public:
   \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
   Note function may return significantly after this deadline if the i/o takes long to cancel.
   */
+  //[[bindlib::make_free]]
   io_result<buffers_type> read(io_request<buffers_type> reqs, deadline d = deadline()) noexcept;
 
   /*! \brief Write data to the open file.
@@ -356,25 +338,27 @@ public:
   \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
   Note function may return significantly after this deadline if the i/o takes long to cancel.
   */
+  //[[bindlib::make_free]]
   io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, deadline d = deadline()) noexcept;
 
   /*! Resize the current maximum permitted extent of the file to the given extent. Note that
   on extents based filing systems this will succeed even if there is insufficient free space
   on the storage medium.
   */
+  //[[bindlib::make_free]]
   result<extent_type> truncate(extent_type newsize) noexcept;
 };
 
 BOOST_AFIO_V2_NAMESPACE_END
 
-# if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
-#  define BOOST_AFIO_INCLUDED_BY_HEADER 1
-#  ifdef WIN32
-#   include "detail/impl/windows/handle.ipp"
-#  else
-#   include "detail/impl/posix/handle.ipp"
-#  endif
-#  undef BOOST_AFIO_INCLUDED_BY_HEADER
-# endif
+#if BOOST_AFIO_HEADERS_ONLY == 1 && !defined(DOXYGEN_SHOULD_SKIP_THIS)
+#define BOOST_AFIO_INCLUDED_BY_HEADER 1
+#ifdef WIN32
+#include "detail/impl/windows/handle.ipp"
+#else
+#include "detail/impl/posix/handle.ipp"
+#endif
+#undef BOOST_AFIO_INCLUDED_BY_HEADER
+#endif
 
 #endif

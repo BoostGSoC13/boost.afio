@@ -70,7 +70,10 @@ DEALINGS IN THE SOFTWARE.
 # error Boost.AFIO needs thread_local support in the compiler
 #endif
 #ifndef __cpp_init_captures
-# error Boost.AFIO need lambda init captures support in the compiler (C++ 14)
+# error Boost.AFIO needs lambda init captures support in the compiler (C++ 14)
+#endif
+#ifndef __cpp_attributes
+# error Boost.AFIO needs attributes support in the compiler
 #endif
 #if (defined(__GNUC__) && !defined(__clang__))
 # define BOOST_AFIO_GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)

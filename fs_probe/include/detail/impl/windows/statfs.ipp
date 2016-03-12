@@ -29,8 +29,8 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include "../../../statfs.hpp"
 #include "../../../handle.hpp"
+#include "../../../statfs.hpp"
 #include "import.hpp"
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
@@ -40,19 +40,19 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
   windows_nt_kernel::init();
   using namespace windows_nt_kernel;
   alignas(8) fixme_path::value_type buffer[32769];
-  IO_STATUS_BLOCK isb = { {-1} };
+  IO_STATUS_BLOCK isb = {{-1}};
   NTSTATUS ntstat;
   size_t ret = 0;
-  if (wanted&&want::flags || wanted&&want::namemax || wanted&&want::fstypename)
+  if((wanted && want::flags) || (wanted && want::namemax) || (wanted && want::fstypename))
   {
-    FILE_FS_ATTRIBUTE_INFORMATION *ffai = (FILE_FS_ATTRIBUTE_INFORMATION *)buffer;
+    FILE_FS_ATTRIBUTE_INFORMATION *ffai = (FILE_FS_ATTRIBUTE_INFORMATION *) buffer;
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, ffai, sizeof(buffer), FileFsAttributeInformation);
-    if (STATUS_PENDING == ntstat)
+    if(STATUS_PENDING == ntstat)
       ntstat = ntwait(h.native_handle().h, isb);
-    if (ntstat)
+    if(ntstat)
       return make_errored_result_nt<size_t>(ntstat);
-    if (wanted&&want::flags)
+    if(wanted && want::flags)
     {
       f_flags.rdonly = !!(ffai->FileSystemAttributes & FILE_READ_ONLY_VOLUME);
       f_flags.acls = !!(ffai->FileSystemAttributes & FILE_PERSISTENT_ACLS);
@@ -62,113 +62,113 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
       f_flags.filecompression = !!(ffai->FileSystemAttributes & FILE_FILE_COMPRESSION);
       ++ret;
     }
-    if (wanted&&want::namemax)
+    if(wanted && want::namemax)
     {
       f_namemax = ffai->MaximumComponentNameLength;
       ++ret;
     }
-    if (wanted&&want::fstypename)
+    if(wanted && want::fstypename)
     {
       f_fstypename.resize(ffai->FileSystemNameLength / sizeof(fixme_path::value_type));
-      for (size_t n = 0; n<ffai->FileSystemNameLength / sizeof(fixme_path::value_type); n++)
-        f_fstypename[n] = (char)ffai->FileSystemName[n];
+      for(size_t n = 0; n < ffai->FileSystemNameLength / sizeof(fixme_path::value_type); n++)
+        f_fstypename[n] = (char) ffai->FileSystemName[n];
       ++ret;
     }
   }
-  if (wanted&&want::bsize || wanted&&want::blocks || wanted&&want::bfree || wanted&&want::bavail)
+  if((wanted && want::bsize) || (wanted && want::blocks) || (wanted && want::bfree) || (wanted && want::bavail))
   {
-    FILE_FS_FULL_SIZE_INFORMATION *fffsi = (FILE_FS_FULL_SIZE_INFORMATION *)buffer;
+    FILE_FS_FULL_SIZE_INFORMATION *fffsi = (FILE_FS_FULL_SIZE_INFORMATION *) buffer;
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, fffsi, sizeof(buffer), FileFsFullSizeInformation);
-    if (STATUS_PENDING == ntstat)
+    if(STATUS_PENDING == ntstat)
       ntstat = ntwait(h.native_handle().h, isb);
-    if (ntstat)
+    if(ntstat)
       return make_errored_result_nt<size_t>(ntstat);
-    if (wanted&&want::bsize)
+    if(wanted && want::bsize)
     {
-      f_bsize = fffsi->BytesPerSector*fffsi->SectorsPerAllocationUnit;
+      f_bsize = fffsi->BytesPerSector * fffsi->SectorsPerAllocationUnit;
       ++ret;
     }
-    if (wanted&&want::blocks)
+    if(wanted && want::blocks)
     {
       f_blocks = fffsi->TotalAllocationUnits.QuadPart;
       ++ret;
     }
-    if (wanted&&want::bfree)
+    if(wanted && want::bfree)
     {
       f_bfree = fffsi->ActualAvailableAllocationUnits.QuadPart;
       ++ret;
     }
-    if (wanted&&want::bavail)
+    if(wanted && want::bavail)
     {
       f_bavail = fffsi->CallerAvailableAllocationUnits.QuadPart;
       ++ret;
     }
   }
-  if (wanted&&want::fsid)
+  if(wanted && want::fsid)
   {
-    FILE_FS_OBJECTID_INFORMATION *ffoi = (FILE_FS_OBJECTID_INFORMATION *)buffer;
+    FILE_FS_OBJECTID_INFORMATION *ffoi = (FILE_FS_OBJECTID_INFORMATION *) buffer;
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, ffoi, sizeof(buffer), FileFsObjectIdInformation);
-    if (STATUS_PENDING == ntstat)
+    if(STATUS_PENDING == ntstat)
       ntstat = ntwait(h.native_handle().h, isb);
-    if (0/*STATUS_SUCCESS*/ == ntstat)
+    if(0 /*STATUS_SUCCESS*/ == ntstat)
     {
       // FAT32 doesn't support filing system id, so sink error
       memcpy(&f_fsid, ffoi->ObjectId, sizeof(f_fsid));
       ++ret;
     }
   }
-  if (wanted&&want::iosize)
+  if(wanted && want::iosize)
   {
-    FILE_FS_SECTOR_SIZE_INFORMATION *ffssi = (FILE_FS_SECTOR_SIZE_INFORMATION *)buffer;
+    FILE_FS_SECTOR_SIZE_INFORMATION *ffssi = (FILE_FS_SECTOR_SIZE_INFORMATION *) buffer;
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, ffssi, sizeof(buffer), FileFsSectorSizeInformation);
-    if (STATUS_PENDING == ntstat)
+    if(STATUS_PENDING == ntstat)
       ntstat = ntwait(h.native_handle().h, isb);
-    if (ntstat)
+    if(ntstat)
       return make_errored_result_nt<size_t>(ntstat);
     f_iosize = ffssi->PhysicalBytesPerSectorForPerformance;
     ++ret;
   }
-  if (wanted&&want::mntfromname || wanted&&want::mntonname)
+  if((wanted && want::mntfromname) || (wanted && want::mntonname))
   {
     // Irrespective we need the path before figuring out the mounted device
     alignas(8) fixme_path::value_type buffer2[32769];
-    for (;;)
+    for(;;)
     {
       DWORD pathlen = GetFinalPathNameByHandle(h.native_handle().h, buffer2, sizeof(buffer2) / sizeof(*buffer2), FILE_NAME_OPENED | VOLUME_NAME_NONE);
-      if (!pathlen || pathlen >= sizeof(buffer2) / sizeof(*buffer2))
+      if(!pathlen || pathlen >= sizeof(buffer2) / sizeof(*buffer2))
         return make_errored_result<size_t>(GetLastError());
       buffer2[pathlen] = 0;
-      if (wanted&&want::mntfromname)
+      if(wanted && want::mntfromname)
       {
         DWORD len = GetFinalPathNameByHandle(h.native_handle().h, buffer, sizeof(buffer) / sizeof(*buffer), FILE_NAME_OPENED | VOLUME_NAME_NT);
-        if (!len || len >= sizeof(buffer) / sizeof(*buffer))
+        if(!len || len >= sizeof(buffer) / sizeof(*buffer))
           return make_errored_result<size_t>(GetLastError());
         buffer[len] = 0;
-        if (memcmp(buffer2, buffer + len - pathlen, pathlen))
+        if(memcmp(buffer2, buffer + len - pathlen, pathlen))
           continue;  // path changed
         len -= pathlen;
         // buffer should look like \Device\HarddiskVolumeX
-        if (memcmp(buffer, L"\\Device\\HarddiskVolume", 44))
+        if(memcmp(buffer, L"\\Device\\HarddiskVolume", 44))
           return make_errored_result<size_t>(EILSEQ);
         // TODO FIXME This should output the kind of path the input handle uses
         // For now though, output a win32 compatible path
-        f_mntfromname.reserve(len+3);
+        f_mntfromname.reserve(len + 3);
         f_mntfromname.assign("\\\\.");  // win32 escape prefix for NT kernel path \Device
-        for (size_t n = 7; n < len; n++)
-          f_mntfromname.push_back((char)buffer[n]);
+        for(size_t n = 7; n < len; n++)
+          f_mntfromname.push_back((char) buffer[n]);
         ++ret;
         wanted &= ~want::mntfromname;
       }
-      if (wanted&&want::mntonname)
+      if(wanted && want::mntonname)
       {
         DWORD len = GetFinalPathNameByHandle(h.native_handle().h, buffer, sizeof(buffer) / sizeof(*buffer), FILE_NAME_OPENED | VOLUME_NAME_DOS);
-        if (!len || len >= sizeof(buffer) / sizeof(*buffer))
+        if(!len || len >= sizeof(buffer) / sizeof(*buffer))
           return make_errored_result<size_t>(GetLastError());
         buffer[len] = 0;
-        if (memcmp(buffer2, buffer + len - pathlen, pathlen))
+        if(memcmp(buffer2, buffer + len - pathlen, pathlen))
           continue;  // path changed
         len -= pathlen;
         f_mntonname = decltype(f_mntonname)::string_type(buffer, len);

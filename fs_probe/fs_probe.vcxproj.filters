@@ -51,6 +51,12 @@
     <ClInclude Include="include\detail\impl\windows\import.hpp">
       <Filter>include\detail\impl\windows</Filter>
     </ClInclude>
+    <ClInclude Include="include\detail\child_process.hpp">
+      <Filter>include\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="include\native_handle_type.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\detail\impl\storage_profile.ipp">

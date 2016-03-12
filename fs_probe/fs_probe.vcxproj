@@ -36,10 +36,12 @@
   <ItemGroup>
     <ClInclude Include="include\config.hpp" />
     <ClInclude Include="include\deadline.h" />
+    <ClInclude Include="include\detail\child_process.hpp" />
     <ClInclude Include="include\detail\impl\windows\import.hpp" />
     <ClInclude Include="include\handle.hpp" />
     <ClInclude Include="include\io_service.hpp" />
     <ClInclude Include="include\lockable_handle.hpp" />
+    <ClInclude Include="include\native_handle_type.hpp" />
     <ClInclude Include="include\statfs.hpp" />
     <ClInclude Include="include\storage_profile.hpp" />
     <ClInclude Include="include\utils.hpp" />
