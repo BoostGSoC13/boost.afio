@@ -312,7 +312,8 @@ public:
   \errors Any of the values POSIX read() can return, ETIMEDOUT, ECANCELED. ENOTSUP may be
   returned if deadline i/o is not possible with this particular handle configuration (e.g.
   reading from regular files on POSIX or reading from a non-overlapped HANDLE on Windows).
-  \mallocs No memory allocation.
+  \mallocs The default synchronous implementation in file_handle performs no memory allocation.
+  The asynchronous implementation in async_file_handle performs one calloc and one free.
   */
   //[[bindlib::make_free]]
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC io_result<buffers_type> read(io_request<buffers_type> reqs, deadline d = deadline()) noexcept;
@@ -326,7 +327,8 @@ public:
   \errors Any of the values POSIX write() can return, ETIMEDOUT, ECANCELED. ENOTSUP may be
   returned if deadline i/o is not possible with this particular handle configuration (e.g.
   writing to regular files on POSIX or writing to a non-overlapped HANDLE on Windows).
-  \mallocs No memory allocation.
+  \mallocs The default synchronous implementation in file_handle performs no memory allocation.
+  The asynchronous implementation in async_file_handle performs one calloc and one free.
   */
   //[[bindlib::make_free]]
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, deadline d = deadline()) noexcept;

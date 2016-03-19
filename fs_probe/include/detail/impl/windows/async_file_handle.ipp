@@ -125,11 +125,13 @@ result<async_file_handle::io_state_ptr<CompletionRoutine, BuffersType>> async_fi
   // On Windows i/o must be scheduled on the same thread pumping completion
   if(GetCurrentThreadId() != service()->_threadid)
     return make_errored_result<return_type>(EOPNOTSUPP);
+
   void *mem = ::calloc(1, statelen);
   if(!mem)
     return make_errored_result<return_type>(ENOMEM);
   return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
   new((state = (state_type *) mem)) state_type(this, operation, std::forward<CompletionRoutine>(completion), items);
+
   // To be called once each buffer is read
   struct handle_completion
   {
@@ -146,8 +148,13 @@ result<async_file_handle::io_state_ptr<CompletionRoutine, BuffersType>> async_fi
   {
     LPOVERLAPPED ol = state->ols + n;
     ol->Internal = (ULONG_PTR) -1;
-    ol->Offset = offset & 0xffffffff;
-    ol->OffsetHigh = (offset >> 32) & 0xffffffff;
+    if(_v.is_append_only())
+      ol->OffsetHigh = ol->Offset = 0xffffffff;
+    else
+    {
+      ol->Offset = offset & 0xffffffff;
+      ol->OffsetHigh = (offset >> 32) & 0xffffffff;
+    }
     // Use the unused hEvent member to pass through the state
     ol->hEvent = (HANDLE) state;
     offset += out[n].second;
