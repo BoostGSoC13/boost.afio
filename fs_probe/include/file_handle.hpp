@@ -36,10 +36,14 @@ DEALINGS IN THE SOFTWARE.
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-//! A handle to a regular file or device
+class io_service;
+
+/*! \class file_handle
+\brief A handle to a regular file or device, kept data layout compatible with
+async_file_handle.
+*/
 class BOOST_AFIO_DECL file_handle : public io_handle
 {
-
 public:
   using path_type = io_handle::path_type;
   using extent_type = io_handle::extent_type;
@@ -57,18 +61,34 @@ public:
 
 protected:
   path_type _path;
+  io_service *_service;
 
 public:
-  // Inherit constructors
-  using io_handle::io_handle;
+  //! Default constructor
+  file_handle()
+      : io_handle()
+      , _service(nullptr)
+  {
+  }
   //! Construct a handle from a supplied native handle
   file_handle(path_type path, native_handle_type h, caching caching = caching::none, flag flags = flag::none)
       : io_handle(std::move(h), std::move(caching), std::move(flags))
       , _path(std::move(path))
+      , _service(nullptr)
   {
   }
-  //! Move construction of file_handle permitted
-  file_handle(file_handle &&o) noexcept : io_handle(std::move(o)), _path(std::move(o._path)) {}
+  //! Implicit move construction of file_handle permitted
+  file_handle(file_handle &&o) noexcept : io_handle(std::move(o)), _path(std::move(o._path)), _service(o._service) { o._service = nullptr; }
+  //! Explicit conversion from handle and io_handle permitted
+  explicit file_handle(handle &&o, path_type path) noexcept : io_handle(std::move(o)), _path(std::move(path)), _service(nullptr) {}
+  using io_handle::really_copy;
+  //! Copy the handle. Tag enabled because copying handles is expensive (fd duplication).
+  explicit file_handle(const file_handle &o, really_copy _)
+      : io_handle(o, _)
+      , _path(o._path)
+      , _service(o._service)
+  {
+  }
   //! Move assignment of file_handle permitted
   file_handle &operator=(file_handle &&o) noexcept
   {
@@ -96,6 +116,10 @@ public:
   \errors Any of the values POSIX dup() or DuplicateHandle() can return.
   */
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<file_handle> clone() const noexcept;
+
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC path_type path() const noexcept override { return _path; }
+  //! The i/o service this handle is attached to
+  io_service *service() const noexcept { return _service; }
 
   /*! Return the current maximum permitted extent of the file.
 

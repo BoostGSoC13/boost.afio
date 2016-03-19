@@ -115,13 +115,6 @@ protected:
   caching _caching;
   flag _flags;
   native_handle_type _v;
-  //! Move the handle
-  handle(handle &&o) noexcept : _caching(o._caching), _flags(o._flags), _v(std::move(o._v))
-  {
-    o._caching = caching::none;
-    o._flags = flag::none;
-    o._v = native_handle_type();
-  }
 
 public:
   //! Default constructor
@@ -138,15 +131,34 @@ public:
   {
   }
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC ~handle();
-  //! Cannot copy nor move at this base class level
-  handle(const handle &o) = delete;
-  //! Cannot copy nor move at this base class level
+  //! Move the handle. Explicit because this will lose information in any derived source.
+  explicit handle(handle &&o) noexcept : _caching(o._caching), _flags(o._flags), _v(std::move(o._v))
+  {
+    o._caching = caching::none;
+    o._flags = flag::none;
+    o._v = native_handle_type();
+  }
+  //! Tag type to enable copy constructor
+  struct really_copy
+  {
+  };
+  //! Copy the handle. Tag enabled because copying handles is expensive (fd duplication).
+  explicit handle(const handle &o, really_copy);
+  //! No move assignment
   handle &operator=(handle &&o) = delete;
-  //! Cannot copy nor move at this base class level
+  //! No copy assignment
   handle &operator=(const handle &o) = delete;
 
-  //! The path this handle refers to
+  //! The path this handle refers to, if any
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC path_type path() const noexcept { return path_type(); }
+  //! Immediately close the native handle type managed by this handle
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<void> close() noexcept;
+  //! Release the native handle type managed by this handle
+  BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC native_handle_type release() noexcept
+  {
+    native_handle_type ret(std::move(_v));
+    return ret;
+  }
 
   //! True if the handle is readable
   bool is_readable() const noexcept { return _v.is_readable(); }
@@ -154,10 +166,15 @@ public:
   bool is_writable() const noexcept { return _v.is_writable(); }
   //! True if the handle is append only
   bool is_append_only() const noexcept { return _v.is_append_only(); }
-  /*! Changes whether this handle is append only or not. Note on Windows you need
-  to have opened the handle for read-write originally.
+  /*! Changes whether this handle is append only or not.
+
+  \warning On Windows this is implemented as a bit of a hack to make it fast like on POSIX,
+  so make sure you open the handle for read/write originally. Note unlike on POSIX the
+  append_only disposition will be the only one toggled, seekable and readable will remain
+  turned on.
 
   \errors Whatever POSIX fcntl() returns. On Windows nothing is changed on the handle.
+  \mallocs No memory allocation.
   */
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<void> set_append_only(bool enable) noexcept;
 
@@ -188,10 +205,14 @@ public:
   //! True if issuing safety fsyncs is on
   bool are_safety_fsyncs_issued() const noexcept { return !(_flags & flag::disable_safety_fsyncs) && !!(static_cast<int>(_caching) & 1); }
   /*! Changes the kernel cache strategy used by this handle.
-  Note most OSs impose severe restrictions on what can be changed,
-  it may be easier to simply open a new handle.
+  Note most OSs impose severe restrictions on what can be changed and will error out,
+  it may be easier to simply create a new handle.
 
-  \errors Whatever POSIX fcntl() or ? return.
+  \warning On Windows this reopens the file, it is no slower than
+  opening the file fresh but equally it is vastly slower than on POSIX.
+
+  \errors Whatever POSIX fcntl() or ReOpenFile() returns.
+  \mallocs No memory allocation.
   */
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<void> set_kernel_caching(caching caching) noexcept;
 
@@ -269,8 +290,18 @@ public:
   };
 
 public:
-  // Same constructors as handle
+  //! Default constructor
+  constexpr io_handle() = default;
+  //! Same constructors as handle
   using handle::handle;
+  //! Explicit conversion from handle permitted
+  explicit io_handle(handle &&o) noexcept : handle(std::move(o)) {}
+  using handle::really_copy;
+  //! Copy the handle. Tag enabled because copying handles is expensive (fd duplication).
+  explicit io_handle(const io_handle &o, really_copy _)
+      : handle(o, _)
+  {
+  }
 
   /*! \brief Read data from the open handle.
 
@@ -281,6 +312,7 @@ public:
   \errors Any of the values POSIX read() can return, ETIMEDOUT, ECANCELED. ENOTSUP may be
   returned if deadline i/o is not possible with this particular handle configuration (e.g.
   reading from regular files on POSIX or reading from a non-overlapped HANDLE on Windows).
+  \mallocs No memory allocation.
   */
   //[[bindlib::make_free]]
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC io_result<buffers_type> read(io_request<buffers_type> reqs, deadline d = deadline()) noexcept;
@@ -294,6 +326,7 @@ public:
   \errors Any of the values POSIX write() can return, ETIMEDOUT, ECANCELED. ENOTSUP may be
   returned if deadline i/o is not possible with this particular handle configuration (e.g.
   writing to regular files on POSIX or writing to a non-overlapped HANDLE on Windows).
+  \mallocs No memory allocation.
   */
   //[[bindlib::make_free]]
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, deadline d = deadline()) noexcept;

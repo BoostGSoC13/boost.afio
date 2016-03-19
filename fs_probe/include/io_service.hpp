@@ -35,8 +35,6 @@ DEALINGS IN THE SOFTWARE.
 #include "handle.hpp"
 
 #include <deque>
-#include <utility>
-#include <vector>
 
 #undef _threadid  // windows macro splosh sigh
 
@@ -90,69 +88,28 @@ struct aiocb;
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 class io_service;
-class handle;
-class file_handle;
+class async_file_handle;
 class BOOST_AFIO_DECL io_service
 {
-  friend class file_handle;
+  friend class async_file_handle;
 
 public:
   //! The file extent type used by this i/o service
-  using extent_type = handle::extent_type;
+  using extent_type = io_handle::extent_type;
   //! The memory extent type used by this i/o service
-  using size_type = handle::size_type;
+  using size_type = io_handle::size_type;
   //! The scatter buffer type used by this i/o service
-  using buffer_type = std::pair<char *, size_type>;
+  using buffer_type = io_handle::buffer_type;
   //! The gather buffer type used by this i/o service
-  using const_buffer_type = std::pair<const char *, size_type>;
+  using const_buffer_type = io_handle::const_buffer_type;
   //! The scatter buffers type used by this i/o service
-  using buffers_type = std::vector<buffer_type>;
+  using buffers_type = io_handle::buffers_type;
   //! The gather buffers type used by this i/o service
-  using const_buffers_type = std::vector<const_buffer_type>;
+  using const_buffers_type = io_handle::const_buffers_type;
   //! The i/o request type used by this i/o service
-  template <class T> struct io_request
-  {
-    T buffers;
-    extent_type offset;
-    constexpr io_request()
-        : buffers()
-        , offset(0)
-    {
-    }
-    constexpr io_request(T _buffers, extent_type _offset)
-        : buffers(std::move(_buffers))
-        , offset(_offset)
-    {
-    }
-  };
+  template <class T> using io_request = io_handle::io_request<T>;
   //! The i/o result type used by this i/o service
-  template <class T> class io_result : public result<T>
-  {
-    using Base = result<T>;
-    size_type _bytes_transferred;
-
-  public:
-    constexpr io_result() noexcept : _bytes_transferred((size_type) -1) {}
-    template <class... Args>
-    io_result(Args &&... args)
-        : result<T>(std::forward<Args>(args)...)
-        , _bytes_transferred((size_type) -1)
-    {
-    }
-    io_result &operator=(const io_result &) = default;
-    io_result &operator=(io_result &&) = default;
-    //! Returns bytes transferred
-    size_type bytes_transferred() noexcept
-    {
-      if(_bytes_transferred == (size_type) -1)
-      {
-        _bytes_transferred = 0;
-        for(auto &i : this->value())
-          _bytes_transferred += i.second;
-      }
-      return _bytes_transferred;
-    }
-  };
+  template <class T> using io_result = io_handle::io_result<T>;
 
 private:
 #ifdef WIN32

@@ -38,19 +38,29 @@ handle::~handle()
 {
   if(_v)
   {
+    // Call close() below
+    auto ret = handle::close();
+    if(ret.has_error())
+    {
+      BOOST_AFIO_LOG_FATAL_EXIT("handle::~handle() close failed with " << ret.get_error().message());
+    }
+  }
+}
+
+result<void> handle::close() noexcept
+{
+  if(_v)
+  {
     if(are_safety_fsyncs_issued())
     {
       if(!FlushFileBuffers(_v.h))
-      {
-        BOOST_AFIO_LOG_FATAL_EXIT("handle::~handle() fsync failed with " << GetLastError());
-      }
+        return make_errored_result<void>(GetLastError());
     }
     if(!CloseHandle(_v.h))
-    {
-      BOOST_AFIO_LOG_FATAL_EXIT("handle::~handle() close failed with " << GetLastError());
-    }
+      return make_errored_result<void>(GetLastError());
     _v = native_handle_type();
   }
+  return make_result<void>();
 }
 
 result<void> handle::set_append_only(bool enable) noexcept
@@ -58,15 +68,13 @@ result<void> handle::set_append_only(bool enable) noexcept
   // This works only due to special handling in OVERLAPPED later
   if(enable)
   {
-    // Remove seekable, readable; Set append_only
-    _v.behaviour &= ~(native_handle_type::disposition::seekable | native_handle_type::disposition::readable);
+    // Set append_only
     _v.behaviour |= native_handle_type::disposition::append_only;
   }
   else
   {
-    // Remove append_only; Set seekable, readable
+    // Remove append_only
     _v.behaviour &= ~native_handle_type::disposition::append_only;
-    _v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable;
   }
   return make_result<void>();
 }
