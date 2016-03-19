@@ -280,6 +280,14 @@ using BOOST_OUTCOME_V1_NAMESPACE::monad_errc;
 using BOOST_OUTCOME_V1_NAMESPACE::monad_category;
 BOOST_AFIO_V2_NAMESPACE_END
 
+#if !BOOST_AFIO_HAVE_CXX17_SPAN_IMPLEMENTATION
+#include "../../include/boost/afio/gsl-lite/include/gsl.h"
+BOOST_AFIO_V2_NAMESPACE_BEGIN
+template<class T> using span = gsl::span<T>;
+using gsl::as_span;
+BOOST_AFIO_V2_NAMESPACE_END
+#endif
+
 #include <time.h>  // for struct timespec
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN

@@ -104,8 +104,12 @@ template <class BuffersType, class Syscall> inline io_handle::io_result<BuffersT
 {
   if(d && !nativeh.is_overlapped())
     return make_errored_result<BuffersType>(ENOTSUP);
+  if(reqs.buffers.size() > 64)
+    return make_errored_result<BuffersType>(E2BIG);
+
   BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d);
-  std::vector<OVERLAPPED> ols(reqs.buffers.size());
+  std::array<OVERLAPPED, 64> _ols;
+  span<OVERLAPPED> ols(_ols.data(), reqs.buffers.size());
   auto ol_it = ols.begin();
   DWORD transferred = 0;
   auto cancel_io = detail::Undoer([&] {
