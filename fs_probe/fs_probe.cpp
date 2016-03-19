@@ -93,7 +93,8 @@ int main(int argc, char *argv[])
     file_handle testfile(std::move(_testfile.get()));
     std::vector<char> buffer(1024 * 1024);
     RETCHECK(testfile.truncate(buffer.size()));
-    file_handle::io_request<file_handle::const_buffers_type> reqs({std::make_pair(buffer.data(), buffer.size())}, 0);
+    file_handle::const_buffer_type _reqs[1] = {std::make_pair(buffer.data(), buffer.size())};
+    file_handle::io_request<file_handle::const_buffers_type> reqs(_reqs, 0);
     RETCHECK(testfile.write(reqs));
   }
   // File closes, as it was opened with O_SYNC it forces extent allocation

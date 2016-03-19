@@ -42,6 +42,12 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 namespace detail
 {
+  //! Returns the path of the calling process
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC stl1z::filesystem::path current_process_path();
+
+  //! Returns the environment of the calling process
+  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> current_process_env();
+
   /*! \class child_process
   \brief Launches and manages a child process with stdin, stdout and stderr.
   */
@@ -57,13 +63,13 @@ namespace detail
     child_process(stl1z::filesystem::path path, std::vector<stl1z::filesystem::path::string_type> args, std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> env)
         : _path(std::move(path))
         , _args(std::move(args))
-        , _env(std::move(_env))
+        , _env(std::move(env))
     {
     }
 
   public:
     child_process(const child_process &) = delete;
-    child_process(child_process &&o) noexcept = default;
+    child_process(child_process &&o) = default;
     child_process &operator=(const child_process &) = delete;
     child_process &operator=(child_process &&) = default;
     ~child_process();
@@ -94,12 +100,6 @@ namespace detail
     //! \overload
     result<intptr_t> wait() noexcept { return wait_until(deadline()); }
   };
-
-  //! Returns the path of the calling process
-  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC stl1z::filesystem::path current_process_path();
-
-  //! Returns the environment of the calling process
-  BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC std::map<stl1z::filesystem::path::string_type, stl1z::filesystem::path::string_type> current_process_env();
 }
 
 BOOST_AFIO_V2_NAMESPACE_END

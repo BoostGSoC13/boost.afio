@@ -241,9 +241,9 @@ public:
   //! The gather buffer type used by this handle
   using const_buffer_type = std::pair<const char *, size_type>;
   //! The scatter buffers type used by this handle
-  using buffers_type = std::vector<buffer_type>;
+  using buffers_type = span<buffer_type>;
   //! The gather buffers type used by this handle
-  using const_buffers_type = std::vector<const_buffer_type>;
+  using const_buffers_type = span<const_buffer_type>;
   //! The i/o request type used by this handle
   template <class T> struct io_request
   {
@@ -305,7 +305,10 @@ public:
 
   /*! \brief Read data from the open handle.
 
-  \return The buffers read, which may not be the buffers input.
+  \return The buffers read, which may not be the buffers input. The size of each scatter-gather
+  buffer is updated with the number of bytes of that buffer transferred, and the pointer to
+  the data may be \em completely different to what was submitted (e.g. it may point into a
+  memory map).
   \param reqs A scatter-gather and offset request.
   \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
   Note function may return significantly after this deadline if the i/o takes long to cancel.
@@ -317,10 +320,19 @@ public:
   */
   //[[bindlib::make_free]]
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC io_result<buffers_type> read(io_request<buffers_type> reqs, deadline d = deadline()) noexcept;
+  //! \overload
+  io_result<buffer_type> read(extent_type offset, char *data, size_type bytes, deadline d = deadline()) noexcept
+  {
+    buffer_type _reqs[1] = {{data, bytes}};
+    io_request<buffers_type> reqs(buffers_type(_reqs), offset);
+    BOOST_OUTCOME_FILTER_ERROR(v, read(reqs, d));
+    return *v.data();
+  }
 
   /*! \brief Write data to the open handle.
 
-  \return The buffers written, which may not be the buffers input.
+  \return The buffers written, which may not be the buffers input. The size of each scatter-gather
+  buffer is updated with the number of bytes of that buffer transferred.
   \param reqs A scatter-gather and offset request.
   \param deadline An optional deadline by which the i/o must complete, else it is cancelled.
   Note function may return significantly after this deadline if the i/o takes long to cancel.
@@ -332,6 +344,14 @@ public:
   */
   //[[bindlib::make_free]]
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC io_result<const_buffers_type> write(io_request<const_buffers_type> reqs, deadline d = deadline()) noexcept;
+  //! \overload
+  io_result<const_buffer_type> write(extent_type offset, const char *data, size_type bytes, deadline d = deadline()) noexcept
+  {
+    const_buffer_type _reqs[1] = {{data, bytes}};
+    io_request<const_buffers_type> reqs(const_buffers_type(_reqs), offset);
+    BOOST_OUTCOME_FILTER_ERROR(v, write(reqs, d));
+    return *v.data();
+  }
 };
 
 
