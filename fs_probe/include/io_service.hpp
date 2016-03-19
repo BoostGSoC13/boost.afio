@@ -89,6 +89,10 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 class io_service;
 class async_file_handle;
+
+/*! \class io_service
+\brief An asynchronous i/o multiplexer service.
+*/
 class BOOST_AFIO_DECL io_service
 {
   friend class async_file_handle;

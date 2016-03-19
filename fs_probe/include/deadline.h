@@ -44,22 +44,23 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 #define BOOST_AFIO_DEADLINE_NAME boost_afio_deadline
 #endif
 
-/*! \struct deadline A time deadline
+/*! \struct deadline
+\brief A time deadline in either relative-to-now or absolute (system clock) terms
 */
 struct BOOST_AFIO_DEADLINE_NAME
 {
-  bool steady;                      //!< True if deadline does not change with system clock changes
-  union
-  {
-    struct timespec utc;            //!< System time from timespec_get(&ts, TIME_UTC)
-    unsigned long long nsecs;       //!< Nanosecond ticks from start of operation
+  bool steady;  //!< True if deadline does not change with system clock changes
+  union {
+    struct timespec utc;       //!< System time from timespec_get(&ts, TIME_UTC)
+    unsigned long long nsecs;  //!< Nanosecond ticks from start of operation
   };
 #ifdef __cplusplus
   deadline() noexcept { memset(this, 0, sizeof(*this)); }
   //! True if deadline is valid
   explicit operator bool() const noexcept { return steady || utc.tv_sec != 0; }
   //! Construct a deadline from a system clock time point
-  deadline(stl11::chrono::system_clock::time_point tp) : steady(false)
+  deadline(stl11::chrono::system_clock::time_point tp)
+      : steady(false)
   {
     stl11::chrono::seconds secs(stl11::chrono::system_clock::to_time_t(tp));
     utc.tv_sec = secs.count();
@@ -67,11 +68,13 @@ struct BOOST_AFIO_DEADLINE_NAME
     utc.tv_nsec = (long) stl11::chrono::duration_cast<stl11::chrono::nanoseconds>(tp - _tp).count();
   }
   //! Construct a deadline from a duration from now
-  template<class Rep, class Period> deadline(stl11::chrono::duration<Rep, Period> d) : steady(true)
+  template <class Rep, class Period>
+  deadline(stl11::chrono::duration<Rep, Period> d)
+      : steady(true)
   {
     stl11::chrono::nanoseconds _nsecs = stl11::chrono::duration_cast<stl11::chrono::nanoseconds>(d);
     // Negative durations are zero duration
-    if (_nsecs.count() > 0)
+    if(_nsecs.count() > 0)
       nsecs = _nsecs.count();
     else
       nsecs = 0;
@@ -79,7 +82,7 @@ struct BOOST_AFIO_DEADLINE_NAME
   //! Returns a system_clock::time_point for this deadline
   stl11::chrono::system_clock::time_point to_time_point() const
   {
-    if (steady)
+    if(steady)
       throw std::invalid_argument("Not a UTC deadline!");
     stl11::chrono::system_clock::time_point tp(stl11::chrono::system_clock::from_time_t(utc.tv_sec));
     tp += stl11::chrono::duration_cast<stl11::chrono::system_clock::duration>(stl11::chrono::nanoseconds(utc.tv_nsec));

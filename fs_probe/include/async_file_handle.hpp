@@ -114,7 +114,11 @@ public:
   BOOST_AFIO_HEADERS_ONLY_VIRTUAL_SPEC result<async_file_handle> clone(io_service &service) const noexcept;
   using file_handle::clone;
 
+#if DOXYGEN_SHOULD_SKIP_THIS
+private:
+#else
 protected:
+#endif
   using shared_size_type = size_type;
   enum class operation_t
   {
@@ -191,7 +195,11 @@ public:
   */
   template <class CompletionRoutine, class BuffersType> using io_state_ptr = std::unique_ptr<_io_state_type<CompletionRoutine, BuffersType>, _io_state_deleter>;
 
+#if DOXYGEN_SHOULD_SKIP_THIS
+private:
+#else
 protected:
+#endif
   template <class CompletionRoutine, class BuffersType, class IORoutine> result<io_state_ptr<CompletionRoutine, BuffersType>> _begin_io(operation_t operation, io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept;
 
 public:
@@ -200,7 +208,10 @@ public:
   \return Either an io_state_ptr to the i/o in progress, or an error code.
   \param reqs A scatter-gather and offset request.
   \param completion A callable to call upon i/o completion. Spec is void(async_file_handle *, io_result<buffers_type> &).
-  Note that buffers returned may not be buffers input.
+  Note that buffers returned may not be buffers input, see documentation for read().
+  \errors As for read(), plus ENOMEM.
+  \mallocs One calloc, one free. The allocation is unavoidable due to the need to store a type
+  erased completion handler of unknown type.
   */
   //[[bindlib::make_free]]
   template <class CompletionRoutine> result<io_state_ptr<CompletionRoutine, buffers_type>> async_read(io_request<buffers_type> reqs, CompletionRoutine &&completion) noexcept;
@@ -210,7 +221,10 @@ public:
   \return Either an io_state_ptr to the i/o in progress, or an error code.
   \param reqs A scatter-gather and offset request.
   \param completion A callable to call upon i/o completion. Spec is void(async_file_handle *, io_result<const_buffers_type> &).
-  Note that buffers returned may not be buffers input.
+  Note that buffers returned may not be buffers input, see documentation for write().
+  \errors As for write(), plus ENOMEM.
+  \mallocs One calloc, one free. The allocation is unavoidable due to the need to store a type
+  erased completion handler of unknown type.
   */
   //[[bindlib::make_free]]
   template <class CompletionRoutine> result<io_state_ptr<CompletionRoutine, const_buffers_type>> async_write(io_request<const_buffers_type> reqs, CompletionRoutine &&completion) noexcept;
