@@ -32,7 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BOOST_AFIO_WINDOWS_H
 #define BOOST_AFIO_WINDOWS_H
 
-#include "../../../config.hpp"
+#include "../../../handle.hpp"
 #include <memory>  // for unique_ptr
 
 #ifndef WIN32
@@ -273,6 +273,10 @@ namespace windows_nt_kernel
   /*_In_*/ HANDLE Handle,
   /*_In_*/ BOOLEAN Alertable,
   /*_In_*/ PLARGE_INTEGER Timeout);
+
+  typedef NTSTATUS(NTAPI *NtDelayExecution_t)(
+  /*_In_*/ BOOLEAN Alertable,
+  /*_In_*/ LARGE_INTEGER *Interval);
 
   // From https://msdn.microsoft.com/en-us/library/windows/hardware/ff566474(v=vs.85).aspx
   typedef NTSTATUS(NTAPI *NtLockFile_t)(
@@ -529,6 +533,7 @@ namespace windows_nt_kernel
   static NtQueryDirectoryFile_t NtQueryDirectoryFile;
   static NtSetInformationFile_t NtSetInformationFile;
   static NtWaitForSingleObject_t NtWaitForSingleObject;
+  static NtDelayExecution_t NtDelayExecution;
   static NtLockFile_t NtLockFile;
   static NtUnlockFile_t NtUnlockFile;
   static RtlGenRandom_t RtlGenRandom;
@@ -550,44 +555,48 @@ namespace windows_nt_kernel
       return;
     static stl11::mutex lock;
     stl11::lock_guard<decltype(lock)> g(lock);
+    static HMODULE ntdllh = GetModuleHandleA("NTDLL.DLL");
     if(!NtQueryObject)
-      if(!(NtQueryObject = (NtQueryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryObject")))
+      if(!(NtQueryObject = (NtQueryObject_t) GetProcAddress(ntdllh, "NtQueryObject")))
         abort();
     if(!NtQueryInformationFile)
-      if(!(NtQueryInformationFile = (NtQueryInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryInformationFile")))
+      if(!(NtQueryInformationFile = (NtQueryInformationFile_t) GetProcAddress(ntdllh, "NtQueryInformationFile")))
         abort();
     if(!NtQueryVolumeInformationFile)
-      if(!(NtQueryVolumeInformationFile = (NtQueryVolumeInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryVolumeInformationFile")))
+      if(!(NtQueryVolumeInformationFile = (NtQueryVolumeInformationFile_t) GetProcAddress(ntdllh, "NtQueryVolumeInformationFile")))
         abort();
     if(!NtOpenDirectoryObject)
-      if(!(NtOpenDirectoryObject = (NtOpenDirectoryObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenDirectoryObject")))
+      if(!(NtOpenDirectoryObject = (NtOpenDirectoryObject_t) GetProcAddress(ntdllh, "NtOpenDirectoryObject")))
         abort();
     if(!NtOpenFile)
-      if(!(NtOpenFile = (NtOpenFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtOpenFile")))
+      if(!(NtOpenFile = (NtOpenFile_t) GetProcAddress(ntdllh, "NtOpenFile")))
         abort();
     if(!NtCreateFile)
-      if(!(NtCreateFile = (NtCreateFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtCreateFile")))
+      if(!(NtCreateFile = (NtCreateFile_t) GetProcAddress(ntdllh, "NtCreateFile")))
         abort();
     if(!NtDeleteFile)
-      if(!(NtDeleteFile = (NtDeleteFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtDeleteFile")))
+      if(!(NtDeleteFile = (NtDeleteFile_t) GetProcAddress(ntdllh, "NtDeleteFile")))
         abort();
     if(!NtClose)
-      if(!(NtClose = (NtClose_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtClose")))
+      if(!(NtClose = (NtClose_t) GetProcAddress(ntdllh, "NtClose")))
         abort();
     if(!NtQueryDirectoryFile)
-      if(!(NtQueryDirectoryFile = (NtQueryDirectoryFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtQueryDirectoryFile")))
+      if(!(NtQueryDirectoryFile = (NtQueryDirectoryFile_t) GetProcAddress(ntdllh, "NtQueryDirectoryFile")))
         abort();
     if(!NtSetInformationFile)
-      if(!(NtSetInformationFile = (NtSetInformationFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSetInformationFile")))
+      if(!(NtSetInformationFile = (NtSetInformationFile_t) GetProcAddress(ntdllh, "NtSetInformationFile")))
         abort();
     if(!NtWaitForSingleObject)
-      if(!(NtWaitForSingleObject = (NtWaitForSingleObject_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtWaitForSingleObject")))
+      if(!(NtWaitForSingleObject = (NtWaitForSingleObject_t) GetProcAddress(ntdllh, "NtWaitForSingleObject")))
+        abort();
+    if(!NtDelayExecution)
+      if(!(NtDelayExecution = (NtDelayExecution_t) GetProcAddress(ntdllh, "NtDelayExecution")))
         abort();
     if(!NtLockFile)
-      if(!(NtLockFile = (NtLockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtLockFile")))
+      if(!(NtLockFile = (NtLockFile_t) GetProcAddress(ntdllh, "NtLockFile")))
         abort();
     if(!NtUnlockFile)
-      if(!(NtUnlockFile = (NtUnlockFile_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtUnlockFile")))
+      if(!(NtUnlockFile = (NtUnlockFile_t) GetProcAddress(ntdllh, "NtUnlockFile")))
         abort();
     HMODULE advapi32 = LoadLibraryA("ADVAPI32.DLL");
     if(!RtlGenRandom)
@@ -602,10 +611,10 @@ namespace windows_nt_kernel
     if(!AdjustTokenPrivileges)
       if(!(AdjustTokenPrivileges = (AdjustTokenPrivileges_t) GetProcAddress(advapi32, "AdjustTokenPrivileges")))
         abort();
-    HMODULE dbghelp = LoadLibraryA("DBGHELP.DLL");
 #ifdef BOOST_AFIO_OP_STACKBACKTRACEDEPTH
     if(dbghelp)
     {
+      HMODULE dbghelp = LoadLibraryA("DBGHELP.DLL");
       if(!(SymInitialize = (SymInitialize_t) GetProcAddress(dbghelp, "SymInitializeW")))
         abort();
       if(!SymInitialize(GetCurrentProcess(), nullptr, true))
@@ -615,7 +624,7 @@ namespace windows_nt_kernel
     }
 #endif
     if(!RtlCaptureStackBackTrace)
-      if(!(RtlCaptureStackBackTrace = (RtlCaptureStackBackTrace_t) GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "RtlCaptureStackBackTrace")))
+      if(!(RtlCaptureStackBackTrace = (RtlCaptureStackBackTrace_t) GetProcAddress(ntdllh, "RtlCaptureStackBackTrace")))
         abort();
     // MAKE SURE you update the early exit check at the top to whatever the last of these is!
   }
@@ -726,23 +735,6 @@ template <class T> inline outcome<T> make_errored_outcome_nt(NTSTATUS e, const c
   return outcome<T>(std::error_code(windows_nt_kernel::win32_error_from_nt_status(e), std::system_category()));
 }
 
-// Wait for an overlapped handle to complete a specific operation
-static inline NTSTATUS ntwait(HANDLE h, windows_nt_kernel::IO_STATUS_BLOCK &isb) noexcept
-{
-  windows_nt_kernel::init();
-  using namespace windows_nt_kernel;
-  do
-  {
-    // Pump alerts and APCs
-    NTSTATUS ntstat = NtWaitForSingleObject(h, true, nullptr);
-  } while(isb.Status == -1);
-  return isb.Status;
-}
-static inline NTSTATUS ntwait(HANDLE h, OVERLAPPED &ol) noexcept
-{
-  return ntwait(h, reinterpret_cast<windows_nt_kernel::IO_STATUS_BLOCK &>(ol));
-}
-
 #if 0
 static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, metadata_flags wanted)
 {
@@ -768,6 +760,7 @@ static inline void fill_stat_t(stat_t &stat, BOOST_AFIO_POSIX_STAT_STRUCT s, met
 #endif
 
 // Utility routines for implementing deadline sleeps on Windows which only provides interval sleeps
+#if 0  // This is the win32 edition. The NT kernel edition is much cleaner and lower overhead.
 struct win_handle_deleter
 {
   void operator()(HANDLE h) { CloseHandle(h); }
@@ -851,7 +844,187 @@ if(d)                                                                           
     }                                                                                                                                                                                                                                                                                                                          \
   \
 }
+#else
+/*! Defines a number of variables into its scope:
+- began_steady: Set to the steady clock at the beginning of a sleep
+- end_utc: Set to the system clock when the sleep must end
+- sleep_interval: Set to the number of steady milliseconds until the sleep must end
+- sleep_object: Set to a primed deadline timer HANDLE which will signal when the system clock reaches the deadline
+*/
+#define BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d)                                                                                                                                                                                                                                                                               \
+  stl11::chrono::steady_clock::time_point began_steady;                                                                                                                                                                                                                                                                        \
+  \
+stl11::chrono::system_clock::time_point end_utc;                                                                                                                                                                                                                                                                               \
+  \
+alignas(8) LARGE_INTEGER _timeout;                                                                                                                                                                                                                                                                                             \
+  \
+LARGE_INTEGER *timeout = nullptr;                                                                                                                                                                                                                                                                                              \
+  \
+if(d)                                                                                                                                                                                                                                                                                                                          \
+  \
+{                                                                                                                                                                                                                                                                                                                         \
+    if((d).steady)                                                                                                                                                                                                                                                                                                             \
+      began_steady = stl11::chrono::steady_clock::now();                                                                                                                                                                                                                                                                       \
+    else                                                                                                                                                                                                                                                                                                                       \
+    {                                                                                                                                                                                                                                                                                                                          \
+      end_utc = (d).to_time_point();                                                                                                                                                                                                                                                                                           \
+      _timeout = windows_nt_kernel::from_timepoint(end_utc);                                                                                                                                                                                                                                                                   \
+    }                                                                                                                                                                                                                                                                                                                          \
+    timeout = &_timeout;                                                                                                                                                                                                                                                                                                       \
+  \
+}
 
+#define BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_LOOP(d)                                                                                                                                                                                                                                                                               \
+  if((d) && (d).steady)                                                                                                                                                                                                                                                                                                        \
+  {                                                                                                                                                                                                                                                                                                                            \
+    stl11::chrono::nanoseconds ns;                                                                                                                                                                                                                                                                                             \
+    ns = stl11::chrono::duration_cast<stl11::chrono::nanoseconds>((began_steady + stl11::chrono::nanoseconds(d.nsecs)) - stl11::chrono::steady_clock::now());                                                                                                                                                                  \
+    if(ns.count() < 0)                                                                                                                                                                                                                                                                                                         \
+      _timeout.QuadPart = 0;                                                                                                                                                                                                                                                                                                   \
+    else                                                                                                                                                                                                                                                                                                                       \
+      _timeout.QuadPart = ns.count() / -100;                                                                                                                                                                                                                                                                                   \
+  }
+
+#define BOOST_AFIO_WIN_DEADLINE_TO_TIMEOUT(type, d)                                                                                                                                                                                                                                                                            \
+  \
+if(d)                                                                                                                                                                                                                                                                                                                          \
+  \
+{                                                                                                                                                                                                                                                                                                                         \
+    if((d).steady)                                                                                                                                                                                                                                                                                                             \
+    {                                                                                                                                                                                                                                                                                                                          \
+      if(stl11::chrono::steady_clock::now() >= (began_steady + stl11::chrono::nanoseconds((d).nsecs)))                                                                                                                                                                                                                         \
+        return make_errored_result<type>(ETIMEDOUT);                                                                                                                                                                                                                                                                           \
+    }                                                                                                                                                                                                                                                                                                                          \
+    else                                                                                                                                                                                                                                                                                                                       \
+    {                                                                                                                                                                                                                                                                                                                          \
+      if(stl11::chrono::system_clock::now() >= end_utc)                                                                                                                                                                                                                                                                        \
+        return make_errored_result<type>(ETIMEDOUT);                                                                                                                                                                                                                                                                           \
+    }                                                                                                                                                                                                                                                                                                                          \
+  \
+}
+#endif
+
+// Wait for an overlapped handle to complete a specific operation
+static inline NTSTATUS ntwait(HANDLE h, windows_nt_kernel::IO_STATUS_BLOCK &isb, const deadline &d) noexcept
+{
+  windows_nt_kernel::init();
+  using namespace windows_nt_kernel;
+  BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d);
+  do  // needs to be a do, not while in order to flip auto reset event objects etc.
+  {
+    BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_LOOP(d);
+    // Pump alerts and APCs
+    NTSTATUS ntstat = NtWaitForSingleObject(h, true, timeout);
+    if(STATUS_TIMEOUT == ntstat)
+    {
+      DWORD expected = (DWORD) -1;
+      // Have to be very careful here, atomically swap timed out for the -1 only
+      InterlockedCompareExchange(&isb.Status, ntstat, expected);
+      // If it's no longer -1 or the i/o completes, that's fine.
+      return isb.Status;
+    }
+  } while(isb.Status == -1);
+  return isb.Status;
+}
+static inline NTSTATUS ntwait(HANDLE h, OVERLAPPED &ol, const deadline &d) noexcept
+{
+  return ntwait(h, reinterpret_cast<windows_nt_kernel::IO_STATUS_BLOCK &>(ol), d);
+}
+
+// Sleep the thread until some deadline
+static inline bool ntsleep(const deadline &d, bool return_on_alert = false) noexcept
+{
+  windows_nt_kernel::init();
+  using namespace windows_nt_kernel;
+  BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d);
+  for(;;)
+  {
+    BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_LOOP(d);
+    // Pump alerts and APCs
+    NTSTATUS ntstat = NtDelayExecution(true, timeout);
+    if((d).steady)
+    {
+      if(stl11::chrono::steady_clock::now() >= (began_steady + stl11::chrono::nanoseconds((d).nsecs)))
+        return false;
+    }
+    else
+    {
+      if(stl11::chrono::system_clock::now() >= end_utc)
+        return false;
+    }
+    if(return_on_alert)
+      return true;
+  }
+}
+
+
+// Utility routines for building an ACCESS_MASK from a handle::mode
+static inline result<ACCESS_MASK> access_mask_from_handle_mode(native_handle_type &nativeh, handle::mode _mode)
+{
+  ACCESS_MASK access = SYNCHRONIZE;
+  switch(_mode)
+  {
+  case handle::mode::unchanged:
+    return make_errored_result<ACCESS_MASK>(EINVAL);
+  case handle::mode::none:
+    break;
+  case handle::mode::attr_read:
+    access |= FILE_READ_ATTRIBUTES;
+    break;
+  case handle::mode::attr_write:
+    access |= FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES;
+    break;
+  case handle::mode::read:
+    access |= GENERIC_READ;
+    nativeh.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable;
+    break;
+  case handle::mode::write:
+    access |= GENERIC_WRITE | GENERIC_READ;
+    nativeh.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable | native_handle_type::disposition::writable;
+    break;
+  case handle::mode::append:
+    access |= FILE_APPEND_DATA;
+    nativeh.behaviour |= native_handle_type::disposition::writable | native_handle_type::disposition::append_only;
+    break;
+  }
+  return access;
+}
+
+static inline result<DWORD> attributes_from_handle_caching_and_flags(native_handle_type &nativeh, handle::caching _caching, handle::flag flags)
+{
+  DWORD attribs = 0;
+  if(flags && handle::flag::overlapped)
+  {
+    attribs |= FILE_FLAG_OVERLAPPED;
+    nativeh.behaviour |= native_handle_type::disposition::overlapped;
+  }
+  switch(_caching)
+  {
+  case handle::caching::unchanged:
+    return make_errored_result<DWORD>(EINVAL);
+  case handle::caching::none:
+    attribs |= FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH;
+    nativeh.behaviour |= native_handle_type::disposition::aligned_io;
+    break;
+  case handle::caching::only_metadata:
+    attribs |= FILE_FLAG_NO_BUFFERING;
+    nativeh.behaviour |= native_handle_type::disposition::aligned_io;
+    break;
+  case handle::caching::reads:
+  case handle::caching::reads_and_metadata:
+    attribs |= FILE_FLAG_WRITE_THROUGH;
+    break;
+  case handle::caching::all:
+  case handle::caching::safety_fsyncs:
+    break;
+  case handle::caching::temporary:
+    attribs |= FILE_ATTRIBUTE_TEMPORARY;
+    break;
+  }
+  if(flags && handle::flag::delete_on_close)
+    attribs |= FILE_FLAG_DELETE_ON_CLOSE;
+  return attribs;
+}
 
 BOOST_AFIO_V2_NAMESPACE_END
 

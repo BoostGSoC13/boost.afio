@@ -30,7 +30,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BOOST_AFIO_STORAGE_PROFILE_H
 #define BOOST_AFIO_STORAGE_PROFILE_H
 
-#include "handle.hpp"
+#include "io_service.hpp"
 
 #include <regex>
 
@@ -51,16 +51,20 @@ namespace storage_profile
   struct storage_profile;
 
   //! Returns the enum matching type T
-  template<class T> constexpr storage_types map_to_storage_type() { static_assert(0 == sizeof(T), "Unsupported storage_type"); return storage_types::unknown; }
+  template <class T> constexpr storage_types map_to_storage_type()
+  {
+    static_assert(0 == sizeof(T), "Unsupported storage_type");
+    return storage_types::unknown;
+  }
   //! Specialise for a different default value for T
-  template<class T> constexpr T default_value() { return T{}; }
+  template <class T> constexpr T default_value() { return T{}; }
 
-  template<> constexpr storage_types map_to_storage_type<io_service::extent_type>() { return storage_types::extent_type; }
-  template<> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) - 1; }
-  template<> constexpr storage_types map_to_storage_type<unsigned int>() { return storage_types::unsigned_int; }
-//  template<> constexpr storage_types map_to_storage_type<unsigned long long>() { return storage_types::unsigned_long_long; }
-  template<> constexpr storage_types map_to_storage_type<float>() { return storage_types::float_; }
-  template<> constexpr storage_types map_to_storage_type<std::string>() { return storage_types::string; }
+  template <> constexpr storage_types map_to_storage_type<io_service::extent_type>() { return storage_types::extent_type; }
+  template <> constexpr io_service::extent_type default_value<io_service::extent_type>() { return (io_service::extent_type) -1; }
+  template <> constexpr storage_types map_to_storage_type<unsigned int>() { return storage_types::unsigned_int; }
+  //  template<> constexpr storage_types map_to_storage_type<unsigned long long>() { return storage_types::unsigned_long_long; }
+  template <> constexpr storage_types map_to_storage_type<float>() { return storage_types::float_; }
+  template <> constexpr storage_types map_to_storage_type<std::string>() { return storage_types::string; }
 
   //! Common base class for items
   struct item_base
@@ -73,21 +77,28 @@ namespace storage_profile
     const char *description;  //!< Some description of the item
     storage_types type;       //!< The type of the value
   protected:
-    constexpr item_base(const char *_name, const char *_desc, storage_types _type) : name(_name), description(_desc), type(_type)
+    constexpr item_base(const char *_name, const char *_desc, storage_types _type)
+        : name(_name)
+        , description(_desc)
+        , type(_type)
     {
     }
   };
   //! A tag-value item in the storage profile where T is the type of value stored.
-  template<class T> struct item : public item_base
+  template <class T> struct item : public item_base
   {
     static constexpr size_t item_size = item_base::item_size;
     using handle_type = item_base::handle_type;
-    using callable = outcome<void>(*)(storage_profile &sp, handle_type &h);
+    using callable = outcome<void> (*)(storage_profile &sp, handle_type &h);
 
     callable impl;
-    T value;                  //!< The storage of the item
+    T value;  //!< The storage of the item
     char _padding[item_size - sizeof(item_base) - sizeof(callable) - sizeof(T)];
-    constexpr item(const char *_name, callable c, const char *_desc = nullptr, T _value = default_value<T>()) : item_base(_name, _desc, map_to_storage_type<T>()), impl(c), value(_value), _padding{ 0 }
+    constexpr item(const char *_name, callable c, const char *_desc = nullptr, T _value = default_value<T>())
+        : item_base(_name, _desc, map_to_storage_type<T>())
+        , impl(c)
+        , value(_value)
+        , _padding{0}
     {
       static_assert(sizeof(*this) == item_size, "");
     }
@@ -96,7 +107,7 @@ namespace storage_profile
     //! Set this item if its value is default
     outcome<void> operator()(storage_profile &sp, handle_type &h) const
     {
-      if (value != default_value<T>())
+      if(value != default_value<T>())
         return make_ready_outcome<void>();
       return impl(sp, h);
     }
@@ -115,9 +126,9 @@ namespace storage_profile
     item_erased &operator=(const item_erased &) = delete;
     item_erased &operator=(item_erased &&) = delete;
     //! Call the callable with the unerased type
-    template<class U> auto invoke(U &&f) const
+    template <class U> auto invoke(U &&f) const
     {
-      switch (type)
+      switch(type)
       {
       case storage_types::extent_type:
         return f(*static_cast<const item<io_service::extent_type> *>(static_cast<const item_base *>(this)));
@@ -137,9 +148,7 @@ namespace storage_profile
     //! Set this item if its value is default
     outcome<void> operator()(storage_profile &sp, handle_type &h) const
     {
-      return invoke([&sp, &h](auto &item) {
-        return item(sp, h);
-      });
+      return invoke([&sp, &h](auto &item) { return item(sp, h); });
     }
   };
 
@@ -152,9 +161,11 @@ namespace storage_profile
     // System memory quantity, in use, max and min bandwidth
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> mem(storage_profile &sp, file_handle &h) noexcept;
 #ifdef WIN32
-    namespace windows {
+    namespace windows
+    {
 #else
-    namespace posix {
+    namespace posix
+    {
 #endif
       BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _mem(storage_profile &sp, file_handle &h) noexcept;
     }
@@ -166,9 +177,11 @@ namespace storage_profile
     // FS name, config, size, in use
     BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> fs(storage_profile &sp, file_handle &h) noexcept;
 #ifdef WIN32
-    namespace windows {
+    namespace windows
+    {
 #else
-    namespace posix {
+    namespace posix
+    {
 #endif
       BOOST_AFIO_HEADERS_ONLY_FUNC_SPEC outcome<void> _device(storage_profile &sp, file_handle &h, std::string mntfromname, std::string fstypename) noexcept;
     }
@@ -184,10 +197,15 @@ namespace storage_profile
   {
     //! The size type
     using size_type = size_t;
+
   private:
     size_type _size;
+
   public:
-    storage_profile() : _size(0) { }
+    storage_profile()
+        : _size(0)
+    {
+    }
 
     //! Value type
     using value_type = item_erased &;
@@ -211,7 +229,7 @@ namespace storage_profile
     //! Returns an iterator to the first item
     iterator begin() noexcept { return static_cast<item_erased *>(static_cast<item_base *>(&os_name)); }
     //! Returns an iterator to the last item
-    iterator end() noexcept { return begin()+max_size(); }
+    iterator end() noexcept { return begin() + max_size(); }
     //! Returns an iterator to the first item
     const_iterator begin() const noexcept { return static_cast<const item_erased *>(static_cast<const item_base *>(&os_name)); }
     //! Returns an iterator to the last item
@@ -220,71 +238,48 @@ namespace storage_profile
     //! Read the matching items in the storage profile from in as YAML
     void read(std::istream &in, std::regex which = std::regex(".*"));
     //! Write the matching items from storage profile as YAML to out with the given indentation
-    void write(std::ostream &out, std::regex which = std::regex(".*"), size_t _indent = 0, bool invert_which=false) const;
+    void write(std::ostream &out, std::regex which = std::regex(".*"), size_t _indent = 0, bool invert_which = false) const;
 
     // System characteristics
-    item<std::string> os_name = { "system:os:name", &system::os };                            // e.g. Microsoft Windows NT
-    item<std::string> os_ver = { "system:os:ver", &system::os };                              // e.g. 10.0.10240
-    item<std::string> cpu_name = { "system:cpu:name", &system::cpu };                         // e.g. Intel Haswell
-    item<std::string> cpu_architecture = { "system:cpu:architecture", &system::cpu };         // e.g. x64
-    item<unsigned> cpu_physical_cores = { "system:cpu:physical_cores", &system::cpu };
-    item<unsigned long long> mem_max_bandwidth = { "system:mem:max_bandwidth",
-      system::mem,
-      "Main memory bandwidth when accessed sequentially"
-    };
-    item<unsigned long long> mem_min_bandwidth = { "system:mem:min_bandwidth",
-      system::mem,
-      "Main memory bandwidth when 4Kb pages are accessed randomly"
-    };
-    item<unsigned long long> mem_quantity = { "system:mem:quantity", &system::mem };
-    item<float> mem_in_use = { "system:mem:in_use", &system::mem };                           // not including caches etc.
+    item<std::string> os_name = {"system:os:name", &system::os};                     // e.g. Microsoft Windows NT
+    item<std::string> os_ver = {"system:os:ver", &system::os};                       // e.g. 10.0.10240
+    item<std::string> cpu_name = {"system:cpu:name", &system::cpu};                  // e.g. Intel Haswell
+    item<std::string> cpu_architecture = {"system:cpu:architecture", &system::cpu};  // e.g. x64
+    item<unsigned> cpu_physical_cores = {"system:cpu:physical_cores", &system::cpu};
+    item<unsigned long long> mem_max_bandwidth = {"system:mem:max_bandwidth", system::mem, "Main memory bandwidth when accessed sequentially"};
+    item<unsigned long long> mem_min_bandwidth = {"system:mem:min_bandwidth", system::mem, "Main memory bandwidth when 4Kb pages are accessed randomly"};
+    item<unsigned long long> mem_quantity = {"system:mem:quantity", &system::mem};
+    item<float> mem_in_use = {"system:mem:in_use", &system::mem};  // not including caches etc.
 
     // Controller characteristics
-    item<std::string> controller_type = { "storage:controller:kind", &storage::device };      // e.g. SATA
-    item<unsigned> controller_max_transfer = { "storage:controller:max_transfer",
-      storage::device,
-      "The maximum number of bytes the disk controller can transfer at once"
-    };
-    item<unsigned> controller_max_buffers = { "storage:controller:max_buffers",
-      storage::device,
-      "The maximum number of scatter-gather buffers the disk controller can handle"
-    };
+    item<std::string> controller_type = {"storage:controller:kind", &storage::device};  // e.g. SATA
+    item<unsigned> controller_max_transfer = {"storage:controller:max_transfer", storage::device, "The maximum number of bytes the disk controller can transfer at once"};
+    item<unsigned> controller_max_buffers = {"storage:controller:max_buffers", storage::device, "The maximum number of scatter-gather buffers the disk controller can handle"};
 
     // Storage characteristics
-    item<std::string> device_name = { "storage:device:name", &storage::device };              // e.g. WDC WD30EFRX-68EUZN0
-    item<unsigned> device_min_io_size = { "storage:device:min_io_size", &storage::device };   // e.g. 4096
-    item<io_service::extent_type> device_size = { "storage:device:size", &storage::device };
+    item<std::string> device_name = {"storage:device:name", &storage::device};             // e.g. WDC WD30EFRX-68EUZN0
+    item<unsigned> device_min_io_size = {"storage:device:min_io_size", &storage::device};  // e.g. 4096
+    item<io_service::extent_type> device_size = {"storage:device:size", &storage::device};
 
     // Filing system characteristics
-    item<std::string> fs_name = { "storage:fs:name", &storage::fs };
-    item<std::string> fs_config = { "storage:fs:config", &storage::fs };  // POSIX mount options, ZFS pool properties etc
-//        item<std::string> fs_ffeatures = { "storage:fs:features" };  // Standardised features???
-    item<io_service::extent_type> fs_size = { "storage:fs:size", &storage::fs };
-    item<float> fs_in_use = { "storage:fs:in_use", &storage::fs };
+    item<std::string> fs_name = {"storage:fs:name", &storage::fs};
+    item<std::string> fs_config = {"storage:fs:config", &storage::fs};  // POSIX mount options, ZFS pool properties etc
+                                                                        //        item<std::string> fs_ffeatures = { "storage:fs:features" };  // Standardised features???
+    item<io_service::extent_type> fs_size = {"storage:fs:size", &storage::fs};
+    item<float> fs_in_use = {"storage:fs:in_use", &storage::fs};
 
     // Test results on this filing system, storage and system
-    item<io_service::extent_type> atomic_rewrite_quantum = {
-      "concurrency:atomic_rewrite_quantum",
-      concurrency::atomic_rewrite_quantum,
-      "The i/o modify quantum guaranteed to be atomically visible to readers irrespective of rewrite quantity"
-    };
-    item<io_service::extent_type> max_aligned_atomic_rewrite = {
-      "concurrency:max_aligned_atomic_rewrite",
-      concurrency::atomic_rewrite_quantum,
-      "The maximum single aligned i/o modify quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_rewrite_quantum). "
-      "A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping."
-    };
-    item<io_service::extent_type> atomic_rewrite_offset_boundary = {
-      "concurrency:atomic_rewrite_offset_boundary",
-      concurrency::atomic_rewrite_offset_boundary,
-      "The multiple of offset in a file where update atomicity breaks, so if you wrote 4096 bytes at a 512 offset and "
-      "this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. "
-      "Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on "
-      "filing systems which take special measures to work around it. Windows NT appears to lose all atomicity as soon as "
-      "an i/o straddles a 4096 file offset multiple and DMA suddenly goes into many 64 byte cache lines :(, so if "
-      "this value is less than max_aligned_atomic_rewrite and some multiple of the CPU cache line size then this is "
-      "what has happened."
-    };
+    item<io_service::extent_type> atomic_rewrite_quantum = {"concurrency:atomic_rewrite_quantum", concurrency::atomic_rewrite_quantum, "The i/o modify quantum guaranteed to be atomically visible to readers irrespective of rewrite quantity"};
+    item<io_service::extent_type> max_aligned_atomic_rewrite = {"concurrency:max_aligned_atomic_rewrite", concurrency::atomic_rewrite_quantum,
+                                                                "The maximum single aligned i/o modify quantity atomically visible to readers (can be [potentially unreliably] much larger than atomic_rewrite_quantum). "
+                                                                "A very common value on modern hardware with direct i/o thanks to PCIe DMA is 4096, don't trust values higher than this because of potentially discontiguous memory page mapping."};
+    item<io_service::extent_type> atomic_rewrite_offset_boundary = {"concurrency:atomic_rewrite_offset_boundary", concurrency::atomic_rewrite_offset_boundary, "The multiple of offset in a file where update atomicity breaks, so if you wrote 4096 bytes at a 512 offset and "
+                                                                                                                                                               "this value was 4096, your write would tear at 3584 because all writes would tear on a 4096 offset multiple. "
+                                                                                                                                                               "Linux has a famously broken kernel i/o design which causes this value to be a page multiple, except on "
+                                                                                                                                                               "filing systems which take special measures to work around it. Windows NT appears to lose all atomicity as soon as "
+                                                                                                                                                               "an i/o straddles a 4096 file offset multiple and DMA suddenly goes into many 64 byte cache lines :(, so if "
+                                                                                                                                                               "this value is less than max_aligned_atomic_rewrite and some multiple of the CPU cache line size then this is "
+                                                                                                                                                               "what has happened."};
   };
 }
 

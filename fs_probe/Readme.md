@@ -15,6 +15,8 @@ truncate only.
 Todo:
 - [ ] Somehow implement make_errored_result(errcode, extended_msg)
 - [ ] Move caching into native_handle_type.
+- [ ] file_handle needs to become split into basic_file_handle and async_file_handle.
+A basic_file_handle has no dependency on io_service.
 - [ ] Implement [[bindlib::make_free]] which injects member functions into the enclosing
 namespace.
 - [ ] Add macro helpers to Outcome for returning outcomes out of things

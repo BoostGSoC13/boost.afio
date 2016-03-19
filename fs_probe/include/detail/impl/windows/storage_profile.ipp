@@ -207,7 +207,7 @@ namespace storage_profile
         {
           alignas(8) fixme_path::value_type buffer[32769];
           // Firstly open a handle to the volume
-          BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(*h.service(), mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
+          BOOST_OUTCOME_FILTER_ERROR(volumeh, file_handle::file(mntfromname, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
           STORAGE_PROPERTY_QUERY spq = {StorageAdapterProperty, PropertyStandardQuery};
           STORAGE_ADAPTER_DESCRIPTOR *sad = (STORAGE_ADAPTER_DESCRIPTOR *) buffer;
           OVERLAPPED ol = {(ULONG_PTR) -1};
@@ -215,7 +215,7 @@ namespace storage_profile
           {
             if(ERROR_IO_PENDING == GetLastError())
             {
-              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol, deadline());
               if(ntstat)
                 return make_errored_outcome_nt<void>(ntstat);
             }
@@ -283,7 +283,7 @@ namespace storage_profile
           {
             if(ERROR_IO_PENDING == GetLastError())
             {
-              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+              NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol, deadline());
               if(ntstat)
                 return make_errored_outcome_nt<void>(ntstat);
             }
@@ -304,7 +304,7 @@ namespace storage_profile
               *e++ = '0' + ((vde->Extents[0].DiskNumber / 10) % 10);
             *e++ = '0' + (vde->Extents[0].DiskNumber % 10);
             *e = 0;
-            BOOST_OUTCOME_FILTER_ERROR(diskh, file_handle::file(*h.service(), physicaldrivename, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
+            BOOST_OUTCOME_FILTER_ERROR(diskh, file_handle::file(physicaldrivename, handle::mode::none, handle::creation::open_existing, handle::caching::only_metadata));
             spq = {StorageDeviceProperty, PropertyStandardQuery};
             STORAGE_DEVICE_DESCRIPTOR *sdd = (STORAGE_DEVICE_DESCRIPTOR *) buffer;
             ol.Internal = (ULONG_PTR) -1;
@@ -312,7 +312,7 @@ namespace storage_profile
             {
               if(ERROR_IO_PENDING == GetLastError())
               {
-                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol, deadline());
                 if(ntstat)
                   return make_errored_outcome_nt<void>(ntstat);
               }
@@ -351,7 +351,7 @@ namespace storage_profile
             {
               if(ERROR_IO_PENDING == GetLastError())
               {
-                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol);
+                NTSTATUS ntstat = ntwait(volumeh.native_handle().h, ol, deadline());
                 if(ntstat)
                   return make_errored_outcome_nt<void>(ntstat);
               }

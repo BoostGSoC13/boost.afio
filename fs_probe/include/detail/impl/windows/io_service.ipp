@@ -59,31 +59,8 @@ result<bool> io_service::run_until(deadline d) noexcept
     return false;
   if(GetCurrentThreadId() != _threadid)
     return make_errored_result<bool>(EOPNOTSUPP);
-  try
-  {
-    BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d);
-    BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_LOOP(d);
-    DWORD ret;
-    if(sleep_object)
-      ret = WaitForSingleObjectEx(sleep_object, INFINITE, true);
-    else
-      ret = SleepEx(sleep_interval, true);
-    switch(ret)
-    {
-    case WAIT_IO_COMPLETION:
-      break;
-    case WAIT_OBJECT_0:
-    {
-      // Really a timeout?
-      BOOST_AFIO_WIN_DEADLINE_TO_TIMEOUT(bool, d);
-      break;
-    }
-    default:
-      return make_errored_result<bool>(GetLastError());
-    }
-    return _work_queued != 0;
-  }
-  BOOST_OUTCOME_CATCH_EXCEPTION_TO_RESULT(bool)
+  ntsleep(d, true);
+  return _work_queued != 0;
 }
 
 void io_service::post(detail::function_ptr<void(io_service *)> &&f)

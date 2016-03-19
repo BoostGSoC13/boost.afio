@@ -1,5 +1,5 @@
 /* handle.hpp
-A handle to a file
+A handle to something
 (C) 2015 Niall Douglas http://www.nedprod.com/
 File Created: Dec 2015
 
@@ -34,328 +34,140 @@ DEALINGS IN THE SOFTWARE.
 
 BOOST_AFIO_V2_NAMESPACE_BEGIN
 
-result<handle> handle::clone(io_service &service, handle::mode mode, handle::caching caching) const noexcept
-{
-  result<handle> ret(handle(&service, _path, native_handle_type(), _caching, _flags));
-  ret.value()._v.behaviour = _v.behaviour;
-  DWORD access = SYNCHRONIZE;
-  if (mode != mode::unchanged)
-  {
-    ret.value()._v.behaviour = _v.behaviour & ~(native_handle_type::disposition::seekable | native_handle_type::disposition::readable | native_handle_type::disposition::writable | native_handle_type::disposition::append_only);
-    switch (mode)
-    {
-    case mode::unchanged:
-    case mode::none:
-      break;
-    case mode::attr_read:
-      access |= FILE_READ_ATTRIBUTES;
-      break;
-    case mode::attr_write:
-      access |= FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES;
-      break;
-    case mode::read:
-      access |= GENERIC_READ;
-      ret.value()._v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable;
-      break;
-    case mode::write:
-      access |= GENERIC_WRITE | GENERIC_READ;
-      ret.value()._v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
-      break;
-    case mode::append:
-      access |= FILE_APPEND_DATA;
-      ret.value()._v.behaviour |= native_handle_type::disposition::append_only | native_handle_type::disposition::writable;
-      break;
-    }
-  }
-  if (caching != caching::unchanged && caching != _caching)
-  {
-    return make_errored_result<handle>(EINVAL);
-  }
-  if (!DuplicateHandle(GetCurrentProcess(), _v.h, GetCurrentProcess(), &ret.value()._v.h, access, false, mode == mode::unchanged ? DUPLICATE_SAME_ACCESS : 0))
-    return make_errored_result<handle>(GetLastError());
-  return ret;
-}
-
-
-result<file_handle> file_handle::file(io_service &service, file_handle::path_type _path, file_handle::mode _mode, file_handle::creation _creation, file_handle::caching _caching, file_handle::flag flags) noexcept
-{
-  result<file_handle> ret(file_handle(&service, std::move(_path), native_handle_type(), _caching, flags));
-  native_handle_type &nativeh = ret.get()._v;
-  DWORD access = SYNCHRONIZE;
-  switch (_mode)
-  {
-  case mode::unchanged:
-    return make_errored_result<file_handle>(EINVAL);
-  case mode::none:
-    break;
-  case mode::attr_read:
-    access |= FILE_READ_ATTRIBUTES;
-    break;
-  case mode::attr_write:
-    access |= FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES;
-    break;
-  case mode::read:
-    access |= GENERIC_READ;
-    nativeh.behaviour |= native_handle_type::disposition::seekable|native_handle_type::disposition::readable;
-    break;
-  case mode::write:
-    access |= GENERIC_WRITE | GENERIC_READ;
-    nativeh.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable| native_handle_type::disposition::writable;
-    break;
-  case mode::append:
-    access |= FILE_APPEND_DATA;
-    nativeh.behaviour |= native_handle_type::disposition::writable|native_handle_type::disposition::append_only;
-    break;
-  }
-  DWORD creation = OPEN_EXISTING;
-  switch (_creation)
-  {
-  case creation::open_existing:
-    break;
-  case creation::only_if_not_exist:
-    creation = CREATE_NEW;
-    break;
-  case creation::if_needed:
-    creation = OPEN_ALWAYS;
-    break;
-  case creation::truncate:
-    creation = TRUNCATE_EXISTING;
-    break;
-  }
-  DWORD attribs = FILE_FLAG_OVERLAPPED;
-  nativeh.behaviour |= native_handle_type::disposition::file | native_handle_type::disposition::overlapped;
-  switch (_caching)
-  {
-  case caching::unchanged:
-    return make_errored_result<file_handle>(EINVAL);
-  case caching::none:
-      attribs |= FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH;
-      nativeh.behaviour |= native_handle_type::disposition::aligned_io;
-      break;
-    case caching::only_metadata:
-      attribs |= FILE_FLAG_NO_BUFFERING;
-      nativeh.behaviour |= native_handle_type::disposition::aligned_io;
-      break;
-    case caching::reads:
-    case caching::reads_and_metadata:
-      attribs |= FILE_FLAG_WRITE_THROUGH;
-      break;
-    case caching::all:
-    case caching::safety_fsyncs:
-      break;
-    case caching::temporary:
-      attribs |= FILE_ATTRIBUTE_TEMPORARY;
-      break;
-  }
-  if(flags && flag::delete_on_close)
-    attribs |= FILE_FLAG_DELETE_ON_CLOSE;
-  if (INVALID_HANDLE_VALUE == (nativeh.h = CreateFile(ret.value()._path.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, creation, attribs, NULL)))
-    return make_errored_result<file_handle>(GetLastError());
-  if (_creation==creation::truncate && ret.value().are_safety_fsyncs_issued())
-    FlushFileBuffers(nativeh.h);
-  return ret;
-}
-
 handle::~handle()
 {
-  if (_v)
+  if(_v)
   {
     if(are_safety_fsyncs_issued())
     {
-      FlushFileBuffers(_v.h);
+      if(!FlushFileBuffers(_v.h))
+      {
+        BOOST_AFIO_LOG_FATAL_EXIT("handle::~handle() fsync failed with " << GetLastError());
+      }
     }
-    CloseHandle(_v.h);
+    if(!CloseHandle(_v.h))
+    {
+      BOOST_AFIO_LOG_FATAL_EXIT("handle::~handle() close failed with " << GetLastError());
+    }
     _v = native_handle_type();
   }
 }
 
-template<class CompletionRoutine, class BuffersType, class IORoutine> result<file_handle::io_state_ptr<CompletionRoutine, BuffersType>> file_handle::_begin_io(file_handle::operation_t operation, file_handle::io_request<BuffersType> reqs, CompletionRoutine &&completion, IORoutine &&ioroutine) noexcept
+result<void> handle::set_append_only(bool enable) noexcept
 {
-  // Need to keep a set of OVERLAPPED matching the scatter-gather buffers
-  struct state_type : public _io_state_type<CompletionRoutine, BuffersType>
+  // This works only due to special handling in OVERLAPPED later
+  if(enable)
   {
-    OVERLAPPED ols[1];
-    state_type(handle *_parent, operation_t _operation, CompletionRoutine &&f, size_t _items) : _io_state_type<CompletionRoutine, BuffersType>(_parent, _operation, std::forward<CompletionRoutine>(f), _items) { }
-    virtual void operator()(long errcode, long bytes_transferred, void *internal_state) noexcept override final
+    // Remove seekable, readable; Set append_only
+    _v.behaviour &= ~(native_handle_type::disposition::seekable | native_handle_type::disposition::readable);
+    _v.behaviour |= native_handle_type::disposition::append_only;
+  }
+  else
+  {
+    // Remove append_only; Set seekable, readable
+    _v.behaviour &= ~native_handle_type::disposition::append_only;
+    _v.behaviour |= native_handle_type::disposition::seekable | native_handle_type::disposition::readable;
+  }
+  return make_result<void>();
+}
+
+result<void> handle::set_kernel_caching(caching caching) noexcept
+{
+  native_handle_type nativeh;
+  handle::mode _mode = mode::none;
+  if(is_append_only())
+    _mode = mode::append;
+  else if(is_writable())
+    _mode = mode::write;
+  else if(is_readable())
+    _mode = mode::read;
+  BOOST_OUTCOME_FILTER_ERROR(access, access_mask_from_handle_mode(nativeh, _mode));
+  BOOST_OUTCOME_FILTER_ERROR(attribs, attributes_from_handle_caching_and_flags(nativeh, caching, _flags));
+  nativeh.behaviour |= native_handle_type::disposition::file;
+  if(INVALID_HANDLE_VALUE == (nativeh.h = ReOpenFile(_v.h, access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, attribs)))
+    return make_errored_result<void>(GetLastError());
+  _v.swap(nativeh);
+  if(!CloseHandle(nativeh.h))
+    return make_errored_result<void>(GetLastError());
+  return make_result<void>();
+}
+
+template <class BuffersType, class Syscall> inline io_handle::io_result<BuffersType> do_read_write(const native_handle_type &nativeh, Syscall &&syscall, io_handle::io_request<BuffersType> reqs, deadline d) noexcept
+{
+  if(d && !nativeh.is_overlapped())
+    return make_errored_result<BuffersType>(ENOTSUP);
+  BOOST_AFIO_WIN_DEADLINE_TO_SLEEP_INIT(d);
+  std::vector<OVERLAPPED> ols(reqs.buffers.size());
+  auto ol_it = ols.begin();
+  DWORD transferred = 0;
+  auto cancel_io = detail::Undoer([&] {
+    if(nativeh.is_overlapped())
     {
-      LPOVERLAPPED ol=(LPOVERLAPPED) internal_state;
-      ol->hEvent = nullptr;
-      if (this->result)
+      for(auto &ol : ols)
       {
-        if (errcode)
-          this->result = make_errored_result<BuffersType>((DWORD) errcode);
+        CancelIoEx(nativeh.h, &ol);
+      }
+      for(auto &ol : ols)
+      {
+        ntwait(nativeh.h, ol, deadline());
+      }
+    }
+  });
+  for(auto &req : reqs.buffers)
+  {
+    OVERLAPPED &ol = *ol_it++;
+    ol.Internal = (ULONG_PTR) -1;
+    if(nativeh.is_append_only())
+      ol.OffsetHigh = ol.Offset = 0xffffffff;
+    else
+    {
+      ol.OffsetHigh = (reqs.offset >> 32) & 0xffffffff;
+      ol.Offset = reqs.offset & 0xffffffff;
+    }
+    if(!syscall(nativeh.h, req.first, (DWORD) req.second, &transferred, &ol))
+      return make_errored_result<BuffersType>(GetLastError());
+    reqs.offset += req.second;
+  }
+  // If handle is overlapped, wait for completion of each i/o.
+  if(nativeh.is_overlapped())
+  {
+    for(auto &ol : ols)
+    {
+      deadline nd = d;
+      if(d && d.steady)
+      {
+        stl11::chrono::nanoseconds ns = stl11::chrono::duration_cast<stl11::chrono::nanoseconds>((began_steady + stl11::chrono::nanoseconds(d.nsecs)) - stl11::chrono::steady_clock::now());
+        if(ns.count() < 0)
+          nd.nsecs = 0;
         else
-        {
-          // Figure out which i/o I am and update the buffer in question
-          size_t idx = ol - ols;
-          if(idx>=this->items)
-          {
-            BOOST_AFIO_LOG_FATAL_EXIT("file_handle::io_state::operator() called with invalid index " << idx);
-            std::terminate();
-          }
-          this->result.value()[idx].second = bytes_transferred;
-        }
+          nd.nsecs = ns.count();
       }
-      this->parent->service()->_work_done();
-      // Are we done?
-      if (!--this->items_to_go)
-        this->completion(this);
-    }
-    virtual ~state_type() override final
-    {
-      // Do we need to cancel pending i/o?
-      if (this->items_to_go)
+      if(STATUS_TIMEOUT == ntwait(nativeh.h, ol, nd))
       {
-        for (size_t n = 0; n < this->items; n++)
-        {
-          // If this is non-zero, probably this i/o still in flight
-          if (ols[n].hEvent)
-            CancelIoEx(this->parent->native_handle().h, ols + n);
-        }
-        // Pump the i/o service until all pending i/o is completed
-        while (this->items_to_go)
-        {
-          auto res=this->parent->service()->run();
-#ifndef NDEBUG
-          if(res.has_error())
-          {
-            BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service failed due to '" << res.get_error().message() << "'");
-            std::terminate();
-          }
-          if(!res.get())
-          {
-            BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
-            std::terminate();
-          }
-#endif
-        }
+        BOOST_AFIO_WIN_DEADLINE_TO_TIMEOUT(BuffersType, d);
       }
     }
-  } *state;
-  extent_type offset = reqs.offset;
-  size_t statelen = sizeof(state_type) + (reqs.buffers.size() - 1)*sizeof(OVERLAPPED), items(reqs.buffers.size());
-  using return_type = io_state_ptr<CompletionRoutine, BuffersType>;
-  // On Windows i/o must be scheduled on the same thread pumping completion
-  if (GetCurrentThreadId() != service()->_threadid)
-    return make_errored_result<return_type>(EOPNOTSUPP);
-  void *mem = ::calloc(1, statelen);
-  if (!mem)
-    return make_errored_result<return_type>(ENOMEM);
-  return_type _state((_io_state_type<CompletionRoutine, BuffersType> *) mem);
-  new((state = (state_type *)mem)) state_type(this, operation, std::forward<CompletionRoutine>(completion), items);
-  // To be called once each buffer is read
-  struct handle_completion
-  {
-    static VOID CALLBACK Do(DWORD errcode, DWORD bytes_transferred, LPOVERLAPPED ol)
-    {
-      state_type *state = (state_type *)ol->hEvent;
-      (*state)(errcode, bytes_transferred, ol);
-    }
-  };
-  // Noexcept move the buffers from req into result
-  BuffersType &out = state->result.value();
-  out = std::move(reqs.buffers);
-  for (size_t n = 0; n < items; n++)
-  {
-    LPOVERLAPPED ol = state->ols + n;
-    ol->Internal = (ULONG_PTR)-1;
-    ol->Offset = offset & 0xffffffff;
-    ol->OffsetHigh = (offset >> 32) & 0xffffffff;
-    // Use the unused hEvent member to pass through the state
-    ol->hEvent = (HANDLE)state;
-    offset += out[n].second;
-    ++state->items_to_go;
-    if (!ioroutine(_v.h, out[n].first, (DWORD)out[n].second, ol, handle_completion::Do))
-    {
-      --state->items_to_go;
-      state->result = make_errored_result<BuffersType>(GetLastError());
-      // Fire completion now if we didn't schedule anything
-      if (!n)
-        state->completion(state);
-      return make_result<return_type>(std::move(_state));
-    }
-    service()->_work_enqueued();
   }
-  return make_result<return_type>(std::move(_state));
-}
-
-template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::buffers_type>> file_handle::async_read(file_handle::io_request<file_handle::buffers_type> reqs, CompletionRoutine &&completion) noexcept
-{
-  return _begin_io(operation_t::read, std::move(reqs), [completion=std::forward<CompletionRoutine>(completion)](auto *state) {
-    completion(state->parent, state->result);
-  }, ReadFileEx);
-}
-
-template<class CompletionRoutine> result<file_handle::io_state_ptr<CompletionRoutine, file_handle::const_buffers_type>> file_handle::async_write(file_handle::io_request<file_handle::const_buffers_type> reqs, CompletionRoutine &&completion) noexcept
-{
-  return _begin_io(operation_t::write, std::move(reqs), [completion = std::forward<CompletionRoutine>(completion)](auto *state) {
-    completion(state->parent, state->result);
-  }, WriteFileEx);
-}
-
-file_handle::io_result<file_handle::buffers_type> file_handle::read(file_handle::io_request<file_handle::buffers_type> reqs, deadline d) noexcept
-{
-  io_result<buffers_type> ret;
-  auto _io_state(_begin_io(operation_t::read, std::move(reqs), [&ret](auto *state) {
-    ret = std::move(state->result);
-  }, ReadFileEx));
-  BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
-
-  // While i/o is not done pump i/o completion
-  while (!ret.is_ready())
+  cancel_io.dismiss();
+  for(size_t n = 0; n < reqs.buffers.size(); n++)
   {
-    auto t(_service->run_until(d));
-    // If i/o service pump failed or timed out, cancel outstanding i/o and return
-    if (!t)
-      return make_errored_result<buffers_type>(t.get_error());
-#ifndef NDEBUG
-    if(!ret.is_ready() && t && !t.get())
+    if(ols[n].Internal != 0)
     {
-      BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
-      std::terminate();
+      return make_errored_result_nt<BuffersType>((NTSTATUS) ols[n].Internal);
     }
-#endif
+    reqs.buffers[n].second = ols[n].InternalHigh;
   }
-  return ret;
+  return io_handle::io_result<BuffersType>(std::move(reqs.buffers));
 }
 
-file_handle::io_result<file_handle::const_buffers_type> file_handle::write(file_handle::io_request<file_handle::const_buffers_type> reqs, deadline d) noexcept
+io_handle::io_result<io_handle::buffers_type> io_handle::read(io_handle::io_request<io_handle::buffers_type> reqs, deadline d) noexcept
 {
-  io_result<const_buffers_type> ret;
-  auto _io_state(_begin_io(operation_t::write, std::move(reqs), [&ret](auto *state) {
-    ret = std::move(state->result);
-  }, WriteFileEx));
-  BOOST_OUTCOME_FILTER_ERROR(io_state, _io_state);
-
-  // While i/o is not done pump i/o completion
-  while (!ret.is_ready())
-  {
-    auto t(_service->run_until(d));
-    // If i/o service pump failed or timed out, cancel outstanding i/o and return
-    if (!t)
-      return make_errored_result<const_buffers_type>(t.get_error());
-#ifndef NDEBUG
-    if(!ret.is_ready() && t && !t.get())
-    {
-      BOOST_AFIO_LOG_FATAL_EXIT("file_handle: io_service returns no work when i/o has not completed");
-      std::terminate();
-    }
-#endif
-  }
-  return ret;
+  return do_read_write(_v, &ReadFile, std::move(reqs), std::move(d));
 }
 
-result<file_handle::extent_type> file_handle::truncate(file_handle::extent_type newsize) noexcept
+io_handle::io_result<io_handle::const_buffers_type> io_handle::write(io_handle::io_request<io_handle::const_buffers_type> reqs, deadline d) noexcept
 {
-  FILE_END_OF_FILE_INFO feofi;
-  feofi.EndOfFile.QuadPart = newsize;
-  if (!SetFileInformationByHandle(_v.h, FileEndOfFileInfo, &feofi, sizeof(feofi)))
-    return make_errored_result<extent_type>(GetLastError());
-  if (are_safety_fsyncs_issued())
-  {
-    FlushFileBuffers(_v.h);
-  }
-  return newsize;
+  return do_read_write(_v, &WriteFile, std::move(reqs), std::move(d));
 }
 
 BOOST_AFIO_V2_NAMESPACE_END

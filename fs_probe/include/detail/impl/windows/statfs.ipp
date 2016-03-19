@@ -49,7 +49,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, ffai, sizeof(buffer), FileFsAttributeInformation);
     if(STATUS_PENDING == ntstat)
-      ntstat = ntwait(h.native_handle().h, isb);
+      ntstat = ntwait(h.native_handle().h, isb, deadline());
     if(ntstat)
       return make_errored_result_nt<size_t>(ntstat);
     if(wanted && want::flags)
@@ -81,7 +81,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, fffsi, sizeof(buffer), FileFsFullSizeInformation);
     if(STATUS_PENDING == ntstat)
-      ntstat = ntwait(h.native_handle().h, isb);
+      ntstat = ntwait(h.native_handle().h, isb, deadline());
     if(ntstat)
       return make_errored_result_nt<size_t>(ntstat);
     if(wanted && want::bsize)
@@ -111,7 +111,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, ffoi, sizeof(buffer), FileFsObjectIdInformation);
     if(STATUS_PENDING == ntstat)
-      ntstat = ntwait(h.native_handle().h, isb);
+      ntstat = ntwait(h.native_handle().h, isb, deadline());
     if(0 /*STATUS_SUCCESS*/ == ntstat)
     {
       // FAT32 doesn't support filing system id, so sink error
@@ -125,7 +125,7 @@ BOOST_AFIO_HEADERS_ONLY_MEMFUNC_SPEC result<size_t> statfs_t::fill(handle &h, st
     isb.Status = -1;
     ntstat = NtQueryVolumeInformationFile(h.native_handle().h, &isb, ffssi, sizeof(buffer), FileFsSectorSizeInformation);
     if(STATUS_PENDING == ntstat)
-      ntstat = ntwait(h.native_handle().h, isb);
+      ntstat = ntwait(h.native_handle().h, isb, deadline());
     if(ntstat)
       return make_errored_result_nt<size_t>(ntstat);
     f_iosize = ffssi->PhysicalBytesPerSectorForPerformance;

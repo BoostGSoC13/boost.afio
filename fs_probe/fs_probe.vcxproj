@@ -34,10 +34,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\async_file_handle.hpp" />
     <ClInclude Include="include\config.hpp" />
     <ClInclude Include="include\deadline.h" />
     <ClInclude Include="include\detail\child_process.hpp" />
     <ClInclude Include="include\detail\impl\windows\import.hpp" />
+    <ClInclude Include="include\file_handle.hpp" />
     <ClInclude Include="include\handle.hpp" />
     <ClInclude Include="include\io_service.hpp" />
     <ClInclude Include="include\lockable_handle.hpp" />
@@ -96,7 +98,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="include\detail\impl\storage_profile.ipp" />
+    <None Include="include\detail\impl\windows\async_file_handle.ipp" />
     <None Include="include\detail\impl\windows\child_process.ipp" />
+    <None Include="include\detail\impl\windows\file_handle.ipp" />
     <None Include="include\detail\impl\windows\handle.ipp" />
     <None Include="include\detail\impl\windows\io_service.ipp" />
     <None Include="include\detail\impl\windows\statfs.ipp" />

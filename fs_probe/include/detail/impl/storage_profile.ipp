@@ -29,8 +29,9 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include "../../storage_profile.hpp"
+#include "../../file_handle.hpp"
 #include "../../statfs.hpp"
+#include "../../storage_profile.hpp"
 #include "../../utils.hpp"
 
 #include <vector>
@@ -76,42 +77,43 @@ namespace storage_profile
     std::vector<std::string> lastsection;
     auto print = [_indent, &out, &lastsection](auto &i) {
       size_t indent = _indent;
-      if (i.value != default_value<decltype(i.value)>())
+      if(i.value != default_value<decltype(i.value)>())
       {
         std::vector<std::string> thissection;
         const char *s, *e;
-        for (s = i.name, e = i.name; *e; e++)
+        for(s = i.name, e = i.name; *e; e++)
         {
-          if (*e == ':')
+          if(*e == ':')
           {
             thissection.push_back(std::string(s, e - s));
             s = e + 1;
           }
         }
         std::string name(s, e - s);
-        for (size_t n = 0; n < thissection.size(); n++)
+        for(size_t n = 0; n < thissection.size(); n++)
         {
           indent += 4;
-          if (n >= lastsection.size() || thissection[n] != lastsection[n])
+          if(n >= lastsection.size() || thissection[n] != lastsection[n])
           {
             out << std::string(indent - 4, ' ') << thissection[n] << ":\n";
           }
         }
-        if (i.description)
+        if(i.description)
         {
           std::string text(i.description);
           std::vector<std::string> lines;
-          for (;;)
+          for(;;)
           {
             size_t idx = 78;
-            if (idx < text.size())
+            if(idx < text.size())
             {
-              while (text[idx] != ' ')
+              while(text[idx] != ' ')
                 --idx;
             }
-            else idx = text.size();
+            else
+              idx = text.size();
             lines.push_back(text.substr(0, idx));
-            if (idx < text.size())
+            if(idx < text.size())
               text = text.substr(idx + 1);
             else
               break;
@@ -120,15 +122,15 @@ namespace storage_profile
             out << std::string(indent, ' ') << "# " << line << "\n";
         }
         out << std::string(indent, ' ') << name << ": " << i.value << "\n";
-        if (i.description && strlen(i.description)>78)
+        if(i.description && strlen(i.description) > 78)
           out << "\n";
         lastsection = std::move(thissection);
       }
     };
-    for (const item_erased &i : *this)
+    for(const item_erased &i : *this)
     {
       bool matches = std::regex_match(i.name, which);
-      if ((matches && !invert_match) || (!matches && invert_match))
+      if((matches && !invert_match) || (!matches && invert_match))
         i.invoke(print);
     }
   }
@@ -138,11 +140,18 @@ namespace storage_profile
     namespace detail
     {
       // From http://burtleburtle.net/bob/rand/smallprng.html
-      typedef unsigned int  u4;
-      typedef struct ranctx { u4 a; u4 b; u4 c; u4 d; } ranctx;
+      typedef unsigned int u4;
+      typedef struct ranctx
+      {
+        u4 a;
+        u4 b;
+        u4 c;
+        u4 d;
+      } ranctx;
 
-#define rot(x,k) (((x)<<(k))|((x)>>(32-(k))))
-      static u4 ranval(ranctx *x) {
+#define rot(x, k) (((x) << (k)) | ((x) >> (32 - (k))))
+      static u4 ranval(ranctx *x)
+      {
         u4 e = x->a - rot(x->b, 27);
         x->a = x->b ^ rot(x->c, 17);
         x->b = x->c + x->d;
@@ -152,11 +161,13 @@ namespace storage_profile
       }
 #undef rot
 
-      static void raninit(ranctx *x, u4 seed) {
+      static void raninit(ranctx *x, u4 seed)
+      {
         u4 i;
         x->a = 0xf1ea5eed, x->b = x->c = x->d = seed;
-        for (i = 0; i < 20; ++i) {
-          (void)ranval(x);
+        for(i = 0; i < 20; ++i)
+        {
+          (void) ranval(x);
         }
       }
     }
@@ -166,7 +177,7 @@ namespace storage_profile
     {
       static unsigned long long mem_quantity, mem_max_bandwidth, mem_min_bandwidth;
       static float mem_in_use;
-      if (mem_quantity)
+      if(mem_quantity)
       {
         sp.mem_quantity.value = mem_quantity;
         sp.mem_in_use.value = mem_in_use;
@@ -184,7 +195,7 @@ namespace storage_profile
           BOOST_OUTCOME_PROPAGATE_ERROR(posix::_mem(sp, h));
 #endif
 
-          if (sp.mem_quantity.value / 4 < chunksize)
+          if(sp.mem_quantity.value / 4 < chunksize)
             chunksize = sp.mem_quantity.value / 4;
           char *buffer = utils::page_allocator<char>().allocate(chunksize);
           auto unbuffer = BOOST_AFIO_V2_NAMESPACE::detail::Undoer([buffer, chunksize] { utils::page_allocator<char>().deallocate(buffer, chunksize); });
@@ -194,28 +205,28 @@ namespace storage_profile
           // Max bandwidth is sequential writes of min(25% of system memory or 256Mb)
           auto begin = stl11::chrono::high_resolution_clock::now();
           unsigned long long count;
-          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (10/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER); count++)
+          for(count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (10 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER); count++)
           {
             memset(buffer, count & 0xff, chunksize);
           }
-          sp.mem_max_bandwidth.value = (unsigned long long)((double)count*chunksize / 10);
+          sp.mem_max_bandwidth.value = (unsigned long long) ((double) count * chunksize / 10);
 
           // Min bandwidth is randomised 4Kb copies of the same
           detail::ranctx ctx;
           detail::raninit(&ctx, 78);
           begin = stl11::chrono::high_resolution_clock::now();
-          for (count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (10/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER); count++)
+          for(count = 0; stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (10 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER); count++)
           {
-            for (size_t n = 0; n < chunksize; n += 4096)
+            for(size_t n = 0; n < chunksize; n += 4096)
             {
               auto offset = detail::ranval(&ctx) * 4096;
               offset = offset % chunksize;
               memset(buffer + offset, count & 0xff, 4096);
             }
           }
-          sp.mem_min_bandwidth.value = (unsigned long long)((double)count*chunksize / 10);
+          sp.mem_min_bandwidth.value = (unsigned long long) ((double) count * chunksize / 10);
         }
-        catch (...)
+        catch(...)
         {
           return std::current_exception();
         }
@@ -236,14 +247,14 @@ namespace storage_profile
       {
         statfs_t fsinfo;
         BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h, statfs_t::want::iosize | statfs_t::want::mntfromname | statfs_t::want::fstypename));
-        sp.device_min_io_size.value = (unsigned)fsinfo.f_iosize;
+        sp.device_min_io_size.value = (unsigned) fsinfo.f_iosize;
 #ifdef WIN32
         BOOST_OUTCOME_PROPAGATE_ERROR(windows::_device(sp, h, fsinfo.f_mntfromname, fsinfo.f_fstypename));
 #else
         BOOST_OUTCOME_PROPAGATE_ERROR(posix::_device(sp, h, fsinfo.f_mntfromname, fsinfo.f_fstypename));
 #endif
       }
-      catch (...)
+      catch(...)
       {
         return std::current_exception();
       }
@@ -258,10 +269,10 @@ namespace storage_profile
         BOOST_OUTCOME_PROPAGATE_ERROR(fsinfo.fill(h));
         sp.fs_name.value = fsinfo.f_fstypename;
         sp.fs_config.value = "todo";
-        sp.fs_size.value = fsinfo.f_blocks*fsinfo.f_bsize;
-        sp.fs_in_use.value = (float)(fsinfo.f_blocks - fsinfo.f_bfree) / fsinfo.f_blocks;
+        sp.fs_size.value = fsinfo.f_blocks * fsinfo.f_bsize;
+        sp.fs_in_use.value = (float) (fsinfo.f_blocks - fsinfo.f_bfree) / fsinfo.f_blocks;
       }
-      catch (...)
+      catch(...)
       {
         return std::current_exception();
       }
@@ -277,153 +288,61 @@ namespace storage_profile
       {
         using off_t = io_service::extent_type;
         sp.max_aligned_atomic_rewrite.value = 1;
-        sp.atomic_rewrite_quantum.value = (off_t)-1;
-        for (size_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_rewrite_quantum.value; size = size * 2)
+        sp.atomic_rewrite_quantum.value = (off_t) -1;
+        for(size_t size = srch.requires_aligned_io() ? 512 : 64; size <= 1 * 1024 * 1024 && size < sp.atomic_rewrite_quantum.value; size = size * 2)
         {
           // Create two concurrent writer threads and as many reader threads as additional CPU cores
           std::vector<std::thread> writers, readers;
           std::atomic<size_t> done(2);
-          for (char no = '1'; no <= '2'; no++)
+          for(char no = '1'; no <= '2'; no++)
             writers.push_back(std::thread([size, &srch, no, &done] {
-            io_service service;
-            auto _h(srch.clone(service, handle::mode::write));
-            if (!_h)
-              throw std::runtime_error("concurrency::atomic_rewrite_quantum: Could not open work file due to " + _h.get_error().message());
-            file_handle h(std::move(_h.get()));
-            std::vector<char> buffer(size, no);
-            file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-            --done;
-            while (done)
-              std::this_thread::yield();
-            while (!done)
-            {
-              h.write(reqs);
-            }
-          }));
-          // Wait till the writers launch
-          while (done)
-            std::this_thread::yield();
-          unsigned concurrency = std::thread::hardware_concurrency() - 2;
-          if (concurrency < 4) concurrency = 4;
-          std::atomic<io_service::extent_type> atomic_rewrite_quantum(sp.atomic_rewrite_quantum.value);
-          std::atomic<bool> failed(false);
-          for (unsigned no = 0; no < concurrency; no++)
-            readers.push_back(std::thread([size, &srch, no, &done, &atomic_rewrite_quantum, &failed] {
-            io_service service;
-            auto _h(srch.clone(service, handle::mode::read));
-            if (!_h)
-              throw std::runtime_error("concurrency::atomic_rewrite_quantum: Could not open work file due to " + _h.get_error().message());
-            file_handle h(std::move(_h.get()));
-            std::vector<char> buffer(size, 0), tocmp(size, 0);
-            file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, 0);
-            while (!done)
-            {
-              h.read(reqs);
-              //memset(tocmp.data(), buffer.front(), size);
-              //if (memcmp(buffer.data(), tocmp.data(), size))
-              {
-                const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
-                for (const size_t *d = data; d < end; d++)
-                {
-                  if (*d != *data)
-                  {
-                    failed = true;
-                    off_t failedat = d - data;
-                    if (failedat < atomic_rewrite_quantum)
-                    {
-                      std::cout << "  Torn rewrite at offset " << failedat << std::endl;
-                      atomic_rewrite_quantum = failedat;
-                    }
-                    break;
-                  }
-                }
-              }
-            }
-          }));
-
-          std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of rewrites of " << size << " bytes ..." << std::endl;
-          auto begin = stl11::chrono::high_resolution_clock::now();
-          while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20/ BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
-          {
-            stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
-          }
-          done = true;
-          for (auto &writer : writers)
-            writer.join();
-          for (auto &reader : readers)
-            reader.join();
-          sp.atomic_rewrite_quantum.value = atomic_rewrite_quantum;
-          if (!failed)
-          {
-            if (size > sp.max_aligned_atomic_rewrite.value)
-              sp.max_aligned_atomic_rewrite.value = size;
-          }
-          else
-            break;
-        }
-        if (sp.atomic_rewrite_quantum.value > sp.max_aligned_atomic_rewrite.value)
-          sp.atomic_rewrite_quantum.value = sp.max_aligned_atomic_rewrite.value;
-
-        // If burst quantum exceeds rewrite quantum, make sure it does so at
-        // offsets not at the front of the file
-        if (sp.max_aligned_atomic_rewrite.value > sp.atomic_rewrite_quantum.value)
-        {
-          size_t size = sp.max_aligned_atomic_rewrite.value;
-          for (off_t offset = sp.max_aligned_atomic_rewrite.value; offset < sp.max_aligned_atomic_rewrite.value*4; offset += sp.max_aligned_atomic_rewrite.value)
-          {
-            // Create two concurrent writer threads and as many reader threads as additional CPU cores
-            std::vector<std::thread> writers, readers;
-            std::atomic<size_t> done(2);
-            for (char no = '1'; no <= '2'; no++)
-              writers.push_back(std::thread([size, offset, &srch, no, &done] {
-              io_service service;
-              auto _h(srch.clone(service, handle::mode::write));
-              if (!_h)
+              auto _h(srch.clone());
+              if(!_h)
                 throw std::runtime_error("concurrency::atomic_rewrite_quantum: Could not open work file due to " + _h.get_error().message());
               file_handle h(std::move(_h.get()));
               std::vector<char> buffer(size, no);
-              file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, offset);
+              file_handle::io_request<file_handle::const_buffers_type> reqs({std::make_pair(buffer.data(), size)}, 0);
               --done;
-              while (done)
+              while(done)
                 std::this_thread::yield();
-              while (!done)
+              while(!done)
               {
                 h.write(reqs);
               }
             }));
-            // Wait till the writers launch
-            while (done)
-              std::this_thread::yield();
-            unsigned concurrency = std::thread::hardware_concurrency() - 2;
-            if (concurrency < 4) concurrency = 4;
-            std::atomic<io_service::extent_type> max_aligned_atomic_rewrite(sp.max_aligned_atomic_rewrite.value);
-            std::atomic<bool> failed(false);
-            for (unsigned no = 0; no < concurrency; no++)
-              readers.push_back(std::thread([size, offset, &srch, no, &done, &max_aligned_atomic_rewrite, &failed] {
-              io_service service;
-              auto _h(srch.clone(service, handle::mode::read));
-              if (!_h)
+          // Wait till the writers launch
+          while(done)
+            std::this_thread::yield();
+          unsigned concurrency = std::thread::hardware_concurrency() - 2;
+          if(concurrency < 4)
+            concurrency = 4;
+          std::atomic<io_service::extent_type> atomic_rewrite_quantum(sp.atomic_rewrite_quantum.value);
+          std::atomic<bool> failed(false);
+          for(unsigned no = 0; no < concurrency; no++)
+            readers.push_back(std::thread([size, &srch, no, &done, &atomic_rewrite_quantum, &failed] {
+              auto _h(srch.clone());
+              if(!_h)
                 throw std::runtime_error("concurrency::atomic_rewrite_quantum: Could not open work file due to " + _h.get_error().message());
               file_handle h(std::move(_h.get()));
               std::vector<char> buffer(size, 0), tocmp(size, 0);
-              file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, offset);
-              while (!done)
+              file_handle::io_request<file_handle::buffers_type> reqs({std::make_pair(buffer.data(), size)}, 0);
+              while(!done)
               {
                 h.read(reqs);
-                //memset(tocmp.data(), buffer.front(), size);
-                //if (memcmp(buffer.data(), tocmp.data(), size))
+                // memset(tocmp.data(), buffer.front(), size);
+                // if (memcmp(buffer.data(), tocmp.data(), size))
                 {
-                  const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
-                  for (const size_t *d = data; d < end; d++)
+                  const size_t *data = (size_t *) buffer.data(), *end = (size_t *) (buffer.data() + size);
+                  for(const size_t *d = data; d < end; d++)
                   {
-                    if (*d != *data)
+                    if(*d != *data)
                     {
                       failed = true;
-                      off_t failedat = (d - data);
-                      if (failedat < max_aligned_atomic_rewrite)
+                      off_t failedat = d - data;
+                      if(failedat < atomic_rewrite_quantum)
                       {
                         std::cout << "  Torn rewrite at offset " << failedat << std::endl;
-                        max_aligned_atomic_rewrite = failedat;
+                        atomic_rewrite_quantum = failedat;
                       }
                       break;
                     }
@@ -432,24 +351,114 @@ namespace storage_profile
               }
             }));
 
+          std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of rewrites of " << size << " bytes ..." << std::endl;
+          auto begin = stl11::chrono::high_resolution_clock::now();
+          while(!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
+          {
+            stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
+          }
+          done = true;
+          for(auto &writer : writers)
+            writer.join();
+          for(auto &reader : readers)
+            reader.join();
+          sp.atomic_rewrite_quantum.value = atomic_rewrite_quantum;
+          if(!failed)
+          {
+            if(size > sp.max_aligned_atomic_rewrite.value)
+              sp.max_aligned_atomic_rewrite.value = size;
+          }
+          else
+            break;
+        }
+        if(sp.atomic_rewrite_quantum.value > sp.max_aligned_atomic_rewrite.value)
+          sp.atomic_rewrite_quantum.value = sp.max_aligned_atomic_rewrite.value;
+
+        // If burst quantum exceeds rewrite quantum, make sure it does so at
+        // offsets not at the front of the file
+        if(sp.max_aligned_atomic_rewrite.value > sp.atomic_rewrite_quantum.value)
+        {
+          size_t size = sp.max_aligned_atomic_rewrite.value;
+          for(off_t offset = sp.max_aligned_atomic_rewrite.value; offset < sp.max_aligned_atomic_rewrite.value * 4; offset += sp.max_aligned_atomic_rewrite.value)
+          {
+            // Create two concurrent writer threads and as many reader threads as additional CPU cores
+            std::vector<std::thread> writers, readers;
+            std::atomic<size_t> done(2);
+            for(char no = '1'; no <= '2'; no++)
+              writers.push_back(std::thread([size, offset, &srch, no, &done] {
+                auto _h(srch.clone());
+                if(!_h)
+                  throw std::runtime_error("concurrency::atomic_rewrite_quantum: Could not open work file due to " + _h.get_error().message());
+                file_handle h(std::move(_h.get()));
+                std::vector<char> buffer(size, no);
+                file_handle::io_request<file_handle::const_buffers_type> reqs({std::make_pair(buffer.data(), size)}, offset);
+                --done;
+                while(done)
+                  std::this_thread::yield();
+                while(!done)
+                {
+                  h.write(reqs);
+                }
+              }));
+            // Wait till the writers launch
+            while(done)
+              std::this_thread::yield();
+            unsigned concurrency = std::thread::hardware_concurrency() - 2;
+            if(concurrency < 4)
+              concurrency = 4;
+            std::atomic<io_service::extent_type> max_aligned_atomic_rewrite(sp.max_aligned_atomic_rewrite.value);
+            std::atomic<bool> failed(false);
+            for(unsigned no = 0; no < concurrency; no++)
+              readers.push_back(std::thread([size, offset, &srch, no, &done, &max_aligned_atomic_rewrite, &failed] {
+                auto _h(srch.clone());
+                if(!_h)
+                  throw std::runtime_error("concurrency::atomic_rewrite_quantum: Could not open work file due to " + _h.get_error().message());
+                file_handle h(std::move(_h.get()));
+                std::vector<char> buffer(size, 0), tocmp(size, 0);
+                file_handle::io_request<file_handle::buffers_type> reqs({std::make_pair(buffer.data(), size)}, offset);
+                while(!done)
+                {
+                  h.read(reqs);
+                  // memset(tocmp.data(), buffer.front(), size);
+                  // if (memcmp(buffer.data(), tocmp.data(), size))
+                  {
+                    const size_t *data = (size_t *) buffer.data(), *end = (size_t *) (buffer.data() + size);
+                    for(const size_t *d = data; d < end; d++)
+                    {
+                      if(*d != *data)
+                      {
+                        failed = true;
+                        off_t failedat = (d - data);
+                        if(failedat < max_aligned_atomic_rewrite)
+                        {
+                          std::cout << "  Torn rewrite at offset " << failedat << std::endl;
+                          max_aligned_atomic_rewrite = failedat;
+                        }
+                        break;
+                      }
+                    }
+                  }
+                }
+              }));
+
             std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of rewrites of " << size << " bytes to offset " << offset << " ..." << std::endl;
             auto begin = stl11::chrono::high_resolution_clock::now();
-            while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
+            while(!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
             {
               stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
             }
             done = true;
-            for (auto &writer : writers)
+            for(auto &writer : writers)
               writer.join();
-            for (auto &reader : readers)
+            for(auto &reader : readers)
               reader.join();
             sp.max_aligned_atomic_rewrite.value = max_aligned_atomic_rewrite;
-            if (failed)
+            if(failed)
               return make_ready_outcome<void>();
           }
         }
       }
-      catch (...)
+      catch(...)
       {
         return std::current_exception();
       }
@@ -463,95 +472,96 @@ namespace storage_profile
         using off_t = io_service::extent_type;
         size_t size = sp.max_aligned_atomic_rewrite.value;
         size_t maxsize = sp.max_aligned_atomic_rewrite.value;
-        if(size>1024) size=1024;
-        if(maxsize>8192) maxsize=8192;
-        sp.atomic_rewrite_offset_boundary.value = (off_t)-1;
-        if(size>1)
+        if(size > 1024)
+          size = 1024;
+        if(maxsize > 8192)
+          maxsize = 8192;
+        sp.atomic_rewrite_offset_boundary.value = (off_t) -1;
+        if(size > 1)
         {
-          for (; size <= maxsize; size = size * 2)
+          for(; size <= maxsize; size = size * 2)
           {
-            for (off_t offset = 512; offset < size; offset += 512)
+            for(off_t offset = 512; offset < size; offset += 512)
             {
               // Create two concurrent writer threads and as many reader threads as additional CPU cores
               std::vector<std::thread> writers, readers;
               std::atomic<size_t> done(2);
-              for (char no = '1'; no <= '2'; no++)
+              for(char no = '1'; no <= '2'; no++)
                 writers.push_back(std::thread([size, offset, &srch, no, &done] {
-                io_service service;
-                auto _h(srch.clone(service, handle::mode::write));
-                if (!_h)
-                  throw std::runtime_error("concurrency::atomic_rewrite_offset_boundary: Could not open work file due to " + _h.get_error().message());
-                file_handle h(std::move(_h.get()));
-                std::vector<char> buffer(size, no);
-                file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), size) }, offset);
-                --done;
-                while (done)
-                  std::this_thread::yield();
-                while (!done)
-                {
-                  h.write(reqs);
-                }
-              }));
+                  auto _h(srch.clone());
+                  if(!_h)
+                    throw std::runtime_error("concurrency::atomic_rewrite_offset_boundary: Could not open work file due to " + _h.get_error().message());
+                  file_handle h(std::move(_h.get()));
+                  std::vector<char> buffer(size, no);
+                  file_handle::io_request<file_handle::const_buffers_type> reqs({std::make_pair(buffer.data(), size)}, offset);
+                  --done;
+                  while(done)
+                    std::this_thread::yield();
+                  while(!done)
+                  {
+                    h.write(reqs);
+                  }
+                }));
               // Wait till the writers launch
-              while (done)
+              while(done)
                 std::this_thread::yield();
               unsigned concurrency = std::thread::hardware_concurrency() - 2;
-              if (concurrency < 4) concurrency = 4;
+              if(concurrency < 4)
+                concurrency = 4;
               std::atomic<io_service::extent_type> atomic_rewrite_offset_boundary(sp.atomic_rewrite_offset_boundary.value);
               std::atomic<bool> failed(false);
-              for (unsigned no = 0; no < concurrency; no++)
+              for(unsigned no = 0; no < concurrency; no++)
                 readers.push_back(std::thread([size, offset, &srch, no, &done, &atomic_rewrite_offset_boundary, &failed] {
-                io_service service;
-                auto _h(srch.clone(service, handle::mode::read));
-                if (!_h)
-                  throw std::runtime_error("concurrency::atomic_rewrite_offset_boundary: Could not open work file due to " + _h.get_error().message());
-                file_handle h(std::move(_h.get()));
-                std::vector<char> buffer(size, 0), tocmp(size, 0);
-                file_handle::io_request<file_handle::buffers_type> reqs({ std::make_pair(buffer.data(), size) }, offset);
-                while (!done)
-                {
-                  h.read(reqs);
-                  //memset(tocmp.data(), buffer.front(), size);
-                  //if (memcmp(buffer.data(), tocmp.data(), size))
+                  auto _h(srch.clone());
+                  if(!_h)
+                    throw std::runtime_error("concurrency::atomic_rewrite_offset_boundary: Could not open work file due to " + _h.get_error().message());
+                  file_handle h(std::move(_h.get()));
+                  std::vector<char> buffer(size, 0), tocmp(size, 0);
+                  file_handle::io_request<file_handle::buffers_type> reqs({std::make_pair(buffer.data(), size)}, offset);
+                  while(!done)
                   {
-                    const size_t *data = (size_t *)buffer.data(), *end = (size_t *)(buffer.data() + size);
-                    for (const size_t *d = data; d < end; d++)
+                    h.read(reqs);
+                    // memset(tocmp.data(), buffer.front(), size);
+                    // if (memcmp(buffer.data(), tocmp.data(), size))
                     {
-                      if (*d != *data)
+                      const size_t *data = (size_t *) buffer.data(), *end = (size_t *) (buffer.data() + size);
+                      for(const size_t *d = data; d < end; d++)
                       {
-                        failed = true;
-                        off_t failedat = (d - data) + offset;
-                        if (failedat < atomic_rewrite_offset_boundary)
+                        if(*d != *data)
                         {
-                          std::cout << "  Torn rewrite at offset " << failedat << std::endl;
-                          atomic_rewrite_offset_boundary = failedat;
+                          failed = true;
+                          off_t failedat = (d - data) + offset;
+                          if(failedat < atomic_rewrite_offset_boundary)
+                          {
+                            std::cout << "  Torn rewrite at offset " << failedat << std::endl;
+                            atomic_rewrite_offset_boundary = failedat;
+                          }
+                          break;
                         }
-                        break;
                       }
                     }
                   }
-                }
-              }));
+                }));
 
               std::cout << "direct=" << !srch.are_reads_from_cache() << " sync=" << srch.are_writes_durable() << " testing atomicity of rewrites of " << size << " bytes to offset " << offset << " ..." << std::endl;
               auto begin = stl11::chrono::high_resolution_clock::now();
-              while (!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
+              while(!failed && stl11::chrono::duration_cast<stl11::chrono::seconds>(stl11::chrono::high_resolution_clock::now() - begin).count() < (20 / BOOST_AFIO_STORAGE_PROFILE_TIME_DIVIDER))
               {
                 stl11::this_thread::sleep_for(stl11::chrono::seconds(1));
               }
               done = true;
-              for (auto &writer : writers)
+              for(auto &writer : writers)
                 writer.join();
-              for (auto &reader : readers)
+              for(auto &reader : readers)
                 reader.join();
               sp.atomic_rewrite_offset_boundary.value = atomic_rewrite_offset_boundary;
-              if (failed)
+              if(failed)
                 return make_ready_outcome<void>();
             }
           }
         }
       }
-      catch (...)
+      catch(...)
       {
         return std::current_exception();
       }

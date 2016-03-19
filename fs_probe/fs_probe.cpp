@@ -39,32 +39,42 @@ DEALINGS IN THE SOFTWARE.
 
 using namespace BOOST_AFIO_V2_NAMESPACE;
 #ifdef __linux__
-# define file_handle BOOST_AFIO_V2_NAMESPACE::file_handle
+#define file_handle BOOST_AFIO_V2_NAMESPACE::file_handle
 #endif
 
 constexpr unsigned permute_flags_max = 4;
-static const std::regex sp_preamble{ "(system|storage).*" };
+static const std::regex sp_preamble{"(system|storage).*"};
 
 static storage_profile::storage_profile profile[permute_flags_max];
 
-#define RETCHECK(expr) { auto ret=(expr); if(ret.has_error()) { std::cerr << "WARNING: Operation " #expr " failed due to '" << ret.get_error().message() << "'" << std::endl; abort(); } }
+#define RETCHECK(expr)                                                                                                                                                                                                                                                                                                         \
+  {                                                                                                                                                                                                                                                                                                                            \
+    auto ret = (expr);                                                                                                                                                                                                                                                                                                         \
+    if(ret.has_error())                                                                                                                                                                                                                                                                                                        \
+    {                                                                                                                                                                                                                                                                                                                          \
+      std::cerr << "WARNING: Operation " #expr " failed due to '" << ret.get_error().message() << "'" << std::endl;                                                                                                                                                                                                            \
+      abort();                                                                                                                                                                                                                                                                                                                 \
+    }                                                                                                                                                                                                                                                                                                                          \
+  }
 
 int main(int argc, char *argv[])
 {
   std::regex torun(".*");
   bool regexvalid = false;
-  unsigned torunflags = permute_flags_max-1;
-  if (argc > 1)
+  unsigned torunflags = permute_flags_max - 1;
+  if(argc > 1)
   {
     try
     {
       torun.assign(argv[1]);
       regexvalid = true;
     }
-    catch (...) {}
-    if (argc > 2)
+    catch(...)
+    {
+    }
+    if(argc > 2)
       torunflags = atoi(argv[2]);
-    if (!regexvalid)
+    if(!regexvalid)
     {
       std::cerr << "Usage: " << argv[0] << " <regex for tests to run> [<flags>]" << std::endl;
       return 1;
@@ -73,10 +83,9 @@ int main(int argc, char *argv[])
 
   // Force extent allocation before test begins
   {
-    io_service service;
     // Create file with O_SYNC
-    auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::if_needed, handle::caching::reads));
-    if (!_testfile)
+    auto _testfile(file_handle::file("test", handle::mode::write, handle::creation::if_needed, handle::caching::reads));
+    if(!_testfile)
     {
       std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', failing" << std::endl;
       return 1;
@@ -84,7 +93,7 @@ int main(int argc, char *argv[])
     file_handle testfile(std::move(_testfile.get()));
     std::vector<char> buffer(1024 * 1024);
     RETCHECK(testfile.truncate(buffer.size()));
-    file_handle::io_request<file_handle::const_buffers_type> reqs({ std::make_pair(buffer.data(), buffer.size()) }, 0);
+    file_handle::io_request<file_handle::const_buffers_type> reqs({std::make_pair(buffer.data(), buffer.size())}, 0);
     RETCHECK(testfile.write(reqs));
   }
   // File closes, as it was opened with O_SYNC it forces extent allocation
@@ -92,7 +101,7 @@ int main(int argc, char *argv[])
   stl11::this_thread::sleep_for(stl11::chrono::seconds(3));
   std::ofstream results("fs_probe_results.yaml", std::ios::app);
   {
-    auto put_time=[](const std::tm* tmb, const char * fmt){
+    auto put_time = [](const std::tm *tmb, const char *fmt) {
       std::string buffer(256, 0);
       buffer.resize(std::strftime((char *) buffer.data(), buffer.size(), fmt, tmb));
       return buffer;
@@ -101,50 +110,47 @@ int main(int argc, char *argv[])
     results << "---\ntimestamp: " << put_time(std::gmtime(&t), "%F %T %z") << "\n";
   }
   bool first = true;
-  for (unsigned flags = 0; flags <= torunflags; flags++)
+  for(unsigned flags = 0; flags <= torunflags; flags++)
   {
-    if (!flags || !!(flags & torunflags))
+    if(!flags || !!(flags & torunflags))
     {
-      io_service service;
-      handle::caching strategy=handle::caching::all;
-      switch (flags)
+      handle::caching strategy = handle::caching::all;
+      switch(flags)
       {
       case 1:
         strategy = handle::caching::only_metadata;  // O_DIRECT
         break;
       case 2:
-        strategy = handle::caching::reads;          // O_SYNC
+        strategy = handle::caching::reads;  // O_SYNC
         break;
       case 3:
-        strategy = handle::caching::none;           // O_DIRECT|O_SYNC
+        strategy = handle::caching::none;  // O_DIRECT|O_SYNC
         break;
       }
       std::cout << "\ndirect=" << !!(flags & 1) << " sync=" << !!(flags & 2) << ":\n";
-      auto _testfile(file_handle::file(service, "test", handle::mode::write, handle::creation::open_existing, strategy));
-      if (!_testfile)
+      auto _testfile(file_handle::file("test", handle::mode::write, handle::creation::open_existing, strategy));
+      if(!_testfile)
       {
         std::cerr << "WARNING: Failed to create test file due to '" << _testfile.get_error().message() << "', skipping" << std::endl;
         continue;
       }
       file_handle testfile(std::move(_testfile.get()));
-      for (auto &test : profile[flags])
+      for(auto &test : profile[flags])
       {
-        if (std::regex_match(test.name, torun))
+        if(std::regex_match(test.name, torun))
         {
           std::cout << "Running test " << test.name << " ..." << std::endl;
           auto result = test(profile[flags], testfile);
-          if (result)
+          if(result)
           {
-            test.invoke([](auto &i) {
-              std::cout << "   " << i.name << " = " << i.value << std::endl;
-            });
+            test.invoke([](auto &i) { std::cout << "   " << i.name << " = " << i.value << std::endl; });
           }
           else
             std::cerr << "   ERROR running test '" << test.name << "': " << result.get_error().message() << std::endl;
         }
       }
       // Write out results for this combination of flags
-      if (first)
+      if(first)
       {
         profile[flags].write(results, sp_preamble);
         first = false;

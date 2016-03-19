@@ -38,6 +38,7 @@ BOOST_AFIO_V2_NAMESPACE_BEGIN
 
 /*! \struct native_handle_type
 \brief A native handle type used for wrapping file descriptors, process ids or HANDLEs.
+Unmanaged, wrap in a handle object to manage.
 */
 struct native_handle_type
 {
@@ -93,6 +94,12 @@ struct native_handle_type
     o.behaviour = disposition();
     o._init = 0;
     return *this;
+  }
+  //! Swaps with another instance
+  void swap(native_handle_type &o) noexcept
+  {
+    std::swap(behaviour, o.behaviour);
+    std::swap(_init, o._init);
   }
 
   //! True if valid

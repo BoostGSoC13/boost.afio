@@ -57,6 +57,12 @@
     <ClInclude Include="include\native_handle_type.hpp">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\async_file_handle.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\file_handle.hpp">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="include\detail\impl\storage_profile.ipp">
@@ -97,6 +103,12 @@
       <Filter>include\detail\impl\posix</Filter>
     </None>
     <None Include="include\detail\impl\windows\child_process.ipp">
+      <Filter>include\detail\impl\windows</Filter>
+    </None>
+    <None Include="include\detail\impl\windows\async_file_handle.ipp">
+      <Filter>include\detail\impl\windows</Filter>
+    </None>
+    <None Include="include\detail\impl\windows\file_handle.ipp">
       <Filter>include\detail\impl\windows</Filter>
     </None>
   </ItemGroup>
