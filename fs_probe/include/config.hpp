@@ -139,9 +139,22 @@ DEALINGS IN THE SOFTWARE.
 #else
 # define BOOST_AFIO_V2 (boost), (afio), (BOOST_BINDLIB_NAMESPACE_VERSION(v2, BOOST_AFIO_V2_STL11_IMPL, BOOST_AFIO_V2_FILESYSTEM_IMPL))
 #endif
+#if DOXYGEN_SHOULD_SKIP_THIS
+//! The Boost namespace
+namespace boost {
+  //! The AFIO namespace
+  namespace afio {
+    //! Inline namespace for this version of AFIO
+    inline namespace v2 {
+} } }
+#define BOOST_AFIO_V2_NAMESPACE       boost::afio::v2
+#define BOOST_AFIO_V2_NAMESPACE_BEGIN namespace boost { namespace afio { inline namespace v2 {
+#define BOOST_AFIO_V2_NAMESPACE_END   } } }
+#else
 #define BOOST_AFIO_V2_NAMESPACE       BOOST_BINDLIB_NAMESPACE      (BOOST_AFIO_V2)
 #define BOOST_AFIO_V2_NAMESPACE_BEGIN BOOST_BINDLIB_NAMESPACE_BEGIN(BOOST_AFIO_V2)
 #define BOOST_AFIO_V2_NAMESPACE_END   BOOST_BINDLIB_NAMESPACE_END  (BOOST_AFIO_V2)
+#endif
 
 // From automated matrix generator
 #undef BOOST_AFIO_NEED_DEFINE
